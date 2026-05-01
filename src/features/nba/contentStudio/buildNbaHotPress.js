@@ -58,77 +58,95 @@ function scoreSeriesEvent(s) {
   return score;
 }
 
-// ── Narrative templates ─────────────────────────────────────────────
+// ── Narrative templates — ESPN alert + Vegas edge voice ────────────
+//
+// Voice rules (audit Part 1):
+//   - Always include series score when available
+//   - Always include why-it-matters (closeout / elimination / upset /
+//     market pressure / title-path)
+//   - Punchy, ≤ ~135 chars, breaking-alert tone
+//   - Lead with a charged emoji (🚨 / 🔥 / ⚔️ / 📈 / 👀) so the bullet
+//     reads like a notification, not a paragraph
+//   - Reference the betting board / market when the moment is genuinely
+//     market-moving (clincher of an upset, Game 7, closeout)
 
 function clincherText(s) {
   const winner = s.winnerSlug === s.topTeam?.slug ? s.topTeam : s.bottomTeam;
   const loser = s.winnerSlug === s.topTeam?.slug ? s.bottomTeam : s.topTeam;
   if (!winner || !loser) return null;
-  const winnerName = winner.name || winner.abbrev;
-  const loserName = loser.name || loser.abbrev;
+  const winnerName = nameOf(winner.slug);
+  const loserName = nameOf(loser.slug);
   const winsW = Math.max(s.seriesScore?.top ?? 0, s.seriesScore?.bottom ?? 0);
   const winsL = Math.min(s.seriesScore?.top ?? 0, s.seriesScore?.bottom ?? 0);
-  const verb = s.isUpset ? 'eliminate' : 'beat';
-  const tag = s.isUpset ? ' — a major Round 1 surprise.' : '.';
-  return `${winnerName} ${verb} ${loserName} ${winsW}-${winsL}${tag}`;
+  const conf = s.conference === 'Western' ? 'West' : s.conference === 'Eastern' ? 'East' : null;
+
+  if (s.isUpset && winsL <= 1) {
+    // Sweep or 4-1 upset — strongest market reaction
+    return `🚨 ${winnerName} finish ${loserName} ${winsW}–${winsL} — ${conf ? `${conf} bracket flips` : 'bracket flips'} and a major upset ticket cashes.`;
+  }
+  if (s.isUpset) {
+    return `🚨 ${winnerName} finish ${loserName} ${winsW}–${winsL} — ${conf ? `${conf} bracket reshuffles` : 'bracket reshuffles'} and the upset reprices the title path.`;
+  }
+  if (winsL === 0) {
+    return `🚨 ${winnerName} sweep ${loserName} ${winsW}–${winsL} — sitting on rest and momentum while the rest of the bracket grinds.`;
+  }
+  return `🚨 ${winnerName} eliminate ${loserName} ${winsW}–${winsL} — series is over and ${winnerName} await the next round.`;
 }
 
 function gameSevenText(s) {
-  const a = s.topTeam?.abbrev || s.topTeam?.slug?.toUpperCase();
-  const b = s.bottomTeam?.abbrev || s.bottomTeam?.slug?.toUpperCase();
-  if (!a || !b) return null;
+  if (!s.topTeam || !s.bottomTeam) return null;
   const aName = nameOf(s.topTeam?.slug);
   const bName = nameOf(s.bottomTeam?.slug);
-  return `${aName} and ${bName} are tied ${s.seriesScore.top}-${s.seriesScore.bottom} — Game 7 decides the series.`;
+  return `⚔️ ${aName}–${bName} goes the distance — Game 7 decides the series and the market's next title-path shakeup.`;
 }
 
 function closeoutText(s) {
   const ts = s.seriesScore?.top ?? 0;
   const bs = s.seriesScore?.bottom ?? 0;
-  const leader = ts >= bs ? s.topTeam : s.bottomTeam;
-  const trailer = ts >= bs ? s.bottomTeam : s.topTeam;
-  if (!leader || !trailer) return null;
-  const leaderName = nameOf(leader.slug);
-  const trailerName = nameOf(trailer.slug);
+  const leaderTeam = ts >= bs ? s.topTeam : s.bottomTeam;
+  const trailerTeam = ts >= bs ? s.bottomTeam : s.topTeam;
+  if (!leaderTeam || !trailerTeam) return null;
+  const leaderName = nameOf(leaderTeam.slug);
+  const trailerName = nameOf(trailerTeam.slug);
   const lead = Math.max(ts, bs);
   const trail = Math.min(ts, bs);
   const gameNum = s.nextGameNumber || (ts + bs + 1);
-  // City-style short name e.g. "L.A." for the closeout phrasing
-  const leaderCity = teamCity(leader.slug) || leaderName;
-  return `${leaderName} lead ${trailerName} ${lead}-${trail} entering Game ${gameNum} — ${leaderCity} can close the series tonight.`;
+  const leaderCity = teamCity(leaderTeam.slug) || leaderName;
+  return `🔥 ${leaderName} lead ${trailerName} ${lead}–${trail} entering Game ${gameNum} — ${leaderCity} gets the first closeout shot, with ${trailerName}'s season on the line.`;
 }
 
 function eliminationText(s) {
   const ts = s.seriesScore?.top ?? 0;
   const bs = s.seriesScore?.bottom ?? 0;
-  const leader = ts >= bs ? s.topTeam : s.bottomTeam;
-  const trailer = ts >= bs ? s.bottomTeam : s.topTeam;
-  if (!leader || !trailer) return null;
-  const leaderName = nameOf(leader.slug);
-  const trailerName = nameOf(trailer.slug);
+  const leaderTeam = ts >= bs ? s.topTeam : s.bottomTeam;
+  const trailerTeam = ts >= bs ? s.bottomTeam : s.topTeam;
+  if (!leaderTeam || !trailerTeam) return null;
+  const leaderName = nameOf(leaderTeam.slug);
+  const trailerName = nameOf(trailerTeam.slug);
   const gameNum = s.nextGameNumber || (ts + bs + 1);
-  return `${leaderName} lead ${trailerName} ${Math.max(ts, bs)}-${Math.min(ts, bs)} entering Game ${gameNum} — closeout chance.`;
+  return `🔥 ${trailerName} face elimination — ${leaderName} lead ${Math.max(ts, bs)}–${Math.min(ts, bs)} entering Game ${gameNum}, market tightening on the favorite.`;
 }
 
 function swingText(s) {
+  if (!s.topTeam || !s.bottomTeam) return null;
   const a = nameOf(s.topTeam?.slug);
   const b = nameOf(s.bottomTeam?.slug);
   const tied = s.seriesScore?.top ?? 0;
   const gameNum = s.nextGameNumber || (tied * 2 + 1);
-  return `${a} and ${b} are tied ${tied}-${tied} — Game ${gameNum} swings the series.`;
+  return `📈 ${a}–${b} hits Game ${gameNum} tied ${tied}–${tied} — winner grabs series control and pricing leverage.`;
 }
 
 function upsetText(s) {
   const ts = s.seriesScore?.top ?? 0;
   const bs = s.seriesScore?.bottom ?? 0;
-  const leader = ts >= bs ? s.topTeam : s.bottomTeam;
-  const trailer = ts >= bs ? s.bottomTeam : s.topTeam;
-  if (!leader || !trailer) return null;
-  const leaderName = nameOf(leader.slug);
-  const trailerName = nameOf(trailer.slug);
+  const leaderTeam = ts >= bs ? s.topTeam : s.bottomTeam;
+  const trailerTeam = ts >= bs ? s.bottomTeam : s.topTeam;
+  if (!leaderTeam || !trailerTeam) return null;
+  const leaderName = nameOf(leaderTeam.slug);
+  const trailerName = nameOf(trailerTeam.slug);
   const lead = Math.max(ts, bs);
   const trail = Math.min(ts, bs);
-  return `${leaderName} lead ${trailerName} ${lead}-${trail} — the lower seed has flipped home-court pressure.`;
+  return `👀 ${trailerName} are in trouble — ${leaderName} lead ${lead}–${trail} and have flipped home-court pressure.`;
 }
 
 function activeSeriesText(s) {
@@ -138,9 +156,9 @@ function activeSeriesText(s) {
   const b = nameOf(s.bottomTeam?.slug);
   const gameNum = s.nextGameNumber || (ts + bs + 1);
 
-  if (ts > bs) return `${a} lead ${b} ${ts}-${bs} entering Game ${gameNum}.`;
-  if (bs > ts) return `${b} lead ${a} ${bs}-${ts} entering Game ${gameNum}.`;
-  if ((ts + bs) === 0 && s.nextGame) return `${a} and ${b} open the series tonight.`;
+  if (ts > bs) return `📊 ${a} lead ${b} ${ts}–${bs} entering Game ${gameNum} — series control on the line.`;
+  if (bs > ts) return `📊 ${b} lead ${a} ${bs}–${ts} entering Game ${gameNum} — series control on the line.`;
+  if ((ts + bs) === 0 && s.nextGame) return `📊 ${a}–${b} tip Game 1 tonight — Round 1 begins.`;
   return null;
 }
 
@@ -329,6 +347,26 @@ export function buildNbaHotPress({ liveGames = [], playoffContext = null } = {})
   }
 
   return final;
+}
+
+/**
+ * Single-entry helper that returns the strongest available narrative
+ * string for a given series. Audit Part 1 explicitly requested this so
+ * other surfaces (caption, email, autopost diagnostics) emit identical
+ * voice without needing to re-implement the priority chain.
+ */
+export function buildNbaHotpNarrative(series) {
+  if (!series || series.isStalePlaceholder) return null;
+  const isFreshClincher = series.isClincher && series.mostRecentGameTs &&
+    (Date.now() - series.mostRecentGameTs) <= CLINCHER_FRESHNESS_MS;
+  if (isFreshClincher) return clincherText(series);
+  if (series.isGameSeven) return gameSevenText(series);
+  if (series.isCloseoutGame && series.isElimination && series.nextGame) return closeoutText(series);
+  if (series.isElimination && series.nextGame) return eliminationText(series);
+  if (series.isUpset && !series.isComplete) return upsetText(series);
+  if (series.isSwingGame) return swingText(series);
+  if (!series.isComplete) return activeSeriesText(series);
+  return null;
 }
 
 export default buildNbaHotPress;

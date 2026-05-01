@@ -346,23 +346,25 @@
 
 .s2 {
   composes: artboard;
-  padding: 38px 44px 34px;
+  /* Tighter top padding to reclaim ~20px so Leaders module never clips. */
+  padding: 28px 44px 26px;
 }
 
 .s2TopBar {
   position: relative; z-index: 10;
   display: flex; align-items: center; justify-content: space-between;
-  margin-bottom: 14px;
+  margin-bottom: 10px;
 }
 .s2Pill {
   composes: sectionPill;
 }
 
-/* Mini mascot anchored near top-left (subtle, not dominant) */
+/* Mini mascot anchored near top-left (subtle, not dominant).
+   Pulled down ~12px to match the tighter top padding. */
 .s2MascotWatermark {
   position: absolute;
-  top: 32px; right: 160px;
-  width: 82px; height: 82px;
+  top: 22px; right: 160px;
+  width: 78px; height: 78px;
   object-fit: contain;
   opacity: 0.72;
   filter:
@@ -374,58 +376,60 @@
 
 .s2HeadlineBlock {
   position: relative; z-index: 10;
-  margin-top: 4px; margin-bottom: 16px;
+  margin-top: 2px; margin-bottom: 12px;
 }
 .s2HeadlineDivider {
-  width: 84px; height: 4px;
+  width: 76px; height: 3px;
   background: linear-gradient(90deg, var(--nba-gold-bright) 0%, var(--nba-gold) 60%, transparent 100%);
   border-radius: 2px;
-  margin-bottom: 14px;
+  margin-bottom: 10px;
 }
 .s2Headline {
-  font-size: 58px; font-weight: 900; line-height: 1.02;
+  /* Trimmed from 58 → 52 + tighter line-height to recover a row of vertical
+     real estate for the leaders grid below. */
+  font-size: 52px; font-weight: 900; line-height: 1.0;
   color: #fff;
-  letter-spacing: -1.1px;
+  letter-spacing: -1.0px;
   text-shadow: 0 3px 14px rgba(212,175,55,0.18);
 }
 .s2Subhead {
-  margin-top: 12px;
-  font-size: 22px; font-weight: 600; line-height: 1.32;
+  margin-top: 8px;
+  font-size: 20px; font-weight: 600; line-height: 1.28;
   color: #d6cdba;
 }
 
 .s2HotpZone {
   position: relative; z-index: 10;
   composes: glassCard;
-  padding: 20px 26px;
-  margin-bottom: 14px;
+  padding: 16px 24px;
+  margin-bottom: 10px;
 }
 .s2HotpHeader {
   composes: sectionPill;
-  margin-bottom: 14px;
+  margin-bottom: 10px;
 }
-.s2HotpList { display: flex; flex-direction: column; gap: 12px; }
+.s2HotpList { display: flex; flex-direction: column; gap: 9px; }
 .s2HotpRow {
-  display: flex; align-items: center; gap: 14px;
-  padding-bottom: 10px;
+  display: flex; align-items: center; gap: 12px;
+  padding-bottom: 7px;
   border-bottom: 1px solid rgba(212,175,55,0.12);
 }
 .s2HotpRow:last-child { border-bottom: none; padding-bottom: 0; }
 .s2HotpDot {
-  color: var(--nba-gold-bright); font-weight: 900; font-size: 20px;
+  color: var(--nba-gold-bright); font-weight: 900; font-size: 19px;
   flex-shrink: 0;
 }
-.s2HotpText { font-size: 20px; font-weight: 700; line-height: 1.32; color: #f2ecdc; flex: 1; }
+.s2HotpText { font-size: 18px; font-weight: 700; line-height: 1.28; color: #f2ecdc; flex: 1; }
 
 .s2PicksZone {
   position: relative; z-index: 10;
   composes: glassCard;
-  padding: 20px 24px;
-  margin-bottom: 14px;
+  padding: 14px 22px;
+  margin-bottom: 10px;
 }
 .s2PicksHeader {
   composes: sectionPill;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 .s2PicksRow {
   display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;
@@ -451,60 +455,80 @@
 .s2LeadersZone {
   position: relative; z-index: 10;
   composes: glassCard;
-  padding: 20px 24px;
+  padding: 16px 22px;
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  /* Hard ceiling so the grid never overflows past the footer */
+  min-height: 0;
 }
 .s2LeadersHeader {
   composes: sectionPill;
-  margin-bottom: 14px;
+  margin-bottom: 10px;
+  flex-shrink: 0;
 }
 /* 2-row grid: row 1 = PPG/APG/RPG (3 columns), row 2 = SPG/BPG (2 columns spanning the same width).
-   The grid itself is 6 columns; row-1 cards span 2, row-2 cards span 3 each. */
+   The grid itself is 6 columns; row-1 cards span 2, row-2 cards span 3 each.
+   Both rows split the available height equally so every card is fully visible. */
 .s2LeadersGrid {
   display: grid;
   grid-template-columns: repeat(6, 1fr);
-  gap: 12px;
+  grid-auto-rows: 1fr;
+  gap: 10px;
+  flex: 1;
 }
 .s2LeaderCat {
   display: flex; flex-direction: column;
-  padding: 14px 14px; border-radius: 16px;
+  padding: 11px 12px; border-radius: 14px;
   background: rgba(0,0,0,0.40);
   border: 1.5px solid rgba(212,175,55,0.28);
-  min-height: 168px;
+  /* No min-height — the grid-auto-rows: 1fr above lets each card take
+     its share of the leaders module height. Previous min-height: 168px
+     was forcing the row-2 cards below the artboard. */
+  min-height: 0;
+  overflow: hidden;
 }
 .s2LeaderCatRow1 { grid-column: span 2; }
 .s2LeaderCatRow2 { grid-column: span 3; }
 .s2LeaderCatLabel {
-  font-size: 14px; font-weight: 900; letter-spacing: 1.6px;
+  font-size: 13px; font-weight: 900; letter-spacing: 1.5px;
   color: var(--nba-gold-bright);
   text-transform: uppercase;
-  margin-bottom: 10px;
+  margin-bottom: 7px;
   border-bottom: 1px solid rgba(212,175,55,0.28);
-  padding-bottom: 6px;
+  padding-bottom: 5px;
   width: 100%; text-align: center;
+  flex-shrink: 0;
 }
 .s2LeaderRow {
   display: grid;
-  grid-template-columns: 18px auto 1fr auto;
+  grid-template-columns: 16px auto 1fr auto;
   align-items: center;
-  gap: 8px;
-  padding: 5px 4px;
+  gap: 7px;
+  padding: 3px 3px;
   border-bottom: 1px dashed rgba(212,175,55,0.10);
+  /* Trim leader name overflow rather than push the card taller */
+  overflow: hidden;
 }
 .s2LeaderRow:last-child { border-bottom: none; }
 .s2LeaderRank {
-  font-size: 13px; font-weight: 900;
+  font-size: 12px; font-weight: 900;
   color: var(--nba-gold-bright);
   text-align: center;
   line-height: 1;
 }
-.s2LeaderName { font-size: 14px; font-weight: 800; color: #fff; line-height: 1.15; }
-.s2LeaderTeam { font-size: 11px; font-weight: 700; color: #a7a29a; letter-spacing: 0.4px; margin-left: 4px; }
-.s2LeaderValue { font-size: 18px; font-weight: 900; color: var(--nba-gold); letter-spacing: 0.2px; text-align: right; }
+.s2LeaderName {
+  font-size: 13px; font-weight: 800; color: #fff; line-height: 1.12;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  min-width: 0;
+}
+.s2LeaderTeam { font-size: 10px; font-weight: 700; color: #a7a29a; letter-spacing: 0.4px; margin-left: 3px; }
+.s2LeaderValue { font-size: 16px; font-weight: 900; color: var(--nba-gold); letter-spacing: 0.2px; text-align: right; }
 
 .s2Footer {
   position: relative; z-index: 10;
-  display: flex; justify-content: center; margin-top: 12px;
+  display: flex; justify-content: center; margin-top: 8px;
+  flex-shrink: 0;
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -524,11 +548,12 @@
 
 .s3MascotWatermark {
   position: absolute;
-  bottom: 72px; right: 36px;
-  width: 100px; height: 100px;
+  bottom: 88px; right: 32px;
+  width: 124px; height: 124px;
   object-fit: contain;
-  opacity: 0.24;
-  filter: drop-shadow(0 0 16px rgba(212,175,55,0.5));
+  /* Slightly more present per audit Part 4 ("subtle but visible"). */
+  opacity: 0.32;
+  filter: drop-shadow(0 0 18px rgba(212,175,55,0.55));
   z-index: 4;
   pointer-events: none;
 }
@@ -558,26 +583,39 @@
 
 .s3ConfGrid {
   position: relative; z-index: 10;
-  display: grid; grid-template-columns: 1fr 1fr; gap: 14px;
+  display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
   flex: 1;
+  /* Slide 3 columns now fully claim available height. Combined with
+     `justify-content: space-between` on the team list this fills the
+     canvas with the existing 5 rows rather than crunching them up top. */
+  min-height: 0;
 }
 .s3ConfCard {
   composes: glassCard;
-  padding: 18px 20px;
+  padding: 22px 24px;
   display: flex; flex-direction: column;
 }
 .s3ConfHeader {
   composes: sectionPill;
-  margin-bottom: 14px;
+  margin-bottom: 16px;
+  flex-shrink: 0;
 }
-.s3TeamList { display: flex; flex-direction: column; gap: 10px; flex: 1; }
+.s3TeamList {
+  display: flex; flex-direction: column;
+  gap: 12px;
+  flex: 1;
+  /* Spread the 5 rows across the entire card height — eliminates the
+     dead space below the contender list that was the audit Part 4
+     complaint. */
+  justify-content: space-between;
+}
 .s3TeamRow {
   display: grid;
-  grid-template-columns: 30px auto 1fr auto;
-  gap: 12px; align-items: center;
-  padding: 14px 16px;
+  grid-template-columns: 34px auto 1fr auto;
+  gap: 14px; align-items: center;
+  padding: 16px 18px;
   border: 1.5px solid rgba(212,175,55,0.24);
-  border-radius: 16px;
+  border-radius: 18px;
   background: rgba(0,0,0,0.36);
 }
 /* Top-seed emphasis — slightly stronger gold border + soft glow.
@@ -605,30 +643,30 @@
 }
 .s3TeamBody { min-width: 0; }
 .s3TeamTop {
-  display: flex; align-items: center; gap: 8px;
-  margin-bottom: 3px;
+  display: flex; align-items: center; gap: 9px;
+  margin-bottom: 4px;
 }
-.s3TeamAbbrev { font-size: 22px; font-weight: 900; color: #fff; letter-spacing: 0.5px; }
+.s3TeamAbbrev { font-size: 26px; font-weight: 900; color: #fff; letter-spacing: 0.5px; }
 .s3TeamLabel {
   display: inline-block;
-  font-size: 10px; font-weight: 900; letter-spacing: 1.1px;
-  padding: 2px 8px; border-radius: 5px;
+  font-size: 11px; font-weight: 900; letter-spacing: 1.1px;
+  padding: 3px 9px; border-radius: 6px;
   background: rgba(212,175,55,0.28); color: var(--nba-gold-bright);
   text-transform: uppercase;
 }
-.s3TeamRationale { font-size: 13px; font-weight: 600; color: #cfc6b3; line-height: 1.32; }
-.s3TeamRight { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.s3TeamRationale { font-size: 14px; font-weight: 600; color: #cfc6b3; line-height: 1.38; }
+.s3TeamRight { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
 .s3TeamOdds {
-  font-size: 22px; font-weight: 900;
+  font-size: 26px; font-weight: 900;
   color: #fff;
   letter-spacing: 0.2px;
   text-shadow: 0 0 8px rgba(212,175,55,0.32);
 }
-.s3TeamSeed { font-size: 11px; font-weight: 800; color: #a7a29a; letter-spacing: 0.8px; }
+.s3TeamSeed { font-size: 12px; font-weight: 800; color: #a7a29a; letter-spacing: 0.8px; }
 
 .s3Footer {
   position: relative; z-index: 10;
-  display: flex; justify-content: center; margin-top: 12px;
+  display: flex; justify-content: center; margin-top: 14px;
 }
 
 /* ══════════════════════════════════════════════════════════════

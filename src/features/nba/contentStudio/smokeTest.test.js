@@ -315,8 +315,13 @@ describe('NBA Daily Briefing — Phase 1 foundation', () => {
     // Length + structure
     expect(shortCaption.length).toBeGreaterThan(80);
     expect(hashtags.length).toBe(5);
-    expect(hashtags[0]).toBe('#NBA');
-    expect(hashtags).toContain('#NBAPlayoffs');
+    // Updated audit Part 2 ordering — playoff-aware tags lead, betting
+    // hashtag included for IG reach during the postseason.
+    expect(hashtags[0]).toBe('#NBAPlayoffs');
+    expect(hashtags).toContain('#NBA');
+    expect(hashtags).toContain('#NBAPicks');
+    expect(hashtags).toContain('#SportsBetting');
+    expect(hashtags).toContain('#MaximusSports');
 
     // All required sections present
     expect(shortCaption).toMatch(/🏀 Your Daily NBA Playoff Briefing is here/);
@@ -324,9 +329,14 @@ describe('NBA Daily Briefing — Phase 1 foundation', () => {
     expect(shortCaption).toMatch(/📊 What happened:/);
     expect(shortCaption).toMatch(/📈 Why it matters:/);
     expect(shortCaption).toMatch(/🎯 Maximus's Picks:/);
-    expect(shortCaption).toMatch(/🏆 Season Leaders:/);
-    expect(shortCaption).toMatch(/Points Per Game/);
-    expect(shortCaption).toMatch(/Assists Per Game/);
+    // Updated label: "Postseason Leaders" (audit Part 2)
+    expect(shortCaption).toMatch(/🏆 Postseason Leaders:/);
+    // Postseason leaders block must include all 5 abbreviations
+    expect(shortCaption).toMatch(/PPG:/);
+    expect(shortCaption).toMatch(/APG:/);
+    expect(shortCaption).toMatch(/RPG:/);
+    expect(shortCaption).toMatch(/SPG:/);
+    expect(shortCaption).toMatch(/BPG:/);
     expect(shortCaption).toMatch(/For entertainment only/);
     expect(shortCaption).toMatch(/maximussports\.ai/);
 
@@ -346,7 +356,12 @@ describe('NBA Daily Briefing — Phase 1 foundation', () => {
     expect(() => buildNbaCaption(payload)).toThrow(/CAPTION_VALIDATION_FAILED/);
   });
 
-  it('buildNbaCaption THROWS on zero leaders (hard validation)', () => {
+  it('buildNbaCaption SOFT-handles zero leaders (renders updating placeholder, does not throw)', () => {
+    // Audit Part 2 explicitly downgraded the leaders check from hard
+    // throw to a soft inline placeholder — postseason leader feeds can
+    // legitimately lag during early playoff days, and we'd rather ship
+    // a caption with "Postseason leader feed updating" in the leaders
+    // block than fail the entire publish path.
     const payload = normalizeNbaImagePayload({
       activeSection: 'nba-daily',
       nbaPicks: synthPicks,
@@ -355,7 +370,10 @@ describe('NBA Daily Briefing — Phase 1 foundation', () => {
       nbaStandings: synthStandings,
       nbaChampOdds: synthChampOdds,
     });
-    expect(() => buildNbaCaption(payload)).toThrow(/CAPTION_VALIDATION_FAILED/);
+    const result = buildNbaCaption(payload);
+    expect(result.shortCaption).toMatch(/🏆 Postseason Leaders:/);
+    expect(result.shortCaption).toMatch(/Postseason leader feed updating/);
+    expect(result.shortCaption.length).toBeGreaterThan(80);
   });
 
   it('buildNbaCaption emits marked no-slate caption when slate is truly empty', () => {
