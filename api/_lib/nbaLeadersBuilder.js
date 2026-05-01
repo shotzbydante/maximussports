@@ -36,6 +36,8 @@
 import { NBA_TEAMS, NBA_ESPN_IDS } from '../../src/sports/nba/teams.js';
 import { LEADER_CATEGORIES, LEADER_KEYS } from '../../src/data/nba/seasonLeaders.js';
 import { getJson, setJson } from '../_globalCache.js';
+import { fetchNbaPlayoffScheduleWindow } from './nbaPlayoffSchedule.js';
+import { buildNbaPostseasonLeadersFromBoxScores } from './nbaBoxScoreLeaders.js';
 
 // KV keys are namespaced by season type so postseason and regular
 // season caches don't poison each other.
@@ -304,21 +306,37 @@ export async function buildNbaLeadersData(opts = {}) {
     console.warn(`[nbaLeadersBuilder] KV lastknown read failed: ${err.message}`);
   }
 
-  // ── Postseason fallback to regular season ──
-  // ESPN's types/3 leaders endpoint is sometimes empty early in the
-  // postseason. Rather than render a blank Slide 2, surface regular-
-  // season leaders with source='regular_fallback' so consumers can show
-  // a small "Reg. season" tag. The caption layer can decide whether to
-  // gate on this.
+  // ── Postseason: box-score aggregation fallback ──
+  // ESPN's types/3 leaders endpoint typically lags the actual playoff
+  // games by 1-2 days. Rather than show a stale or empty Slide 2 during
+  // those gaps, fall back to per-game box-score aggregation across the
+  // active playoff window.
   if (seasonType === 'postseason') {
     try {
-      console.log('[nbaLeadersBuilder] postseason empty — falling back to regular season');
+      console.log('[nbaLeadersBuilder] postseason types/3 empty — trying box-score aggregation');
+      const { games } = await fetchNbaPlayoffScheduleWindow({ daysBack: 14, daysForward: 0 });
+      const aggregate = await buildNbaPostseasonLeadersFromBoxScores({ windowGames: games });
+      if (aggregate && categoryCount(aggregate) >= MIN_CATEGORIES_FOR_LASTKNOWN_WRITE) {
+        // Persist to KV so subsequent requests are fast (and the cron
+        // doesn't re-aggregate every 5 minutes).
+        setJson(keys.latest, aggregate, { exSeconds: LATEST_TTL_SEC }).catch(() => {});
+        setJson(keys.lastknown, aggregate, { exSeconds: LASTKNOWN_TTL_SEC }).catch(() => {});
+        return { data: aggregate, source: 'boxscore_aggregate', counts: getCounts(aggregate) };
+      }
+    } catch (err) {
+      console.warn(`[nbaLeadersBuilder] box-score aggregation failed: ${err.message}`);
+    }
+  }
+
+  // ── Postseason → regular-season fallback (last resort before empty) ──
+  if (seasonType === 'postseason') {
+    try {
+      console.log('[nbaLeadersBuilder] postseason fully exhausted — falling back to regular season');
       const regularKeys = kvKeys('regular');
       const regular = await getJson(regularKeys.lastknown) || await getJson(regularKeys.latest);
       if (categoryCount(regular) >= MIN_CATEGORIES_FOR_LASTKNOWN_WRITE) {
         return { data: { ...regular, seasonType: 'regular' }, source: 'regular_fallback', counts: getCounts(regular) };
       }
-      // Last-ditch fresh regular-season fetch
       const fresh = await fetchLeadersFresh('regular');
       if (categoryCount(fresh) >= MIN_CATEGORIES_FOR_LASTKNOWN_WRITE) {
         return { data: fresh, source: 'regular_fallback', counts: getCounts(fresh) };

@@ -38,11 +38,19 @@ function dayKey(iso) {
  * Build a date list from `daysBack` ago (inclusive) through `daysForward`.
  *
  * @param {object} opts
- * @param {number} [opts.daysBack=7]
+ * @param {number} [opts.daysBack=14]
  * @param {number} [opts.daysForward=1]
+ *
+ * Default 14 days back: NBA Round 1 series start ~13 days before the
+ * latest possible Game 7. With a 7-day window we missed the early
+ * games (e.g. Lakers vs Rockets Games 1-2 from Apr 18-20 when
+ * processing on May 1), which produced wrong series scores ("HOU
+ * lead 2-1" instead of "LAL lead 3-2"). 14 days covers Round 1 even
+ * with rest days; 21+ would cover Round 2.
+ *
  * @returns {string[]} array of YYYYMMDD strings
  */
-function getDateRange({ daysBack = 7, daysForward = 1 } = {}) {
+function getDateRange({ daysBack = 14, daysForward = 1 } = {}) {
   const dates = [];
   const today = new Date();
   for (let i = -daysBack; i <= daysForward; i++) {
@@ -75,13 +83,13 @@ async function fetchScoreboardForDate(dateStr) {
  * Optionally enriches with odds (for picks/spread context).
  *
  * @param {object} [opts]
- * @param {number} [opts.daysBack=7]
+ * @param {number} [opts.daysBack=14]   — default 14 to cover full Round 1
  * @param {number} [opts.daysForward=1]
  * @param {boolean} [opts.enrichOdds=false]
  * @returns {Promise<{ games: Array, dates: string[], counts: object }>}
  */
 export async function fetchNbaPlayoffScheduleWindow(opts = {}) {
-  const { daysBack = 7, daysForward = 1, enrichOdds = false } = opts;
+  const { daysBack = 14, daysForward = 1, enrichOdds = false } = opts;
   const dates = getDateRange({ daysBack, daysForward });
 
   const arrays = await Promise.all(dates.map(fetchScoreboardForDate));

@@ -125,4 +125,70 @@ describe('buildNbaPlayoffContext — series resolution from real games', () => {
     const okcSeries = ctx.series.find(s => s.topTeam?.slug === 'okc');
     expect(okcSeries).toBeFalsy();
   });
+
+  it('flags isCloseoutGame + isElimination when leader has 3 wins with Game 6 upcoming', () => {
+    // Mirrors the LAL/HOU bug: LAL leads HOU 3-2, Game 6 tonight.
+    const games = [
+      final('hou', 105, 'lal', 95, 312),  // Game 1 (~13 days ago)
+      final('hou', 110, 'lal', 100, 264), // Game 2
+      final('lal', 112, 'hou', 105, 192), // Game 3
+      final('lal', 108, 'hou', 100, 144), // Game 4
+      final('lal', 115, 'hou', 110, 24),  // Game 5 yesterday
+      upcoming('hou', 'lal', 4),          // Game 6 tonight
+    ];
+    const ctx = buildNbaPlayoffContext({ liveGames: [], windowGames: games });
+    const series = ctx.series.find(s =>
+      [s.topTeam?.slug, s.bottomTeam?.slug].includes('lal') &&
+      [s.topTeam?.slug, s.bottomTeam?.slug].includes('hou')
+    );
+    expect(series).toBeTruthy();
+    expect(series.gamesPlayed).toBe(5);
+    expect(series.isCloseoutGame).toBe(true);
+    expect(series.isElimination).toBe(true);
+    expect(series.isGameSeven).toBe(false);
+    expect(series.isSwingGame).toBe(false);
+    expect(series.nextGameNumber).toBe(6);
+  });
+
+  it('flags isGameSeven when the next game would be Game 7', () => {
+    // Series tied 3-3, next game is Game 7
+    const games = [
+      final('cle', 100, 'tor', 95, 312),
+      final('tor', 105, 'cle', 102, 264),
+      final('cle', 110, 'tor', 100, 192),
+      final('tor', 95,  'cle', 90,  144),
+      final('cle', 108, 'tor', 100, 96),
+      final('tor', 105, 'cle', 102, 24),  // 3-3 yesterday
+      upcoming('cle', 'tor', 4),           // Game 7 tonight
+    ];
+    const ctx = buildNbaPlayoffContext({ liveGames: [], windowGames: games });
+    const series = ctx.series.find(s =>
+      [s.topTeam?.slug, s.bottomTeam?.slug].includes('cle') &&
+      [s.topTeam?.slug, s.bottomTeam?.slug].includes('tor')
+    );
+    expect(series).toBeTruthy();
+    expect(series.gamesPlayed).toBe(6);
+    expect(series.isGameSeven).toBe(true);
+    expect(series.nextGameNumber).toBe(7);
+    expect(series.seriesScore.top).toBe(3);
+    expect(series.seriesScore.bottom).toBe(3);
+  });
+
+  it('flags isSwingGame when series is tied at 1 with Game 3 upcoming', () => {
+    // Cavs/Raps split 1-1 — Game 3 swings the series
+    const games = [
+      final('cle', 100, 'tor', 95, 192),
+      final('tor', 105, 'cle', 102, 96),
+      upcoming('cle', 'tor', 4),
+    ];
+    const ctx = buildNbaPlayoffContext({ liveGames: [], windowGames: games });
+    const series = ctx.series.find(s =>
+      [s.topTeam?.slug, s.bottomTeam?.slug].includes('cle') &&
+      [s.topTeam?.slug, s.bottomTeam?.slug].includes('tor')
+    );
+    expect(series).toBeTruthy();
+    expect(series.isSwingGame).toBe(true);
+    expect(series.isCloseoutGame).toBe(false);
+    expect(series.nextGameNumber).toBe(3);
+  });
 });
