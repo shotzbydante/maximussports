@@ -221,7 +221,13 @@ function dailyCaption(payload) {
   const titlePathSource = [
     ...(payload.playoffOutlook?.east || []),
     ...(payload.playoffOutlook?.west || []),
-  ].filter(t => t.prob != null).sort((a, b) => (b.prob ?? 0) - (a.prob ?? 0));
+  ]
+    // Title Path must show only ACTIVE teams — eliminated teams now
+    // surface in Slide 3 with their own badge but should never appear
+    // in the caption's Title Path section.
+    .filter(t => !t.isEliminated && t.status !== 'eliminated')
+    .filter(t => t.prob != null)
+    .sort((a, b) => (b.prob ?? 0) - (a.prob ?? 0));
   console.log('[NBA_CAPTION_INPUT]', {
     hotpCount: bullets.length,
     hotpFirst: bullets[0]?.text?.slice(0, 100),

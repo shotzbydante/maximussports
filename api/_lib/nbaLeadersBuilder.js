@@ -37,7 +37,7 @@ import { NBA_TEAMS, NBA_ESPN_IDS } from '../../src/sports/nba/teams.js';
 import { LEADER_CATEGORIES, LEADER_KEYS, ESPN_CATEGORY_MAP } from '../../src/data/nba/seasonLeaders.js';
 import { getJson, setJson } from '../_globalCache.js';
 import { fetchNbaPlayoffScheduleWindow } from './nbaPlayoffSchedule.js';
-import { buildNbaPostseasonLeadersFromBoxScores } from './nbaBoxScoreLeaders.js';
+import { buildNbaPostseasonLeadersFromBoxScores, hasValidLeaderCategories } from './nbaBoxScoreLeaders.js';
 
 // KV keys are namespaced by season type so postseason and regular
 // season caches don't poison each other.
@@ -287,12 +287,19 @@ export async function buildNbaLeadersData(opts = {}) {
     const freshCount = categoryCount(freshData);
     console.log(`[nbaLeadersBuilder] fresh build: seasonType=${seasonType} categories=${freshCount}`);
 
-    if (freshCount >= MIN_CATEGORIES_FOR_LASTKNOWN_WRITE) {
+    // Audit Part 2 cache poisoning protection: postseason requires ALL 5
+    // categories before we promote to lastknown. Anything less is treated
+    // as partial — we can still serve it ad-hoc, but we won't burn a
+    // 24hr TTL on an empty shell.
+    const freshIsValid = seasonType === 'postseason'
+      ? hasValidLeaderCategories(freshData)
+      : freshCount >= MIN_CATEGORIES_FOR_LASTKNOWN_WRITE;
+    if (freshIsValid) {
       setJson(keys.latest, freshData, { exSeconds: LATEST_TTL_SEC }).catch(() => {});
       setJson(keys.lastknown, freshData, { exSeconds: LASTKNOWN_TTL_SEC }).catch(() => {});
       return { data: freshData, source: 'fresh', counts: getCounts(freshData) };
     }
-    if (freshCount > 0) {
+    if (freshCount > 0 && seasonType !== 'postseason') {
       setJson(keys.latest, freshData, { exSeconds: LATEST_TTL_SEC }).catch(() => {});
     }
   } catch (err) {
@@ -300,12 +307,26 @@ export async function buildNbaLeadersData(opts = {}) {
     console.warn(`[nbaLeadersBuilder] fresh build failed (seasonType=${seasonType}): ${err.message}`);
   }
 
+  // Audit Part 2: For postseason, KV must contain ALL FIVE categories
+  // populated; otherwise we fall through to box-score aggregation. An
+  // empty postseason payload written by an earlier broken build poisoned
+  // the KV — this gate ensures we don't keep returning that stale empty
+  // shell forever.
+  const isStrictPostseason = seasonType === 'postseason';
+  const cacheValid = (data) => {
+    if (isStrictPostseason) return hasValidLeaderCategories(data);
+    return categoryCount(data) >= MIN_CATEGORIES_FOR_LASTKNOWN_WRITE;
+  };
+
   if (!preferFresh) {
     try {
       const latest = await getJson(keys.latest);
-      if (categoryCount(latest) >= MIN_CATEGORIES_FOR_LASTKNOWN_WRITE) {
+      if (cacheValid(latest)) {
         console.log(`[nbaLeadersBuilder] using KV latest (${seasonType}): categories=${categoryCount(latest)}`);
         return { data: latest, source: 'kv_latest', counts: getCounts(latest) };
+      }
+      if (latest && isStrictPostseason) {
+        console.warn(`[nbaLeadersBuilder] KV latest postseason rejected as poisoned (categories=${categoryCount(latest)}, missing=${getCounts(latest)._missingCategories?.join(',')})`);
       }
     } catch (err) {
       console.warn(`[nbaLeadersBuilder] KV latest read failed: ${err.message}`);
@@ -314,9 +335,12 @@ export async function buildNbaLeadersData(opts = {}) {
 
   try {
     const lastknown = await getJson(keys.lastknown);
-    if (categoryCount(lastknown) >= MIN_CATEGORIES_FOR_LASTKNOWN_WRITE) {
+    if (cacheValid(lastknown)) {
       console.log(`[nbaLeadersBuilder] using KV last-known-good (${seasonType}): categories=${categoryCount(lastknown)}`);
       return { data: lastknown, source: 'kv_lastknown', counts: getCounts(lastknown) };
+    }
+    if (lastknown && isStrictPostseason) {
+      console.warn(`[nbaLeadersBuilder] KV lastknown postseason rejected as poisoned (categories=${categoryCount(lastknown)}, missing=${getCounts(lastknown)._missingCategories?.join(',')})`);
     }
   } catch (err) {
     console.warn(`[nbaLeadersBuilder] KV lastknown read failed: ${err.message}`);
@@ -332,12 +356,18 @@ export async function buildNbaLeadersData(opts = {}) {
       console.log('[nbaLeadersBuilder] postseason types/3 empty — trying box-score aggregation');
       const { games } = await fetchNbaPlayoffScheduleWindow({ daysBack: 21, daysForward: 0 });
       const aggregate = await buildNbaPostseasonLeadersFromBoxScores({ windowGames: games });
-      if (aggregate && categoryCount(aggregate) >= MIN_CATEGORIES_FOR_LASTKNOWN_WRITE) {
+      if (aggregate && hasValidLeaderCategories(aggregate)) {
         // Persist to KV so subsequent requests are fast (and the cron
         // doesn't re-aggregate every 5 minutes).
         setJson(keys.latest, aggregate, { exSeconds: LATEST_TTL_SEC }).catch(() => {});
         setJson(keys.lastknown, aggregate, { exSeconds: LASTKNOWN_TTL_SEC }).catch(() => {});
         return { data: aggregate, source: 'boxscore_aggregate', counts: getCounts(aggregate) };
+      }
+      // Even partial aggregate is better than empty — return it without
+      // poisoning lastknown.
+      if (aggregate && categoryCount(aggregate) > 0) {
+        console.warn(`[nbaLeadersBuilder] box-score aggregate partial (categories=${categoryCount(aggregate)}, missing=${getCounts(aggregate)._missingCategories?.join(',')}) — returning without lastknown write`);
+        return { data: aggregate, source: 'boxscore_aggregate_partial', counts: getCounts(aggregate) };
       }
     } catch (err) {
       console.warn(`[nbaLeadersBuilder] box-score aggregation failed: ${err.message}`);
