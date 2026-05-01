@@ -328,23 +328,14 @@ export async function buildNbaLeadersData(opts = {}) {
     }
   }
 
-  // ── Postseason → regular-season fallback (last resort before empty) ──
-  if (seasonType === 'postseason') {
-    try {
-      console.log('[nbaLeadersBuilder] postseason fully exhausted — falling back to regular season');
-      const regularKeys = kvKeys('regular');
-      const regular = await getJson(regularKeys.lastknown) || await getJson(regularKeys.latest);
-      if (categoryCount(regular) >= MIN_CATEGORIES_FOR_LASTKNOWN_WRITE) {
-        return { data: { ...regular, seasonType: 'regular' }, source: 'regular_fallback', counts: getCounts(regular) };
-      }
-      const fresh = await fetchLeadersFresh('regular');
-      if (categoryCount(fresh) >= MIN_CATEGORIES_FOR_LASTKNOWN_WRITE) {
-        return { data: fresh, source: 'regular_fallback', counts: getCounts(fresh) };
-      }
-    } catch (err) {
-      console.warn(`[nbaLeadersBuilder] regular-season fallback failed: ${err.message}`);
-    }
-  }
+  // ── Postseason has NO regular-season fallback (audit Part 2) ──
+  // Showing regular-season leaders under a "Postseason Leaders" section
+  // is misleading — Slide 2 would silently render summer-league or
+  // regular-season players as if they were the playoff leaderboard. We
+  // deliberately drop the regular_fallback path here so Slide 2 either
+  // shows a real postseason source (ESPN types/3 / KV cache / box-score
+  // aggregate) or renders the explicit "Postseason feed updating"
+  // placeholder.
 
   const empty = freshData || {
     categories: {},

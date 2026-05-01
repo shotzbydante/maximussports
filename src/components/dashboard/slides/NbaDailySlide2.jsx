@@ -5,7 +5,7 @@
  *   - 58px playoff-framed headline + gold divider
  *   - HOT OFF THE PRESS bullets carry team logo chips
  *   - Maximus's Picks tiles carry team logos
- *   - Season Leaders grid shows top 3 per category (PPG/APG/RPG/SPG/BPG)
+ *   - Postseason Leaders grid shows top 3 per category (PPG/APG/RPG/SPG/BPG)
  *     with player + team abbreviation + value
  *   - Subtle mascot watermark anchored near the header
  */
@@ -109,10 +109,11 @@ export default function NbaDailySlide2({ data, asOf: _a, slideNumber: _s, slideT
       first: payload.bullets?.[0]?.text,
       sources: (payload.bullets || []).map(b => b.source),
     });
-    // Per audit Part 4 spec — emit the leaders source classification
-    // so "Postseason feed updating" placeholders are traceable.
+    // Per audit Part 2 spec — emit the leaders source classification
+    // so "Postseason feed updating" placeholders are traceable. Renamed
+    // to NBA_POSTSEASON_LEADERS_RENDER to match the audit's spec name.
     // eslint-disable-next-line no-console
-    console.log('[NBA_POSTSEASON_LEADERS]', {
+    console.log('[NBA_POSTSEASON_LEADERS_RENDER]', {
       source: payload.nbaLeaders?._source || payload.nbaLeaders?.seasonType || 'unknown',
       seasonType: payload.nbaLeaders?.seasonType || null,
       categories: Object.keys(leadersRaw),
@@ -205,7 +206,7 @@ export default function NbaDailySlide2({ data, asOf: _a, slideNumber: _s, slideT
 
       <div className={styles.s2LeadersZone}>
         <div className={styles.s2LeadersHeader}>
-          <span>🏆</span><span>SEASON LEADERS</span>
+          <span>🏆</span><span>POSTSEASON LEADERS</span>
         </div>
         <div className={styles.s2LeadersGrid}>
           {leaderCards.map((cat, i) => {
