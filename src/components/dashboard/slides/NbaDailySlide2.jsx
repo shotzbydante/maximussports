@@ -103,10 +103,20 @@ export default function NbaDailySlide2({ data, asOf: _a, slideNumber: _s, slideT
   });
   if (typeof window !== 'undefined') {
     // eslint-disable-next-line no-console
-    console.log('[NBA_LEADERS_SOURCE]', {
-      source: payload.nbaLeaders?._source || 'unknown',
-      categoryKeys: Object.keys(leadersRaw),
-      perCategoryCount: leaderCards.map(c => `${c.abbrev}:${c.leaders.length}`),
+    console.log('[NBA_HOTP_PAYLOAD]', {
+      slide: 2,
+      count: payload.bullets?.length || 0,
+      first: payload.bullets?.[0]?.text,
+      sources: (payload.bullets || []).map(b => b.source),
+    });
+    // Per audit Part 4 spec — emit the leaders source classification
+    // so "Postseason feed updating" placeholders are traceable.
+    // eslint-disable-next-line no-console
+    console.log('[NBA_POSTSEASON_LEADERS]', {
+      source: payload.nbaLeaders?._source || payload.nbaLeaders?.seasonType || 'unknown',
+      seasonType: payload.nbaLeaders?.seasonType || null,
+      categories: Object.keys(leadersRaw),
+      counts: Object.fromEntries(leaderCards.map(c => [c.abbrev, c.leaders.length])),
       anyMissing: leaderCards.some(c => c.leaders.length === 0),
     });
   }

@@ -108,6 +108,21 @@ export default function NbaDailySlide1({ data, asOf: _a, slideNumber: _s, slideT
   const round = pc?.round || 'Round 1';
   const bullets = (payload.bullets || []).slice(0, 3);
 
+  // Slide 1 + Slide 2 must consume the SAME canonical bullets array.
+  // Logging at the slide level (not just at the normalizer) means a
+  // future divergence shows up in BOTH places loudly. Window-side, we
+  // also emit [NBA_PLAYOFF_WINDOW_FETCH] per date so any "missing
+  // games" situation is traceable end-to-end.
+  if (typeof window !== 'undefined') {
+    // eslint-disable-next-line no-console
+    console.log('[NBA_HOTP_PAYLOAD]', {
+      slide: 1,
+      count: payload.bullets?.length || 0,
+      first: payload.bullets?.[0]?.text,
+      sources: (payload.bullets || []).map(b => b.source),
+    });
+  }
+
   const topStory = payload.topStory;
   const secondStory = payload.secondStory;
 
