@@ -152,7 +152,8 @@ function PickRow({ pick }) {
   );
 }
 
-export default function NbaScorecardReport({ dateOverride } = {}) {
+export default function NbaScorecardReport({ dateOverride, variant = 'full', insightsHref = '/nba/insights' } = {}) {
+  const isCompact = variant === 'compact';
   const [data, setData] = useState(null);
   const [perf, setPerf] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -170,15 +171,17 @@ export default function NbaScorecardReport({ dateOverride } = {}) {
     return () => { cancelled = true; };
   }, [dateOverride]);
 
-  // Rolling 7d/30d performance — non-blocking; report still renders without it
+  // Rolling 7d/30d performance — non-blocking; report still renders without it.
+  // Skipped in compact mode (Home preview keeps the surface tight).
   useEffect(() => {
+    if (isCompact) return;
     let cancelled = false;
     fetch('/api/nba/picks/performance?sport=nba')
       .then(r => r.ok ? r.json() : null)
       .then(d => { if (!cancelled) setPerf(d || null); })
       .catch(() => { if (!cancelled) setPerf(null); });
     return () => { cancelled = true; };
-  }, []);
+  }, [isCompact]);
 
   if (loading) {
     return (
@@ -218,8 +221,10 @@ export default function NbaScorecardReport({ dateOverride } = {}) {
     return (b.betScore || 0) - (a.betScore || 0);
   });
 
+  const displayPicks = isCompact ? sortedPicks.slice(0, 3) : sortedPicks;
+
   return (
-    <section className={styles.section}>
+    <section className={`${styles.section} ${isCompact ? styles.sectionCompact : ''}`}>
       {/* Header strip */}
       <div className={styles.headerStrip}>
         <div className={styles.headerLeft}>
@@ -268,24 +273,47 @@ export default function NbaScorecardReport({ dateOverride } = {}) {
       )}
 
       {/* Per-pick report */}
-      {sortedPicks.length > 0 ? (
+      {displayPicks.length > 0 ? (
         <div className={styles.picksList}>
-          <div className={styles.picksHeader}>
-            <span>Pick-by-Pick Results</span>
-            <span className={styles.picksHeaderHint}>sorted by result</span>
-          </div>
-          {sortedPicks.map(p => <PickRow key={p.id || p.pickKey} pick={p} />)}
+          {!isCompact && (
+            <div className={styles.picksHeader}>
+              <span>Pick-by-Pick Results</span>
+              <span className={styles.picksHeaderHint}>sorted by result</span>
+            </div>
+          )}
+          {isCompact && (
+            <div className={styles.picksHeader}>
+              <span>Top Results</span>
+              <span className={styles.picksHeaderHint}>
+                {sortedPicks.length > displayPicks.length
+                  ? `showing ${displayPicks.length} of ${sortedPicks.length}`
+                  : 'sorted by result'}
+              </span>
+            </div>
+          )}
+          {displayPicks.map(p => <PickRow key={p.id || p.pickKey} pick={p} />)}
         </div>
       ) : (
-        <p className={styles.noPicks}>
-          Per-pick detail is unavailable for this slate. The summary above reflects the persisted scorecard row.
-        </p>
+        !isCompact && (
+          <p className={styles.noPicks}>
+            Per-pick detail is unavailable for this slate. The summary above reflects the persisted scorecard row.
+          </p>
+        )
       )}
 
-      {/* Rolling performance */}
-      <RollingPerformance perf={perf} />
+      {isCompact && (
+        <div className={styles.compactCtaRow}>
+          <a href={insightsHref} className={styles.compactCta}>
+            View full scorecard &rarr;
+          </a>
+        </div>
+      )}
 
-      {/* Model grading explainer */}
+      {/* Rolling performance — full view only */}
+      {!isCompact && <RollingPerformance perf={perf} />}
+
+      {/* Model grading explainer — full view only */}
+      {!isCompact && (
       <div className={styles.explainer}>
         <h3 className={styles.explainerTitle}>How the model is graded</h3>
         <ul className={styles.explainerList}>
@@ -296,6 +324,7 @@ export default function NbaScorecardReport({ dateOverride } = {}) {
           <li>Daily results inform future confidence calibration — performance is tracked, not invented.</li>
         </ul>
       </div>
+      )}
     </section>
   );
 }
