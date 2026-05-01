@@ -116,7 +116,12 @@ function annotatePick(pick) {
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=900');
+  // Edge caching is intentionally minimal here. The scorecard transitions
+  // from "pending" → "graded" mid-day as games go final, and a stale 5-min
+  // edge cache was confirmed to serve a "Most Recent Graded Slate" headline
+  // backed by all-pending picks. Short TTL with revalidation keeps the
+  // surface honest without fully disabling the cache.
+  res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=30, must-revalidate');
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
   const explicitDate = req.query?.date && /^\d{4}-\d{2}-\d{2}$/.test(req.query.date)
@@ -225,9 +230,45 @@ export default async function handler(req, res) {
       };
     }
 
+    // ── Invariant enforcement ─────────────────────────────────────────
+    // If selection claimed a graded slate but the picks we fetched have
+    // zero graded rows, demote to no_graded_slate. This protects the UI
+    // from ever showing "Most Recent Graded Slate · …" with 0 graded —
+    // a state we observed when the picks_daily_scorecards row had stale
+    // record counts that disagreed with the picks/pick_results table.
+    if (
+      !explicitDate &&
+      includePicks &&
+      totals &&
+      totals.graded === 0 &&
+      (selectedReason === 'yesterday_graded' ||
+       selectedReason === 'latest_graded_fallback' ||
+       selectedReason === 'scorecard_table_fallback')
+    ) {
+      diagnostics.invariantViolated = {
+        priorReason: selectedReason,
+        priorSelectedSlate: selectedSlate,
+        priorPublished: totals.published,
+        priorGraded: totals.graded,
+      };
+      console.warn(
+        '[nba/scorecard] invariant: %s claimed graded but picks show 0 graded for slate %s — demoting to no_graded_slate',
+        selectedReason, selectedSlate
+      );
+      // Treat the previously-selected slate as a pending-only slate so
+      // the UI shows the "Today's slate is still pending" note.
+      diagnostics.todayPendingSlate = selectedSlate;
+      diagnostics.todayPendingCount = totals.pending;
+      selectedReason = 'no_graded_slate';
+      usedFallback = false;
+      card = null;
+      picks = [];
+      totals = null;
+    }
+
     // If we fell back, see if there's a current (today/yesterday) slate
     // with pending picks so the UI can render a small note.
-    if (!explicitDate && diagnostics.todayPendingSlate) {
+    if (!explicitDate && diagnostics.todayPendingSlate && !diagnostics.todayPendingCount) {
       try {
         const { picks: pendingRows } = await getPicksForSlate({
           sport: 'nba',
