@@ -17,6 +17,7 @@ import {
   getScorecard,
   getLatestGradedScorecard,
   getPicksForSlate,
+  findLatestGradedSlate,
 } from '../../_lib/picksHistory.js';
 import { yesterdayET } from '../../_lib/dateWindows.js';
 
@@ -124,25 +125,77 @@ export default async function handler(req, res) {
   const requestedSlate = explicitDate || yesterdayET();
 
   try {
-    let card = await getScorecard({ sport: 'nba', slateDate: requestedSlate });
+    // ── Slate selection ────────────────────────────────────────────────
+    // Priority for Model Performance:
+    //   1. Explicit ?date=  → use as-is.
+    //   2. yesterdayET()     → only if it actually has graded picks.
+    //   3. Walk back through the picks table (source of truth) to find
+    //      the most recent slate where at least one pick is graded.
+    //   4. Fall back to picks_daily_scorecards row if present (covers
+    //      the case where settle wrote results but no picks rows exist
+    //      in window — extremely rare).
+    //   5. Else: surface no graded slate (UI handles the empty state).
+    let card = null;
+    let selectedSlate = null;
+    let selectedReason = null;
     let usedFallback = false;
+    let diagnostics = {
+      requestedDate: requestedSlate,
+      explicit: !!explicitDate,
+      skippedPendingOnlySlates: [],
+      latestGradedSlate: null,
+      scannedSlates: [],
+      todayPendingSlate: null,
+      todayPendingCount: 0,
+    };
 
-    if (!explicitDate) {
-      const graded = card?.record
-        ? ((card.record.won ?? 0) + (card.record.lost ?? 0) + (card.record.push ?? 0))
-        : 0;
-      if (!card || graded === 0) {
-        const fallback = await getLatestGradedScorecard({ sport: 'nba', lookbackDays: 14 });
-        if (fallback) { card = fallback; usedFallback = true; }
+    if (explicitDate) {
+      card = await getScorecard({ sport: 'nba', slateDate: explicitDate });
+      selectedSlate = explicitDate;
+      selectedReason = 'explicit_date';
+    } else {
+      // Inspect actual picks/pick_results for graded data.
+      const graded = await findLatestGradedSlate({ sport: 'nba', lookbackDays: 21 });
+      diagnostics.latestGradedSlate = graded.latestGradedSlate;
+      diagnostics.skippedPendingOnlySlates = graded.skippedPendingOnlySlates;
+      diagnostics.scannedSlates = graded.scannedSlates;
+      // Track the most recent pending-only slate so the UI can show a
+      // small "Today's slate is still pending" note.
+      diagnostics.todayPendingSlate = graded.skippedPendingOnlySlates[0] || null;
+
+      const yesterday = requestedSlate;
+      if (graded.latestGradedSlate === yesterday) {
+        card = await getScorecard({ sport: 'nba', slateDate: yesterday });
+        selectedSlate = yesterday;
+        selectedReason = 'yesterday_graded';
+      } else if (graded.latestGradedSlate) {
+        card = await getScorecard({ sport: 'nba', slateDate: graded.latestGradedSlate });
+        selectedSlate = graded.latestGradedSlate;
+        selectedReason = 'latest_graded_fallback';
+        usedFallback = true;
+      } else {
+        // Last-ditch: scorecard row from picks_daily_scorecards (covers data
+        // re-imports where the picks rows may have been pruned).
+        const fallbackRow = await getLatestGradedScorecard({ sport: 'nba', lookbackDays: 21 });
+        if (fallbackRow) {
+          card = fallbackRow;
+          selectedSlate = fallbackRow.slate_date;
+          selectedReason = 'scorecard_table_fallback';
+          usedFallback = true;
+        } else {
+          selectedSlate = yesterday;
+          selectedReason = 'no_graded_slate';
+        }
       }
     }
 
     let picks = [];
     let totals = null;
-    if (includePicks && card?.slate_date) {
+    if (includePicks && (card?.slate_date || selectedSlate)) {
+      const slateForPicks = card?.slate_date || selectedSlate;
       const { picks: rawPicks } = await getPicksForSlate({
         sport: 'nba',
-        slateDate: card.slate_date,
+        slateDate: slateForPicks,
       });
       picks = rawPicks.map(annotatePick);
 
@@ -172,10 +225,30 @@ export default async function handler(req, res) {
       };
     }
 
+    // If we fell back, see if there's a current (today/yesterday) slate
+    // with pending picks so the UI can render a small note.
+    if (!explicitDate && diagnostics.todayPendingSlate) {
+      try {
+        const { picks: pendingRows } = await getPicksForSlate({
+          sport: 'nba',
+          slateDate: diagnostics.todayPendingSlate,
+        });
+        diagnostics.todayPendingCount = pendingRows?.length || 0;
+      } catch { /* non-fatal */ }
+    }
+
     return res.status(200).json({
-      slateDate: card?.slate_date || requestedSlate,
+      slateDate: card?.slate_date || selectedSlate || requestedSlate,
       requestedSlate,
+      selectedSlateDate: selectedSlate,
+      selectedReason,
       usedFallback,
+      diagnostics: {
+        ...diagnostics,
+        gradedCount: totals?.graded ?? 0,
+        pendingCount: totals?.pending ?? 0,
+        publishedCount: totals?.published ?? 0,
+      },
       scorecard: card ? {
         date: card.slate_date,
         overall: card.record,

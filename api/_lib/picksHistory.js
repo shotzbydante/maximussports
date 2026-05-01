@@ -561,6 +561,71 @@ export async function getLatestGradedScorecard({ sport, lookbackDays = 14 } = {}
   } catch { return null; }
 }
 
+/**
+ * Find the most recent slate that has actually graded picks (at least one
+ * pick_results row with status in 'won'|'lost'|'push'). This is stronger
+ * than reading picks_daily_scorecards because it doesn't depend on the
+ * scorecard cron having run — it inspects the source of truth.
+ *
+ * Returns:
+ *   {
+ *     latestGradedSlate: 'YYYY-MM-DD' | null,
+ *     skippedPendingOnlySlates: string[],   // slate_dates with picks but 0 graded
+ *     scannedSlates: string[],              // ordered most-recent first
+ *   }
+ */
+export async function findLatestGradedSlate({ sport, lookbackDays = 21 } = {}) {
+  const sb = safeAdmin();
+  if (!sb) return { latestGradedSlate: null, skippedPendingOnlySlates: [], scannedSlates: [] };
+  try {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - lookbackDays);
+    const cutoffYmd = cutoff.toISOString().slice(0, 10);
+
+    // Pull all picks within window with pick_results joined.
+    const { data, error } = await sb
+      .from('picks')
+      .select('slate_date, pick_results(status)')
+      .eq('sport', sport)
+      .gte('slate_date', cutoffYmd)
+      .order('slate_date', { ascending: false });
+    if (error) {
+      if (isMissingTableError(error)) warnMissingOnce('picks', error);
+      return { latestGradedSlate: null, skippedPendingOnlySlates: [], scannedSlates: [] };
+    }
+    const rows = data || [];
+
+    // Bucket by slate_date — tally graded vs total.
+    const buckets = new Map(); // slate -> { graded, total }
+    for (const row of rows) {
+      const slate = row.slate_date;
+      if (!slate) continue;
+      const b = buckets.get(slate) || { graded: 0, total: 0 };
+      b.total += 1;
+      const status = row.pick_results?.[0]?.status;
+      if (status === 'won' || status === 'lost' || status === 'push') b.graded += 1;
+      buckets.set(slate, b);
+    }
+
+    // Walk most-recent → oldest, return first with graded > 0.
+    const slatesDesc = [...buckets.keys()].sort((a, b) => (a < b ? 1 : -1));
+    const skipped = [];
+    let latest = null;
+    for (const slate of slatesDesc) {
+      const { graded } = buckets.get(slate);
+      if (graded > 0) { latest = slate; break; }
+      skipped.push(slate);
+    }
+    return {
+      latestGradedSlate: latest,
+      skippedPendingOnlySlates: skipped,
+      scannedSlates: slatesDesc,
+    };
+  } catch (e) {
+    return { latestGradedSlate: null, skippedPendingOnlySlates: [], scannedSlates: [] };
+  }
+}
+
 /** Fetch the active tuning config for a sport. Falls back to default on error. */
 export async function getActiveConfig({ sport }) {
   const sb = safeAdmin();

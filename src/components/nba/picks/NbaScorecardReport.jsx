@@ -45,12 +45,20 @@ function CategoryChip({ label, rec, accent }) {
   );
 }
 
-function buildTakeaway({ totals, scorecardSummary }) {
+function buildTakeaway({ totals, scorecardSummary, selectedReason }) {
   if (!totals) return null;
   const { published, graded, pending, record, byMarket } = totals;
 
   if (published === 0) return { text: 'No picks published for this slate.', tone: 'neutral' };
   if (graded === 0 && pending > 0) {
+    // Only happens when there is no graded slate anywhere in lookback —
+    // soften the copy so the card doesn't read like a bad performance day.
+    if (selectedReason === 'no_graded_slate') {
+      return {
+        text: `Scorecard tracking begins after the first graded slate. ${pending} pick${pending === 1 ? '' : 's'} pending.`,
+        tone: 'neutral',
+      };
+    }
     return { text: `Awaiting final settlement — ${pending} of ${published} picks still pending.`, tone: 'neutral' };
   }
   if (graded === 0) {
@@ -191,19 +199,50 @@ export default function NbaScorecardReport({ dateOverride, variant = 'full', ins
     );
   }
 
-  if (!data?.scorecard) {
+  // No graded slate anywhere in lookback → render a tight "awaiting"
+  // tile rather than re-listing today's pending picks (those already
+  // show in the Today's Picks board on Home, and on /insights the
+  // pending-only state is also clearer than a misleading 0–0 record).
+  const noGradedSlate = data?.selectedReason === 'no_graded_slate'
+    || (!data?.scorecard && !(data?.picks?.length));
+  if (noGradedSlate) {
     return (
-      <section className={styles.section}>
-        <div className={styles.empty}>
-          <h2 className={styles.emptyTitle}>Scorecard tracking begins after the first graded slate.</h2>
-          <p className={styles.emptyBody}>Daily picks are persisted, graded after games go final, and aggregated into a scorecard at 4:00 AM ET.</p>
+      <section className={`${styles.section} ${isCompact ? styles.sectionCompact : ''}`}>
+        <div className={styles.headerStrip}>
+          <div className={styles.headerLeft}>
+            <span className={styles.eyebrow}>Model Performance</span>
+            <h2 className={styles.title}>How Maximus&rsquo;s Picks Are Performing</h2>
+            <span className={styles.slateDate}>Awaiting first graded slate</span>
+          </div>
         </div>
+        <p className={styles.takeaway + ' ' + styles.takeaway_neutral}>
+          <span className={styles.takeawayKicker}>Tracking</span>
+          Scorecard tracking begins after the first graded slate. Today&rsquo;s picks are listed in the picks board below; results post here once games go final.
+        </p>
+        {isCompact && (
+          <div className={styles.compactCtaRow}>
+            <a href={insightsHref} className={styles.compactCta}>
+              View full scorecard &rarr;
+            </a>
+          </div>
+        )}
       </section>
     );
   }
 
-  const { scorecard, picks, totals, slateDate, usedFallback } = data;
-  const takeaway = buildTakeaway({ totals, scorecardSummary: scorecard });
+  const { scorecard, picks, totals, slateDate, usedFallback, selectedReason, diagnostics } = data;
+  const takeaway = buildTakeaway({ totals, scorecardSummary: scorecard, selectedReason });
+  const todayPendingSlate = diagnostics?.todayPendingSlate;
+  const todayPendingCount = diagnostics?.todayPendingCount || 0;
+  const showTodayPendingNote = (usedFallback || selectedReason === 'no_graded_slate')
+    && todayPendingSlate && todayPendingSlate !== slateDate && todayPendingCount > 0;
+  const todayPendingLabel = (() => {
+    if (!todayPendingSlate) return null;
+    try {
+      const d = new Date(`${todayPendingSlate}T12:00:00`);
+      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    } catch { return todayPendingSlate; }
+  })();
 
   const slateLabel = (() => {
     try {
@@ -231,8 +270,18 @@ export default function NbaScorecardReport({ dateOverride, variant = 'full', ins
           <span className={styles.eyebrow}>Model Performance</span>
           <h2 className={styles.title}>How Maximus&rsquo;s Picks Are Performing</h2>
           <span className={styles.slateDate}>
-            {usedFallback ? 'Most Recent Graded Slate' : "Yesterday"} &middot; {slateLabel}
+            {usedFallback
+              ? 'Most Recent Graded Slate'
+              : selectedReason === 'no_graded_slate'
+                ? 'Awaiting first graded slate'
+                : 'Yesterday'} &middot; {slateLabel}
           </span>
+          {showTodayPendingNote && (
+            <span className={styles.pendingNote}>
+              Today&rsquo;s slate is still pending ({todayPendingCount} pick{todayPendingCount === 1 ? '' : 's'}).
+              Showing last settled results{todayPendingLabel ? ` from ${todayPendingLabel}` : ''}.
+            </span>
+          )}
         </div>
         {totals && (
           <div className={styles.headerStats}>
