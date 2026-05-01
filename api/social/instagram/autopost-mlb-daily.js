@@ -44,6 +44,12 @@ import { stripEmojis, fmtOdds } from '../../../src/components/dashboard/slides/m
 // which is unreliable on Vercel serverless (cold starts, circular invocations).
 // Falls back through fresh build → KV latest → KV last-known-good → empty.
 import { buildPicksBoard } from '../../_lib/mlbPicksBuilder.js';
+// In-process leaders builder — same class of fix as picks. The leaders
+// endpoint can take 10–30s (ESPN core API + athlete $ref resolution),
+// which routinely times out the autopost cron's HTTP self-fetch on
+// cold starts. KV fallback chain: fresh → kv_latest (1hr) →
+// kv_lastknown (24hr) → empty.
+import { buildMlbLeadersData, MLB_LEADERS_TARGET_CATEGORIES } from '../../_lib/mlbLeadersBuilder.js';
 
 // Pixel-perfect browser renderer (primary) + Satori fallback
 import { renderSlidesWithBrowser } from '../../_lib/mlbBrowserRenderer.js';
@@ -263,14 +269,32 @@ async function fetchPicksInProcess(log) {
   }
 }
 
-async function fetchLeaders(baseUrl, log) {
+/**
+ * Build leaders DIRECTLY in-process (no HTTP self-fetch).
+ *
+ * Replaces the previous fetch(`${baseUrl}/api/mlb/leaders`) which was
+ * the root cause of [CAPTION_VALIDATION_FAILED] Zero leader categories
+ * resolved errors in autopost: the leaders endpoint can take 10–30s
+ * (ESPN core API + ~30 athlete $ref calls), and the cron's internal
+ * HTTP fetch was timing out on cold starts. This call now uses the
+ * shared builder with full KV fallback (fresh → 1hr latest → 24hr
+ * lastknown → empty), so a transient ESPN/cold-start failure can't
+ * wipe out today's autopost.
+ *
+ * Returns: { data: { categories, fetchedAt }, source, counts }
+ */
+async function fetchLeadersInProcess(log) {
   try {
-    const res = await fetch(`${baseUrl}/api/mlb/leaders`);
-    if (!res.ok) { log.warn('leaders fetch failed:', res.status); return {}; }
-    return await res.json();
+    const { data, source, counts } = await buildMlbLeadersData();
+    log.info(`[leaders] in-process build source=${source} counts=${JSON.stringify(counts)}`);
+    return { data: data ?? { categories: {} }, source, counts };
   } catch (e) {
-    log.warn('leaders fetch error:', e.message);
-    return {};
+    log.error('[leaders] in-process build threw:', e.message);
+    return {
+      data: { categories: {}, _error: e.message },
+      source: 'error',
+      counts: { _categoriesFound: 0, _missingCategories: MLB_LEADERS_TARGET_CATEGORIES },
+    };
   }
 }
 
@@ -469,14 +493,15 @@ export default async function handler(req, res) {
   // ── Preview mode: return metadata only ──
   if (mode === 'preview') {
     const baseUrl = `https://${req.headers.host || 'maximussports.ai'}`;
-    const [liveGames, champOdds, mlbLeaders, mlbStandings, picksResult] = await Promise.all([
+    const [liveGames, champOdds, leadersResult, mlbStandings, picksResult] = await Promise.all([
       fetchLiveGames(baseUrl, log),
       fetchChampOdds(baseUrl, log),
-      fetchLeaders(baseUrl, log),
+      fetchLeadersInProcess(log),
       fetchStandings(baseUrl, log),
       fetchPicksInProcess(log),
     ]);
     const mlbPicks = picksResult.board;
+    const mlbLeaders = leadersResult.data;
 
     const content = buildSlideContent(liveGames, champOdds, dateLabel, mlbStandings);
 
@@ -522,14 +547,15 @@ export default async function handler(req, res) {
   // ── Render-preview mode: render slides, return base64 images (no publish) ──
   if (mode === 'render-preview') {
     const baseUrl = `https://${req.headers.host || 'maximussports.ai'}`;
-    const [liveGames, champOdds, mlbLeaders, mlbStandings, picksResult] = await Promise.all([
+    const [liveGames, champOdds, leadersResult, mlbStandings, picksResult] = await Promise.all([
       fetchLiveGames(baseUrl, log),
       fetchChampOdds(baseUrl, log),
-      fetchLeaders(baseUrl, log),
+      fetchLeadersInProcess(log),
       fetchStandings(baseUrl, log),
       fetchPicksInProcess(log),
     ]);
     const mlbPicks = picksResult.board;
+    const mlbLeaders = leadersResult.data;
 
     const content = buildSlideContent(liveGames, champOdds, dateLabel, mlbStandings);
 
@@ -655,18 +681,22 @@ export default async function handler(req, res) {
   const baseUrl = `https://${req.headers.host || 'maximussports.ai'}`;
   log.info('assembling data from:', baseUrl);
 
-  let liveGames, champOdds, mlbLeaders, mlbStandings, mlbPicks, picksSource, picksCounts;
+  let liveGames, champOdds, mlbLeaders, mlbStandings, mlbPicks;
+  let picksSource, picksCounts;
+  let leadersSource, leadersCounts;
   try {
-    const [_liveGames, _champOdds, _mlbLeaders, _mlbStandings, _picksResult] = await Promise.all([
+    const [_liveGames, _champOdds, _leadersResult, _mlbStandings, _picksResult] = await Promise.all([
       fetchLiveGames(baseUrl, log),
       fetchChampOdds(baseUrl, log),
-      fetchLeaders(baseUrl, log),
+      fetchLeadersInProcess(log),
       fetchStandings(baseUrl, log),
       fetchPicksInProcess(log),
     ]);
     liveGames = _liveGames;
     champOdds = _champOdds;
-    mlbLeaders = _mlbLeaders;
+    mlbLeaders = _leadersResult.data;
+    leadersSource = _leadersResult.source;
+    leadersCounts = _leadersResult.counts;
     mlbStandings = _mlbStandings;
     mlbPicks = _picksResult.board;
     picksSource = _picksResult.source;
@@ -674,7 +704,18 @@ export default async function handler(req, res) {
     const leaderCatKeys = Object.keys(mlbLeaders?.categories || {});
     const pickCatKeys = Object.keys(mlbPicks?.categories || {});
     const pickCountsStr = pickCatKeys.map(k => `${k}:${(mlbPicks.categories[k] || []).length}`);
-    log.info(`data: ${liveGames.length} games, ${Object.keys(champOdds).length} odds, ${leaderCatKeys.length} leader cats [${leaderCatKeys.join(',')}], ${Object.keys(mlbStandings).length} standings, picks source=${picksSource} [${pickCountsStr.join(',')}]`);
+    log.info(`data: ${liveGames.length} games, ${Object.keys(champOdds).length} odds, leaders source=${leadersSource} cats=${leaderCatKeys.length} [${leaderCatKeys.join(',')}], ${Object.keys(mlbStandings).length} standings, picks source=${picksSource} [${pickCountsStr.join(',')}]`);
+
+    // ── Structured leaders diagnostic ──
+    log.info('[AUTO_MLB_DAILY_LEADERS]', JSON.stringify({
+      hasMlbLeaders: !!mlbLeaders,
+      leaderShape: Array.isArray(mlbLeaders?.categories) ? 'array' : typeof mlbLeaders?.categories,
+      categoryKeys: leaderCatKeys,
+      leaderCategoryCount: leaderCatKeys.length,
+      missingCategories: leadersCounts?._missingCategories || [],
+      perCategoryLeaderCounts: leaderCatKeys.map(k => `${k}:${mlbLeaders.categories[k]?.leaders?.length || 0}`),
+      source: leadersSource,
+    }));
   } catch (e) {
     log.error('data assembly failed:', e.message);
     if (mode === 'live' || mode === 'force') {
@@ -684,6 +725,33 @@ export default async function handler(req, res) {
       });
     }
     return res.status(500).json({ ok: false, stage: 'data_assembly', error: e.message, requestId, dateKey });
+  }
+
+  // ── Leaders integrity check — fail fast with actionable detail ──
+  //
+  // The caption builder's resolveLeaders() iterates LEADER_CATEGORIES and
+  // requires AT LEAST ONE category to have a non-empty leaders[] array. We
+  // pre-flight that here so the failure record points at the upstream data
+  // problem, not the caption builder.
+  const leaderCategoryEntries = Object.entries(mlbLeaders?.categories || {});
+  const populatedLeaderCategories = leaderCategoryEntries.filter(([, v]) => (v?.leaders?.length ?? 0) > 0);
+  if (populatedLeaderCategories.length === 0 && (mode === 'live' || mode === 'force')) {
+    const reason = `leaders_${leadersSource}_empty`;
+    const detail = `mlbLeaders.categories has no populated category. source=${leadersSource}, missing=${(leadersCounts?._missingCategories || []).join(',') || 'ALL'}`;
+    log.error(`[LEADERS_BUILD_EMPTY] ${detail}`);
+    await persistFailure('leaders_build', detail, {
+      step: 'leaders_pre_flight',
+      reason,
+      leadersSource,
+      leaderCategoryKeys: leaderCategoryEntries.map(([k]) => k),
+      missingCategories: leadersCounts?._missingCategories || MLB_LEADERS_TARGET_CATEGORIES,
+    });
+    return res.status(502).json({
+      ok: false, stage: 'leaders_build', step: 'leaders_pre_flight', reason,
+      error: detail,
+      requestId, dateKey, leadersSource,
+      missingCategories: leadersCounts?._missingCategories || MLB_LEADERS_TARGET_CATEGORIES,
+    });
   }
 
   // ── No-slate detection (explicit, before payload build) ──
@@ -840,8 +908,14 @@ export default async function handler(req, res) {
           ? 'zero_picks_resolved_no_slate_candidate'
           : `zero_picks_resolved_despite_picks_source=${picksSource}`;
       } else if (msg.includes('Zero leader categories')) {
+        // The leaders pre-flight upstream should have already returned 502
+        // with a structured leaders_build failure. If we still hit this it
+        // means the SHAPE was non-empty but resolveLeaders() rejected it
+        // (e.g. categories present but empty leaders[] arrays). Surface
+        // both source AND the actual category keys so the issue is
+        // diagnosable from post history alone.
         step = 'caption_validation';
-        reason = 'zero_leader_categories_resolved';
+        reason = `zero_leader_categories_resolved_source=${leadersSource}`;
       } else {
         step = 'caption_validation';
         reason = 'validation_failed';
@@ -853,6 +927,8 @@ export default async function handler(req, res) {
         step, reason,
         picksSource,
         picksCounts,
+        leadersSource,
+        leadersCounts,
         mlbPickCategoryKeys: Object.keys(captionPayload?.mlbPicks?.categories || {}),
         mlbLeaderCategoryKeys: Object.keys(captionPayload?.mlbLeaders?.categories || {}),
         liveGamesCount: liveGames.length,
