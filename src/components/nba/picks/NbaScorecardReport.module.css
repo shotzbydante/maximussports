@@ -1,0 +1,213 @@
+/* NbaScorecardReport — full daily report card */
+
+.section {
+  background: var(--color-bg-elevated, #fff);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 14px;
+  padding: 20px 24px;
+  margin-bottom: var(--space-xl, 32px);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+/* ── Header strip ── */
+.headerStrip {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 24px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.headerLeft { display: flex; flex-direction: column; gap: 2px; }
+.eyebrow {
+  font-size: 0.56rem; font-weight: 700; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--color-text-muted);
+}
+.title {
+  font-size: 1.05rem; font-weight: 800; margin: 0;
+  color: var(--color-text);
+}
+.slateDate {
+  font-size: 0.74rem; font-weight: 500; color: var(--color-text-secondary);
+}
+
+.headerStats { display: flex; gap: 18px; }
+.statCol {
+  display: flex; flex-direction: column; align-items: flex-end;
+}
+.statLabel {
+  font-size: 0.5rem; font-weight: 700; letter-spacing: 0.10em;
+  text-transform: uppercase; color: var(--color-text-muted);
+}
+.statValue {
+  font-size: 1.4rem; font-weight: 800; color: var(--color-text);
+  font-variant-numeric: tabular-nums; line-height: 1.1;
+}
+
+/* ── Takeaway ── */
+.takeaway {
+  display: flex; align-items: baseline; gap: 8px;
+  padding: 11px 14px;
+  border-radius: 10px;
+  font-size: 0.84rem; font-weight: 500;
+  margin: 0 0 16px;
+  border-left: 3px solid var(--color-text-muted);
+  background: rgba(0, 0, 0, 0.025);
+  color: var(--color-text-secondary);
+}
+.takeawayKicker {
+  font-size: 0.54rem; font-weight: 800; letter-spacing: 0.10em;
+  text-transform: uppercase; color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+.takeaway_positive { border-left-color: #16a34a; background: rgba(22,163,74,0.06); }
+.takeaway_negative { border-left-color: #dc2626; background: rgba(220,38,38,0.06); }
+.takeaway_neutral  { border-left-color: #c9a24a; background: rgba(201,162,74,0.06); }
+
+/* ── Category chips ── */
+.chipRow {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-bottom: 18px;
+}
+@media (max-width: 640px) { .chipRow { grid-template-columns: repeat(2, 1fr); } }
+
+.chip {
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 11px 14px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.025);
+  border: 1px solid rgba(0, 0, 0, 0.04);
+}
+.chip_overall { background: rgba(29, 66, 138, 0.04); border-color: rgba(29, 66, 138, 0.14); }
+.chip_ml { background: rgba(22, 163, 74, 0.04); border-color: rgba(22, 163, 74, 0.14); }
+.chip_ats { background: rgba(201, 162, 74, 0.04); border-color: rgba(201, 162, 74, 0.14); }
+.chip_tot { background: rgba(106, 27, 154, 0.04); border-color: rgba(106, 27, 154, 0.14); }
+
+.chipLabel {
+  font-size: 0.5rem; font-weight: 700; letter-spacing: 0.10em;
+  text-transform: uppercase; color: var(--color-text-muted);
+}
+.chipValue {
+  font-size: 1.05rem; font-weight: 800; color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+.chipRate {
+  font-size: 0.66rem; font-weight: 700; color: var(--color-text-secondary);
+}
+.chipPending {
+  font-size: 0.56rem; font-weight: 600; color: var(--color-text-muted);
+  margin-top: 2px;
+}
+
+/* ── Picks list ── */
+.picksList {
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  padding-top: 12px;
+}
+.picksHeader {
+  display: flex; align-items: baseline; justify-content: space-between;
+  font-size: 0.58rem; font-weight: 700; letter-spacing: 0.10em;
+  text-transform: uppercase; color: var(--color-text-muted);
+  margin-bottom: 8px;
+}
+.picksHeaderHint { font-weight: 500; letter-spacing: 0.04em; }
+
+.row {
+  display: grid;
+  grid-template-columns: minmax(140px, 1.1fr) minmax(220px, 2fr) auto;
+  gap: 14px;
+  align-items: center;
+  padding: 11px 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+}
+.row:last-child { border-bottom: none; }
+.row_won { background: linear-gradient(90deg, rgba(22,163,74,0.04), transparent 30%); }
+.row_lost { background: linear-gradient(90deg, rgba(220,38,38,0.04), transparent 30%); }
+.row_push { background: linear-gradient(90deg, rgba(201,162,74,0.04), transparent 30%); }
+
+.rowLeft { display: flex; flex-direction: column; gap: 3px; }
+.matchup {
+  font-size: 0.78rem; font-weight: 700; color: var(--color-text);
+  letter-spacing: 0.02em;
+}
+.metaRow { display: flex; gap: 6px; align-items: center; }
+.cat {
+  font-size: 0.5rem; font-weight: 700; letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 2px 7px; border-radius: 4px;
+  background: rgba(29,66,138,0.08); color: #1d428a;
+}
+.tier {
+  font-size: 0.5rem; font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 2px 7px; border-radius: 4px;
+  background: rgba(201,162,74,0.10); color: #9b7428;
+}
+
+.rowMid { display: flex; flex-direction: column; gap: 2px; }
+.pickLabel {
+  font-size: 0.86rem; font-weight: 800; color: var(--color-text);
+  letter-spacing: 0.01em;
+}
+.finalScore {
+  font-size: 0.7rem; color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+.reason {
+  font-size: 0.68rem; color: var(--color-text-muted);
+  line-height: 1.4;
+}
+
+.rowRight { display: flex; align-items: center; }
+
+.badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 5px 12px; border-radius: 6px;
+  font-size: 0.62rem; font-weight: 800; letter-spacing: 0.06em;
+  text-transform: uppercase; min-width: 72px; text-align: center;
+}
+.badgeWon { background: rgba(22, 163, 74, 0.14); color: #16a34a; border: 1px solid rgba(22, 163, 74, 0.28); }
+.badgeLost { background: rgba(220, 38, 38, 0.14); color: #dc2626; border: 1px solid rgba(220, 38, 38, 0.28); }
+.badgePush { background: rgba(201, 162, 74, 0.14); color: #9b7428; border: 1px solid rgba(201, 162, 74, 0.28); }
+.badgePending { background: rgba(0, 0, 0, 0.04); color: var(--color-text-muted); border: 1px solid rgba(0, 0, 0, 0.10); }
+
+/* ── States ── */
+.empty {
+  text-align: center; padding: 28px 16px;
+}
+.emptyTitle {
+  font-size: 0.92rem; font-weight: 700; color: var(--color-text); margin: 0 0 6px;
+}
+.emptyBody {
+  font-size: 0.78rem; color: var(--color-text-secondary); margin: 0; line-height: 1.55;
+}
+
+.noPicks {
+  font-size: 0.76rem; color: var(--color-text-muted);
+  padding: 12px 0 0; margin: 0;
+  border-top: 1px solid rgba(0, 0, 0, 0.04);
+}
+
+/* Skeleton */
+.skel { display: flex; flex-direction: column; gap: 10px; }
+.skelBlock {
+  height: 56px; border-radius: 8px;
+  background: rgba(0, 0, 0, 0.03);
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+@keyframes shimmer { 0%, 100% { opacity: 0.45; } 50% { opacity: 0.75; } }
+
+/* Responsive */
+@media (max-width: 640px) {
+  .section { padding: 16px 14px; border-radius: 10px; }
+  .row {
+    grid-template-columns: 1fr auto;
+    gap: 8px;
+  }
+  .rowMid { grid-column: 1 / -1; }
+  .rowRight { grid-column: 2; grid-row: 1; }
+  .headerStats { gap: 14px; }
+  .statValue { font-size: 1.15rem; }
+}
