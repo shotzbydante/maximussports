@@ -40,15 +40,38 @@ import { NBA_TEAMS, NBA_ESPN_IDS } from '../../src/sports/nba/teams.js';
 const SUMMARY_BASE = 'https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary';
 const FETCH_TIMEOUT_MS = 6000;
 const MAX_PARALLEL_GAMES = 30;
-// Audit Part 1: stricter threshold to drop low-sample outliers. A
-// player with one 40-pt game from a single playoff appearance should
-// NOT lead the postseason board. The audit explicitly asked for ≥3.
-const MIN_GAMES_PLAYED = 3;
-// When the entire window has fewer than 6 games (very early Round 1),
-// fall back to ≥2 — otherwise the leaderboard would be empty for the
-// first 24-48 hours of the playoffs. We never go below 2.
-const RELAXED_MIN_GAMES = 2;
-const RELAXED_THRESHOLD_TOTAL_GAMES = 6;
+
+/**
+ * Adaptive thresholds (audit Part 2). Strict floors are correct once
+ * the playoffs have a real sample size, but mid-Round-1 we'd otherwise
+ * filter out everyone and Slide 2 would render "Postseason feed
+ * updating" forever. Three tiers based on TOTAL completed playoff
+ * games in the window:
+ *   ≥12 games  → minGames=3, minMinutes=60   (mid Round 1+)
+ *   ≥6 games   → minGames=2, minMinutes=35   (early Round 1)
+ *   otherwise  → minGames=1, minMinutes=15   (G1-G2 of Round 1)
+ *
+ * Plus per-category retry: if any category ends up empty after the
+ * primary filter, that single category retries with relaxed
+ * thresholds (audit Part 2 explicit requirement).
+ */
+function adaptiveThresholds(totalGames) {
+  if (totalGames >= 12) return { minGames: 3, minMinutes: 60 };
+  if (totalGames >= 6)  return { minGames: 2, minMinutes: 35 };
+  return { minGames: 1, minMinutes: 15 };
+}
+const RELAXED_RETRY = { minGames: 1, minMinutes: 0 };
+
+/**
+ * Validate a leaders payload for "real data" — used to defeat KV
+ * cache poisoning (an empty payload written by an earlier run
+ * before this code shipped should be treated as missing, not as a
+ * cache hit).
+ */
+export function hasValidLeaderCategories(leaders) {
+  const required = ['pts', 'ast', 'reb', 'stl', 'blk'];
+  return required.every(k => (leaders?.categories?.[k]?.leaders?.length ?? 0) > 0);
+}
 
 const espnIdToSlug = {};
 for (const [slug, eid] of Object.entries(NBA_ESPN_IDS)) espnIdToSlug[String(eid)] = slug;
@@ -89,6 +112,21 @@ function statIndexByLabel(labels, target) {
 function asNum(v) {
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;
+}
+
+/** Parse ESPN minutes: '32', '32:48', '0:00', '' → integer minutes. */
+function asMinutes(v) {
+  if (v == null) return 0;
+  const s = String(v).trim();
+  if (!s || s === '-' || s === '--') return 0;
+  if (s.includes(':')) {
+    const [mm, ss] = s.split(':');
+    const m = Number(mm), sec = Number(ss);
+    if (!Number.isFinite(m)) return 0;
+    return Math.round(m + (Number.isFinite(sec) ? sec / 60 : 0));
+  }
+  const n = Number(s);
+  return Number.isFinite(n) ? Math.round(n) : 0;
 }
 
 // ─── Play-In exclusion helpers ──────────────────────────────────────
@@ -191,6 +229,7 @@ function parseBoxScore(summary) {
       const rebIdx = statIndexByLabel(labels, 'REB');
       const stlIdx = statIndexByLabel(labels, 'STL');
       const blkIdx = statIndexByLabel(labels, 'BLK');
+      const minIdx = statIndexByLabel(labels, 'MIN');
       if (ptsIdx < 0) continue;
 
       for (const athleteRow of (stat?.athletes || [])) {
@@ -209,6 +248,7 @@ function parseBoxScore(summary) {
           rebounds: rebIdx >= 0 ? asNum(stats[rebIdx]) : 0,
           steals: stlIdx >= 0 ? asNum(stats[stlIdx]) : 0,
           blocks: blkIdx >= 0 ? asNum(stats[blkIdx]) : 0,
+          minutes: minIdx >= 0 ? asMinutes(stats[minIdx]) : 0,
         });
       }
     }
@@ -227,16 +267,30 @@ async function fetchOneSummary(gameId) {
 }
 
 /**
- * Pick the top N players by absolute total of `srcKey`.
- * Audit Part 1: leaders sorted by total desc, integers, with
- * MIN_GAMES_PLAYED gate so a single-game outlier can't lead.
+ * Pick the top N players by absolute total of `srcKey` after
+ * applying adaptive games-played + minutes-played floors.
+ *
+ * Audit Part 2: thresholds passed in by caller so we can retry
+ * individual categories with RELAXED_RETRY when the primary
+ * filter leaves a category empty.
+ *
+ * Returns { leaders, counts } so the caller can build the
+ * [NBA_LEADER_FILTER_DEBUG] diagnostic with real before/after
+ * numbers.
  */
-function topByTotal(playerMap, srcKey, totalGameCount, n = 3) {
-  const minGames = totalGameCount < RELAXED_THRESHOLD_TOTAL_GAMES
-    ? RELAXED_MIN_GAMES
-    : MIN_GAMES_PLAYED;
-  return Object.values(playerMap)
-    .filter(p => p.gamesPlayed >= minGames)
+function topByTotal(playerMap, srcKey, thresholds, n = 3) {
+  const all = Object.values(playerMap);
+  const playersBefore = all.length;
+
+  const afterGames = all.filter(p => p.gamesPlayed >= thresholds.minGames);
+  const afterGamesFilter = afterGames.length;
+  const filteredOutLowGames = playersBefore - afterGamesFilter;
+
+  const afterMinutes = afterGames.filter(p => (p.minutes || 0) >= thresholds.minMinutes);
+  const afterMinutesFilter = afterMinutes.length;
+  const filteredOutLowMinutes = afterGamesFilter - afterMinutesFilter;
+
+  const leaders = afterMinutes
     .filter(p => p[srcKey] > 0)
     .sort((a, b) => {
       if (b[srcKey] !== a[srcKey]) return b[srcKey] - a[srcKey];
@@ -252,6 +306,17 @@ function topByTotal(playerMap, srcKey, totalGameCount, n = 3) {
       display: String(Math.round(p[srcKey])),
       gamesPlayed: p.gamesPlayed,
     }));
+
+  return {
+    leaders,
+    counts: {
+      playersBefore,
+      afterGamesFilter,
+      afterMinutesFilter,
+      filteredOutLowGames,
+      filteredOutLowMinutes,
+    },
+  };
 }
 
 function categoryFromLeaders(catKey, leaders) {
@@ -313,9 +378,11 @@ export async function buildNbaPostseasonLeadersFromBoxScores({ windowGames = [] 
         teamAbbrev: row.teamAbbrev,
         teamSlug: row.teamSlug,
         gamesPlayed: 0,
+        minutes: 0,
         points: 0, assists: 0, rebounds: 0, steals: 0, blocks: 0,
       };
       p.gamesPlayed += 1;
+      p.minutes += row.minutes || 0;
       p.points += row.points;
       p.assists += row.assists;
       p.rebounds += row.rebounds;
@@ -331,23 +398,10 @@ export async function buildNbaPostseasonLeadersFromBoxScores({ windowGames = [] 
   console.log(`[nbaBoxScoreLeaders] parsed ${parsedGames}/${games.length} summaries, ${playerCount} unique players`);
   if (playerCount === 0) return null;
 
-  // Audit Part 1: emit before/after counts for the MIN_GAMES_PLAYED
-  // filter so the leaderboard's quality is auditable from a single
-  // console line. `filteredOutLowGames` = players we dropped because
-  // they didn't reach the games-played floor.
-  const minGamesUsed = parsedGames < RELAXED_THRESHOLD_TOTAL_GAMES
-    ? RELAXED_MIN_GAMES
-    : MIN_GAMES_PLAYED;
-  const playersBefore = playerCount;
-  const playersAfter = Object.values(playerMap).filter(p => p.gamesPlayed >= minGamesUsed).length;
-  console.log('[NBA_LEADER_FILTER_DEBUG]', JSON.stringify({
-    playersBefore,
-    playersAfter,
-    minGamesUsed,
-    parsedGames,
-    filteredOutLowGames: playersBefore - playersAfter,
-    filteredOutPlayIn: excludedPlayInGames.length,
-  }));
+  // Audit Part 2: adaptive games + minutes thresholds, computed from
+  // the actual playoff sample size we successfully parsed. Then per-
+  // category retry with RELAXED_RETRY if any category came up empty.
+  const thresholds = adaptiveThresholds(parsedGames);
 
   // Map category accumulator-key → canonical leader key
   const SRC_TO_KEY = {
@@ -357,12 +411,45 @@ export async function buildNbaPostseasonLeadersFromBoxScores({ windowGames = [] 
     steals: 'stl',
     blocks: 'blk',
   };
+
   const categories = {};
+  const retried = [];
+  // Track the first category's filter counts for the debug log; the
+  // counts are identical across categories (same filters, same
+  // playerMap), only the post-positive-stat filter differs.
+  let primaryCounts = null;
+
   for (const [src, catKey] of Object.entries(SRC_TO_KEY)) {
     if (!LEADER_KEYS.includes(catKey)) continue;
-    const top = topByTotal(playerMap, src, parsedGames, 3);
-    categories[catKey] = categoryFromLeaders(catKey, top);
+    const primary = topByTotal(playerMap, src, thresholds, 3);
+    if (!primaryCounts) primaryCounts = primary.counts;
+
+    let leaders = primary.leaders;
+    if (leaders.length === 0) {
+      // Retry just this category with relaxed thresholds — never show
+      // "Postseason feed updating" if box-score data exists.
+      const relaxed = topByTotal(playerMap, src, RELAXED_RETRY, 3);
+      leaders = relaxed.leaders;
+      if (leaders.length > 0) retried.push(catKey);
+    }
+    categories[catKey] = categoryFromLeaders(catKey, leaders);
   }
+
+  // Audit Part 2 diagnostic — single line, audit-spec'd field names.
+  console.log('[NBA_LEADER_FILTER_DEBUG]', JSON.stringify({
+    playersBefore: primaryCounts?.playersBefore ?? playerCount,
+    afterGamesFilter: primaryCounts?.afterGamesFilter ?? 0,
+    afterMinutesFilter: primaryCounts?.afterMinutesFilter ?? 0,
+    afterActiveTeamFilter: primaryCounts?.afterMinutesFilter ?? 0,
+    filteredOutLowGames: primaryCounts?.filteredOutLowGames ?? 0,
+    filteredOutLowMinutes: primaryCounts?.filteredOutLowMinutes ?? 0,
+    filteredOutInactiveTeam: 0,
+    minGames: thresholds.minGames,
+    minMinutes: thresholds.minMinutes,
+    parsedGames,
+    retriedCategories: retried,
+    filteredOutPlayIn: excludedPlayInGames.length,
+  }));
 
   const result = {
     categories,
@@ -374,6 +461,8 @@ export async function buildNbaPostseasonLeadersFromBoxScores({ windowGames = [] 
       gamesAggregated: parsedGames,
       uniquePlayers: playerCount,
       excludedPlayInGames: excludedPlayInGames.length,
+      thresholds,
+      retriedCategories: retried,
     },
   };
 
@@ -382,6 +471,12 @@ export async function buildNbaPostseasonLeadersFromBoxScores({ windowGames = [] 
     gamesUsed: parsedGames,
     playersAggregated: playerCount,
     categories: Object.keys(categories || {}),
+    categoriesByCount: Object.fromEntries(
+      Object.entries(categories || {}).map(([k, v]) => [k, v.leaders?.length || 0])
+    ),
+    minGames: thresholds.minGames,
+    minMinutes: thresholds.minMinutes,
+    retriedCategories: retried,
     topPts: categories?.pts?.leaders?.[0] || null,
   }));
 

@@ -443,9 +443,11 @@ describe('NBA Daily Briefing — Phase 1 foundation', () => {
     expect(nonIncreasing(west)).toBe(true);
   });
 
-  it('Slide 3 playoffOutlook excludes losers of completed series (active-team filter)', () => {
+  it('Slide 3 playoffOutlook keeps eliminated teams visible with isEliminated flag', () => {
     // Build a context where one series has completed in an upset (MIN
-    // beats DEN 4-2). DEN should be excluded from the West outlook.
+    // beats DEN 4-2). DEN should still appear on the West outlook, but
+    // tagged isEliminated:true with status='eliminated' and label='Eliminated'.
+    // Active teams must sort above eliminated.
     const completedFinals = [];
     for (let i = 0; i < 6; i++) {
       const minWins = [true, false, true, true, false, true][i];
@@ -471,9 +473,20 @@ describe('NBA Daily Briefing — Phase 1 foundation', () => {
       nbaStandings: synthStandings,
       nbaChampOdds: synthChampOdds,
     });
-    const westSlugs = (payload.playoffOutlook?.west || []).map(t => t.slug);
-    expect(westSlugs).toContain('min'); // winner stays active
-    expect(westSlugs).not.toContain('den'); // loser excluded
+    const west = payload.playoffOutlook?.west || [];
+    const minCard = west.find(t => t.slug === 'min');
+    const denCard = west.find(t => t.slug === 'den');
+    expect(minCard).toBeTruthy();                  // winner stays
+    expect(denCard).toBeTruthy();                  // loser stays visible (no longer hidden)
+    expect(minCard.isEliminated).toBeFalsy();
+    expect(minCard.status).toBe('active');
+    expect(denCard.isEliminated).toBe(true);
+    expect(denCard.status).toBe('eliminated');
+    expect(denCard.label).toBe('Eliminated');
+    // Active teams sort above eliminated.
+    const minIdx = west.findIndex(t => t.slug === 'min');
+    const denIdx = west.findIndex(t => t.slug === 'den');
+    expect(minIdx).toBeLessThan(denIdx);
   });
 
   it('postseason leaders use canonical totals categories pts/ast/reb/stl/blk', () => {
@@ -518,9 +531,19 @@ describe('NBA Daily Briefing — Phase 1 foundation', () => {
       nbaStandings: synthStandings,
       nbaChampOdds: synthChampOdds,
     });
-    const eastSlugs = (payload.playoffOutlook?.east || []).map(t => t.slug);
-    expect(eastSlugs).toContain('bos');     // active despite bracket placeholder
-    expect(eastSlugs).not.toContain('phi'); // eliminated via game data
+    const east = payload.playoffOutlook?.east || [];
+    const bosCard = east.find(t => t.slug === 'bos');
+    const phiCard = east.find(t => t.slug === 'phi');
+    expect(bosCard).toBeTruthy();           // active despite bracket placeholder
+    expect(bosCard.isEliminated).toBeFalsy();
+    expect(bosCard.status).toBe('active');
+    expect(phiCard).toBeTruthy();           // stays visible, tagged eliminated
+    expect(phiCard.isEliminated).toBe(true);
+    expect(phiCard.status).toBe('eliminated');
+    expect(phiCard.label).toBe('Eliminated');
+    // Active teams sort above eliminated.
+    expect(east.findIndex(t => t.slug === 'bos'))
+      .toBeLessThan(east.findIndex(t => t.slug === 'phi'));
   });
 
   it('Slide 3 active set includes completed-series winners (cross-round)', () => {
@@ -546,9 +569,20 @@ describe('NBA Daily Briefing — Phase 1 foundation', () => {
       nbaStandings: synthStandings,
       nbaChampOdds: synthChampOdds,
     });
-    const eastSlugs = (payload.playoffOutlook?.east || []).map(t => t.slug);
-    expect(eastSlugs).toContain('nyk');     // winner advances — stays active
-    expect(eastSlugs).not.toContain('atl'); // loser eliminated
+    const east = payload.playoffOutlook?.east || [];
+    const nykCard = east.find(t => t.slug === 'nyk');
+    const atlCard = east.find(t => t.slug === 'atl');
+    expect(nykCard).toBeTruthy();           // winner advances — stays active
+    expect(nykCard.isEliminated).toBeFalsy();
+    expect(nykCard.status).toBe('active');
+    expect(atlCard).toBeTruthy();           // stays visible, tagged eliminated
+    expect(atlCard.isEliminated).toBe(true);
+    expect(atlCard.status).toBe('eliminated');
+    expect(atlCard.label).toBe('Eliminated');
+    expect(atlCard.rationale).toMatch(/eliminated by (NYK|Knicks)/i);
+    // Active sorts above eliminated.
+    expect(east.findIndex(t => t.slug === 'nyk'))
+      .toBeLessThan(east.findIndex(t => t.slug === 'atl'));
   });
 
   it('caption Watch Tonight section appears for closeout games', () => {
@@ -595,5 +629,32 @@ describe('NBA Daily Briefing — Phase 1 foundation', () => {
     // Some form of "Game 6" + elimination framing should appear
     expect(shortCaption).toMatch(/Game 6/);
     expect(shortCaption.toLowerCase()).toMatch(/elimination|win.{0,5}or.{0,5}go.{0,5}home|series tips|series swings|takes the series/);
+  });
+
+  it('hasValidLeaderCategories rejects empty / partial postseason payloads', async () => {
+    const { hasValidLeaderCategories } = await import('../../../../api/_lib/nbaBoxScoreLeaders.js');
+    expect(hasValidLeaderCategories(null)).toBe(false);
+    expect(hasValidLeaderCategories({})).toBe(false);
+    expect(hasValidLeaderCategories({ categories: {} })).toBe(false);
+    // Partial — missing blk
+    expect(hasValidLeaderCategories({
+      categories: {
+        pts: { leaders: [{ name: 'A' }] },
+        ast: { leaders: [{ name: 'B' }] },
+        reb: { leaders: [{ name: 'C' }] },
+        stl: { leaders: [{ name: 'D' }] },
+        blk: { leaders: [] },
+      },
+    })).toBe(false);
+    // All five present
+    expect(hasValidLeaderCategories({
+      categories: {
+        pts: { leaders: [{ name: 'A' }] },
+        ast: { leaders: [{ name: 'B' }] },
+        reb: { leaders: [{ name: 'C' }] },
+        stl: { leaders: [{ name: 'D' }] },
+        blk: { leaders: [{ name: 'E' }] },
+      },
+    })).toBe(true);
   });
 });
