@@ -206,10 +206,11 @@ export default function Dashboard() {
 
   // ── NBA Content Studio state (mirrors MLB exactly; playoff-framed) ──
   const [nbaPicks, setNbaPicks] = useState(null);          // canonical picks board from /api/nba/picks/built (V2)
-  const [nbaLiveGames, setNbaLiveGames] = useState([]);    // /api/nba/live/games
+  const [nbaLiveGames, setNbaLiveGames] = useState([]);    // /api/nba/live/games (today)
+  const [nbaWindowGames, setNbaWindowGames] = useState([]); // /api/nba/playoff-window (last 7d + tomorrow)
   const [nbaChampOdds, setNbaChampOdds] = useState(null);  // { slug: { bestChanceAmerican } }  ← inner map only
   const [nbaStandings, setNbaStandings] = useState(null);  // { slug: { wins, losses, record, rank, conference, playoffSeed } }
-  const [nbaLeaders, setNbaLeaders] = useState(null);      // { categories: { avgPoints, avgAssists, avgRebounds, avgSteals, avgBlocks } }
+  const [nbaLeaders, setNbaLeaders] = useState(null);      // postseason leaders: { categories: { avgPoints, ... } }
   const [nbaNews, setNbaNews] = useState([]);
   const [nbaSelectedTeam, setNbaSelectedTeam] = useState(null);
   const [nbaGamesLoading, setNbaGamesLoading] = useState(false);
@@ -408,13 +409,21 @@ export default function Dashboard() {
     Promise.all([
       fetch('/api/nba/picks/built').then(r => r.ok ? r.json() : { categories: {} }).catch(() => ({ categories: {} })),
       fetch('/api/nba/live/games?status=all').then(r => r.ok ? r.json() : { games: [] }).catch(() => ({ games: [] })),
+      // NEW: 7-day playoff schedule window — feeds real game results into
+      // playoffContext so series state isn't computed from static bracket
+      // 0-0 placeholders. Fixes the "OKC vs Play-In Winner — series tied
+      // 0-0, pivot game up next" bug.
+      fetch('/api/nba/playoff-window?daysBack=7&daysForward=1').then(r => r.ok ? r.json() : { games: [] }).catch(() => ({ games: [] })),
       fetch('/api/nba/odds/championship').then(r => r.ok ? r.json() : { odds: {} }).catch(() => ({ odds: {} })),
       fetch('/api/nba/standings').then(r => r.ok ? r.json() : { teams: {} }).catch(() => ({ teams: {} })),
-      fetch('/api/nba/leaders').then(r => r.ok ? r.json() : { categories: {} }).catch(() => ({ categories: {} })),
+      // POSTSEASON leaders during the playoffs (was: regular season).
+      // Builder falls back to regular-season cache if postseason is empty.
+      fetch('/api/nba/leaders?seasonType=postseason').then(r => r.ok ? r.json() : { categories: {} }).catch(() => ({ categories: {} })),
       fetch('/api/nba/news/headlines').then(r => r.ok ? r.json() : { headlines: [] }).catch(() => ({ headlines: [] })),
-    ]).then(([picksData, liveData, champData, standingsData, leadersData, newsData]) => {
+    ]).then(([picksData, liveData, windowData, champData, standingsData, leadersData, newsData]) => {
       setNbaPicks(picksData ?? null);
       setNbaLiveGames(liveData?.games ?? []);
+      setNbaWindowGames(windowData?.games ?? []);
       // IMPORTANT: /api/nba/odds/championship returns { odds: {...}, source } —
       // we store the INNER map to match what slide components expect. Same
       // shape guarantee we enforced for MLB after the autopost fix.
@@ -425,8 +434,12 @@ export default function Dashboard() {
       console.log('[NBA_CONTENT_STUDIO_PAYLOAD]', {
         picksCategoryKeys: Object.keys(picksData?.categories || {}),
         liveGamesCount: liveData?.games?.length || 0,
+        windowGamesCount: windowData?.games?.length || 0,
+        windowFinals: windowData?.counts?.final || 0,
+        windowUpcoming: windowData?.counts?.upcoming || 0,
         standingsTeams: Object.keys(standingsData?.teams || {}).length,
         leaderCategoryKeys: Object.keys(leadersData?.categories || {}),
+        leaderSource: leadersData?._source || leadersData?.seasonType || 'unknown',
         champOddsTeams: Object.keys(champData?.odds || {}).length,
       });
     }).finally(() => setNbaGamesLoading(false));
@@ -833,6 +846,7 @@ export default function Dashboard() {
           nbaPicks,
           nbaGames: [],
           nbaLiveGames,
+          nbaWindowGames,
           nbaSelectedTeam,
           nbaChampOdds,
           nbaStandings,
@@ -976,7 +990,7 @@ export default function Dashboard() {
       return { ok: false, reason: 'caption_build_failed', error: err?.message || 'buildCaption threw' };
     }
     return normalizeStudioCaption(cbbBuilt);
-  }, [activeSection, dashData, teamPageData, selectedTeam, selectedGame, dailyStyleMode, dailyDigest, selectedConference, tournamentInsightsData, canonicalRenderedPicks, canonicalPicksGames, mlbActive, mlbGames, mlbLiveGames, mlbPicks, mlbLeaders, mlbStandings, mlbChampOdds, mlbSelectedTeam, mlbSelectedGame, mlbBriefing, mlbHeadlines, mlbLeague, mlbDivision, mlbGameAngle, nbaActive, nbaPicks, nbaLiveGames, nbaLeaders, nbaStandings, nbaChampOdds, nbaNews, nbaSelectedTeam]);
+  }, [activeSection, dashData, teamPageData, selectedTeam, selectedGame, dailyStyleMode, dailyDigest, selectedConference, tournamentInsightsData, canonicalRenderedPicks, canonicalPicksGames, mlbActive, mlbGames, mlbLiveGames, mlbPicks, mlbLeaders, mlbStandings, mlbChampOdds, mlbSelectedTeam, mlbSelectedGame, mlbBriefing, mlbHeadlines, mlbLeague, mlbDivision, mlbGameAngle, nbaActive, nbaPicks, nbaLiveGames, nbaWindowGames, nbaLeaders, nbaStandings, nbaChampOdds, nbaNews, nbaSelectedTeam]);
 
   // ── Instagram Hero Summary caption (Slide 4 — Team Intel only) ────────────
   // Separate from the generic team caption — this is the viral-optimized caption
@@ -2323,6 +2337,7 @@ export default function Dashboard() {
                       nbaPicks,
                       nbaGames: [],
                       nbaLiveGames,
+                      nbaWindowGames,
                       nbaSelectedTeam,
                       nbaChampOdds,
                       nbaStandings,
@@ -2335,9 +2350,29 @@ export default function Dashboard() {
                       bulletCount: payload.bullets?.length || 0,
                       playoffRound: payload.nbaPlayoffContext?.round,
                       seriesCount: payload.nbaPlayoffContext?.series?.length || 0,
+                      completedSeriesCount: payload.nbaPlayoffContext?.completedSeries?.length || 0,
                       outlookEastCount: payload.playoffOutlook?.east?.length || 0,
                       outlookWestCount: payload.playoffOutlook?.west?.length || 0,
                     });
+                    // Slide 1 + Slide 2 must consume the same bullets array.
+                    // Emit the canonical HOTP payload here once so both slides
+                    // can never silently diverge.
+                    console.log('[NBA_HOTP_PAYLOAD]', {
+                      count: payload.bullets?.length || 0,
+                      sources: (payload.bullets || []).map(b => b.source),
+                      first: payload.bullets?.[0]?.text?.slice(0, 120),
+                    });
+                    // Postseason leaders sanity check — flags missing categories
+                    // with the source classification so Slide 2's "Postseason
+                    // feed updating" placeholder isn't a mystery.
+                    const leaderCats = Object.keys(payload.nbaLeaders?.categories || {});
+                    if (leaderCats.length < 5) {
+                      console.warn('[NBA_POSTSEASON_LEADERS_INCOMPLETE]', {
+                        source: payload.nbaLeaders?._source || payload.nbaLeaders?.seasonType || 'unknown',
+                        present: leaderCats,
+                        missingCount: 5 - leaderCats.length,
+                      });
+                    }
                     return payload;
                   } catch (err) {
                     console.error('[NBA_PAYLOAD_BUILD_FAILED]', err?.message || err);

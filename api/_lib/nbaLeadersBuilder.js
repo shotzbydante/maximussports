@@ -37,10 +37,25 @@ import { NBA_TEAMS, NBA_ESPN_IDS } from '../../src/sports/nba/teams.js';
 import { LEADER_CATEGORIES, LEADER_KEYS } from '../../src/data/nba/seasonLeaders.js';
 import { getJson, setJson } from '../_globalCache.js';
 
-const KV_LATEST = 'nba:leaders:latest';
-const KV_LASTKNOWN = 'nba:leaders:lastknown';
+// KV keys are namespaced by season type so postseason and regular
+// season caches don't poison each other.
 const LATEST_TTL_SEC = 60 * 60;             // 1 hour
 const LASTKNOWN_TTL_SEC = 24 * 60 * 60;     // 24 hours
+
+function kvKeys(seasonType) {
+  const slug = seasonType === 'postseason' ? 'postseason' : 'regular';
+  return {
+    latest: `nba:leaders:${slug}:latest`,
+    lastknown: `nba:leaders:${slug}:lastknown`,
+  };
+}
+
+// ESPN season-type integer:
+//   regular season = 2
+//   postseason     = 3
+function espnSeasonType(seasonType) {
+  return seasonType === 'postseason' ? 3 : 2;
+}
 
 const FETCH_TIMEOUT = 8000;
 const REF_TIMEOUT = 5000;
@@ -135,11 +150,12 @@ async function resolveEntry(entry) {
   };
 }
 
-async function fetchLeadersFresh() {
+async function fetchLeadersFresh(seasonType = 'regular') {
   const season = getCurrentSeason();
-  const url = `https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/${season}/types/2/leaders?limit=100`;
+  const typeId = espnSeasonType(seasonType);
+  const url = `https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/${season}/types/${typeId}/leaders?limit=100`;
   const r = await fetchWithTimeout(url, 12000);
-  if (!r.ok) return { categories: {}, fetchedAt: new Date().toISOString() };
+  if (!r.ok) return { categories: {}, fetchedAt: new Date().toISOString(), seasonType };
 
   const data = await r.json();
   const cats = data?.categories || [];
@@ -213,7 +229,7 @@ async function fetchLeadersFresh() {
     };
   }
 
-  return { categories, fetchedAt: new Date().toISOString() };
+  return { categories, fetchedAt: new Date().toISOString(), seasonType };
 }
 
 function categoryCount(data) {
@@ -235,37 +251,42 @@ function getCounts(data) {
  * Build leaders board directly (no HTTP self-fetch).
  *
  * @param {object} [opts]
+ * @param {'regular'|'postseason'} [opts.seasonType='regular']
+ *        For NBA Daily Briefing during the playoffs, callers should pass
+ *        'postseason' to hit ESPN types/3. Each season type has its own
+ *        KV namespace so caches don't cross-pollinate.
  * @param {boolean} [opts.preferFresh=false] — skip KV latest, force ESPN refetch
  * @returns {Promise<{ data, source, counts }>}
  */
 export async function buildNbaLeadersData(opts = {}) {
-  const { preferFresh = false } = opts;
+  const { preferFresh = false, seasonType = 'regular' } = opts;
+  const keys = kvKeys(seasonType);
 
   let freshData = null;
   let freshError = null;
   try {
-    freshData = await fetchLeadersFresh();
+    freshData = await fetchLeadersFresh(seasonType);
     const freshCount = categoryCount(freshData);
-    console.log(`[nbaLeadersBuilder] fresh build: categories=${freshCount}`);
+    console.log(`[nbaLeadersBuilder] fresh build: seasonType=${seasonType} categories=${freshCount}`);
 
     if (freshCount >= MIN_CATEGORIES_FOR_LASTKNOWN_WRITE) {
-      setJson(KV_LATEST, freshData, { exSeconds: LATEST_TTL_SEC }).catch(() => {});
-      setJson(KV_LASTKNOWN, freshData, { exSeconds: LASTKNOWN_TTL_SEC }).catch(() => {});
+      setJson(keys.latest, freshData, { exSeconds: LATEST_TTL_SEC }).catch(() => {});
+      setJson(keys.lastknown, freshData, { exSeconds: LASTKNOWN_TTL_SEC }).catch(() => {});
       return { data: freshData, source: 'fresh', counts: getCounts(freshData) };
     }
     if (freshCount > 0) {
-      setJson(KV_LATEST, freshData, { exSeconds: LATEST_TTL_SEC }).catch(() => {});
+      setJson(keys.latest, freshData, { exSeconds: LATEST_TTL_SEC }).catch(() => {});
     }
   } catch (err) {
     freshError = err.message;
-    console.warn(`[nbaLeadersBuilder] fresh build failed: ${err.message}`);
+    console.warn(`[nbaLeadersBuilder] fresh build failed (seasonType=${seasonType}): ${err.message}`);
   }
 
   if (!preferFresh) {
     try {
-      const latest = await getJson(KV_LATEST);
+      const latest = await getJson(keys.latest);
       if (categoryCount(latest) >= MIN_CATEGORIES_FOR_LASTKNOWN_WRITE) {
-        console.log(`[nbaLeadersBuilder] using KV latest snapshot: categories=${categoryCount(latest)}`);
+        console.log(`[nbaLeadersBuilder] using KV latest (${seasonType}): categories=${categoryCount(latest)}`);
         return { data: latest, source: 'kv_latest', counts: getCounts(latest) };
       }
     } catch (err) {
@@ -274,21 +295,46 @@ export async function buildNbaLeadersData(opts = {}) {
   }
 
   try {
-    const lastknown = await getJson(KV_LASTKNOWN);
+    const lastknown = await getJson(keys.lastknown);
     if (categoryCount(lastknown) >= MIN_CATEGORIES_FOR_LASTKNOWN_WRITE) {
-      console.log(`[nbaLeadersBuilder] using KV last-known-good: categories=${categoryCount(lastknown)}`);
+      console.log(`[nbaLeadersBuilder] using KV last-known-good (${seasonType}): categories=${categoryCount(lastknown)}`);
       return { data: lastknown, source: 'kv_lastknown', counts: getCounts(lastknown) };
     }
   } catch (err) {
     console.warn(`[nbaLeadersBuilder] KV lastknown read failed: ${err.message}`);
   }
 
+  // ── Postseason fallback to regular season ──
+  // ESPN's types/3 leaders endpoint is sometimes empty early in the
+  // postseason. Rather than render a blank Slide 2, surface regular-
+  // season leaders with source='regular_fallback' so consumers can show
+  // a small "Reg. season" tag. The caption layer can decide whether to
+  // gate on this.
+  if (seasonType === 'postseason') {
+    try {
+      console.log('[nbaLeadersBuilder] postseason empty — falling back to regular season');
+      const regularKeys = kvKeys('regular');
+      const regular = await getJson(regularKeys.lastknown) || await getJson(regularKeys.latest);
+      if (categoryCount(regular) >= MIN_CATEGORIES_FOR_LASTKNOWN_WRITE) {
+        return { data: { ...regular, seasonType: 'regular' }, source: 'regular_fallback', counts: getCounts(regular) };
+      }
+      // Last-ditch fresh regular-season fetch
+      const fresh = await fetchLeadersFresh('regular');
+      if (categoryCount(fresh) >= MIN_CATEGORIES_FOR_LASTKNOWN_WRITE) {
+        return { data: fresh, source: 'regular_fallback', counts: getCounts(fresh) };
+      }
+    } catch (err) {
+      console.warn(`[nbaLeadersBuilder] regular-season fallback failed: ${err.message}`);
+    }
+  }
+
   const empty = freshData || {
     categories: {},
     fetchedAt: new Date().toISOString(),
+    seasonType,
     _error: freshError || 'no data available',
   };
-  console.warn(`[nbaLeadersBuilder] all sources empty/partial — returning categories=${categoryCount(empty)}`);
+  console.warn(`[nbaLeadersBuilder] all sources empty/partial — seasonType=${seasonType} categories=${categoryCount(empty)}`);
   return { data: empty, source: 'empty', counts: getCounts(empty) };
 }
 

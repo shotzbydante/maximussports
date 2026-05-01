@@ -33,19 +33,26 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
+  // Optional ?seasonType=postseason|regular  (default: regular for back-compat).
+  // Daily Briefing during the playoffs should explicitly request postseason.
+  const url = new URL(req.url, 'http://localhost');
+  const seasonTypeRaw = (url.searchParams.get('seasonType') || 'regular').toLowerCase();
+  const seasonType = seasonTypeRaw === 'postseason' ? 'postseason' : 'regular';
+  const cacheKey = `nba:leaders:${seasonType}`;
+
   try {
-    const result = await coalesce('nba:leaders', async () => {
-      const fresh = cache.get('nba:leaders');
+    const result = await coalesce(cacheKey, async () => {
+      const fresh = cache.get(cacheKey);
       if (fresh) return fresh;
 
-      const { data, source, counts } = await buildNbaLeadersData();
-      console.log(`[nba/leaders] source=${source} counts:`, JSON.stringify(counts));
-      const payload = { ...data, _source: source };
+      const { data, source, counts } = await buildNbaLeadersData({ seasonType });
+      console.log(`[nba/leaders] seasonType=${seasonType} source=${source} counts:`, JSON.stringify(counts));
+      const payload = { ...data, _source: source, seasonType };
 
       // Only memoize substantive responses — avoids pinning an empty board
       // for the next half-hour after a transient failure.
       if (counts._categoriesFound >= 3) {
-        cache.set('nba:leaders', payload);
+        cache.set(cacheKey, payload);
       }
       return payload;
     });
