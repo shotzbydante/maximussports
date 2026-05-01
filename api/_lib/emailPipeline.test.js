@@ -66,6 +66,35 @@ const MOCK_MLB_DATA = {
   tournamentMeta: {},
 };
 
+const MOCK_NBA_DATA = {
+  narrativeParagraph: 'Celtics drop the Knicks in a tight one. Wolves keep climbing the West.',
+  headlines: [
+    { title: 'NBA Power Rankings', link: '#', source: 'ESPN', pubDate: null },
+  ],
+  standings: {
+    east: [
+      { slug: 'bos', abbrev: 'BOS', conference: 'Eastern', record: '50-20', wins: 50, losses: 20, confRank: 1, streak: 'W4', gb: '—' },
+      { slug: 'mil', abbrev: 'MIL', conference: 'Eastern', record: '46-24', wins: 46, losses: 24, confRank: 2, streak: 'W2', gb: '4.0' },
+      { slug: 'nyk', abbrev: 'NYK', conference: 'Eastern', record: '44-26', wins: 44, losses: 26, confRank: 3, streak: 'L1', gb: '6.0' },
+    ],
+    west: [
+      { slug: 'okc', abbrev: 'OKC', conference: 'Western', record: '52-18', wins: 52, losses: 18, confRank: 1, streak: 'W6', gb: '—' },
+      { slug: 'min', abbrev: 'MIN', conference: 'Western', record: '48-22', wins: 48, losses: 22, confRank: 2, streak: 'W3', gb: '4.0' },
+      { slug: 'lal', abbrev: 'LAL', conference: 'Western', record: '45-25', wins: 45, losses: 25, confRank: 3, streak: 'W1', gb: '7.0' },
+    ],
+  },
+  titleOutlook: [
+    { slug: 'bos', bestChanceAmerican: 250, booksCount: 8 },
+    { slug: 'okc', bestChanceAmerican: 350, booksCount: 8 },
+    { slug: 'mil', bestChanceAmerican: 800, booksCount: 8 },
+  ],
+  champOdds: {
+    bos: { bestChanceAmerican: 250 },
+    okc: { bestChanceAmerican: 350 },
+    mil: { bestChanceAmerican: 800 },
+  },
+};
+
 function fullAssembled() {
   return {
     scoresToday: [],
@@ -75,6 +104,7 @@ function fullAssembled() {
     oddsGames: [],
     botIntelBullets: [],
     mlbData: { ...MOCK_MLB_DATA },
+    nbaData: { ...MOCK_NBA_DATA },
     mlbNarrativeParagraph: MOCK_MLB_DATA.narrativeParagraph,
     briefingContext: {},
     picksBoard: null,
@@ -162,13 +192,20 @@ describe('Global Briefing: rendered HTML section contract', () => {
     const html = renderGlobalBriefingHTML(emailData);
 
     // Explicit section header assertions — these are the hero-email contract
+    // MLB block
     expect(html).toContain('MLB DAILY INTELLIGENCE');
     expect(html).toContain('PENNANT RACE SNAPSHOT');
     expect(html).toContain("MAXIMUS'S PICKS"); // Tier 2 hero-critical
     expect(html).toContain('SEASON LEADERS');
     expect(html).toContain('WORLD SERIES OUTLOOK');
     expect(html).toContain('HEADLINES');
-    expect(html).toContain('ACT ON TODAY'); // partner module
+    // NBA block (cross-sport hero email)
+    expect(html).toContain('NBA DAILY INTELLIGENCE');
+    expect(html).toContain('NBA PLAYOFF RACE');
+    expect(html).toContain('NBA TITLE OUTLOOK');
+    expect(html).toContain('NBA HEADLINES');
+    // Partner module
+    expect(html).toContain('ACT ON TODAY');
   });
 
   it('renders partner module AFTER main briefing content', () => {
@@ -269,7 +306,7 @@ describe('Global Briefing: prod/test parity (same input → same output)', () =>
     const prodHtml = renderGlobalBriefingHTML(prodData);
     const testHtml = renderGlobalBriefingHTML(testData);
 
-    // Section presence parity — the hero contract
+    // Section presence parity — the cross-sport hero contract
     const sections = [
       'MLB DAILY INTELLIGENCE',
       'PENNANT RACE SNAPSHOT',
@@ -277,6 +314,10 @@ describe('Global Briefing: prod/test parity (same input → same output)', () =>
       'SEASON LEADERS',
       'WORLD SERIES OUTLOOK',
       'HEADLINES',
+      'NBA DAILY INTELLIGENCE',
+      'NBA PLAYOFF RACE',
+      'NBA TITLE OUTLOOK',
+      'NBA HEADLINES',
       'ACT ON TODAY',
     ];
     for (const section of sections) {
@@ -553,5 +594,144 @@ describe('MLB Picks: prod/test parity (same input → same output)', () => {
       expect(prodHtml.includes(s)).toBe(true);
       expect(testHtml.includes(s)).toBe(true);
     }
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// GLOBAL BRIEFING — NBA CROSS-SPORT PARITY TESTS
+// ═══════════════════════════════════════════════════════════════
+
+describe('Global Briefing: NBA section contract', () => {
+  it('includes nbaData top-level fields after buildEmailData', () => {
+    const emailData = buildEmailData('global_briefing', fullAssembled(), { displayName: 'Test' });
+
+    expect(emailData).toHaveProperty('nbaData');
+    expect(emailData).toHaveProperty('nbaStandings');
+    expect(emailData).toHaveProperty('nbaTitleOutlook');
+    expect(emailData).toHaveProperty('nbaChampOdds');
+    expect(emailData).toHaveProperty('nbaHeadlines');
+
+    expect(emailData.nbaStandings.east).toHaveLength(3);
+    expect(emailData.nbaStandings.west).toHaveLength(3);
+    expect(emailData.nbaTitleOutlook).toHaveLength(3);
+  });
+
+  it('renders NBA headers in HTML when nbaData is present', () => {
+    const emailData = buildEmailData('global_briefing', fullAssembled(), { displayName: 'Test' });
+    const html = renderGlobalBriefingHTML(emailData);
+
+    expect(html).toContain('NBA DAILY INTELLIGENCE');
+    expect(html).toContain('NBA PLAYOFF RACE');
+    expect(html).toContain('NBA TITLE OUTLOOK');
+    expect(html).toContain('NBA HEADLINES');
+    // Specific team data should appear
+    expect(html).toContain('BOS');
+    expect(html).toContain('OKC');
+    expect(html).toContain('50-20');  // record
+    expect(html).toContain('+250');    // odds formatted
+  });
+
+  it('uses ESPN CDN absolute URLs for NBA team logos (no relative paths)', () => {
+    const emailData = buildEmailData('global_briefing', fullAssembled(), { displayName: 'Test' });
+    const html = renderGlobalBriefingHTML(emailData);
+
+    // NBA logos should resolve to absolute ESPN CDN URLs
+    expect(html).toContain('a.espncdn.com/i/teamlogos/nba/500/');
+    // No relative paths
+    expect(html).not.toContain('src="/logos/nba/');
+  });
+
+  it('digest reports NBA sections as present when data exists', () => {
+    const emailData = buildEmailData('global_briefing', fullAssembled(), { displayName: 'Test' });
+    const digest = globalBriefingSectionDigest(emailData);
+
+    expect(digest.hasNbaNarrative).toBe(true);
+    expect(digest.hasNbaStandings).toBe(true);
+    expect(digest.hasNbaTitleOutlook).toBe(true);
+    expect(digest.hasNbaHeadlines).toBe(true);
+    expect(digest.hasNbaChampOdds).toBe(true);
+  });
+});
+
+describe('Global Briefing: cross-sport graceful degradation', () => {
+  it('MLB renders fully when NBA data is null', () => {
+    const assembled = fullAssembled();
+    assembled.nbaData = null;
+    const emailData = buildEmailData('global_briefing', assembled, { displayName: 'Test' });
+    const html = renderGlobalBriefingHTML(emailData);
+
+    // MLB sections still present
+    expect(html).toContain('MLB DAILY INTELLIGENCE');
+    expect(html).toContain('PENNANT RACE SNAPSHOT');
+    expect(html).toContain('SEASON LEADERS');
+    expect(html).toContain('WORLD SERIES OUTLOOK');
+    // NBA sections absent
+    expect(html).not.toContain('NBA DAILY INTELLIGENCE');
+    expect(html).not.toContain('NBA PLAYOFF RACE');
+    expect(html).not.toContain('NBA TITLE OUTLOOK');
+    // Partner module still renders
+    expect(html).toContain('ACT ON TODAY');
+  });
+
+  it('NBA renders fully when MLB data is sparse but NBA data present', () => {
+    const assembled = fullAssembled();
+    assembled.mlbData = {
+      narrativeParagraph: '', headlines: [], picksBoard: null,
+      pennantRace: null, worldSeriesOutlook: null,
+      leadersCategories: {}, champOdds: {},
+    };
+    const emailData = buildEmailData('global_briefing', assembled, { displayName: 'Test' });
+    const html = renderGlobalBriefingHTML(emailData);
+
+    // NBA sections still render
+    expect(html).toContain('NBA DAILY INTELLIGENCE');
+    expect(html).toContain('NBA PLAYOFF RACE');
+    expect(html).toContain('NBA TITLE OUTLOOK');
+    // Partner module still renders since NBA has substantive content
+    expect(html).toContain('ACT ON TODAY');
+  });
+
+  it('full empty: only true last resort triggers no-content fallback', () => {
+    const assembled = fullAssembled();
+    assembled.nbaData = null;
+    assembled.mlbData = {
+      narrativeParagraph: '', headlines: [], picksBoard: null,
+      pennantRace: null, worldSeriesOutlook: null,
+      leadersCategories: {}, champOdds: {},
+    };
+    const emailData = buildEmailData('global_briefing', assembled, { displayName: 'Test' });
+    const html = renderGlobalBriefingHTML(emailData);
+
+    // Empty-state message should appear
+    expect(html).toContain('still being assembled');
+    // No section headers
+    expect(html).not.toContain('PENNANT RACE SNAPSHOT');
+    expect(html).not.toContain('NBA TITLE OUTLOOK');
+    // Partner module suppressed when no substantive content
+    expect(html).not.toContain('ACT ON TODAY');
+  });
+});
+
+describe('Global Briefing: NBA prod/test parity', () => {
+  it('buildEmailData produces same NBA fields for same input (idempotent)', () => {
+    const prod = buildEmailData('global_briefing', fullAssembled(), { displayName: 'User' });
+    const test = buildEmailData('global_briefing', fullAssembled(), { displayName: 'User' });
+
+    expect(prod.nbaData).toEqual(test.nbaData);
+    expect(prod.nbaStandings).toEqual(test.nbaStandings);
+    expect(prod.nbaTitleOutlook).toEqual(test.nbaTitleOutlook);
+    expect(prod.nbaChampOdds).toEqual(test.nbaChampOdds);
+    expect(prod.nbaHeadlines).toEqual(test.nbaHeadlines);
+  });
+
+  it('MLB data unaffected by NBA addition (regression check)', () => {
+    const emailData = buildEmailData('global_briefing', fullAssembled(), { displayName: 'Test' });
+
+    // MLB durable fields still mapped correctly
+    expect(emailData.pennantRace).toBeTruthy();
+    expect(emailData.worldSeriesOutlook).toBeTruthy();
+    expect(emailData.leadersCategories).toBeTruthy();
+    expect(emailData.champOdds).toBeTruthy();
+    expect(emailData.mlbData).toBeTruthy();
   });
 });

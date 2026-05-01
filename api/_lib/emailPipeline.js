@@ -17,6 +17,7 @@
  */
 
 import { assembleMlbEmailData } from './mlbEmailData.js';
+import { assembleNbaEmailData } from './nbaEmailData.js';
 import { dedupeNewsItems } from './newsDedupe.js';
 import { fetchScoresSource, fetchRankingsSource, fetchNewsAggregateSource, fetchOddsSource } from '../_sources.js';
 import { getAtsLeadersPipeline } from '../home/atsPipeline.js';
@@ -32,8 +33,9 @@ export const EMAIL_REGISTRY = {
     template: 'globalBriefing',
     prefKey: 'global_briefing',
     sport: 'global',
-    dataNeeds: ['ncaam', 'mlb'],
+    dataNeeds: ['ncaam', 'mlb', 'nba'],
     mlbFlags: { includeSummary: true, includePicks: true },
+    nbaFlags: { includeSummary: true },
     includePennantRace: true,
     includeWorldSeriesOutlook: true,
   },
@@ -170,6 +172,7 @@ export async function assembleEmailData(type, baseUrl) {
     oddsGames: [],
     botIntelBullets: [],
     mlbData: null,
+    nbaData: null,
     mlbNarrativeParagraph: '',
     picksBoard: null,
     briefingContext: {},
@@ -275,6 +278,19 @@ export async function assembleEmailData(type, baseUrl) {
     }
   }
 
+  // Fetch NBA data if needed
+  if (needs.includes('nba')) {
+    try {
+      const flags = config.nbaFlags || {};
+      result.nbaData = await assembleNbaEmailData(baseUrl, {
+        includeSummary: flags.includeSummary ?? false,
+      });
+    } catch (err) {
+      console.warn(`[emailPipeline] NBA assembly failed: ${err.message}`);
+      result.nbaData = null;
+    }
+  }
+
   return result;
 }
 
@@ -347,6 +363,12 @@ export function buildEmailData(type, assembledData, recipientContext = {}) {
     worldSeriesOutlook: assembledData.mlbData?.worldSeriesOutlook || null,
     leadersCategories: assembledData.mlbData?.leadersCategories || {},
     champOdds: assembledData.mlbData?.champOdds || {},
+    // NBA data for cross-sport hero email
+    nbaData: assembledData.nbaData || null,
+    nbaStandings: assembledData.nbaData?.standings || null,
+    nbaTitleOutlook: assembledData.nbaData?.titleOutlook || [],
+    nbaChampOdds: assembledData.nbaData?.champOdds || {},
+    nbaHeadlines: assembledData.nbaData?.headlines || [],
   };
 }
 
@@ -423,13 +445,18 @@ export async function prepareEmailPayload(type, baseUrl, recipientContext = {}) 
 /**
  * Returns the explicit section presence profile for a global_briefing payload.
  * Used by both the production send path and parity tests.
+ *
+ * Includes both MLB sections and NBA sections — the Global Daily Briefing
+ * is now a cross-sport hero email.
  */
 export function globalBriefingSectionDigest(emailData) {
   const md = emailData?.mlbData || {};
+  const nd = emailData?.nbaData || {};
   const picks = md.picksBoard?.categories || {};
   const picksCount = (picks.pickEms?.length || 0) + (picks.ats?.length || 0)
                    + (picks.leans?.length || 0) + (picks.totals?.length || 0);
   return {
+    // ─── MLB sections ───
     // Tier 2 — hero-critical, degradable
     hasNarrative: !!(md.narrativeParagraph && md.narrativeParagraph.length > 30),
     hasHeadlines: Array.isArray(md.headlines) && md.headlines.length > 0,
@@ -439,6 +466,12 @@ export function globalBriefingSectionDigest(emailData) {
     hasLeaders: !!(emailData?.leadersCategories && Object.keys(emailData.leadersCategories).length > 0),
     hasOutlook: !!(emailData?.worldSeriesOutlook?.al?.length && emailData?.worldSeriesOutlook?.nl?.length),
     hasChampOdds: !!(emailData?.champOdds && Object.keys(emailData.champOdds).length > 0),
+    // ─── NBA sections ───
+    hasNbaNarrative: !!(nd.narrativeParagraph && nd.narrativeParagraph.length > 30),
+    hasNbaStandings: !!(emailData?.nbaStandings?.east?.length && emailData?.nbaStandings?.west?.length),
+    hasNbaTitleOutlook: Array.isArray(emailData?.nbaTitleOutlook) && emailData.nbaTitleOutlook.length > 0,
+    hasNbaHeadlines: Array.isArray(emailData?.nbaHeadlines) && emailData.nbaHeadlines.length > 0,
+    hasNbaChampOdds: !!(emailData?.nbaChampOdds && Object.keys(emailData.nbaChampOdds).length > 0),
   };
 }
 
@@ -471,6 +504,10 @@ export function degradableHeroSections(digest) {
   if (!digest.hasNarrative) missing.push('narrative');
   if (!digest.hasPicks) missing.push('picks');
   if (!digest.hasHeadlines) missing.push('headlines');
+  if (!digest.hasNbaNarrative) missing.push('nbaNarrative');
+  if (!digest.hasNbaStandings) missing.push('nbaStandings');
+  if (!digest.hasNbaTitleOutlook) missing.push('nbaTitleOutlook');
+  if (!digest.hasNbaHeadlines) missing.push('nbaHeadlines');
   return missing;
 }
 
