@@ -109,15 +109,28 @@ export function normalizeEvent(ev) {
   };
 }
 
-export async function fetchScoreboard() {
+export async function fetchScoreboard({ dateStr = null } = {}) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
-    const r = await fetch(ESPN_SCOREBOARD, { signal: controller.signal });
+    const url = dateStr ? `${ESPN_SCOREBOARD}?dates=${dateStr}` : ESPN_SCOREBOARD;
+    const r = await fetch(url, { signal: controller.signal });
     if (!r.ok) return [];
     const data = await r.json();
     const events = Array.isArray(data.events) ? data.events : [];
     return events.map(normalizeEvent).filter(Boolean);
   } catch { return []; }
   finally { clearTimeout(timer); }
+}
+
+/**
+ * Fetch yesterday's NBA finals (ET calendar day). Accepts an explicit
+ * override so manual reruns / backfills can target a specific day.
+ */
+export async function fetchYesterdayFinals({ slateDate } = {}) {
+  const { yesterdayET, etDateCompact } = await import('../../_lib/dateWindows.js');
+  const ymd = slateDate || yesterdayET();
+  const dateStr = etDateCompact(ymd);
+  const games = await fetchScoreboard({ dateStr });
+  return games.filter(g => g.gameState?.isFinal || g.status === 'final');
 }

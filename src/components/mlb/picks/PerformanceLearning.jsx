@@ -82,8 +82,13 @@ function InsightLine({ text, tone }) {
   );
 }
 
-export default function PerformanceLearning({ compact = false }) {
-  const { data, loading } = usePerformance();
+const EMPTY_COPY_BY_SPORT = {
+  mlb: 'Real results accumulate daily. The first window will surface after the next slate grades.',
+  nba: 'Early playoff sample — the model is still building its NBA track record. Results are graded daily.',
+};
+
+export default function PerformanceLearning({ compact = false, sport = 'mlb' }) {
+  const { data, loading } = usePerformance({ sport });
 
   if (loading) {
     return <div className={`${styles.card} ${compact ? styles.cardCompact : ''} ${styles.loading}`} aria-hidden="true" />;
@@ -97,9 +102,8 @@ export default function PerformanceLearning({ compact = false }) {
 
   const nothingToShow = !win7 && !win30 && !topPlay && insights.length === 0;
   if (nothingToShow) {
-    // Distinguish: truly empty DB vs backend error (usePerformance surfaces
-    // a `_error` field when the endpoint couldn't reach Supabase).
     const hadError = data?._error;
+    const emptyCopy = EMPTY_COPY_BY_SPORT[sport] || EMPTY_COPY_BY_SPORT.mlb;
     return (
       <section className={`${styles.card} ${compact ? styles.cardCompact : ''}`} aria-label="Performance & Learning">
         <div className={styles.frame} aria-hidden="true" />
@@ -110,7 +114,7 @@ export default function PerformanceLearning({ compact = false }) {
         <p className={styles.empty}>
           {hadError
             ? 'The performance API is temporarily unreachable — check back shortly.'
-            : 'Real results accumulate daily. The first window will surface after the next slate grades.'}
+            : emptyCopy}
         </p>
       </section>
     );

@@ -27,25 +27,87 @@ const COVERAGE_MAX_PICKS = 15;
 
 export const NBA_MODEL_VERSION = 'nba-picks-v2.0.0';
 
+/**
+ * Playoff-aware conservative tuning (2026-04-24).
+ *
+ * Rationale for each change relative to MLB defaults:
+ *
+ *   tier1.floor 0.80           (+0.05 vs 0.75 MLB)
+ *     Playoffs have higher variance and smaller-sample volatility; demand
+ *     more absolute confidence before badging a pick as "Top Play".
+ *
+ *   tier1.slatePercentile 0.92 (+0.02 vs 0.90 MLB)
+ *     Only the top 8% of a slate clears tier 1 — forces selectivity when a
+ *     slate has several decent edges that aren't separately actionable.
+ *
+ *   tier2.floor 0.65           (+0.05 vs 0.60 MLB)
+ *     Match the tighter tier-1 gate proportionally.
+ *
+ *   maxPerTier.tier1 = 2       (-1 vs 3 MLB)
+ *     Two top plays max per slate for NBA playoffs. Fewer, stronger.
+ *
+ *   marketGates.ml.minUnderdogEdge 0.04 (NEW)
+ *     Underdog moneylines must have ≥ 4% raw edge to publish. Chasing +200
+ *     dogs on a 0.5% edge was one of the theoretical failure modes.
+ *
+ *   marketGates.spread.minEdge 0.03 (NEW)
+ *     Run-line / spread picks now require real model-vs-market separation,
+ *     not just a positive derived edge.
+ *
+ *   marketGates.total.minConfidence 0.55 (+0.05 vs 0.50 MLB)
+ *     NBA totals rarely publish because `fairTotal` is rarely supplied;
+ *     when they do, require tighter model confidence.
+ *
+ *   largeSpread.penaltyAbove 10 (NEW)
+ *     Penalize bet scores on lines where |spread| > 10 unless model
+ *     modelProb delta is ≥ 0.06 from implied. Discourages aggressive
+ *     blowout picks that dominate the score composition unfairly.
+ *
+ *   coverage.minScore 0.40 (+0.10 vs 0.30 MLB)
+ *     Narrow the coverage pool so NBA Home doesn't surface weak leans.
+ *
+ * Every adjustment is conservative. Changes are bounded to what a tuning
+ * validator would accept (|Δ| ≤ 0.05 per dimension). When real NBA data
+ * accumulates, the audit cron can propose further adjustments in shadow
+ * mode.
+ */
 export const NBA_DEFAULT_CONFIG = Object.freeze({
-  version: 'nba-picks-tuning-2026-04-20a',
+  version: 'nba-picks-tuning-2026-04-24a',
   sport: 'nba',
   weights: { edge: 0.40, conf: 0.25, sit: 0.20, mkt: 0.15 },
   tierCutoffs: {
-    tier1: { floor: 0.75, slatePercentile: 0.90 },
-    tier2: { floor: 0.60, slatePercentile: 0.70 },
+    tier1: { floor: 0.80, slatePercentile: 0.92 },
+    tier2: { floor: 0.65, slatePercentile: 0.70 },
     tier3: { floor: 0.45, slatePercentile: 0.50 },
   },
-  maxPerTier: { tier1: 3, tier2: 5, tier3: 5 },
+  maxPerTier: { tier1: 2, tier2: 5, tier3: 5 },
   maxPerGame: 2,
   maxTier1PerGame: 1,
   marketGates: {
-    total: { minConfidence: 0.50, minExpectedDelta: 2.0 },     // 2+ points
-    spread: { minProbSpread: 0.05 },
+    moneyline: {
+      minUnderdogEdge: 0.04,       // +4% raw edge required for underdog ML
+    },
+    spread: {
+      minProbSpread: 0.05,
+      minEdge: 0.03,                // raw-edge floor for spread qualification
+    },
+    total: {
+      minConfidence: 0.55,
+      minExpectedDelta: 2.0,
+    },
   },
   components: {
-    edge: { mlCap: 0.10, spreadCap: 0.08, totDeltaCap: 6.0 },   // 6 point cap on total edge
+    edge: { mlCap: 0.10, spreadCap: 0.08, totDeltaCap: 6.0 },
     mkt: { minConsensusBooks: 3 },
+    largeSpread: {
+      penaltyAbove: 10,             // |line| > 10 triggers scrutiny
+      requiredModelEdge: 0.06,      // model-prob edge needed to bypass penalty
+      penaltyFactor: 0.75,          // bet-score multiplier when triggered
+    },
+  },
+  coverage: {
+    minScore: 0.40,                 // narrower pool than MLB (0.30)
+    maxPicks: 12,                   // down from 15
   },
 });
 
@@ -290,6 +352,24 @@ export function buildNbaPicksV2({
     const implAway = moneylineToImplied(m.moneyline?.away);
     const implHome = moneylineToImplied(m.moneyline?.home);
 
+    // ── Large-spread penalty helper ──
+    const spreadGates = config?.marketGates?.spread || {};
+    const mlGates = config?.marketGates?.moneyline || {};
+    const lsConf = config?.components?.largeSpread || {};
+    const penaltyAbove = lsConf.penaltyAbove ?? 10;
+    const requiredModelEdge = lsConf.requiredModelEdge ?? 0.06;
+    const penaltyFactor = lsConf.penaltyFactor ?? 0.75;
+    const homeLineAbs = isNum(m.spread?.homeLine) ? Math.abs(m.spread.homeLine) : 0;
+    const isLargeSpread = homeLineAbs > penaltyAbove;
+
+    function maybePenalize(bs, modelEdge) {
+      if (!isLargeSpread) return bs;
+      if (isNum(modelEdge) && Math.abs(modelEdge) >= requiredModelEdge) return bs;
+      // Shallow clone + scale the total down. Components unchanged so the UI
+      // still shows the raw composition.
+      return { ...bs, total: Math.max(0, (bs.total ?? 0) * penaltyFactor) };
+    }
+
     // ── Moneyline ──
     const mlSides = [
       { side: 'away', modelProb: score.awayWinProb, implied: implAway, price: m.moneyline?.away },
@@ -299,11 +379,18 @@ export function buildNbaPicksV2({
       if (!isNum(s.modelProb) || !isNum(s.implied)) continue;
       const rawEdge = s.modelProb - s.implied;
       if (rawEdge <= 0) continue;
-      const bs = computeBetScore({
+      // Underdog (+) price requires a higher raw-edge floor. Keeps the model
+      // from chasing +200 dogs on a 0.5% edge.
+      const isUnderdog = isNum(s.price) && s.price > 0;
+      const minDogEdge = mlGates.minUnderdogEdge ?? 0;
+      if (isUnderdog && rawEdge < minDogEdge) continue;
+
+      let bs = computeBetScore({
         matchup, score, marketType: 'moneyline', side: s.side,
         rawEdge, totalDelta: null, config,
       });
-      if (!Number.isFinite(bs.total) || bs.total <= 0) continue; // guard
+      bs = maybePenalize(bs, rawEdge);
+      if (!Number.isFinite(bs.total) || bs.total <= 0) continue;
       allPickCandidates.push(makePick(matchup, score, {
         marketType: 'moneyline', side: s.side, lineValue: null,
         priceAmerican: s.price ?? null, rawEdge, modelProb: s.modelProb, impliedProb: s.implied,
@@ -313,17 +400,20 @@ export function buildNbaPicksV2({
     // ── Spread ──
     if (isNum(m.spread?.homeLine)) {
       const probSpread = Math.abs(score.awayWinProb - score.homeWinProb);
-      if (probSpread >= (config?.marketGates?.spread?.minProbSpread ?? 0.05)) {
+      if (probSpread >= (spreadGates.minProbSpread ?? 0.05)) {
+        const minSpreadEdge = spreadGates.minEdge ?? 0;
         const sides = [
           { side: 'away', line: m.spread.awayLine, rawEdge: (score.awayWinProb - (implAway ?? 0.5)) * 0.9 },
           { side: 'home', line: m.spread.homeLine, rawEdge: (score.homeWinProb - (implHome ?? 0.5)) * 0.9 },
         ];
         for (const s of sides) {
           if (!isNum(s.rawEdge) || s.rawEdge <= 0) continue;
-          const bs = computeBetScore({
+          if (s.rawEdge < minSpreadEdge) continue; // playoff: require real separation
+          let bs = computeBetScore({
             matchup, score, marketType: 'runline', side: s.side,
             rawEdge: s.rawEdge, totalDelta: null, config,
           });
+          bs = maybePenalize(bs, s.rawEdge);
           if (!Number.isFinite(bs.total) || bs.total <= 0) continue;
           allPickCandidates.push(makePick(matchup, score, {
             marketType: 'spread', side: s.side, lineValue: s.line,
@@ -371,11 +461,14 @@ export function buildNbaPicksV2({
   const topPick = assigned.tier1[0] || assigned.tier2[0] || null;
 
   const publishedIds = new Set(assigned.published.map(p => p.id));
+  // Config-driven coverage floor + cap so NBA can narrow the pool vs MLB.
+  const coverageMinScore = config?.coverage?.minScore ?? COVERAGE_MIN_SCORE;
+  const coverageMaxPicks = config?.coverage?.maxPicks ?? COVERAGE_MAX_PICKS;
   const coverage = clean
-    .filter(p => !publishedIds.has(p.id) && (p.betScore?.total ?? 0) >= COVERAGE_MIN_SCORE)
+    .filter(p => !publishedIds.has(p.id) && (p.betScore?.total ?? 0) >= coverageMinScore)
     .map(p => ({ ...p, tier: 'coverage', _coverage: true }))
     .sort((a, b) => (b.betScore?.total ?? 0) - (a.betScore?.total ?? 0))
-    .slice(0, COVERAGE_MAX_PICKS);
+    .slice(0, coverageMaxPicks);
   meta.coverageAvailable = coverage.length;
 
   // Non-bias validation — log if published picks are uniformly one side

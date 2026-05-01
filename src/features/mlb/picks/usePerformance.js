@@ -1,6 +1,13 @@
 /**
  * Hooks for the Performance & Learning + Audit Insights surfaces.
- * Both fetch once per mount and are read-only.
+ *
+ * Sport-aware: the caller must pass `sport` explicitly when NOT MLB.
+ * Default stays MLB for back-compat with existing call sites in MLB-only
+ * surfaces; NBA callers must pass `sport: 'nba'`.
+ *
+ * Endpoint paths are sport-aware too — /api/<sport>/picks/... where it
+ * exists, falling back to /api/mlb/picks/... for the endpoints we share
+ * across sports.
  */
 
 import { useEffect, useState } from 'react';
@@ -21,10 +28,25 @@ function useJson(url) {
   return { data, loading, error };
 }
 
+/**
+ * Performance/insights endpoints exist per-sport at /api/<sport>/picks/...
+ * Each accepts a `?sport=` query param and queries the correct sport-scoped
+ * rows from Supabase. We prefer the sport-native endpoint so caching and
+ * future sport-specific tweaks land on the right surface.
+ */
+const SPORT_ENDPOINTS = {
+  mlb: '/api/mlb/picks',
+  nba: '/api/nba/picks',
+};
+
+function endpointBase(sport) {
+  return SPORT_ENDPOINTS[sport] || '/api/mlb/picks';
+}
+
 export function usePerformance({ sport = 'mlb' } = {}) {
-  return useJson(`/api/mlb/picks/performance?sport=${sport}`);
+  return useJson(`${endpointBase(sport)}/performance?sport=${sport}`);
 }
 
 export function useAuditInsights({ sport = 'mlb', days = 30 } = {}) {
-  return useJson(`/api/mlb/picks/insights?sport=${sport}&days=${days}`);
+  return useJson(`${endpointBase(sport)}/insights?sport=${sport}&days=${days}`);
 }

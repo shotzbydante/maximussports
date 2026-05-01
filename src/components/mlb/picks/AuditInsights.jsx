@@ -11,8 +11,8 @@
 import { useAuditInsights } from '../../../features/mlb/picks/usePerformance';
 import styles from './AuditInsights.module.css';
 
-export default function AuditInsights() {
-  const { data, loading } = useAuditInsights();
+export default function AuditInsights({ sport = 'mlb' }) {
+  const { data, loading } = useAuditInsights({ sport });
   if (loading) return <div className={`${styles.card} ${styles.loading}`} aria-hidden="true" />;
   if (!data) return null;
 

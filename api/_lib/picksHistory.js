@@ -519,6 +519,48 @@ export async function getScorecard({ sport, slateDate }) {
   } catch { return null; }
 }
 
+/**
+ * Fetch the most recent scorecard row that has actual graded data.
+ * "Graded" means at least one pick resolved as won, lost, or push for that
+ * slate — empty placeholder rows ("No picks persisted for this date") are
+ * skipped so the UI doesn't show a dead "yesterday was blank" state when an
+ * earlier slate did produce real results.
+ *
+ * Returns the same shape as getScorecard, or null when no graded slate exists
+ * within the lookback window.
+ */
+export async function getLatestGradedScorecard({ sport, lookbackDays = 14 } = {}) {
+  const sb = safeAdmin();
+  if (!sb) return null;
+  try {
+    // Compute lookback cutoff (ET-naive YYYY-MM-DD; the column is a date type).
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - lookbackDays);
+    const cutoffYmd = cutoff.toISOString().slice(0, 10);
+
+    const { data, error } = await sb
+      .from('picks_daily_scorecards')
+      .select('*')
+      .eq('sport', sport)
+      .gte('slate_date', cutoffYmd)
+      .order('slate_date', { ascending: false })
+      .limit(lookbackDays);
+    if (error) {
+      if (isMissingTableError(error)) warnMissingOnce('picks_daily_scorecards', error);
+      return null;
+    }
+    if (!Array.isArray(data) || data.length === 0) return null;
+
+    // Walk most-recent first; pick the first row with real graded data.
+    for (const row of data) {
+      const r = row?.record || {};
+      const graded = (r.won ?? 0) + (r.lost ?? 0) + (r.push ?? 0);
+      if (graded > 0) return row;
+    }
+    return null;
+  } catch { return null; }
+}
+
 /** Fetch the active tuning config for a sport. Falls back to default on error. */
 export async function getActiveConfig({ sport }) {
   const sb = safeAdmin();
