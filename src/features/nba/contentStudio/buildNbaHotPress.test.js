@@ -86,7 +86,7 @@ describe('scoreSeriesEvent (HOTP ranking)', () => {
 });
 
 describe('buildNbaHotPress narrative content', () => {
-  it('clincher bullet includes series score + Round 1 surprise framing for upsets', () => {
+  it('clincher bullet uses ESPN/Vegas voice with series score + bracket-flip framing for upsets', () => {
     const playoffContext = {
       round: 'Round 1',
       series: [
@@ -98,6 +98,7 @@ describe('buildNbaHotPress narrative content', () => {
           isElimination: false,
           winnerSlug: 'lal',
           loserSlug: 'hou',
+          conference: 'Western',
           seriesScore: { top: 4, bottom: 2 },
           gamesPlayed: 6,
           mostRecentGameTs: Date.now() - 6 * 3600 * 1000, // 6hr ago — fresh
@@ -109,11 +110,13 @@ describe('buildNbaHotPress narrative content', () => {
     };
     const bullets = buildNbaHotPress({ liveGames: [], playoffContext });
     const text = bullets.find(b => b.source === 'clincher')?.text || '';
-    expect(text).toMatch(/4-2/);
-    expect(text).toMatch(/major Round 1 surprise/);
+    expect(text).toMatch(/4–2/);
+    expect(text).toMatch(/🚨/);
+    // Either bracket-flip or upset/title-path market language
+    expect(text).toMatch(/bracket flips|reshuffles|upset|title path/);
   });
 
-  it('closeout bullet includes "Game 6 — can close the series tonight"', () => {
+  it('closeout bullet includes ESPN/Vegas voice + closeout shot + season on the line', () => {
     const playoffContext = {
       round: 'Round 1',
       series: [
@@ -131,12 +134,14 @@ describe('buildNbaHotPress narrative content', () => {
     };
     const bullets = buildNbaHotPress({ liveGames: [], playoffContext });
     const text = bullets.find(b => b.source === 'closeout')?.text || '';
-    expect(text).toMatch(/3-2/);
+    expect(text).toMatch(/3–2/);
     expect(text).toMatch(/Game 6/);
-    expect(text).toMatch(/close the series/);
+    expect(text).toMatch(/closeout shot/);
+    expect(text).toMatch(/season on the line/);
+    expect(text).toMatch(/🔥/);
   });
 
-  it('Game 7 bullet identifies the decider', () => {
+  it('Game 7 bullet uses "decides the series" + market shakeup framing', () => {
     const playoffContext = {
       round: 'Round 1',
       series: [
@@ -155,8 +160,35 @@ describe('buildNbaHotPress narrative content', () => {
     };
     const bullets = buildNbaHotPress({ liveGames: [], playoffContext });
     const text = bullets.find(b => b.source === 'game7')?.text || '';
-    expect(text).toMatch(/3-3/);
-    expect(text).toMatch(/Game 7 decides/);
+    expect(text).toMatch(/Game 7/);
+    expect(text).toMatch(/decides the series/);
+    expect(text).toMatch(/title-path|market/);
+    expect(text).toMatch(/⚔️/);
+  });
+
+  it('swing bullet calls out series control + pricing leverage', () => {
+    const playoffContext = {
+      round: 'Round 1',
+      series: [
+        fakeSeries({
+          isSwingGame: true,
+          isCloseoutGame: false,
+          isElimination: false,
+          seriesScore: { top: 1, bottom: 1 },
+          gamesPlayed: 2,
+          nextGameNumber: 3,
+        }),
+      ],
+      eliminationGames: [],
+      upsetWatch: [],
+      completedSeries: [],
+    };
+    const bullets = buildNbaHotPress({ liveGames: [], playoffContext });
+    const text = bullets.find(b => b.source === 'swing')?.text || '';
+    expect(text).toMatch(/Game 3/);
+    expect(text).toMatch(/1–1/);
+    expect(text).toMatch(/series control/);
+    expect(text).toMatch(/pricing leverage|market/);
   });
 
   it('does NOT emit a bullet for stale placeholder series', () => {

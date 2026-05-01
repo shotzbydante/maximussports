@@ -205,12 +205,32 @@ function dailyCaption(payload) {
   }
 
   // ── HARD VALIDATION ──
+  // Picks remain a hard requirement — without picks the caption has no
+  // betting edge to surface, which is the whole point.
   if (resolvedPicks.length === 0) {
     throw new Error(`[CAPTION_VALIDATION_FAILED] Zero NBA picks resolved. payload keys: ${Object.keys(payload?.nbaPicks?.categories || {}).join(',') || 'NONE'}`);
   }
-  if (resolvedLeaders.length === 0) {
-    throw new Error(`[CAPTION_VALIDATION_FAILED] Zero NBA leader categories resolved. payload keys: ${Object.keys(payload?.nbaLeaders?.categories || {}).join(',') || 'NONE'}`);
-  }
+  // Leaders are SOFT — we render "Postseason leader feed updating" in
+  // the leaders section instead of failing the entire caption when
+  // ESPN's types/3 endpoint and the box-score aggregator both come up
+  // empty. The audit Part 2 spec explicitly calls for this behavior.
+
+  // ── Diagnostic: confirm Slide 1, Slide 2, and caption all see the
+  // same HOTP / picks / leaders / Title Path data. Any drift here will
+  // be visible from a single console line.
+  const titlePathSource = [
+    ...(payload.playoffOutlook?.east || []),
+    ...(payload.playoffOutlook?.west || []),
+  ].filter(t => t.prob != null).sort((a, b) => (b.prob ?? 0) - (a.prob ?? 0));
+  console.log('[NBA_CAPTION_INPUT]', {
+    hotpCount: bullets.length,
+    hotpFirst: bullets[0]?.text?.slice(0, 100),
+    hotpSources: bullets.slice(0, 4).map(b => b.source),
+    picksCount: resolvedPicks.length,
+    leaderCategories: resolvedLeaders.map(c => c.abbrev),
+    leaderSource: payload.nbaLeaders?._source || payload.nbaLeaders?.seasonType || 'unknown',
+    outlookCount: titlePathSource.length,
+  });
 
   // ── 1. OPENER ──
   parts.push('🏀 Your Daily NBA Playoff Briefing is here.');
@@ -223,13 +243,12 @@ function dailyCaption(payload) {
   }
 
   // ── 3. WHAT HAPPENED ──
+  // Pulls from the same buildNbaHotPress() output Slide 1 and Slide 2
+  // consume — full data parity (audit Part 6).
   parts.push('📊 What happened:');
   if (bullets.length > 0) {
     for (const b of bullets.slice(0, 4)) parts.push(`• ${b.text}`);
   } else {
-    // No finals yet today — use playoff-framed placeholder pulled from context,
-    // NOT generic filler. The hot-press builder returned [] so here we state
-    // what the slate looks like tonight.
     const activeSeriesCount = pc?.series?.length || 0;
     if (activeSeriesCount > 0) {
       parts.push(`• ${activeSeriesCount} ${pc?.round?.toLowerCase() || 'playoff'} series in motion — tonight's tip will shift the bracket.`);
@@ -237,7 +256,7 @@ function dailyCaption(payload) {
   }
   parts.push('');
 
-  // ── 4. WHY IT MATTERS ──
+  // ── 4. WHY IT MATTERS — playoff leverage + title-path framing ──
   parts.push('📈 Why it matters:');
   parts.push(buildWhyItMatters(payload, hl.topStory));
   parts.push('');
@@ -245,71 +264,70 @@ function dailyCaption(payload) {
   // ── 5. MAXIMUS'S PICKS ──
   parts.push('🎯 Maximus\'s Picks:');
   for (const p of resolvedPicks) {
-    parts.push(`▸ ${p.type} | ${p.matchup}: ${p.selection} (${p.conviction})`);
+    parts.push(`▸ ${p.matchup} — ${p.selection} (${p.type}, ${p.conviction})`);
   }
   parts.push('');
 
-  // ── 6. SEASON LEADERS ──
-  parts.push('🏆 Season Leaders:');
-  for (const cat of resolvedLeaders) {
+  // ── 6. POSTSEASON LEADERS ──
+  // PPG / APG / RPG / SPG / BPG, top 1 each (compact for IG caption).
+  // Renders "Postseason leader feed updating" inline if no categories
+  // resolved — never silently empty, never fails the whole caption.
+  parts.push('🏆 Postseason Leaders:');
+  if (resolvedLeaders.length === 0) {
+    parts.push('▸ Postseason leader feed updating — check back at tip-off.');
+  } else {
+    for (const cat of resolvedLeaders) {
+      const top = cat.leaders?.[0];
+      if (!top) continue;
+      const team = fullFromAbbrev(top.teamAbbrev) || top.teamAbbrev || '';
+      const teamTag = team ? ` (${team})` : '';
+      parts.push(`▸ ${cat.abbrev}: ${top.name}${teamTag} — ${top.value}`);
+    }
+  }
+  parts.push('');
+
+  // ── 7. TITLE PATH ──
+  // Top contenders by championship odds (East + West merged, ranked).
+  // Mirrors the Slide 3 Playoff Outlook view so caption == slide.
+  if (titlePathSource.length > 0) {
+    parts.push('🔭 Title Path:');
+    for (const t of titlePathSource.slice(0, 4)) {
+      const conf = isEastSlug(t.slug) ? 'East' : 'West';
+      const labelTag = t.label ? ` ${t.label}` : '';
+      parts.push(`▸ ${t.abbrev || t.team || '?'} (${conf}) — ${t.odds}${labelTag}`);
+    }
     parts.push('');
-    parts.push(`${cat.icon} ${cat.label}:`);
-    cat.leaders.forEach((l, i) => {
-      const team = fullFromAbbrev(l.teamAbbrev);
-      parts.push(`${i + 1}. ${l.name} — ${team} (${l.value})`);
-    });
   }
-  parts.push('');
 
-  // ── 7. CTA ──
+  // ── 8. CTA ──
   parts.push('🚀 The model never sleeps. Neither should your edge → maximussports.ai');
   parts.push('');
 
-  // ── 8. DISCLAIMER ──
+  // ── 9. DISCLAIMER ──
   parts.push('For entertainment only. Please bet responsibly. 21+');
 
   const hashtags = buildDailyHashtags(pc, hl.topStory, resolvedPicks);
   return { caption: parts.join('\n'), hashtags };
 }
 
+const EAST_SLUGS_FOR_TITLE_PATH = new Set([
+  'bos','det','cle','tor','nyk','atl','ind','mia','phi','mil','orl','chi','was','cha','bkn',
+]);
+function isEastSlug(slug) {
+  return slug ? EAST_SLUGS_FOR_TITLE_PATH.has(slug) : false;
+}
+
 // ── Dynamic hashtag builder ───────────────────────────────────────────────
 
 function buildDailyHashtags(playoffContext, topStory, picks) {
+  // Audit Part 2 spec ordering: lead with playoff-aware tags + sports-
+  // betting hashtag for IG reach during the postseason.
   const tags = new Set();
-  tags.add('#NBA');
   tags.add('#NBAPlayoffs');
-
-  // Top story team
-  if (topStory?.winSlug) {
-    const t = TEAM_BY_SLUG[topStory.winSlug];
-    if (t) tags.add(`#${t.name.replace(/\s+/g, '')}`);
-  }
-
-  // An upset-watch or elimination team, to mirror storyline
-  const featured = playoffContext?.upsetWatch?.[0] || playoffContext?.eliminationGames?.[0];
-  if (featured && tags.size < 5) {
-    const leader = featured.leader === 'top' ? featured.topTeam : featured.bottomTeam;
-    if (leader?.slug) {
-      const t = TEAM_BY_SLUG[leader.slug];
-      if (t) tags.add(`#${t.name.replace(/\s+/g, '')}`);
-    }
-  }
-
-  // Top pick team
-  if (tags.size < 5 && picks?.length > 0) {
-    const slug = picks[0]?.selectedTeamSlug;
-    if (slug) {
-      const t = TEAM_BY_SLUG[slug];
-      if (t) tags.add(`#${t.name.replace(/\s+/g, '')}`);
-    }
-  }
-
-  const fillers = ['#BasketballIntel', '#NBAPicks', '#Playoffs', '#Basketball'];
-  for (const f of fillers) {
-    if (tags.size >= 5) break;
-    tags.add(f);
-  }
-
+  tags.add('#NBAPicks');
+  tags.add('#SportsBetting');
+  tags.add('#NBA');
+  tags.add('#MaximusSports');
   return [...tags].slice(0, 5);
 }
 

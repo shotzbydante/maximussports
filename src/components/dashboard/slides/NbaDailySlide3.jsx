@@ -128,7 +128,7 @@ function ConfRow({ rank, team }) {
     <div className={styles.s3TeamRow} data-top-seed={isTopSeed ? 'true' : 'false'}>
       <div className={styles.s3TeamRank}>{rank}</div>
       <div className={styles.s3TeamLogoBox}>
-        <Logo slug={team.slug} size={44} backplate abbrev={team.abbrev} />
+        <Logo slug={team.slug} size={50} backplate abbrev={team.abbrev} />
       </div>
       <div className={styles.s3TeamBody}>
         <div className={styles.s3TeamTop}>
