@@ -9,6 +9,28 @@
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
+/* Compact variant — used as a Home preview above Today's Picks. */
+.sectionCompact {
+  padding: 16px 18px;
+  margin-bottom: var(--space-lg, 20px);
+}
+.sectionCompact .picksList { margin-top: 12px; }
+.sectionCompact .row { padding: 10px 0; }
+
+.compactCtaRow {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+.compactCta {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1d428a;
+  text-decoration: none;
+  letter-spacing: 0.02em;
+}
+.compactCta:hover { text-decoration: underline; }
+
 /* ── Header strip ── */
 .headerStrip {
   display: flex;

@@ -11,6 +11,7 @@ import NbaLoading from '../../components/nba/NbaLoading';
 import FormattedSummary from '../../components/shared/FormattedSummary';
 import NbaPinnedTeamSection from '../../components/nba/NbaPinnedTeamSection';
 import MlbMaximusPicksSectionV2 from '../../components/mlb/picks/MlbMaximusPicksSectionV2';
+import NbaScorecardReport from '../../components/nba/picks/NbaScorecardReport';
 import NbaIntelFeed from '../../components/nba/NbaIntelFeed';
 import NbaFinalsWatch from '../../components/nba/NbaFinalsWatch';
 import styles from './NbaHome.module.css';
@@ -209,7 +210,17 @@ export default function NbaHome() {
       </section>
 
       <NbaPinnedTeamSection />
-      <MlbMaximusPicksSectionV2 mode="home" sport="nba" endpoint="/api/nba/picks/built" />
+      {/* Compact unified Model Performance preview — shows yesterday's
+          scorecard, category chips, and top 3 results, with a CTA to the
+          full scorecard. Replaces the duplicate trust-strip cards V2 used
+          to render in home mode (suppressed below). */}
+      <NbaScorecardReport variant="compact" insightsHref={buildPath('/insights')} />
+      <MlbMaximusPicksSectionV2
+        mode="home"
+        sport="nba"
+        endpoint="/api/nba/picks/built"
+        suppressPerformanceBlocks
+      />
       <NbaFinalsWatch />
       <NbaIntelFeed />
     </div>

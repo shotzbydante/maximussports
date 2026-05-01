@@ -171,17 +171,19 @@ export default function MlbMaximusPicksSectionV2({
         {/* 3. Horizontal trust strip — components always mount and self-fetch
             when `scorecardSummary` embed is null (e.g. /built cache is stale
             but the picks_daily_scorecards row was just written). */}
-        <div className={styles.trustStrip}>
-          <div className={styles.trustCell}>
-            <YesterdayScorecard summary={scorecardSummary} compact />
+        {!suppressPerformanceBlocks && (
+          <div className={styles.trustStrip}>
+            <div className={styles.trustCell}>
+              <YesterdayScorecard summary={scorecardSummary} compact />
+            </div>
+            <div className={styles.trustCell}>
+              <TrackRecord payload={payload} scorecard={scorecardSummary} compact />
+            </div>
+            <div className={styles.trustCellWide}>
+              <YesterdayContinuity summary={scorecardSummary} />
+            </div>
           </div>
-          <div className={styles.trustCell}>
-            <TrackRecord payload={payload} scorecard={scorecardSummary} compact />
-          </div>
-          <div className={styles.trustCellWide}>
-            <YesterdayContinuity summary={scorecardSummary} />
-          </div>
-        </div>
+        )}
 
         {/* 4. Today's Picks section header — framing copy lives HERE */}
         {totalPicks > 0 && <TodaysPicksHeader totalPicks={totalPicks} compact />}
@@ -205,7 +207,7 @@ export default function MlbMaximusPicksSectionV2({
         )}
 
         {/* 6. Performance + About */}
-        <PerformanceLearning compact sport={sport} />
+        {!suppressPerformanceBlocks && <PerformanceLearning compact sport={sport} />}
         <AboutTheModel variant="compact" />
 
         {/* 7. How it works — moved to BOTTOM */}
