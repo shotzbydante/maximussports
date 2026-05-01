@@ -315,12 +315,34 @@ function playoffFallbackHero(playoffContext, doy) {
   const elim = playoffContext?.eliminationGames?.[0];
   const upset = playoffContext?.upsetWatch?.[0];
   const activeRound = playoffContext?.round || 'Round 1';
+  const seriesList = playoffContext?.series || [];
+
+  // Detect pivot games (Game 2 or Game 3 in Round 1)
+  const pivotSeries = seriesList.find(s => {
+    const played = s.gamesPlayed || 0;
+    return (played === 1 || played === 2) && !s.isElimination;
+  });
+
+  // Detect "underdogs steal home court" — lower seed leads on the road
+  // (lower seed = higher seed-number; road win = away team won game 1)
+  const roadSteal = seriesList.find(s => {
+    if (!s.isUpset) return false;
+    if ((s.gamesPlayed || 0) !== 1) return false;
+    return true;
+  });
 
   if (elim) {
     const trailer = elim.eliminationFor === 'top' ? elim.topTeam : elim.bottomTeam;
     const leader  = elim.eliminationFor === 'top' ? elim.bottomTeam : elim.topTeam;
     if (trailer && leader) {
       return `${leader.abbrev} TRY TO CLOSE OUT ${trailer.abbrev}. ${elim.eliminationLabel?.toUpperCase() || 'ELIMINATION NIGHT'}.`;
+    }
+  }
+  if (roadSteal) {
+    const leader = roadSteal.leader === 'top' ? roadSteal.topTeam : roadSteal.bottomTeam;
+    const trailer = roadSteal.leader === 'top' ? roadSteal.bottomTeam : roadSteal.topTeam;
+    if (leader && trailer) {
+      return `UNDERDOGS STEAL HOME COURT EARLY — ${leader.abbrev} (${leader.seed}) LEAD ${trailer.abbrev} (${trailer.seed}).`;
     }
   }
   if (upset) {
@@ -330,10 +352,16 @@ function playoffFallbackHero(playoffContext, doy) {
       return `${leader.abbrev} (${leader.seed}) LEAD ${trailer.abbrev} (${trailer.seed}). UPSET WATCH.`;
     }
   }
+  if (pivotSeries) {
+    const gameNumber = (pivotSeries.gamesPlayed || 0) + 1;
+    return `GAME ${gameNumber} SWINGS MOMENTUM ACROSS THE BRACKET.`;
+  }
 
+  // Last-resort templates — still concrete enough to feel playoff-tuned.
   const templates = [
-    () => `${activeRound.toUpperCase()} ROLLS ON. NEXT GAMES ON DECK.`,
+    () => `${activeRound.toUpperCase()} ROLLS ON. SERIES PRESSURE BUILDS.`,
     () => `${activeRound.toUpperCase()} SERIES TAKE SHAPE. EVERY GAME MATTERS.`,
+    () => `${activeRound.toUpperCase()} SHIFTS GEARS — ROAD TO THE TITLE TIGHTENS.`,
   ];
   return templates[doy % templates.length]();
 }
@@ -352,8 +380,17 @@ function playoffFallbackSlide2(playoffContext) {
     const leader = upset.leader === 'top' ? upset.topTeam : upset.bottomTeam;
     const trailer = upset.leader === 'top' ? upset.bottomTeam : upset.topTeam;
     if (leader && trailer) {
-      return `${leader.name || leader.abbrev} lead ${trailer.name || trailer.abbrev} — ${upset.seriesScore.summary}`;
+      return `${leader.name || leader.abbrev} flip the script on ${trailer.name || trailer.abbrev} — ${upset.seriesScore.summary}`;
     }
+  }
+  // Pivot-game framing
+  const pivot = (playoffContext?.series || []).find(s => {
+    const p = s.gamesPlayed || 0;
+    return (p === 1 || p === 2) && !s.isElimination;
+  });
+  if (pivot) {
+    const gameNum = (pivot.gamesPlayed || 0) + 1;
+    return `Game ${gameNum} swings momentum across the bracket`;
   }
   return `${playoffContext?.round || 'Round 1'} series continue across the bracket`;
 }

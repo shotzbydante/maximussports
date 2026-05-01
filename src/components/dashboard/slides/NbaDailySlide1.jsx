@@ -114,11 +114,13 @@ export default function NbaDailySlide1({ data, asOf: _a, slideNumber: _s, slideT
   const card1 = buildStoryCard(topStory, payload);
   const card2 = buildStoryCard(secondStory, payload) || buildFallbackStoryCard(pc);
 
-  // Playoff contenders — top 3 from the outlook (ranked by implied prob)
+  // Playoff contenders — top 5 from the outlook (ranked by implied prob).
+  // Bumping from 3 → 5 fills the bottom-card real estate that was empty
+  // and brings parity with the MLB Pennant Race module density.
   const allOutlook = [...(payload.playoffOutlook?.east || []), ...(payload.playoffOutlook?.west || [])]
     .filter(t => t.prob != null)
     .sort((a, b) => (b.prob ?? 0) - (a.prob ?? 0));
-  const raceTeams = allOutlook.slice(0, 3);
+  const raceTeams = allOutlook.slice(0, 5);
 
   // Picks: top 3 from V2 engine
   const cats = payload.nbaPicks?.categories || {};
