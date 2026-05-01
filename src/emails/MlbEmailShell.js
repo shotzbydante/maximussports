@@ -412,6 +412,33 @@ export function mlbTeamLogoImg(team, size = 22) {
     style="width:${size}px;height:${size}px;min-width:${size}px;border-radius:4px;vertical-align:middle;display:inline-block;border:0;line-height:1;outline:none;text-decoration:none;" />`;
 }
 
+/**
+ * NBA team logo image — uses canonical ESPN CDN pattern from src/utils/espnNbaLogos.js.
+ * Same source the app and Content Studio use, with absolute URLs for email.
+ */
+const NBA_ESPN_LOGO_IDS = {
+  atl: '1', bos: '2', bkn: '17', cha: '30', chi: '4',
+  cle: '5', dal: '6', den: '7', det: '8', gsw: '9',
+  hou: '10', ind: '11', lac: '12', lal: '13', mem: '29',
+  mia: '14', mil: '15', min: '16', nop: '3', nyk: '18',
+  okc: '25', orl: '19', phi: '20', phx: '21', por: '22',
+  sac: '23', sas: '24', tor: '28', uta: '26', was: '27',
+};
+
+export function nbaTeamLogoImg(team, size = 22) {
+  const slug = team?.slug;
+  const espnId = slug ? NBA_ESPN_LOGO_IDS[slug] : null;
+  const logoUrl = espnId ? `https://a.espncdn.com/i/teamlogos/nba/500/${espnId}.png` : null;
+
+  if (!logoUrl) {
+    const abbr = (team?.abbrev || team?.shortName || slug || '??').slice(0, 3).toUpperCase();
+    return `<span style="display:inline-block;width:${size}px;height:${size}px;line-height:${size}px;text-align:center;font-size:9px;font-weight:700;color:#6b7280;background:#f3f4f6;border-radius:4px;vertical-align:middle;">${abbr}</span>`;
+  }
+
+  return `<img src="${logoUrl}" alt="${team?.name || slug}" width="${size}" height="${size}"
+    style="width:${size}px;height:${size}px;min-width:${size}px;border-radius:4px;vertical-align:middle;display:inline-block;border:0;line-height:1;outline:none;text-decoration:none;" />`;
+}
+
 /* ═══════════════════════════════════════════════════════════════
    SPORTSBOOK PARTNER CTA MODULE
    Shared across all email templates that include sportsbook CTAs.

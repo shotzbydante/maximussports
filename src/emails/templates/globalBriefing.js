@@ -11,7 +11,31 @@
 
 import { EmailShell, heroBlock } from '../EmailShell.js';
 import { LEADER_CATEGORIES } from '../../data/mlb/seasonLeaders.js';
-import { stripInlineEmoji, normalizeSpacing, cleanNarrativeText, mlbTeamLogoImg, renderPartnerModule } from '../MlbEmailShell.js';
+import { stripInlineEmoji, normalizeSpacing, cleanNarrativeText, mlbTeamLogoImg, nbaTeamLogoImg, renderPartnerModule } from '../MlbEmailShell.js';
+
+// NBA team metadata for logo + name lookup. Mirrors src/sports/nba/teams.js.
+const NBA_TEAM_INFO = {
+  atl: { name: 'Hawks', conf: 'Eastern' },     bos: { name: 'Celtics', conf: 'Eastern' },
+  bkn: { name: 'Nets', conf: 'Eastern' },      cha: { name: 'Hornets', conf: 'Eastern' },
+  chi: { name: 'Bulls', conf: 'Eastern' },     cle: { name: 'Cavaliers', conf: 'Eastern' },
+  det: { name: 'Pistons', conf: 'Eastern' },   ind: { name: 'Pacers', conf: 'Eastern' },
+  mia: { name: 'Heat', conf: 'Eastern' },      mil: { name: 'Bucks', conf: 'Eastern' },
+  nyk: { name: 'Knicks', conf: 'Eastern' },    orl: { name: 'Magic', conf: 'Eastern' },
+  phi: { name: '76ers', conf: 'Eastern' },     tor: { name: 'Raptors', conf: 'Eastern' },
+  was: { name: 'Wizards', conf: 'Eastern' },
+  dal: { name: 'Mavericks', conf: 'Western' }, den: { name: 'Nuggets', conf: 'Western' },
+  gsw: { name: 'Warriors', conf: 'Western' },  hou: { name: 'Rockets', conf: 'Western' },
+  lac: { name: 'Clippers', conf: 'Western' },  lal: { name: 'Lakers', conf: 'Western' },
+  mem: { name: 'Grizzlies', conf: 'Western' }, min: { name: 'Timberwolves', conf: 'Western' },
+  nop: { name: 'Pelicans', conf: 'Western' },  okc: { name: 'Thunder', conf: 'Western' },
+  phx: { name: 'Suns', conf: 'Western' },      por: { name: 'Trail Blazers', conf: 'Western' },
+  sac: { name: 'Kings', conf: 'Western' },     sas: { name: 'Spurs', conf: 'Western' },
+  uta: { name: 'Jazz', conf: 'Western' },
+};
+
+function nbaSlugInfo(slug) {
+  return NBA_TEAM_INFO[slug] || { name: slug?.toUpperCase() || '?', conf: '' };
+}
 
 const F = "'DM Sans',Arial,Helvetica,sans-serif";
 const RED = '#c41e3a';
@@ -458,6 +482,137 @@ ${sectionPill('\u{1F3C6} WORLD SERIES OUTLOOK')}
   }
 
   // ══════════════════════════════════════════════════════════════
+  // NBA SECTIONS (cross-sport hero email)
+  // ══════════════════════════════════════════════════════════════
+  const nbaData = data.nbaData;
+  const nbaNarrative = nbaData?.narrativeParagraph || '';
+  const nbaStandings = data.nbaStandings;
+  const nbaTitleOutlook = data.nbaTitleOutlook || [];
+  const nbaHeadlines = data.nbaHeadlines || [];
+  const nbaChampOdds = data.nbaChampOdds || {};
+
+  // ── NBA DAILY INTELLIGENCE narrative ──
+  let nbaHotPressHtml = '';
+  if (nbaNarrative) {
+    const bullets = nbaNarrative.split(/\n{2,}/)
+      .map(p => cleanNarrativeText(p)).filter(p => p.length > 30)
+      .flatMap(p => p.replace(/<[^>]+>/g, '').split(/(?<=[.!?])\s+(?=[A-Z])/).filter(s => s.length > 15))
+      .slice(0, 6);
+    if (bullets.length > 0) {
+      const html = bullets.map(b =>
+        `<p style="margin:0 0 8px;font-size:14px;line-height:22px;color:#4b5563;font-family:${F};">&bull; ${normalizeSpacing(stripInlineEmoji(b))}</p>`
+      ).join('');
+      nbaHotPressHtml = `
+${sectionPill('\u{1F3C0} NBA DAILY INTELLIGENCE')}
+<tr><td style="padding:6px 24px 16px;">${html}</td></tr>`;
+    }
+  }
+
+  // ── NBA CONFERENCE STANDINGS (top 5 East + West) ──
+  let nbaStandingsHtml = '';
+  if (nbaStandings?.east?.length > 0 && nbaStandings?.west?.length > 0) {
+    const renderTeam = (t, i, isLast) => `
+      <tr>
+        <td style="padding:7px 0${isLast ? '' : `;border-bottom:1px solid ${ROW_BORDER}`};font-family:${F};">
+          <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">
+            <tr>
+              <td style="width:18px;font-size:11px;font-weight:600;color:${DIM};vertical-align:middle;">${i + 1}</td>
+              <td style="width:24px;vertical-align:middle;padding:0 8px 0 0;">${nbaTeamLogoImg({ slug: t.slug }, 16)}</td>
+              <td style="font-size:14px;font-weight:700;color:${NAVY};vertical-align:middle;width:48px;">${t.abbrev}</td>
+              <td style="vertical-align:middle;">
+                <span style="font-size:12px;font-weight:500;color:${BODY};">${t.record}</span>
+                ${t.streak ? `<span style="font-size:10px;color:${DIM};padding-left:6px;">${t.streak}</span>` : ''}
+              </td>
+              <td align="right" style="vertical-align:middle;">
+                <span style="font-size:11px;color:${MUTED};">${t.gb || ''}</span>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>`;
+
+    const east5 = nbaStandings.east.slice(0, 5);
+    const west5 = nbaStandings.west.slice(0, 5);
+
+    nbaStandingsHtml = `
+<tr><td style="padding:0 24px 16px;">
+  <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:${CARD_BG};border:1px solid ${BORDER};border-radius:6px;border-collapse:collapse;">
+    <tr><td style="padding:14px 16px 6px;">
+      <span style="font-size:12px;font-weight:700;color:${RED};letter-spacing:0.08em;text-transform:uppercase;font-family:${F};">NBA PLAYOFF RACE</span>
+    </td></tr>
+    <tr><td style="padding:4px 16px 8px;">
+      <span style="font-size:10px;font-weight:600;color:${BLUE};letter-spacing:0.06em;text-transform:uppercase;font-family:${F};">EASTERN — TOP 5</span>
+      <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;margin-top:4px;">
+        ${east5.map((t, i) => renderTeam(t, i, i === east5.length - 1)).join('')}
+      </table>
+    </td></tr>
+    <tr><td style="padding:10px 16px 8px;">
+      <span style="font-size:10px;font-weight:600;color:${RED};letter-spacing:0.06em;text-transform:uppercase;font-family:${F};">WESTERN — TOP 5</span>
+      <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;margin-top:4px;">
+        ${west5.map((t, i) => renderTeam(t, i, i === west5.length - 1)).join('')}
+      </table>
+    </td></tr>
+  </table>
+</td></tr>`;
+  }
+
+  // ── NBA TITLE OUTLOOK (top 5 by championship odds) ──
+  let nbaTitleHtml = '';
+  if (nbaTitleOutlook.length > 0) {
+    const rows = nbaTitleOutlook.slice(0, 5).map((t, i) => {
+      const info = nbaSlugInfo(t.slug);
+      const odds = t.bestChanceAmerican;
+      const oddsLabel = odds == null ? '—' : odds > 0 ? `+${odds}` : String(odds);
+      const isLast = i === Math.min(nbaTitleOutlook.length, 5) - 1;
+      return `
+      <tr>
+        <td style="padding:8px 0${isLast ? '' : `;border-bottom:1px solid ${ROW_BORDER}`};font-family:${F};">
+          <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">
+            <tr>
+              <td style="width:18px;font-size:12px;font-weight:600;color:${DIM};vertical-align:middle;">${i + 1}</td>
+              <td style="width:28px;vertical-align:middle;padding:0 8px 0 0;">${nbaTeamLogoImg({ slug: t.slug }, 20)}</td>
+              <td style="font-size:14px;font-weight:800;color:${NAVY};vertical-align:middle;">${(t.slug || '').toUpperCase()}</td>
+              <td style="font-size:12px;color:${MUTED};vertical-align:middle;padding-left:8px;">${info.name}</td>
+              <td align="right" style="vertical-align:middle;">
+                <span style="font-size:12px;font-weight:700;color:${RED};">${oddsLabel}</span>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>`;
+    }).join('');
+
+    nbaTitleHtml = `
+${sectionPill('\u{1F3C6} NBA TITLE OUTLOOK')}
+<tr><td style="padding:4px 24px 16px;">
+  <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:${CARD_BG};border:1px solid ${BORDER};border-radius:6px;border-collapse:collapse;">
+    <tr><td style="padding:10px 16px 4px;">
+      <span style="font-size:11px;font-weight:600;color:${MUTED};letter-spacing:0.06em;text-transform:uppercase;font-family:${F};">TOP 5 BY CHAMPIONSHIP ODDS</span>
+    </td></tr>
+    <tr><td style="padding:0 16px 10px;">
+      <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">${rows}</table>
+    </td></tr>
+  </table>
+</td></tr>`;
+  }
+
+  // ── NBA HEADLINES (de-emphasized) ──
+  let nbaHeadlinesHtml = '';
+  if (nbaHeadlines.length > 0) {
+    const items = nbaHeadlines.slice(0, 4).map(h => {
+      const t = normalizeSpacing(stripInlineEmoji(h.title || ''));
+      const l = h.link || '#';
+      const s = h.source || '';
+      return `<p style="margin:0 0 6px;font-size:13px;line-height:18px;font-family:${F};">&bull; <a href="${l}" style="color:${BODY};text-decoration:none;font-weight:500;" target="_blank">${t}</a>${s ? ` <span style="font-size:11px;color:${MUTED};">(${s})</span>` : ''}</p>`;
+    }).join('');
+    nbaHeadlinesHtml = `
+<tr><td style="padding:4px 24px 6px;">
+  <p style="margin:0 0 6px;font-size:10px;font-weight:700;color:${MUTED};letter-spacing:0.06em;text-transform:uppercase;font-family:${F};">NBA HEADLINES</p>
+  ${items}
+</td></tr>`;
+  }
+
+  // ══════════════════════════════════════════════════════════════
   // ASSEMBLE — build main briefing body, then append partner module
   // ══════════════════════════════════════════════════════════════
   const heroLine = sc
@@ -465,13 +620,26 @@ ${sectionPill('\u{1F3C6} WORLD SERIES OUTLOOK')}
     : 'Your daily cross-sport intelligence briefing.';
 
   // ── Main briefing sections (all must render before partner module) ──
-  const mainBriefingSections = [
+  // MLB block first (hero anchor), then NBA block, then headlines.
+  const mlbSections = [
     ncaamHtml,
     hotPressHtml,
     pennantHtml,
     picksHtml,
     leadersHtml,
     outlookHtml,
+  ].filter(Boolean).join('\n');
+
+  const nbaSections = [
+    nbaHotPressHtml,
+    nbaStandingsHtml,
+    nbaTitleHtml,
+    nbaHeadlinesHtml ? divider() + nbaHeadlinesHtml : '',
+  ].filter(Boolean).join('\n');
+
+  const mainBriefingSections = [
+    mlbSections,
+    nbaSections ? divider() + nbaSections : '',
     headlineHtml ? divider() + headlineHtml : '',
   ].filter(Boolean).join('\n');
 
@@ -494,6 +662,10 @@ ${sectionPill('\u26BE MLB DAILY INTELLIGENCE')}
     picks: picksHtml.length > 0,
     leaders: leadersHtml.length > 0,
     outlook: outlookHtml.length > 0,
+    nbaNarrative: nbaHotPressHtml.length > 0,
+    nbaStandings: nbaStandingsHtml.length > 0,
+    nbaTitle: nbaTitleHtml.length > 0,
+    nbaHeadlines: nbaHeadlinesHtml.length > 0,
     headlines: headlineHtml.length > 0,
     hasBriefingContent,
   });
