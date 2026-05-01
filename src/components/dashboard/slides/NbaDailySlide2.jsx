@@ -207,8 +207,8 @@ export default function NbaDailySlide2({ data, asOf: _a, slideNumber: _s, slideT
                 <div className={styles.s2LeaderCatLabel}>{cat.abbrev}</div>
                 {cat.leaders.length === 0 ? (
                   <div className={styles.s2LeaderRow} style={{ gridTemplateColumns: '1fr' }}>
-                    <span className={styles.s2LeaderName} style={{ color: '#a7a29a', textAlign: 'center' }}>
-                      Awaiting feed
+                    <span className={styles.s2LeaderName} style={{ color: '#a7a29a', textAlign: 'center', fontSize: 12 }}>
+                      Postseason feed updating
                     </span>
                   </div>
                 ) : (

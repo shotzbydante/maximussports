@@ -39,6 +39,32 @@
 
 import { buildNbaPlayoffContext } from '../../../data/nba/playoffContext.js';
 
+function buildLeaderText(s) {
+  if (!s) return null;
+  const a = s.topTeam?.abbrev;
+  const b = s.bottomTeam?.abbrev;
+  const ts = s.seriesScore?.top ?? 0;
+  const bs = s.seriesScore?.bottom ?? 0;
+  if (s.isComplete) {
+    const winnerAbbr = s.winnerSlug === s.topTeam?.slug ? a : b;
+    const loserAbbr = s.winnerSlug === s.topTeam?.slug ? b : a;
+    const w = Math.max(ts, bs), l = Math.min(ts, bs);
+    return `${winnerAbbr} win series ${w}-${l} over ${loserAbbr}`;
+  }
+  if (ts === bs) return `${a} and ${b} tied ${ts}-${bs}`;
+  return ts > bs ? `${a} lead ${b} ${ts}-${bs}` : `${b} lead ${a} ${bs}-${ts}`;
+}
+
+function buildStatusText(s) {
+  if (!s) return null;
+  if (s.isComplete) return s.eliminationLabel || 'Series complete';
+  if (s.isElimination) {
+    return s.eliminationLabel || 'Elimination game';
+  }
+  if (s.nextGameNumber) return `Game ${s.nextGameNumber} on the board`;
+  return null;
+}
+
 function asTeam(side) {
   if (!side) return null;
   return {
@@ -95,14 +121,15 @@ function classifyElim(winsA, winsB) {
  * Build the series context view-model.
  *
  * @param {object} opts
- * @param {Array}  opts.liveGames  — output of /api/nba/live/games
+ * @param {Array}  [opts.liveGames]    — today-only games (back-compat)
+ * @param {Array}  [opts.windowGames]  — multi-day ESPN window
  * @param {object} [opts.playoffContext] — optional override; otherwise derived
- * @returns {{ round, roundNumber, series, hasUpset, hasElimination, hasPivotGame }}
+ * @returns {{ round, roundNumber, series, hasUpset, hasElimination, hasPivotGame, ... }}
  */
-export function buildNbaSeriesContext({ liveGames = [], playoffContext = null } = {}) {
+export function buildNbaSeriesContext({ liveGames = [], windowGames = null, playoffContext = null } = {}) {
   let pc;
   try {
-    pc = playoffContext || buildNbaPlayoffContext({ liveGames });
+    pc = playoffContext || buildNbaPlayoffContext({ liveGames, windowGames });
   } catch (err) {
     throw new Error(`[NBA_SERIES_BUILD_FAILED] underlying playoff context threw: ${err.message}`);
   }
@@ -120,37 +147,55 @@ export function buildNbaSeriesContext({ liveGames = [], playoffContext = null } 
 
     return {
       matchupId: s.matchupId,
+      seriesId: s.matchupId, // alias for the spec'd name
       conference: s.conference,
       round: s.round,
       teamA: asTeam(s.topTeam),
       teamB: asTeam(s.bottomTeam),
+      teamASeed: s.topTeam?.seed ?? null,
+      teamBSeed: s.bottomTeam?.seed ?? null,
       winsA,
       winsB,
       gamesPlayed: s.gamesPlayed,
       leader,
+      leaderText: buildLeaderText(s),
+      statusText: buildStatusText(s),
       seriesScoreSummary: s.seriesScore?.summary || null,
-      nextGameDate: findNextGame(s, liveGames),
+      nextGame: s.nextGame || null,
+      nextGameNumber: s.nextGameNumber || null,
+      nextGameDate: s.nextGame?.startTime || findNextGame(s, liveGames),
+      lastGame: s.mostRecentGame || null,
       isPivotGame: isPivot,
-      // Use the canonical playoff-context elimination flag where available;
-      // fall back to the win-count check so we still surface elim state on
-      // synthetic series.
       isEliminationGame: !!s.isElimination || isElimComputed,
       eliminationFor: s.eliminationFor || null,
       eliminationLabel: s.eliminationLabel || null,
       isUpset: !!s.isUpset,
       sweepThreat: !!s.sweepThreat,
+      isComplete: !!s.isComplete,
+      winner: s.winnerSlug || null,
+      loser: s.loserSlug || null,
+      isClincher: !!s.isClincher,
+      isStalePlaceholder: !!s.isStalePlaceholder,
       mostRecentGame: s.mostRecentGame || null,
+      mostRecentGameTs: s.mostRecentGameTs || null,
+      source: windowGames ? 'window' : 'live',
     };
   });
 
   const hasUpset = series.some(s => s.isUpset);
   const hasElimination = series.some(s => s.isEliminationGame);
   const hasPivotGame = series.some(s => s.isPivotGame);
+  const completedSeries = series.filter(s => s.isComplete);
 
   return {
     round: pc.round,
     roundNumber: pc.roundNumber,
     series,
+    completedSeries,
+    recentFinals: pc.recentFinals || [],
+    todayGames: pc.todayGames || [],
+    eliminationGames: series.filter(s => s.isEliminationGame),
+    upsetWatch: series.filter(s => s.isUpset),
     hasUpset,
     hasElimination,
     hasPivotGame,

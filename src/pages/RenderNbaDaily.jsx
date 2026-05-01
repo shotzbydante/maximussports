@@ -24,16 +24,25 @@ const SLIDE_W = 1080;
 const SLIDE_H = 1350;
 
 async function fetchSlideData() {
-  const [gamesRes, picksRes, oddsRes, leadersRes, standingsRes, newsRes] = await Promise.allSettled([
+  // NEW: pull a 7-day playoff schedule window so series state reflects
+  // actual game results (last week of finals), not just static bracket
+  // placeholders. This is the data-accuracy fix for the "OKC vs Play-In
+  // Winner — series tied 0-0" bug from the audit screenshots.
+  // Postseason leaders are fetched explicitly via ?seasonType=postseason
+  // so Slide 2 shows playoff leaders during the playoffs, not regular
+  // season leaders.
+  const [gamesRes, windowRes, picksRes, oddsRes, leadersRes, standingsRes, newsRes] = await Promise.allSettled([
     fetch('/api/nba/live/games?status=all').then(r => r.ok ? r.json() : { games: [] }),
+    fetch('/api/nba/playoff-window?daysBack=7&daysForward=1').then(r => r.ok ? r.json() : { games: [] }),
     fetch('/api/nba/picks/built').then(r => r.ok ? r.json() : { categories: {} }),
     fetch('/api/nba/odds/championship').then(r => r.ok ? r.json() : { odds: {} }),
-    fetch('/api/nba/leaders').then(r => r.ok ? r.json() : { categories: {} }),
+    fetch('/api/nba/leaders?seasonType=postseason').then(r => r.ok ? r.json() : { categories: {} }),
     fetch('/api/nba/standings').then(r => r.ok ? r.json() : { teams: {} }),
     fetch('/api/nba/news/headlines').then(r => r.ok ? r.json() : { headlines: [] }),
   ]);
 
   const games = gamesRes.status === 'fulfilled' ? (gamesRes.value.games || []) : [];
+  const windowGames = windowRes.status === 'fulfilled' ? (windowRes.value?.games || []) : [];
   const picks = picksRes.status === 'fulfilled' ? picksRes.value : { categories: {} };
   const odds = oddsRes.status === 'fulfilled' ? (oddsRes.value?.odds || {}) : {};
   const leaders = leadersRes.status === 'fulfilled' ? leadersRes.value : { categories: {} };
@@ -42,12 +51,11 @@ async function fetchSlideData() {
     ? (Array.isArray(newsRes.value) ? newsRes.value : newsRes.value?.headlines || [])
     : [];
 
-  // Fold into a canonical normalized payload so both preview and render
-  // routes consume identical shape.
   return normalizeNbaImagePayload({
     activeSection: 'nba-daily',
     nbaPicks: picks,
     nbaLiveGames: games,
+    nbaWindowGames: windowGames,
     nbaChampOdds: odds,
     nbaStandings: standingsRaw?.teams || {},
     nbaLeaders: leaders,
@@ -77,6 +85,7 @@ export default function RenderNbaDaily() {
             activeSection: 'nba-daily',
             nbaPicks: slideData.nbaPicks,
             nbaLiveGames: slideData.nbaLiveGames || [],
+            nbaWindowGames: slideData.nbaWindowGames || null,
             nbaChampOdds: slideData.nbaChampOdds || null,
             nbaStandings: slideData.nbaStandings || null,
             nbaLeaders: slideData.nbaLeaders || null,

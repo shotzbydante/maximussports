@@ -256,6 +256,10 @@ export function normalizeNbaImagePayload({
   nbaPicks = null,
   nbaGames = [],
   nbaLiveGames = [],
+  /** Multi-day ESPN scoreboard window (last ~7 days + today + tomorrow).
+   *  Threaded through to playoffContext so series state reflects real
+   *  finals, not just static bracket placeholders. */
+  nbaWindowGames = null,
   nbaChampOdds = null,
   nbaStandings = null,
   nbaLeaders = null,
@@ -267,7 +271,7 @@ export function normalizeNbaImagePayload({
   const section = SECTION_MAP[activeSection] || 'daily-briefing';
 
   const playoffContext = nbaPlayoffContext
-    || buildNbaPlayoffContext({ liveGames: nbaLiveGames });
+    || buildNbaPlayoffContext({ liveGames: nbaLiveGames, windowGames: nbaWindowGames });
 
   const base = {
     workspace: 'nba',
@@ -289,6 +293,7 @@ export function normalizeNbaImagePayload({
     nbaChampOdds:       nbaChampOdds ?? null,
     nbaGames:           nbaGames ?? [],
     nbaLiveGames:       nbaLiveGames ?? [],
+    nbaWindowGames:     nbaWindowGames ?? null,
     nbaNews:            nbaNews ?? [],
     nbaPlayoffContext:  playoffContext,
     nbaBriefing:        nbaBriefing ?? null,

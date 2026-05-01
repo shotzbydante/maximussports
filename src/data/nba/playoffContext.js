@@ -165,8 +165,33 @@ function computeElimination(top, bottom) {
   return { isElimination: false, eliminationFor: null, eliminationLabel: null };
 }
 
+/**
+ * Find the next scheduled (or live) game between two team slugs from the
+ * full game window. Returns the soonest non-final game, or null.
+ */
+function findNextGameInWindow(slugA, slugB, allGames) {
+  if (!slugA || !slugB || !Array.isArray(allGames)) return null;
+  const now = Date.now();
+  const candidates = allGames.filter(g => {
+    if (g?.gameState?.isFinal || g?.status === 'final') return false;
+    const a = g?.teams?.away?.slug;
+    const h = g?.teams?.home?.slug;
+    if (!a || !h) return false;
+    return (a === slugA && h === slugB) || (a === slugB && h === slugA);
+  });
+  if (candidates.length === 0) return null;
+  candidates.sort((x, y) => {
+    const xd = x.startTime ? new Date(x.startTime).getTime() : 0;
+    const yd = y.startTime ? new Date(y.startTime).getTime() : 0;
+    return xd - yd;
+  });
+  // Prefer the earliest UPCOMING game, but if it's already in the past
+  // (live or stale) include it so we still surface "Game N tonight".
+  return candidates[0] || null;
+}
+
 /** Build a view-model for one bracket matchup enriched with live series data. */
-function enrichMatchup(matchup, finalGames) {
+function enrichMatchup(matchup, finalGames, allGames = []) {
   const { top, bottom, games } = countSeriesWins(matchup, finalGames);
   const { isElimination, eliminationFor, eliminationLabel } = computeElimination(top, bottom);
   const gamesPlayed = top + bottom;
@@ -193,7 +218,47 @@ function enrichMatchup(matchup, finalGames) {
   if (top > bottom) leader = 'top';
   else if (bottom > top) leader = 'bottom';
 
+  // Series state derivations (Phase B: real playoff state, not just bracket seeds)
+  //   - isComplete:  one side reached 4 wins → series decided
+  //   - winner/loser: derived from 4-win threshold
+  //   - isClincher:   the most-recent final IS the winning game
+  //   - mostRecentGameTs: epoch ms of the most-recent final, used by HOTP
+  //                      to prioritize "last 24-48 hr" outcomes
+  //   - nextGame / nextGameNumber: from upcoming/live games in the window
+  //   - isStalePlaceholder: the bracket has both teams resolved but neither
+  //                         a played game nor an upcoming game exists in the
+  //                         window — i.e. we have no real signal for this
+  //                         matchup yet. HOTP/contender lists exclude these.
+  const isComplete = top >= 4 || bottom >= 4;
+  const winnerSide = top >= 4 ? 'top' : bottom >= 4 ? 'bottom' : null;
+  const winnerSlug = winnerSide === 'top' ? matchup.topTeam?.slug
+    : winnerSide === 'bottom' ? matchup.bottomTeam?.slug
+    : null;
+  const loserSlug = winnerSide === 'top' ? matchup.bottomTeam?.slug
+    : winnerSide === 'bottom' ? matchup.topTeam?.slug
+    : null;
+
   const mostRecent = games.length > 0 ? games[games.length - 1] : null;
+  const mostRecentGameTs = mostRecent?.gameDate ? new Date(mostRecent.gameDate).getTime() : null;
+  const isClincher = isComplete && mostRecent && (
+    (winnerSide === 'top' && mostRecent.winnerSlug === matchup.topTeam?.slug) ||
+    (winnerSide === 'bottom' && mostRecent.winnerSlug === matchup.bottomTeam?.slug)
+  );
+
+  const slugA = matchup.topTeam?.slug;
+  const slugB = matchup.bottomTeam?.slug;
+  const next = findNextGameInWindow(slugA, slugB, allGames);
+  const nextGameNumber = next ? gamesPlayed + 1 : null;
+
+  // Stale placeholder detection: bracket has both teams resolved but no
+  // games (final OR scheduled) reference this matchup. This covers the
+  // "Round 1 OKC vs Play-In Winner — series tied 0-0, pivot game up next"
+  // bug from the audit screenshots: those static placeholders haven't
+  // been seen in live data so we should NOT promote them in HOTP.
+  const bothTeamsResolved = !matchup.topTeam?.isPlaceholder && !matchup.bottomTeam?.isPlaceholder
+    && !!slugA && !!slugB;
+  const hasAnyGameSignal = gamesPlayed > 0 || !!next;
+  const isStalePlaceholder = !bothTeamsResolved || !hasAnyGameSignal;
 
   const topTeam = matchup.topTeam ? {
     slug: matchup.topTeam.slug,
@@ -202,6 +267,7 @@ function enrichMatchup(matchup, finalGames) {
     seed: topSeed,
     record: matchup.topTeam.record || null,
     wins: top,
+    isPlaceholder: !!matchup.topTeam.isPlaceholder,
   } : null;
   const bottomTeam = matchup.bottomTeam ? {
     slug: matchup.bottomTeam.slug,
@@ -210,6 +276,7 @@ function enrichMatchup(matchup, finalGames) {
     seed: btmSeed,
     record: matchup.bottomTeam.record || null,
     wins: bottom,
+    isPlaceholder: !!matchup.bottomTeam.isPlaceholder,
   } : null;
 
   return {
@@ -231,7 +298,15 @@ function enrichMatchup(matchup, finalGames) {
     isUpset,
     upsetLabel,
     sweepThreat,
+    isComplete,
+    winnerSlug,
+    loserSlug,
+    isClincher: !!isClincher,
     mostRecentGame: mostRecent,
+    mostRecentGameTs,
+    nextGame: next,
+    nextGameNumber,
+    isStalePlaceholder,
   };
 }
 
@@ -258,11 +333,32 @@ function computeActiveRound(enrichedSeries) {
  * Main builder.
  *
  * @param {object} opts
- * @param {Array}  opts.liveGames  — output of /api/nba/live/games (or similar)
- * @param {object} [opts.bracket]  — defaults to NBA_PLAYOFF_BRACKET
+ * @param {Array}  opts.liveGames     — today-only games (back-compat)
+ * @param {Array}  [opts.windowGames] — wider game window from
+ *                                       fetchNbaPlayoffScheduleWindow().
+ *                                       When supplied, series state is
+ *                                       computed from this set so we
+ *                                       see real wins from past days.
+ * @param {object} [opts.bracket]     — defaults to NBA_PLAYOFF_BRACKET
+ *
+ * Returns the existing shape PLUS:
+ *   recentFinals          — finals in the last 48hr (sorted newest first)
+ *   todayGames            — non-final games scheduled today
+ *   completedSeries       — series with isComplete: true
+ *   activeNonStaleSeries  — series excluding isStalePlaceholder rows
  */
-export function buildNbaPlayoffContext({ liveGames = [], bracket = NBA_PLAYOFF_BRACKET } = {}) {
-  const finals = (liveGames || []).filter(g =>
+export function buildNbaPlayoffContext({ liveGames = [], windowGames = null, bracket = NBA_PLAYOFF_BRACKET } = {}) {
+  // Combine: live (today) is authoritative for "live now"; window covers
+  // last N days. Dedupe by gameId.
+  const seen = new Set();
+  const allGames = [];
+  for (const g of [...(windowGames || []), ...(liveGames || [])]) {
+    if (!g?.gameId || seen.has(g.gameId)) continue;
+    seen.add(g.gameId);
+    allGames.push(g);
+  }
+
+  const finals = allGames.filter(g =>
     g?.gameState?.isFinal || lower(g?.status) === 'final'
   );
 
@@ -283,7 +379,7 @@ export function buildNbaPlayoffContext({ liveGames = [], bracket = NBA_PLAYOFF_B
   );
 
   const allMatchups = [...round1, ...laterRounds];
-  const enrichedSeries = allMatchups.map(m => enrichMatchup(m, finals));
+  const enrichedSeries = allMatchups.map(m => enrichMatchup(m, finals, allGames));
 
   const roundNumber = computeActiveRound(enrichedSeries);
   const round = ROUND_LABEL[roundNumber] || 'Round 1';
@@ -291,18 +387,43 @@ export function buildNbaPlayoffContext({ liveGames = [], bracket = NBA_PLAYOFF_B
   // Only report series that are in the active round (avoids echoing R2+
   // placeholders during R1).
   const activeSeries = enrichedSeries.filter(s => s.round === roundNumber);
+  const activeNonStaleSeries = activeSeries.filter(s => !s.isStalePlaceholder);
 
-  const eliminationGames = activeSeries.filter(s => s.isElimination);
-  const upsetWatch       = activeSeries.filter(s => s.isUpset);
-  const sweepWatch       = activeSeries.filter(s => s.sweepThreat);
+  const eliminationGames = activeNonStaleSeries.filter(s => s.isElimination);
+  const upsetWatch       = activeNonStaleSeries.filter(s => s.isUpset);
+  const sweepWatch       = activeNonStaleSeries.filter(s => s.sweepThreat);
+  const completedSeries  = activeNonStaleSeries.filter(s => s.isComplete);
+
+  // Recent finals (last 48hr) sorted newest-first — drives HOTP "what
+  // happened last night" prioritization.
+  const cutoff = Date.now() - 48 * 60 * 60 * 1000;
+  const recentFinals = finals
+    .filter(g => g.startTime && new Date(g.startTime).getTime() >= cutoff)
+    .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
+
+  // Today's scheduled (non-final, non-live OR live-now) games — drives
+  // "elimination tonight" / "Game N tonight" framing.
+  const todayKey = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
+  const todayGames = allGames.filter(g => {
+    if (g?.gameState?.isFinal || g?.status === 'final') return false;
+    if (!g?.startTime) return false;
+    try {
+      const localDay = new Date(g.startTime).toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
+      return localDay === todayKey;
+    } catch { return false; }
+  });
 
   return {
     round,
     roundNumber,
-    series: activeSeries,
+    series: activeNonStaleSeries,    // EXCLUDES stale placeholders by default
+    seriesAll: activeSeries,          // back-compat: includes stale rows for any caller that needs them
     eliminationGames,
     upsetWatch,
     sweepWatch,
+    completedSeries,
+    recentFinals,
+    todayGames,
   };
 }
 
