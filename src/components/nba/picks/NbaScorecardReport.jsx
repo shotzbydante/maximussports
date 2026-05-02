@@ -218,12 +218,29 @@ export default function NbaScorecardReport({ dateOverride, variant = 'full', ins
   const aggregateGraded = data?.scorecard?.overall
     ? ((data.scorecard.overall.won ?? 0) + (data.scorecard.overall.lost ?? 0) + (data.scorecard.overall.push ?? 0))
     : 0;
+  // Truth-source for rendering: do we actually have row-level picks to render?
+  // Don't trust `dataMode` alone — backend may still misclassify if pick_results
+  // join shape changes. Picks-array presence is the only thing the row renderer
+  // actually needs.
+  const hasRowData = Array.isArray(data?.picks) && data.picks.length > 0;
   const dataMode = data?.dataMode
     || (apiGraded > 0 ? 'graded_with_rows'
         : aggregateGraded > 0 ? 'graded_aggregate_only'
         : 'no_graded_history');
-  const aggregateOnly = dataMode === 'graded_aggregate_only';
-  const noGradedSlate = dataMode === 'no_graded_history';
+  // No graded data: only treat as "no graded" when both dataMode says so AND
+  // we lack row data. Row-presence wins over dataMode in either direction.
+  const noGradedSlate = dataMode === 'no_graded_history' && !hasRowData;
+  // Strict invariant: if backend reports graded totals but UI got no rows,
+  // surface the inconsistency in the console for ops visibility.
+  if (apiGraded > 0 && !hasRowData) {
+    // eslint-disable-next-line no-console
+    console.warn('[NbaScorecardReport] data inconsistency: totals.graded=%d but picks.length=0 — falling back to aggregate display', apiGraded);
+  }
+  // eslint-disable-next-line no-console
+  if (typeof window !== 'undefined' && import.meta?.env?.DEV) {
+    // eslint-disable-next-line no-console
+    console.log('NBA SCORECARD PICKS:', data?.picks, { dataMode, hasRowData, apiGraded, apiPending, selectedSlateDate: data?.selectedSlateDate });
+  }
 
   if (noGradedSlate) {
     if (apiGraded === 0 && aggregateGraded === 0 && data?.selectedReason
@@ -371,12 +388,8 @@ export default function NbaScorecardReport({ dateOverride, variant = 'full', ins
         </div>
       )}
 
-      {/* Per-pick report */}
-      {aggregateOnly ? (
-        <p className={styles.noPicks}>
-          Detailed pick-by-pick results are unavailable for this slate. The summary above reflects the persisted scorecard.
-        </p>
-      ) : displayPicks.length > 0 ? (
+      {/* Per-pick report — prefer rows whenever they exist, regardless of dataMode. */}
+      {displayPicks.length > 0 ? (
         <div className={styles.picksList}>
           {!isCompact && (
             <div className={styles.picksHeader}>

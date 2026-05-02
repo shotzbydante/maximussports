@@ -98,9 +98,11 @@ export async function autoHealSlate({
       }
 
       // 3. Skip picks already graded — only fix what's pending.
+      // pick_results joins via primary key — PostgREST may return object OR array.
       const alreadyGraded = new Set();
       for (const p of picks) {
-        const r = p.pick_results?.[0];
+        const raw = p.pick_results;
+        const r = Array.isArray(raw) ? raw[0] : raw;
         if (r && r.status !== 'pending') alreadyGraded.add(p.id);
       }
 

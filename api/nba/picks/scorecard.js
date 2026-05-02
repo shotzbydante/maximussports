@@ -34,7 +34,12 @@ function daysBetween(a, b) {
 
 /** Compute Won/Lost/Push/Pending + plain-English reason for one pick. */
 function annotatePick(pick) {
-  const result = pick?.pick_results?.[0] || null;
+  // pick_results joins via primary key (pick_id is PK referencing picks.id),
+  // so PostgREST returns it as either an object (1-to-1) or array depending
+  // on relationship inference. Handle both shapes — same convention used
+  // throughout this file (lines 206, 264, 368) and the MLB scorecard.
+  const rawResult = pick?.pick_results;
+  const result = Array.isArray(rawResult) ? rawResult[0] : rawResult || null;
   const status = result?.status || 'pending';
   const awayScore = result?.final_away_score;
   const homeScore = result?.final_home_score;

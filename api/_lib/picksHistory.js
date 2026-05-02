@@ -602,7 +602,11 @@ export async function findLatestGradedSlate({ sport, lookbackDays = 21 } = {}) {
       if (!slate) continue;
       const b = buckets.get(slate) || { graded: 0, total: 0 };
       b.total += 1;
-      const status = row.pick_results?.[0]?.status;
+      // pick_results joins via primary key, so PostgREST may return it as
+      // either an object or an array. Handle both shapes.
+      const rawResult = row.pick_results;
+      const resultRow = Array.isArray(rawResult) ? rawResult[0] : rawResult;
+      const status = resultRow?.status;
       if (status === 'won' || status === 'lost' || status === 'push') b.graded += 1;
       buckets.set(slate, b);
     }
