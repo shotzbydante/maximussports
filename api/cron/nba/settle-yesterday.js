@@ -33,8 +33,17 @@ export default async function handler(req, res) {
 
     const finals = await fetchYesterdayFinals({ slateDate });
     const finalsByGameId = new Map();
+    const finalsBySlugPair = new Map();
+    const slugPairKey = (a, b) => {
+      const ax = String(a || '').toLowerCase();
+      const bx = String(b || '').toLowerCase();
+      return ax < bx ? `${ax}|${bx}` : `${bx}|${ax}`;
+    };
     for (const g of (finals || [])) {
       if (g.gameId) finalsByGameId.set(String(g.gameId), g);
+      const aSlug = g?.teams?.away?.slug;
+      const hSlug = g?.teams?.home?.slug;
+      if (aSlug && hSlug) finalsBySlugPair.set(slugPairKey(aSlug, hSlug), g);
     }
 
     // ?force=1 re-grades every pick (including ones marked won/lost/push
@@ -49,7 +58,18 @@ export default async function handler(req, res) {
       }
     }
 
-    const rows = gradePicks(picks, finalsByGameId, alreadyGraded);
+    // Augment the index: for any pick whose persisted game_id doesn't
+    // resolve to an ESPN final, fall back to matching by unordered team-
+    // slug pair on the slate. Repairs picks persisted with non-ESPN ids.
+    const augmented = new Map(finalsByGameId);
+    for (const p of picks) {
+      if (alreadyGraded.has(p.id)) continue;
+      if (p.game_id && augmented.has(String(p.game_id))) continue;
+      const pairKey = slugPairKey(p.away_team_slug, p.home_team_slug);
+      const aliasFinal = finalsBySlugPair.get(pairKey);
+      if (aliasFinal) augmented.set(String(p.game_id || p.id), aliasFinal);
+    }
+    const rows = gradePicks(picks, augmented, alreadyGraded);
     const matched = rows.filter(r => r.status !== 'pending').length;
     const unmatched = rows.filter(r => r.status === 'pending').length;
 

@@ -79,9 +79,22 @@ export async function autoHealSlate({
         out.reason = 'no_finals_available';
         return;
       }
+      // Build a primary index by ESPN game_id and a secondary index by
+      // unordered team-slug pair on the slate. The secondary index repairs
+      // legacy picks whose persisted game_id is an Odds-API id (or any non-
+      // ESPN id) so we don't lose graded data over an id format mismatch.
       const finalsByGameId = new Map();
+      const finalsBySlugPair = new Map();
+      const slugPairKey = (a, b) => {
+        const ax = String(a || '').toLowerCase();
+        const bx = String(b || '').toLowerCase();
+        return ax < bx ? `${ax}|${bx}` : `${bx}|${ax}`;
+      };
       for (const g of finalsArr) {
         if (g?.gameId) finalsByGameId.set(String(g.gameId), g);
+        const aSlug = g?.teams?.away?.slug;
+        const hSlug = g?.teams?.home?.slug;
+        if (aSlug && hSlug) finalsBySlugPair.set(slugPairKey(aSlug, hSlug), g);
       }
 
       // 3. Skip picks already graded — only fix what's pending.
@@ -91,9 +104,58 @@ export async function autoHealSlate({
         if (r && r.status !== 'pending') alreadyGraded.add(p.id);
       }
 
-      // 4. Grade and write.
+      // Build an augmented map keyed by each pick's persisted game_id so
+      // gradePicks() resolves through fallbacks transparently. For each
+      // unmatched pick, try the slug-pair index; if found, alias the
+      // pick.game_id → final in the map gradePicks consults. Track
+      // diagnostics for any pick we can't match by either path.
+      const augmented = new Map(finalsByGameId);
+      const matchAttempts = [];
+      const unmatchedPicks = [];
+      for (const p of picks) {
+        if (alreadyGraded.has(p.id)) continue;
+        if (p.game_id && augmented.has(String(p.game_id))) {
+          matchAttempts.push({ pickId: p.id, via: 'game_id', gameId: p.game_id });
+          continue;
+        }
+        const pairKey = slugPairKey(p.away_team_slug, p.home_team_slug);
+        const aliasFinal = finalsBySlugPair.get(pairKey);
+        if (aliasFinal) {
+          augmented.set(String(p.game_id || p.id), aliasFinal);
+          matchAttempts.push({
+            pickId: p.id, via: 'slug_pair',
+            pickGameId: p.game_id, espnGameId: aliasFinal.gameId,
+            pair: pairKey,
+          });
+        } else {
+          unmatchedPicks.push({
+            pickId: p.id,
+            pickGameId: p.game_id,
+            matchup: `${p.away_team_slug || '?'}@${p.home_team_slug || '?'}`,
+            pair: pairKey,
+            reason: !p.away_team_slug || !p.home_team_slug
+              ? 'pick missing away/home slug'
+              : 'no final with same team pair',
+          });
+        }
+      }
+      out.matchAttempts = matchAttempts;
+      out.unmatchedPickSummaries = unmatchedPicks;
+      out.unmatchedPickIds = unmatchedPicks.map(u => u.pickId);
+      out.finalGameKeys = finalsArr.map(g => ({
+        gameId: g.gameId,
+        pair: slugPairKey(g.teams?.away?.slug, g.teams?.home?.slug),
+        away: g.teams?.away?.slug, home: g.teams?.home?.slug,
+        isFinal: !!(g.gameState?.isFinal || g.status === 'final'),
+      }));
+      out.pickGameKeys = picks.map(p => ({
+        pickId: p.id, gameId: p.game_id,
+        pair: slugPairKey(p.away_team_slug, p.home_team_slug),
+      }));
+
+      // 4. Grade and write using the augmented index.
       out.attempted = true;
-      const rows = gradePicks(picks, finalsByGameId, alreadyGraded);
+      const rows = gradePicks(picks, augmented, alreadyGraded);
       const newlyGraded = rows.filter(r => r.status !== 'pending').length;
       const { ok } = await upsertPickResults(rows);
       out.succeeded = ok !== false && newlyGraded > 0;
