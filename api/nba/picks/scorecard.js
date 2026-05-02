@@ -21,6 +21,15 @@ import {
 } from '../../_lib/picksHistory.js';
 import { yesterdayET } from '../../_lib/dateWindows.js';
 
+/** Inclusive day delta between two YYYY-MM-DD strings (a - b in days). */
+function daysBetween(a, b) {
+  if (!a || !b) return Infinity;
+  const da = Date.parse(`${a}T00:00:00Z`);
+  const db = Date.parse(`${b}T00:00:00Z`);
+  if (!isFinite(da) || !isFinite(db)) return Infinity;
+  return Math.round((da - db) / 86400000);
+}
+
 /** Compute Won/Lost/Push/Pending + plain-English reason for one pick. */
 function annotatePick(pick) {
   const result = pick?.pick_results?.[0] || null;
@@ -183,8 +192,15 @@ export default async function handler(req, res) {
       const yesterday = requestedSlate;
       const rowSlate = graded.latestGradedSlate;
       const aggSlate = aggRow?.slate_date || null;
-      // Pick the most recent of the two. String compare works for ISO dates.
-      const preferAgg = aggSlate && (!rowSlate || aggSlate > rowSlate);
+      // Prefer row-level graded data (richer UI: per-pick rows with final
+      // scores + reasons). Only fall back to aggregate when EITHER no
+      // row-graded slate exists, OR the aggregate slate is meaningfully
+      // newer (>= 2 days) — avoids picking yesterday's aggregate over a
+      // recent row-graded slate just because aggregate ran later.
+      const preferAgg = aggSlate && (
+        !rowSlate ||
+        (aggSlate > rowSlate && daysBetween(aggSlate, rowSlate) >= 2)
+      );
 
       if (preferAgg) {
         card = aggRow;
@@ -216,6 +232,34 @@ export default async function handler(req, res) {
         sport: 'nba',
         slateDate: slateForPicks,
       });
+
+      // Join health diagnostics — surface any picks rows that lack a
+      // matching pick_results row, plus rows whose pick_results is still
+      // 'pending'. Lets ops see whether aggregate-only state is caused by
+      // missing rows, missed grading, or stale aggregates.
+      const missingResultPickIds = [];
+      const pendingResultPickIds = [];
+      let resultsJoined = 0;
+      for (const p of rawPicks) {
+        const r = Array.isArray(p.pick_results) ? p.pick_results[0] : p.pick_results;
+        if (!r) missingResultPickIds.push(p.id);
+        else {
+          resultsJoined += 1;
+          if (r.status === 'pending') pendingResultPickIds.push(p.id);
+        }
+      }
+      diagnostics.picksFound = rawPicks.length;
+      diagnostics.resultsFound = resultsJoined;
+      diagnostics.joinedRows = resultsJoined;
+      diagnostics.missingResultPickIds = missingResultPickIds;
+      diagnostics.pendingResultPickIds = pendingResultPickIds;
+      if (rawPicks.length > 0 && resultsJoined === 0) {
+        console.warn(
+          '[nba/scorecard] join health: %d picks for %s have ZERO pick_results rows — settle-yesterday or backfill needed',
+          rawPicks.length, slateForPicks
+        );
+      }
+
       picks = rawPicks.map(annotatePick);
 
       // Aggregate by category for stat chips
