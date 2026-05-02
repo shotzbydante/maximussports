@@ -37,10 +37,16 @@ export default async function handler(req, res) {
       if (g.gameId) finalsByGameId.set(String(g.gameId), g);
     }
 
+    // ?force=1 re-grades every pick (including ones marked won/lost/push
+    // already) — used by the heal-aggregate-only admin endpoint to repair
+    // slates whose pick_results rows disagree with the aggregate.
+    const force = req?.query?.force === '1';
     const alreadyGraded = new Set();
-    for (const p of picks) {
-      const r = p.pick_results?.[0];
-      if (r && r.status !== 'pending') alreadyGraded.add(p.id);
+    if (!force) {
+      for (const p of picks) {
+        const r = p.pick_results?.[0];
+        if (r && r.status !== 'pending') alreadyGraded.add(p.id);
+      }
     }
 
     const rows = gradePicks(picks, finalsByGameId, alreadyGraded);

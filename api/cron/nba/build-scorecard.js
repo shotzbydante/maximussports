@@ -54,6 +54,26 @@ export default async function handler(req, res) {
     } catch { /* fine */ }
 
     const row = buildScorecard({ sport: 'nba', slateDate, picks, recentRecords: recent });
+
+    // Divergence guard: if the aggregate has graded counts but every pick
+    // we just read has a missing/pending pick_results, the row would land
+    // as "graded_aggregate_only" in the UI — operator-visible breakage.
+    const aggGraded = (row.record?.won || 0) + (row.record?.lost || 0) + (row.record?.push || 0);
+    let rowGraded = 0;
+    let missingResults = 0;
+    for (const p of picks) {
+      const r = Array.isArray(p.pick_results) ? p.pick_results[0] : p.pick_results;
+      if (!r) missingResults += 1;
+      else if (r.status === 'won' || r.status === 'lost' || r.status === 'push') rowGraded += 1;
+    }
+    if (aggGraded > 0 && rowGraded === 0) {
+      console.warn(
+        `[cron/nba/build-scorecard] divergence: aggregate graded=${aggGraded} but row-level graded=0 ` +
+        `for slate=${slateDate} (picks=${picks.length}, missingResults=${missingResults}). ` +
+        `Run /api/admin/picks/heal-aggregate-only?sport=nba&apply=1 to repair.`
+      );
+    }
+
     const saved = await upsertCard(row);
     if (!saved) {
       console.error(
