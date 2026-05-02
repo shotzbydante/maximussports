@@ -344,17 +344,38 @@ function getCounts(data) {
  * @returns {Promise<{ data, source, counts }>}
  */
 /**
+ * `true` when ANY canonical leader category has at least one leader. Used
+ * to decide whether a freshly-aggregated payload is shippable — we don't
+ * require all 5 categories to be populated before rendering. A category
+ * with zero leaders renders as a per-cell "Updating" placeholder; the
+ * other categories still ship.
+ */
+export function hasAnyValidLeaderCategory(leaders) {
+  return Object.values(leaders?.categories || {}).some(
+    c => Array.isArray(c?.leaders) && c.leaders.length > 0
+  );
+}
+
+/**
  * Box-score-only postseason leaders builder. ESPN types/3 is intentionally
  * BYPASSED here because it has historically returned all-NBA leaders rather
  * than playoff-only — even with type=3 it can include players from teams
  * that didn't make the bracket. We always derive postseason leaders from
  * real playoff box scores, with a strict team-eligibility filter.
  *
- * Fail-closed: if we can't build a non-empty playoff team set, we return
- * an empty postseason payload rather than fall through to ESPN data.
+ * Order of operations (audit Part 1 — force-refresh box-score aggregation):
+ *   1. Build the canonical playoff team set + window games
+ *   2. If we have ANY playoff games → run box-score aggregation FIRST
+ *      and accept partial categories (any one populated → ship)
+ *   3. Only fall back to KV cache when aggregation produced nothing
+ *   4. Empty payload as last resort
+ *
+ * Fail-closed: if we can't build a non-empty playoff team set AND we have
+ * no games, we return an empty postseason payload rather than fall through
+ * to ESPN regular-season data.
  */
-async function buildPostseasonLeadersData({ preferFresh = false, keys }) {
-  // 1. Build the canonical playoff team set.
+async function buildPostseasonLeadersData({ preferFresh: _preferFresh = false, keys }) {
+  // 1. Build the canonical playoff team set + window games.
   let validPlayoffTeamSlugs = null;
   let psWindowGames = [];
   try {
@@ -374,43 +395,66 @@ async function buildPostseasonLeadersData({ preferFresh = false, keys }) {
   const haveTeamSet = !!(validPlayoffTeamSlugs && validPlayoffTeamSlugs.size > 0);
   const haveGames   = !!(psWindowGames && psWindowGames.length > 0);
 
-  // We only refuse outright when we have NEITHER a bracket team set
-  // NOR any playoff games to aggregate. In that case there's literally
-  // nothing to derive postseason leaders from, and falling through to
-  // ESPN regular-season data would mislabel the slide.
-  if (!haveTeamSet && !haveGames) {
-    console.warn('[nbaLeadersBuilder] postseason: no team set AND no games — returning empty');
-    return {
-      data: emptyPostseasonPayload('no playoff team set or games available'),
-      source: 'empty',
-      counts: getCounts({ categories: {} }),
-    };
+  // 2. FORCE-REFRESH box-score aggregation when we have games. This is the
+  //    audit Part 1 fix: cache reads are no longer the primary path, since
+  //    a single poisoned write (empty payload, missing categories) would
+  //    otherwise lock Slide 2 into "Postseason feed updating" for the
+  //    full TTL. Aggregation is cheap relative to the user-visible cost
+  //    of a stale empty board.
+  if (haveGames) {
+    try {
+      console.log(`[nbaLeadersBuilder] postseason → FORCE box-score aggregation (games=${psWindowGames.length}, bracketTeams=${validPlayoffTeamSlugs?.size ?? 0})`);
+      const aggregate = await buildNbaPostseasonLeadersFromBoxScores({
+        windowGames: psWindowGames,
+        validPlayoffTeamSlugs,
+      });
+      if (hasAnyValidLeaderCategory(aggregate)) {
+        // Only persist to lastknown when ALL 5 categories are populated.
+        // Partial payloads still SHIP to the slide, but we don't pin them
+        // into 24-hour cache (they'd starve a future full-payload run).
+        const isFull = hasValidPostseasonTotalsPayload(aggregate, null, { allowMissingTeamSet: true });
+        if (isFull) {
+          setJson(keys.latest, aggregate, { exSeconds: LATEST_TTL_SEC }).catch(() => {});
+          setJson(keys.lastknown, aggregate, { exSeconds: LASTKNOWN_TTL_SEC }).catch(() => {});
+        } else {
+          console.warn(`[nbaLeadersBuilder] box-score aggregate partial (categories=${categoryCount(aggregate)}, missing=${getCounts(aggregate)._missingCategories?.join(',')}) — shipping without cache write`);
+        }
+        return {
+          data: aggregate,
+          source: isFull ? 'boxscore_aggregate' : 'boxscore_aggregate_partial',
+          counts: getCounts(aggregate),
+        };
+      }
+      console.warn('[nbaLeadersBuilder] box-score aggregation produced 0 valid categories — falling through to cache');
+    } catch (err) {
+      console.warn(`[nbaLeadersBuilder] box-score aggregation failed: ${err.message}`);
+    }
   }
 
-  // 2. KV reads — payload must pass strict validator. When we have a
-  //    bracket team set, every leader's team must be in it. When we
-  //    only have games (no bracket yet), allow the missing-team-set
-  //    escape so cache reads aren't unconditionally rejected.
+  // 3. Cache fallback. Reached only when aggregation produced nothing
+  //    (no games, or every category empty after filters). Strict
+  //    validator: when we have a bracket team set, every leader's team
+  //    must be in it. When we only have games (no bracket yet), allow
+  //    the missing-team-set escape so cache reads aren't unconditionally
+  //    rejected.
   const cacheValidatorOpts = haveTeamSet ? {} : { allowMissingTeamSet: true };
-  if (!preferFresh) {
-    try {
-      const latest = await getJson(keys.latest);
-      if (hasValidPostseasonTotalsPayload(latest, validPlayoffTeamSlugs, cacheValidatorOpts)) {
-        console.log(`[nbaLeadersBuilder] using KV latest (postseason): categories=${categoryCount(latest)}`);
-        return { data: latest, source: 'kv_latest', counts: getCounts(latest) };
-      }
-      if (latest) {
-        console.warn(`[nbaLeadersBuilder] KV latest postseason rejected (categories=${categoryCount(latest)}, missing=${getCounts(latest)._missingCategories?.join(',')}) — likely poisoned`);
-      }
-    } catch (err) {
-      console.warn(`[nbaLeadersBuilder] KV latest read failed: ${err.message}`);
+  try {
+    const latest = await getJson(keys.latest);
+    if (hasValidPostseasonTotalsPayload(latest, validPlayoffTeamSlugs, cacheValidatorOpts)) {
+      console.log(`[nbaLeadersBuilder] using KV latest (postseason fallback): categories=${categoryCount(latest)}`);
+      return { data: latest, source: 'kv_latest', counts: getCounts(latest) };
     }
+    if (latest) {
+      console.warn(`[nbaLeadersBuilder] KV latest postseason rejected (categories=${categoryCount(latest)}, missing=${getCounts(latest)._missingCategories?.join(',')}) — likely poisoned`);
+    }
+  } catch (err) {
+    console.warn(`[nbaLeadersBuilder] KV latest read failed: ${err.message}`);
   }
 
   try {
     const lastknown = await getJson(keys.lastknown);
     if (hasValidPostseasonTotalsPayload(lastknown, validPlayoffTeamSlugs, cacheValidatorOpts)) {
-      console.log(`[nbaLeadersBuilder] using KV last-known-good (postseason): categories=${categoryCount(lastknown)}`);
+      console.log(`[nbaLeadersBuilder] using KV last-known-good (postseason fallback): categories=${categoryCount(lastknown)}`);
       return { data: lastknown, source: 'kv_lastknown', counts: getCounts(lastknown) };
     }
     if (lastknown) {
@@ -420,31 +464,17 @@ async function buildPostseasonLeadersData({ preferFresh = false, keys }) {
     console.warn(`[nbaLeadersBuilder] KV lastknown read failed: ${err.message}`);
   }
 
-  // 3. Box-score aggregation. Run as long as we have ANY games — even
-  //    if the bracket-anchored team set is empty. The aggregator
-  //    expands the team set with the actual teams in the games.
-  try {
-    console.log(`[nbaLeadersBuilder] postseason → box-score aggregation (games=${psWindowGames.length}, bracketTeams=${validPlayoffTeamSlugs?.size ?? 0})`);
-    const aggregate = await buildNbaPostseasonLeadersFromBoxScores({
-      windowGames: psWindowGames,
-      validPlayoffTeamSlugs,
-    });
-    if (aggregate && hasValidPostseasonTotalsPayload(aggregate, null, { allowMissingTeamSet: true })) {
-      setJson(keys.latest, aggregate, { exSeconds: LATEST_TTL_SEC }).catch(() => {});
-      setJson(keys.lastknown, aggregate, { exSeconds: LASTKNOWN_TTL_SEC }).catch(() => {});
-      return { data: aggregate, source: 'boxscore_aggregate', counts: getCounts(aggregate) };
-    }
-    // Partial: return without lastknown write so we don't poison cache.
-    if (aggregate && categoryCount(aggregate) > 0) {
-      console.warn(`[nbaLeadersBuilder] box-score aggregate partial (categories=${categoryCount(aggregate)}, missing=${getCounts(aggregate)._missingCategories?.join(',')}) — returning without lastknown write`);
-      return { data: aggregate, source: 'boxscore_aggregate_partial', counts: getCounts(aggregate) };
-    }
-  } catch (err) {
-    console.warn(`[nbaLeadersBuilder] box-score aggregation failed: ${err.message}`);
-  }
-
   // 4. All sources failed — return empty postseason payload (NEVER
-  //    fall through to ESPN regular-season data).
+  //    fall through to ESPN regular-season data). When we never even
+  //    had games to try aggregation, log it specifically.
+  if (!haveTeamSet && !haveGames) {
+    console.warn('[nbaLeadersBuilder] postseason: no team set AND no games — returning empty');
+    return {
+      data: emptyPostseasonPayload('no playoff team set or games available'),
+      source: 'empty',
+      counts: getCounts({ categories: {} }),
+    };
+  }
   console.warn('[nbaLeadersBuilder] postseason: all sources empty — returning placeholder');
   return {
     data: emptyPostseasonPayload('postseason aggregate unavailable'),
