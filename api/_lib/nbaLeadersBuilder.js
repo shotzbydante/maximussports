@@ -372,26 +372,35 @@ async function buildPostseasonLeadersData({ preferFresh = false, keys }) {
   }
 
   const haveTeamSet = !!(validPlayoffTeamSlugs && validPlayoffTeamSlugs.size > 0);
-  if (!haveTeamSet) {
-    console.warn('[nbaLeadersBuilder] postseason team set is empty — refusing to ship postseason leaders');
+  const haveGames   = !!(psWindowGames && psWindowGames.length > 0);
+
+  // We only refuse outright when we have NEITHER a bracket team set
+  // NOR any playoff games to aggregate. In that case there's literally
+  // nothing to derive postseason leaders from, and falling through to
+  // ESPN regular-season data would mislabel the slide.
+  if (!haveTeamSet && !haveGames) {
+    console.warn('[nbaLeadersBuilder] postseason: no team set AND no games — returning empty');
     return {
-      data: emptyPostseasonPayload('no playoff team set available'),
+      data: emptyPostseasonPayload('no playoff team set or games available'),
       source: 'empty',
       counts: getCounts({ categories: {} }),
     };
   }
 
-  // 2. KV reads — must pass strict validator (totals + every leader on a
-  //    valid playoff team).
+  // 2. KV reads — payload must pass strict validator. When we have a
+  //    bracket team set, every leader's team must be in it. When we
+  //    only have games (no bracket yet), allow the missing-team-set
+  //    escape so cache reads aren't unconditionally rejected.
+  const cacheValidatorOpts = haveTeamSet ? {} : { allowMissingTeamSet: true };
   if (!preferFresh) {
     try {
       const latest = await getJson(keys.latest);
-      if (hasValidPostseasonTotalsPayload(latest, validPlayoffTeamSlugs)) {
+      if (hasValidPostseasonTotalsPayload(latest, validPlayoffTeamSlugs, cacheValidatorOpts)) {
         console.log(`[nbaLeadersBuilder] using KV latest (postseason): categories=${categoryCount(latest)}`);
         return { data: latest, source: 'kv_latest', counts: getCounts(latest) };
       }
       if (latest) {
-        console.warn(`[nbaLeadersBuilder] KV latest postseason rejected (categories=${categoryCount(latest)}, missing=${getCounts(latest)._missingCategories?.join(',')}) — likely poisoned with non-playoff teams`);
+        console.warn(`[nbaLeadersBuilder] KV latest postseason rejected (categories=${categoryCount(latest)}, missing=${getCounts(latest)._missingCategories?.join(',')}) — likely poisoned`);
       }
     } catch (err) {
       console.warn(`[nbaLeadersBuilder] KV latest read failed: ${err.message}`);
@@ -400,27 +409,27 @@ async function buildPostseasonLeadersData({ preferFresh = false, keys }) {
 
   try {
     const lastknown = await getJson(keys.lastknown);
-    if (hasValidPostseasonTotalsPayload(lastknown, validPlayoffTeamSlugs)) {
+    if (hasValidPostseasonTotalsPayload(lastknown, validPlayoffTeamSlugs, cacheValidatorOpts)) {
       console.log(`[nbaLeadersBuilder] using KV last-known-good (postseason): categories=${categoryCount(lastknown)}`);
       return { data: lastknown, source: 'kv_lastknown', counts: getCounts(lastknown) };
     }
     if (lastknown) {
-      console.warn(`[nbaLeadersBuilder] KV lastknown postseason rejected (categories=${categoryCount(lastknown)}, missing=${getCounts(lastknown)._missingCategories?.join(',')}) — likely poisoned with non-playoff teams`);
+      console.warn(`[nbaLeadersBuilder] KV lastknown postseason rejected (categories=${categoryCount(lastknown)}, missing=${getCounts(lastknown)._missingCategories?.join(',')}) — likely poisoned`);
     }
   } catch (err) {
     console.warn(`[nbaLeadersBuilder] KV lastknown read failed: ${err.message}`);
   }
 
-  // 3. Box-score aggregation. Always passes the playoff team filter so
-  //    non-playoff stars can never appear, even if ESPN tags a non-playoff
-  //    game as season.type=3 by mistake.
+  // 3. Box-score aggregation. Run as long as we have ANY games — even
+  //    if the bracket-anchored team set is empty. The aggregator
+  //    expands the team set with the actual teams in the games.
   try {
-    console.log(`[nbaLeadersBuilder] postseason → box-score aggregation (games=${psWindowGames.length})`);
+    console.log(`[nbaLeadersBuilder] postseason → box-score aggregation (games=${psWindowGames.length}, bracketTeams=${validPlayoffTeamSlugs?.size ?? 0})`);
     const aggregate = await buildNbaPostseasonLeadersFromBoxScores({
       windowGames: psWindowGames,
       validPlayoffTeamSlugs,
     });
-    if (aggregate && hasValidPostseasonTotalsPayload(aggregate, validPlayoffTeamSlugs)) {
+    if (aggregate && hasValidPostseasonTotalsPayload(aggregate, null, { allowMissingTeamSet: true })) {
       setJson(keys.latest, aggregate, { exSeconds: LATEST_TTL_SEC }).catch(() => {});
       setJson(keys.lastknown, aggregate, { exSeconds: LASTKNOWN_TTL_SEC }).catch(() => {});
       return { data: aggregate, source: 'boxscore_aggregate', counts: getCounts(aggregate) };

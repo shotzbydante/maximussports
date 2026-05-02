@@ -119,10 +119,17 @@ function isPlayInGameClientSide(g) {
  * with <4 wins both sides means an in-progress series — both teams
  * stay active.
  */
-function deriveActiveFromGames(allGames) {
+function deriveActiveFromGames(allGames, bracketTeamSlugs = null) {
   const active = new Set();
   const eliminated = new Set();
   if (!Array.isArray(allGames) || allGames.length === 0) return { active, eliminated };
+
+  // When a bracket team set is provided, ONLY consider game pairs
+  // where at least one team is a bracket-anchored playoff team. This
+  // prevents play-in matchups (e.g., PHI vs MIA, LAC vs GSW) from
+  // polluting the active set when the text-based play-in detector
+  // misses the signal on stripped scoreboard data.
+  const requireBracketTeam = !!(bracketTeamSlugs && bracketTeamSlugs.size > 0);
 
   // Group by (slugA, slugB) pair (sorted for stable key) and count
   // wins per side from completed playoff games (excluding play-in).
@@ -134,6 +141,12 @@ function deriveActiveFromGames(allGames) {
     const a = g?.teams?.away;
     const h = g?.teams?.home;
     if (!a?.slug || !h?.slug) continue;
+    if (requireBracketTeam && !bracketTeamSlugs.has(a.slug) && !bracketTeamSlugs.has(h.slug)) {
+      // Both teams are non-bracket → treat as a play-in / non-playoff
+      // pair and skip. Real Round-1 games always involve at least one
+      // bracket-anchored team.
+      continue;
+    }
     const aScore = Number(a.score ?? 0);
     const hScore = Number(h.score ?? 0);
     if (aScore === 0 && hScore === 0) continue;
@@ -277,7 +290,27 @@ function computeActivePlayoffTeams(playoffContext, rawGames = []) {
   const activeSlugs = new Set();
   const eliminatedSlugs = new Set();
 
-  // Source 1: bracket-anchored series
+  // Build the canonical set of "bracket-anchored" teams — every team
+  // listed by name in any bracket matchup (even if the matchup is
+  // currently stale-placeholder). This is the whitelist that gates
+  // the game-data fallback below: a Round-1 game pair must include at
+  // least one bracket-anchored team to count, otherwise it's a
+  // play-in matchup that shouldn't surface on Slide 3.
+  const bracketTeamSlugs = new Set();
+  const seriesPoolForBracket = [
+    ...(playoffContext?.allSeries || []),
+    ...(playoffContext?.series || []),
+    ...(playoffContext?.seriesAll || []),
+  ];
+  for (const s of seriesPoolForBracket) {
+    if (s?.topTeam?.slug && !s?.topTeam?.isPlaceholder)       bracketTeamSlugs.add(s.topTeam.slug);
+    if (s?.bottomTeam?.slug && !s?.bottomTeam?.isPlaceholder) bracketTeamSlugs.add(s.bottomTeam.slug);
+  }
+
+  // Source 1: bracket-anchored series (only NON-stale series count
+  // toward active. Stale rows like "BOS vs Play-In Winner" don't
+  // automatically promote BOS to active — that comes via Source 2
+  // once BOS plays a real Round-1 game).
   const seriesPool = playoffContext?.allSeries
     || playoffContext?.series
     || [];
@@ -287,8 +320,8 @@ function computeActivePlayoffTeams(playoffContext, rawGames = []) {
       if (s.winnerSlug) activeSlugs.add(s.winnerSlug);
       if (s.loserSlug)  eliminatedSlugs.add(s.loserSlug);
     } else {
-      if (s.topTeam?.slug) activeSlugs.add(s.topTeam.slug);
-      if (s.bottomTeam?.slug) activeSlugs.add(s.bottomTeam.slug);
+      if (s.topTeam?.slug && !s.topTeam.isPlaceholder)       activeSlugs.add(s.topTeam.slug);
+      if (s.bottomTeam?.slug && !s.bottomTeam.isPlaceholder) activeSlugs.add(s.bottomTeam.slug);
     }
   }
 
@@ -296,10 +329,12 @@ function computeActivePlayoffTeams(playoffContext, rawGames = []) {
   // the bracket has placeholder opponents but actual playoff games
   // have been played). Use rawGames if available, otherwise any
   // games stored on playoffContext.
+  // Pass bracketTeamSlugs so play-in pairs (PHI/MIA, LAC/GSW, etc.)
+  // are filtered out of the active set.
   const gamePool = rawGames.length > 0
     ? rawGames
     : (playoffContext?.todayGames || []).concat(playoffContext?.recentFinals || []);
-  const fromGames = deriveActiveFromGames(gamePool);
+  const fromGames = deriveActiveFromGames(gamePool, bracketTeamSlugs);
   for (const slug of fromGames.active) activeSlugs.add(slug);
   for (const slug of fromGames.eliminated) eliminatedSlugs.add(slug);
 
@@ -441,6 +476,13 @@ function buildPlayoffOutlook({ champOdds, standings, playoffContext, rawGames = 
     westCount: westFull.length,
     eastTeams: eastFull.map(t => t.abbrev),
     westTeams: westFull.map(t => t.abbrev),
+  }));
+
+  // Audit-spec'd Slide 3 final-set diagnostic.
+  console.log('[NBA_SLIDE3_ACTIVE_FINAL]', JSON.stringify({
+    east: eastFull.map(t => t.abbrev),
+    west: westFull.map(t => t.abbrev),
+    eliminated: [...eliminatedSlugs],
   }));
 
   return {

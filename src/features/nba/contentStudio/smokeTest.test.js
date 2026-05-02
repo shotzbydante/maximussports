@@ -840,6 +840,85 @@ describe('NBA Daily Briefing — Phase 1 foundation', () => {
     expect(payload.nbaLeaders?._sanitizedAtNormalizer).toBe(true);
   });
 
+  it('buildValidPlayoffTeamSlugs includes ALL named teams from bracket, even from stale-placeholder series', async () => {
+    const { buildValidPlayoffTeamSlugs } = await import('../../../../api/_lib/nbaBoxScoreLeaders.js');
+    const playoffContext = {
+      allSeries: [
+        // Stale-placeholder series (BOS vs Play-In Winner) — BOS must
+        // still appear in the team set even though their bracket
+        // opponent isn't resolved yet.
+        {
+          isStalePlaceholder: true,
+          topTeam:    { slug: 'bos', isPlaceholder: false },
+          bottomTeam: { slug: 'tbd-7', isPlaceholder: true },
+        },
+        // Fully-resolved active series.
+        {
+          isStalePlaceholder: false,
+          topTeam:    { slug: 'nyk', isPlaceholder: false },
+          bottomTeam: { slug: 'atl', isPlaceholder: false },
+        },
+      ],
+    };
+    const slugs = buildValidPlayoffTeamSlugs(playoffContext, []);
+    expect(slugs.has('bos')).toBe(true);   // bracket-named, even if series stale
+    expect(slugs.has('nyk')).toBe(true);
+    expect(slugs.has('atl')).toBe(true);
+    expect(slugs.has('tbd-7')).toBe(false); // placeholder slot ignored
+  });
+
+  it('Slide 3 active set excludes play-in pairs (PHI vs MIA never makes activeSlugs)', () => {
+    // Build playoff context with ONE bracket series (BOS vs PlayIn placeholder
+    // = stale) plus a play-in matchup (PHI vs MIA, MIA wins).
+    // The bracket-anchored team set will include BOS but not PHI or MIA.
+    // deriveActiveFromGames must NOT add PHI or MIA to active because
+    // neither is bracket-anchored.
+    const games = [
+      // Play-in game between two non-bracket teams — should be ignored.
+      {
+        gameId: 'g-phi-mia-playin',
+        sport: 'nba', status: 'final',
+        startTime: new Date(Date.now() - 14 * 24 * 3600 * 1000).toISOString(),
+        teams: {
+          away: { slug: 'phi', score: 110 },
+          home: { slug: 'mia', score: 95 },
+        },
+        gameState: { isFinal: true, isLive: false },
+      },
+      // Real Round-1 series: NYK sweeps ATL — both bracket-anchored.
+      ...[1, 2, 3, 4].map((g, i) => ({
+        gameId: `g-nyk-atl-r1-${g}`,
+        sport: 'nba', status: 'final',
+        startTime: new Date(Date.now() - (10 - i * 2) * 24 * 3600 * 1000).toISOString(),
+        teams: {
+          away: { slug: i % 2 === 0 ? 'atl' : 'nyk', score: i % 2 === 0 ? 95 : 110 },
+          home: { slug: i % 2 === 0 ? 'nyk' : 'atl', score: i % 2 === 0 ? 110 : 95 },
+        },
+        gameState: { isFinal: true, isLive: false },
+      })),
+    ];
+    const payload = normalizeNbaImagePayload({
+      activeSection: 'nba-daily',
+      nbaPicks: synthPicks,
+      nbaLiveGames: games,
+      nbaWindowGames: games,
+      nbaLeaders: synthLeaders,
+      nbaStandings: synthStandings,
+      nbaChampOdds: synthChampOdds,
+    });
+    const east = payload.playoffOutlook?.east || [];
+    const eastSlugs = east.map(t => t.slug);
+    // PHI / MIA / CHA / GSW etc. (non-bracket / play-in losers) must
+    // NEVER appear on Slide 3.
+    expect(eastSlugs).not.toContain('phi');
+    expect(eastSlugs).not.toContain('mia');
+    expect(eastSlugs).not.toContain('cha');
+    // NYK should be present (bracket-anchored, won R1).
+    expect(eastSlugs).toContain('nyk');
+    // ATL should NOT be present (eliminated).
+    expect(eastSlugs).not.toContain('atl');
+  });
+
   it('buildNbaGameNarrative handles forces-Game-7 + buzzer-beater + halftime comeback', async () => {
     const { buildNbaGameNarrative } = await import('./buildNbaHotPress.js');
 

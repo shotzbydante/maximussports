@@ -145,9 +145,18 @@ export function hasValidPostseasonTotalsPayload(leaders, validPlayoffTeamSlugs =
 export function buildValidPlayoffTeamSlugs(playoffContext = null, playoffGames = []) {
   const slugs = new Set();
 
-  // 1. Bracket-anchored: every team in any non-stale series.
-  for (const s of (playoffContext?.allSeries || playoffContext?.series || [])) {
-    if (s?.isStalePlaceholder) continue;
+  // 1. Bracket-anchored: every NAMED team across the entire bracket,
+  //    INCLUDING stale-placeholder rows (e.g., BOS vs Play-In Winner).
+  //    BOS is a real playoff team even though their opponent slot is
+  //    still a placeholder — skipping the whole series would drop BOS
+  //    from the leader filter and leave their stars off Slide 2.
+  //    Also pull from `seriesAll`/`series` for older context shapes.
+  const seriesPool = [
+    ...(playoffContext?.allSeries || []),
+    ...(playoffContext?.series || []),
+    ...(playoffContext?.seriesAll || []),
+  ];
+  for (const s of seriesPool) {
     if (s?.topTeam?.slug && !s?.topTeam?.isPlaceholder)       slugs.add(s.topTeam.slug);
     if (s?.bottomTeam?.slug && !s?.bottomTeam?.isPlaceholder) slugs.add(s.bottomTeam.slug);
     if (s?.winnerSlug) slugs.add(s.winnerSlug);
@@ -155,9 +164,13 @@ export function buildValidPlayoffTeamSlugs(playoffContext = null, playoffGames =
   }
 
   // 2. Game-anchored: any team that has actually played a playoff-proper
-  //    game. Catches bracket placeholder cases (winner of play-in).
+  //    game. Catches bracket placeholder cases (winner of play-in
+  //    becomes part of the active bracket once they play Round 1).
+  //    Falls back to looser "completed final + not play-in" gate when
+  //    `isNbaPostseasonGame` can't confirm season.type=3.
   for (const g of (playoffGames || [])) {
-    if (!isNbaPlayoffProperGame(g)) continue;
+    if (!isCompleted(g)) continue;
+    if (isPlayInGame(g)) continue;
     const a = g?.teams?.away?.slug || g?.awayTeam?.slug;
     const h = g?.teams?.home?.slug || g?.homeTeam?.slug;
     if (a) slugs.add(a);
@@ -512,6 +525,22 @@ export async function buildNbaPostseasonLeadersFromBoxScores({
   const games = includedGames.slice(0, MAX_PARALLEL_GAMES);
   console.log(`[nbaBoxScoreLeaders] aggregating ${games.length} playoff-proper games`);
 
+  // Expand the team-eligibility set with EVERY team that has actually
+  // appeared in a playoff-proper game. This patches over the case where
+  // the bracket's stale-placeholder series caused the team set to omit
+  // a real playoff team (e.g., BOS vs Play-In Winner is "stale" by
+  // bracket alone — but BOS is a real playoff team the moment they
+  // start playing). Without this, BOS leaders would be silently dropped
+  // by the team filter and Slide 2 would render "Postseason feed
+  // updating" even with full box-score data on hand.
+  const expandedTeamSet = new Set(validPlayoffTeamSlugs ? Array.from(validPlayoffTeamSlugs) : []);
+  for (const g of games) {
+    const a = g?.teams?.away?.slug || g?.awayTeam?.slug;
+    const h = g?.teams?.home?.slug || g?.homeTeam?.slug;
+    if (a) expandedTeamSet.add(a);
+    if (h) expandedTeamSet.add(h);
+  }
+
   const summaries = await Promise.all(games.map(g => fetchOneSummary(g.gameId)));
 
   const playerMap = {};
@@ -571,7 +600,7 @@ export async function buildNbaPostseasonLeadersFromBoxScores({
 
   for (const [src, catKey] of Object.entries(SRC_TO_KEY)) {
     if (!LEADER_KEYS.includes(catKey)) continue;
-    const primary = topByTotal(playerMap, src, thresholds, validPlayoffTeamSlugs, 3);
+    const primary = topByTotal(playerMap, src, thresholds, expandedTeamSet, 3);
     if (!primaryCounts) primaryCounts = primary.counts;
 
     let leaders = primary.leaders;
@@ -579,7 +608,7 @@ export async function buildNbaPostseasonLeadersFromBoxScores({
       // Retry just this category with relaxed thresholds — never show
       // "Postseason feed updating" if box-score data exists. Team
       // eligibility filter STAYS strict on retry.
-      const relaxed = topByTotal(playerMap, src, RELAXED_RETRY, validPlayoffTeamSlugs, 3);
+      const relaxed = topByTotal(playerMap, src, RELAXED_RETRY, expandedTeamSet, 3);
       leaders = relaxed.leaders;
       if (leaders.length > 0) retried.push(catKey);
     }
@@ -607,17 +636,30 @@ export async function buildNbaPostseasonLeadersFromBoxScores({
   // Diagnostic dedicated to the team-eligibility gate. Emits the
   // exact teams that were dropped so a Pelicans/Trail Blazers leak
   // is immediately visible in production logs.
-  if (validPlayoffTeamSlugs && validPlayoffTeamSlugs.size > 0) {
+  if (expandedTeamSet && expandedTeamSet.size > 0) {
     const beforeTeams = Array.from(new Set(Object.values(playerMap).map(p => p.teamSlug).filter(Boolean)));
-    const droppedTeams = beforeTeams.filter(s => !validPlayoffTeamSlugs.has(s));
+    const droppedTeams = beforeTeams.filter(s => !expandedTeamSet.has(s));
     console.log('[NBA_POSTSEASON_LEADER_TEAM_FILTER]', JSON.stringify({
-      validTeams: Array.from(validPlayoffTeamSlugs).sort(),
+      validTeams: Array.from(expandedTeamSet).sort(),
+      bracketTeams: validPlayoffTeamSlugs ? Array.from(validPlayoffTeamSlugs).sort() : [],
+      gameAddedTeams: Array.from(expandedTeamSet).filter(s => !validPlayoffTeamSlugs?.has(s)).sort(),
       teamsBefore: beforeTeams.sort(),
       excludedTeams: droppedTeams.sort(),
       playersBefore: primaryCounts?.playersBefore ?? playerCount,
       playersAfterTeamFilter: primaryCounts?.afterActiveTeamFilter ?? 0,
     }));
   }
+
+  // Single-line summary diagnostic per audit spec.
+  console.log('[NBA_LEADERS_FINAL_DEBUG]', JSON.stringify({
+    playoffGamesFound: includedGames.length,
+    boxscoresFetched: parsedGames,
+    playersAggregated: playerCount,
+    validPlayoffTeams: Array.from(expandedTeamSet).sort(),
+    categories: Object.fromEntries(
+      Object.entries(categories || {}).map(([k, v]) => [k, v?.leaders?.length || 0])
+    ),
+  }));
 
   const result = {
     categories,
@@ -630,7 +672,8 @@ export async function buildNbaPostseasonLeadersFromBoxScores({
       uniquePlayers: playerCount,
       excludedPlayInGames: excludedPlayInGames.length,
       excludedNonPlayoffGames: excludedNonPlayoffGames.length,
-      validPlayoffTeams: validPlayoffTeamSlugs
+      validPlayoffTeams: Array.from(expandedTeamSet).sort(),
+      bracketAnchoredTeams: validPlayoffTeamSlugs
         ? Array.from(validPlayoffTeamSlugs).sort()
         : null,
       thresholds,
