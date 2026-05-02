@@ -9,13 +9,31 @@
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
-/* Compact variant — used as a Home preview above Today's Picks. */
+/* Compact variant — Home hero. Glass-card treatment with a soft NBA navy
+   accent line so it reads as a confident accountability section. */
 .sectionCompact {
-  padding: 16px 18px;
+  padding: 18px 20px 16px;
   margin-bottom: var(--space-lg, 20px);
+  background:
+    linear-gradient(180deg, rgba(29, 66, 138, 0.025) 0%, rgba(255,255,255,0) 70%),
+    var(--color-bg-elevated, #fff);
+  border: 1px solid rgba(29, 66, 138, 0.10);
+  box-shadow: 0 4px 18px rgba(29, 66, 138, 0.06), 0 1px 3px rgba(0,0,0,0.04);
+  position: relative;
+  overflow: hidden;
+}
+.sectionCompact::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  background: linear-gradient(90deg, #1d428a 0%, #c9a24a 100%);
+  opacity: 0.7;
 }
 .sectionCompact .picksList { margin-top: 12px; }
 .sectionCompact .row { padding: 10px 0; }
+.sectionCompact .title { font-size: 1.1rem; }
+.sectionCompact .eyebrow { color: #1d428a; }
 
 .compactCtaRow {
   display: flex;
