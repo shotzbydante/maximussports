@@ -74,28 +74,41 @@ export function hasValidLeaderCategories(leaders) {
 }
 
 /**
- * STRICT validator for postseason cached payloads. Defeats two failure
- * modes that previously poisoned Slide 2:
- *   1) Stale KV from a prior shape (per-game averages, regular-season
- *      labels, missing categories).
- *   2) ESPN types/3 returning non-playoff-team players (e.g. NOP/POR
- *      stars who are still league-stat leaders despite their teams
- *      missing the playoffs).
+ * STRICT validator for postseason cached payloads. FAIL-CLOSED design:
+ * when we don't have a verified playoff team set, we refuse to validate
+ * ANY payload as good — better to rebuild from scratch than ship NOP /
+ * POR / DAL stars under a "Postseason Leaders" header.
  *
  * Returns true ONLY when:
  *   - seasonType === 'postseason'
  *   - statType === 'totals'
  *   - all 5 canonical categories exist with ≥1 leader
- *   - every leader's team is in `validPlayoffTeamSlugs` (when provided)
  *   - no category abbrev uses per-game shape (PPG/APG/RPG/SPG/BPG)
+ *   - validPlayoffTeamSlugs is provided AND non-empty
+ *   - every leader's team is in validPlayoffTeamSlugs
+ *
+ * Pass `{ allowMissingTeamSet: true }` ONLY in early-bootstrap callsites
+ * where there's no playoff context to compare against (e.g. an empty-
+ * payload write check). Default behavior is the strict fail-closed path.
  */
-export function hasValidPostseasonTotalsPayload(leaders, validPlayoffTeamSlugs = null) {
+export function hasValidPostseasonTotalsPayload(leaders, validPlayoffTeamSlugs = null, opts = {}) {
+  const { allowMissingTeamSet = false } = opts;
   if (!leaders) return false;
   if (leaders.seasonType && leaders.seasonType !== 'postseason') return false;
   if (leaders.statType && leaders.statType !== 'totals') return false;
 
   const cats = leaders.categories || {};
   const required = ['pts', 'ast', 'reb', 'stl', 'blk'];
+
+  const haveValidSet = !!(validPlayoffTeamSlugs && validPlayoffTeamSlugs.size > 0);
+  if (!haveValidSet && !allowMissingTeamSet) {
+    // FAIL-CLOSED — without a verified playoff team set we cannot
+    // confirm leaders are postseason-legitimate. Reject so the caller
+    // falls through to box-score aggregation (which will derive its own
+    // team set from games and either succeed or return empty).
+    return false;
+  }
+
   for (const k of required) {
     const c = cats[k];
     const list = c?.leaders || [];
@@ -104,9 +117,9 @@ export function hasValidPostseasonTotalsPayload(leaders, validPlayoffTeamSlugs =
     const abbrev = String(c?.abbrev || '').toUpperCase();
     if (/^[PARSB]PG$/.test(abbrev)) return false;
     // Team eligibility: every leader's team must be in the active
-    // playoff field. Skip when no validation set is supplied (caller
-    // doesn't have playoff context, e.g. early bootstrap).
-    if (validPlayoffTeamSlugs && validPlayoffTeamSlugs.size > 0) {
+    // playoff field. When no set is provided AND the caller explicitly
+    // allowed it (allowMissingTeamSet), skip the team check.
+    if (haveValidSet) {
       for (const ldr of list) {
         const slug = ldr?.teamSlug || null;
         if (!slug) return false;            // leaders without team identity are unsafe

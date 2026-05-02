@@ -157,10 +157,12 @@
   grid-template-columns: 1fr auto;
   align-items: end;
   gap: 8px;
-  /* Tighter top + bottom spacing reclaims ~12px for the HOTP module
-     so 3 bullets render without clipping. */
-  margin-top: 6px; margin-bottom: 12px;
+  /* Tighter spacing reclaims room for HOTP. flex-shrink: 0 so this
+     block never gets squeezed by the bottomGrid. */
+  margin-top: 4px; margin-bottom: 10px;
+  flex: 0 0 auto;
 }
+.s1TopBar { flex: 0 0 auto; }
 .s1TitleBlock {
   position: relative;
 }
@@ -197,8 +199,10 @@
 /* ── Story cards — bigger, matchup-forward ─────────────────── */
 .s1StoryZone {
   position: relative; z-index: 10;
-  display: grid; grid-template-columns: 1fr; gap: 14px;
+  display: grid; grid-template-columns: 1fr; gap: 12px;
   margin-top: 4px;
+  /* Do not shrink — story cards are intrinsic content size. */
+  flex: 0 0 auto;
 }
 .s1StoryCard {
   composes: glassCard;
@@ -244,9 +248,12 @@
   /* Tighter padding to make headroom for 3 bullets without bleeding
      into Playoff Contenders below. */
   padding: 14px 22px 16px;
+  /* CRITICAL: do NOT shrink. The bottomGrid below uses flex: 1 to
+     absorb leftover artboard space; without `flex-shrink: 0` the HOTP
+     zone gets squeezed and the third bullet gets clipped. */
+  flex: 0 0 auto;
   /* Hard floor for the module so 3 bullets at 18px / 1.32 line-height
-     × 2 line clamp + 9px gaps + pill always render. ~270px is the math:
-     pill (~32) + 3 × (~76 row) = 260, +padding/margins. */
+     × 2 line clamp + 9px gaps + pill always render. */
   min-height: 250px;
 }
 .s1HotpPill {
@@ -282,7 +289,11 @@
 .s1BottomGrid {
   position: relative; z-index: 10;
   display: grid; grid-template-columns: 1fr 1fr; gap: 14px;
-  margin-top: 12px; flex: 1;
+  margin-top: 10px;
+  /* Absorbs leftover artboard space, but can shrink (min-height: 0) so
+     it never pushes HOTP off-canvas when content is tall. */
+  flex: 1 1 0;
+  min-height: 0;
 }
 .s1BottomCard {
   composes: glassCard;

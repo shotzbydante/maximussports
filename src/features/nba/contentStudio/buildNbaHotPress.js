@@ -297,14 +297,37 @@ export function buildNbaGameNarrative(story) {
   const tag = seriesTagLower(story);
   const margin = (story.winScore || 0) - (story.loseScore || 0);
 
+  // Detect "forces Game N" — when the trailing team wins to extend.
+  // story.winSeriesWins is the WINNER's series wins AFTER this game.
+  // If the winner was the trailing side BEFORE this game, they've
+  // forced another game. That's true when winSeriesWins <= loseSeriesWins
+  // immediately after this win (still tied or trailing). When winner
+  // was 2-3 entering, they win to tie 3-3 → forces Game 7.
+  const forcesAnotherGame = story.inSeries
+    && story.winSeriesWins != null && story.loseSeriesWins != null
+    && story.winSeriesWins <= story.loseSeriesWins + 1
+    && (story.winSeriesWins + story.loseSeriesWins) >= 4
+    && !story.isClinch && !story.isGame7Win;
+  const forcesGame7 = story.inSeries
+    && story.winSeriesWins === 3 && story.loseSeriesWins === 3;
+
   // 1. BUZZER-BEATER / GAME-WINNER (highest narrative priority).
   //    Requires explicit notes-text signal — never inferred.
   const notes = String(narr.notesText || '').toLowerCase();
-  const buzzerHit = /buzzer[-\s]*beater|game[-\s]*winn|last[-\s]*second|walk[-\s]*off/.test(notes);
+  const buzzerHit = /buzzer[-\s]*beater|game[-\s]*winn|last[-\s]*second|walk[-\s]*off|wins it at|hits the (game|series)[-\s]*winn|ot three|overtime three/.test(notes);
   if (buzzerHit && narr.isOvertime) {
-    return `🚨 ${w} stun ${l} ${score} in OT — a last-second shot flips the series pressure${tag ? ` ${tag.trim()}` : ''}.`;
+    if (forcesGame7) {
+      return `🚨 ${w} stun ${l} ${score} in OT — a last-second three forces Game 7 and flips the series pressure.`;
+    }
+    if (forcesAnotherGame) {
+      return `🚨 ${w} stun ${l} ${score} in OT — a last-second shot forces Game ${story.winSeriesWins + story.loseSeriesWins + 1} and shifts the series pressure${tag}.`;
+    }
+    return `🚨 ${w} stun ${l} ${score} in OT — a last-second shot flips the series pressure${tag}.`;
   }
   if (buzzerHit) {
+    if (forcesGame7) {
+      return `🚨 ${w} beat ${l} ${score} on a last-second shot — Game 7 forced, series swings on the next tip.`;
+    }
     return `🚨 ${w} beat ${l} ${score} on a last-second shot${tag} — the kind of moment that swings a series.`;
   }
 
@@ -313,6 +336,9 @@ export function buildNbaGameNarrative(story) {
     const otTag = (narr.overtimeCount && narr.overtimeCount > 1) ? `${narr.overtimeCount}OT` : 'OT';
     if (story.isClinch || story.isGame7Win) {
       return `🚨 ${w} survive ${l} ${score} in ${otTag} — series clinched in dramatic fashion${tag}.`;
+    }
+    if (forcesGame7) {
+      return `🚨 ${w} edge ${l} ${score} in ${otTag} — Game 7 forced, the series goes the distance.`;
     }
     if (story.isElimWin) {
       return `🚨 ${w} steal ${score} from ${l} in ${otTag} — one win from closing out${tag}.`;
@@ -325,18 +351,16 @@ export function buildNbaGameNarrative(story) {
 
   // 3. COMEBACK — derived from period-by-period linescores.
   //    Comeback margin = the largest deficit the WINNER faced at the
-  //    end of any period before the final buzzer. If that deficit is
-  //    ≥15 we describe it as a "comeback"; ≥20 as "massive".
-  const winSlug = story.winSlug;
+  //    end of any period before the final buzzer.
+  //    Tiers: 25+ historic, 20+ massive, 15+ comeback.
   const winningSide = (story?.winSide === 'home' || story?.winSide === 'away')
     ? story.winSide
     : null;
-  // Story might not carry a winSide — derive from team slugs vs game.
-  // We also accept linescores attached directly to the story (preferred).
   const winLine = winningSide === 'home' ? narr.homeLine : winningSide === 'away' ? narr.awayLine : null;
   const losLine = winningSide === 'home' ? narr.awayLine : winningSide === 'away' ? narr.homeLine : null;
   if (Array.isArray(winLine) && Array.isArray(losLine) && winLine.length >= 2 && losLine.length >= 2) {
     let maxDeficit = 0;
+    let halftimeDeficit = 0;
     let cumW = 0, cumL = 0;
     for (let i = 0; i < Math.min(winLine.length, losLine.length); i++) {
       cumW += winLine[i] || 0;
@@ -346,16 +370,26 @@ export function buildNbaGameNarrative(story) {
       if (i === winLine.length - 1) break;
       const deficit = cumL - cumW;
       if (deficit > maxDeficit) maxDeficit = deficit;
+      if (i === 1) halftimeDeficit = deficit; // after Q2 = halftime
+    }
+    if (maxDeficit >= 25) {
+      const halftimeNote = halftimeDeficit >= 15 ? ` (down ${halftimeDeficit} at the half)` : '';
+      return `🔥 ${w} erase a ${maxDeficit}-point deficit to beat ${l} ${score}${halftimeNote}${tag} — one of the biggest comebacks of the postseason.`;
     }
     if (maxDeficit >= 20) {
-      return `🔥 ${w} erase a ${maxDeficit}-point deficit to beat ${l} ${score}${tag} — one of the bigger comebacks of the postseason.`;
+      return `🔥 ${w} erase a ${maxDeficit}-point deficit to beat ${l} ${score}${tag} — a massive postseason comeback.`;
     }
     if (maxDeficit >= 15) {
       return `🔥 ${w} rally from a ${maxDeficit}-point hole to beat ${l} ${score}${tag} — a real momentum swing.`;
     }
   }
 
-  // 4. BLOWOUT in a clinching context (margin ≥ 25 AND series-defining).
+  // 4. FORCES GAME 7 (no OT, no buzzer-beater — but a series-extender).
+  if (forcesGame7) {
+    return `⚔️ ${w} beat ${l} ${score} to force Game 7 — series goes the distance, season on a single tip.`;
+  }
+
+  // 5. BLOWOUT in a clinching context (margin ≥ 25 AND series-defining).
   if (margin >= 25 && (story.isClinch || story.isGame7Win)) {
     return `🔥 ${w} blow out ${l} ${score}${tag} — series clinched in a statement win.`;
   }

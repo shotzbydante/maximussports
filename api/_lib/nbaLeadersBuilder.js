@@ -135,6 +135,7 @@ async function resolveEntry(entry) {
   let athleteName = '—';
   let teamAbbrev = '';
   let teamName = '';
+  let teamSlug = null;
 
   if (teamRef) {
     const m = teamRef.match(/teams\/(\d+)/);
@@ -143,6 +144,7 @@ async function resolveEntry(entry) {
       teamAbbrev = espnIdToAbbrev[tid] || '';
       const slug = espnIdToSlug[tid];
       if (slug) {
+        teamSlug = slug;
         const t = NBA_TEAMS.find(t => t.slug === slug);
         teamName = t?.name || '';
       }
@@ -164,6 +166,7 @@ async function resolveEntry(entry) {
     name: athleteName,
     team: teamName,
     teamAbbrev,
+    teamSlug,
     value,
     display: formatTotal(value),
   };
@@ -340,85 +343,54 @@ function getCounts(data) {
  * @param {boolean} [opts.preferFresh=false] — skip KV latest, force ESPN refetch
  * @returns {Promise<{ data, source, counts }>}
  */
-export async function buildNbaLeadersData(opts = {}) {
-  const { preferFresh = false, seasonType = 'regular' } = opts;
-  const keys = kvKeys(seasonType);
-  const isStrictPostseason = seasonType === 'postseason';
-
-  // ────────────────────────────────────────────────────────────────────
-  // PHASE 0 (postseason only): build the canonical playoff team set.
-  // Without this, ESPN types/3 can return all-NBA leaders that include
-  // stars from non-playoff teams (NOP/POR/DAL). The team set is built
-  // from the live schedule window UNION the static bracket, so we have
-  // a strong signal even before completed series populate the bracket.
-  //
-  // Cost: 1 schedule window fetch. We reuse the games for the box-score
-  // path below to amortize.
-  // ────────────────────────────────────────────────────────────────────
+/**
+ * Box-score-only postseason leaders builder. ESPN types/3 is intentionally
+ * BYPASSED here because it has historically returned all-NBA leaders rather
+ * than playoff-only — even with type=3 it can include players from teams
+ * that didn't make the bracket. We always derive postseason leaders from
+ * real playoff box scores, with a strict team-eligibility filter.
+ *
+ * Fail-closed: if we can't build a non-empty playoff team set, we return
+ * an empty postseason payload rather than fall through to ESPN data.
+ */
+async function buildPostseasonLeadersData({ preferFresh = false, keys }) {
+  // 1. Build the canonical playoff team set.
   let validPlayoffTeamSlugs = null;
-  let psWindowGames = null;
-  if (isStrictPostseason) {
-    try {
-      const { games } = await fetchNbaPlayoffScheduleWindow({ daysBack: 21, daysForward: 1 });
-      psWindowGames = games;
-      const ctx = buildNbaPlayoffContext({ liveGames: [], windowGames: games });
-      validPlayoffTeamSlugs = buildValidPlayoffTeamSlugs(ctx, games);
-      console.log('[nbaLeadersBuilder] postseason team set built', JSON.stringify({
-        teams: Array.from(validPlayoffTeamSlugs).sort(),
-        size: validPlayoffTeamSlugs.size,
-      }));
-    } catch (err) {
-      console.warn(`[nbaLeadersBuilder] failed to build playoff team set: ${err.message}`);
-    }
-  }
-
-  // ────────────────────────────────────────────────────────────────────
-  // PHASE 1: try fresh ESPN types/3, with playoff team filter applied
-  // to every leader entry for postseason.
-  // ────────────────────────────────────────────────────────────────────
-  let freshData = null;
-  let freshError = null;
+  let psWindowGames = [];
   try {
-    freshData = await fetchLeadersFresh(seasonType, validPlayoffTeamSlugs);
-    const freshCount = categoryCount(freshData);
-    console.log(`[nbaLeadersBuilder] fresh build: seasonType=${seasonType} categories=${freshCount}`);
-
-    // Strict postseason validation: payload must pass the totals + team
-    // eligibility check before it can be promoted to lastknown.
-    const freshIsValid = isStrictPostseason
-      ? hasValidPostseasonTotalsPayload(freshData, validPlayoffTeamSlugs)
-      : freshCount >= MIN_CATEGORIES_FOR_LASTKNOWN_WRITE;
-    if (freshIsValid) {
-      setJson(keys.latest, freshData, { exSeconds: LATEST_TTL_SEC }).catch(() => {});
-      setJson(keys.lastknown, freshData, { exSeconds: LASTKNOWN_TTL_SEC }).catch(() => {});
-      return { data: freshData, source: 'fresh', counts: getCounts(freshData) };
-    }
-    if (freshCount > 0 && !isStrictPostseason) {
-      setJson(keys.latest, freshData, { exSeconds: LATEST_TTL_SEC }).catch(() => {});
-    }
+    const { games } = await fetchNbaPlayoffScheduleWindow({ daysBack: 21, daysForward: 1 });
+    psWindowGames = games || [];
+    const ctx = buildNbaPlayoffContext({ liveGames: [], windowGames: psWindowGames });
+    validPlayoffTeamSlugs = buildValidPlayoffTeamSlugs(ctx, psWindowGames);
+    console.log('[NBA_PLAYOFF_TEAMS_FINAL]', JSON.stringify({
+      teams: Array.from(validPlayoffTeamSlugs).sort(),
+      size: validPlayoffTeamSlugs.size,
+      windowGames: psWindowGames.length,
+    }));
   } catch (err) {
-    freshError = err.message;
-    console.warn(`[nbaLeadersBuilder] fresh build failed (seasonType=${seasonType}): ${err.message}`);
+    console.warn(`[nbaLeadersBuilder] postseason team set build failed: ${err.message}`);
   }
 
-  // ────────────────────────────────────────────────────────────────────
-  // PHASE 2: KV reads with strict postseason validation. Cached payloads
-  // must pass hasValidPostseasonTotalsPayload (totals + 5 categories +
-  // every leader on a valid playoff team) before reuse.
-  // ────────────────────────────────────────────────────────────────────
-  const cacheValid = (data) => {
-    if (isStrictPostseason) return hasValidPostseasonTotalsPayload(data, validPlayoffTeamSlugs);
-    return categoryCount(data) >= MIN_CATEGORIES_FOR_LASTKNOWN_WRITE;
-  };
+  const haveTeamSet = !!(validPlayoffTeamSlugs && validPlayoffTeamSlugs.size > 0);
+  if (!haveTeamSet) {
+    console.warn('[nbaLeadersBuilder] postseason team set is empty — refusing to ship postseason leaders');
+    return {
+      data: emptyPostseasonPayload('no playoff team set available'),
+      source: 'empty',
+      counts: getCounts({ categories: {} }),
+    };
+  }
 
+  // 2. KV reads — must pass strict validator (totals + every leader on a
+  //    valid playoff team).
   if (!preferFresh) {
     try {
       const latest = await getJson(keys.latest);
-      if (cacheValid(latest)) {
-        console.log(`[nbaLeadersBuilder] using KV latest (${seasonType}): categories=${categoryCount(latest)}`);
+      if (hasValidPostseasonTotalsPayload(latest, validPlayoffTeamSlugs)) {
+        console.log(`[nbaLeadersBuilder] using KV latest (postseason): categories=${categoryCount(latest)}`);
         return { data: latest, source: 'kv_latest', counts: getCounts(latest) };
       }
-      if (latest && isStrictPostseason) {
+      if (latest) {
         console.warn(`[nbaLeadersBuilder] KV latest postseason rejected (categories=${categoryCount(latest)}, missing=${getCounts(latest)._missingCategories?.join(',')}) — likely poisoned with non-playoff teams`);
       }
     } catch (err) {
@@ -428,43 +400,134 @@ export async function buildNbaLeadersData(opts = {}) {
 
   try {
     const lastknown = await getJson(keys.lastknown);
-    if (cacheValid(lastknown)) {
-      console.log(`[nbaLeadersBuilder] using KV last-known-good (${seasonType}): categories=${categoryCount(lastknown)}`);
+    if (hasValidPostseasonTotalsPayload(lastknown, validPlayoffTeamSlugs)) {
+      console.log(`[nbaLeadersBuilder] using KV last-known-good (postseason): categories=${categoryCount(lastknown)}`);
       return { data: lastknown, source: 'kv_lastknown', counts: getCounts(lastknown) };
     }
-    if (lastknown && isStrictPostseason) {
+    if (lastknown) {
       console.warn(`[nbaLeadersBuilder] KV lastknown postseason rejected (categories=${categoryCount(lastknown)}, missing=${getCounts(lastknown)._missingCategories?.join(',')}) — likely poisoned with non-playoff teams`);
     }
   } catch (err) {
     console.warn(`[nbaLeadersBuilder] KV lastknown read failed: ${err.message}`);
   }
 
+  // 3. Box-score aggregation. Always passes the playoff team filter so
+  //    non-playoff stars can never appear, even if ESPN tags a non-playoff
+  //    game as season.type=3 by mistake.
+  try {
+    console.log(`[nbaLeadersBuilder] postseason → box-score aggregation (games=${psWindowGames.length})`);
+    const aggregate = await buildNbaPostseasonLeadersFromBoxScores({
+      windowGames: psWindowGames,
+      validPlayoffTeamSlugs,
+    });
+    if (aggregate && hasValidPostseasonTotalsPayload(aggregate, validPlayoffTeamSlugs)) {
+      setJson(keys.latest, aggregate, { exSeconds: LATEST_TTL_SEC }).catch(() => {});
+      setJson(keys.lastknown, aggregate, { exSeconds: LASTKNOWN_TTL_SEC }).catch(() => {});
+      return { data: aggregate, source: 'boxscore_aggregate', counts: getCounts(aggregate) };
+    }
+    // Partial: return without lastknown write so we don't poison cache.
+    if (aggregate && categoryCount(aggregate) > 0) {
+      console.warn(`[nbaLeadersBuilder] box-score aggregate partial (categories=${categoryCount(aggregate)}, missing=${getCounts(aggregate)._missingCategories?.join(',')}) — returning without lastknown write`);
+      return { data: aggregate, source: 'boxscore_aggregate_partial', counts: getCounts(aggregate) };
+    }
+  } catch (err) {
+    console.warn(`[nbaLeadersBuilder] box-score aggregation failed: ${err.message}`);
+  }
+
+  // 4. All sources failed — return empty postseason payload (NEVER
+  //    fall through to ESPN regular-season data).
+  console.warn('[nbaLeadersBuilder] postseason: all sources empty — returning placeholder');
+  return {
+    data: emptyPostseasonPayload('postseason aggregate unavailable'),
+    source: 'empty',
+    counts: getCounts({ categories: {} }),
+  };
+}
+
+function emptyPostseasonPayload(reason) {
+  return {
+    categories: {},
+    fetchedAt: new Date().toISOString(),
+    seasonType: 'postseason',
+    statType: 'totals',
+    _source: 'empty',
+    _error: reason,
+  };
+}
+
+export async function buildNbaLeadersData(opts = {}) {
+  const { preferFresh = false, seasonType = 'regular' } = opts;
+  const keys = kvKeys(seasonType);
+  const isStrictPostseason = seasonType === 'postseason';
+
   // ────────────────────────────────────────────────────────────────────
-  // PHASE 3 (postseason): box-score aggregation. Always passes the
-  // playoff team filter so non-playoff stars can never appear, even
-  // if ESPN tags a non-playoff game as season.type=3 by mistake.
+  // POSTSEASON PATH — BOX-SCORE ONLY
+  // ────────────────────────────────────────────────────────────────────
+  // ESPN's types/3 leaders endpoint has historically returned all-NBA
+  // stat leaders rather than playoff-only — even with type=3 it can
+  // include stars from non-playoff teams (NOP/POR/DAL). Filtering it
+  // after the fact is fragile (relies on the playoff team set being
+  // built successfully on EVERY request). We bypass it entirely for
+  // postseason and always derive leaders from real playoff box scores.
+  //
+  // Pipeline:
+  //   1. Build the canonical playoff team set from the schedule window
+  //      UNION the static bracket. If we can't build a non-empty set,
+  //      we refuse to ship any postseason data (return empty placeholder).
+  //   2. Try KV cache reads — must pass strict validator (totals + every
+  //      leader on a valid playoff team).
+  //   3. Aggregate from box scores with the playoff team filter applied.
+  //   4. Validate the aggregate before writing to lastknown.
+  //
+  // Regular-season path (below) keeps the ESPN types/2 fast path.
   // ────────────────────────────────────────────────────────────────────
   if (isStrictPostseason) {
+    return await buildPostseasonLeadersData({ preferFresh, keys });
+  }
+
+  // ────────────────────────────────────────────────────────────────────
+  // REGULAR-SEASON PATH — original ESPN types/2 flow.
+  // ────────────────────────────────────────────────────────────────────
+  let freshData = null;
+  let freshError = null;
+  try {
+    freshData = await fetchLeadersFresh(seasonType, null);
+    const freshCount = categoryCount(freshData);
+    console.log(`[nbaLeadersBuilder] fresh build: seasonType=${seasonType} categories=${freshCount}`);
+
+    if (freshCount >= MIN_CATEGORIES_FOR_LASTKNOWN_WRITE) {
+      setJson(keys.latest, freshData, { exSeconds: LATEST_TTL_SEC }).catch(() => {});
+      setJson(keys.lastknown, freshData, { exSeconds: LASTKNOWN_TTL_SEC }).catch(() => {});
+      return { data: freshData, source: 'fresh', counts: getCounts(freshData) };
+    }
+    if (freshCount > 0) {
+      setJson(keys.latest, freshData, { exSeconds: LATEST_TTL_SEC }).catch(() => {});
+    }
+  } catch (err) {
+    freshError = err.message;
+    console.warn(`[nbaLeadersBuilder] fresh build failed (seasonType=${seasonType}): ${err.message}`);
+  }
+
+  if (!preferFresh) {
     try {
-      const games = psWindowGames || (await fetchNbaPlayoffScheduleWindow({ daysBack: 21, daysForward: 0 })).games;
-      console.log(`[nbaLeadersBuilder] postseason fallback → box-score aggregation (games=${games.length})`);
-      const aggregate = await buildNbaPostseasonLeadersFromBoxScores({
-        windowGames: games,
-        validPlayoffTeamSlugs,
-      });
-      if (aggregate && hasValidPostseasonTotalsPayload(aggregate, validPlayoffTeamSlugs)) {
-        setJson(keys.latest, aggregate, { exSeconds: LATEST_TTL_SEC }).catch(() => {});
-        setJson(keys.lastknown, aggregate, { exSeconds: LASTKNOWN_TTL_SEC }).catch(() => {});
-        return { data: aggregate, source: 'boxscore_aggregate', counts: getCounts(aggregate) };
-      }
-      // Partial: return without lastknown write so we don't poison cache.
-      if (aggregate && categoryCount(aggregate) > 0) {
-        console.warn(`[nbaLeadersBuilder] box-score aggregate partial (categories=${categoryCount(aggregate)}, missing=${getCounts(aggregate)._missingCategories?.join(',')}) — returning without lastknown write`);
-        return { data: aggregate, source: 'boxscore_aggregate_partial', counts: getCounts(aggregate) };
+      const latest = await getJson(keys.latest);
+      if (categoryCount(latest) >= MIN_CATEGORIES_FOR_LASTKNOWN_WRITE) {
+        console.log(`[nbaLeadersBuilder] using KV latest (${seasonType}): categories=${categoryCount(latest)}`);
+        return { data: latest, source: 'kv_latest', counts: getCounts(latest) };
       }
     } catch (err) {
-      console.warn(`[nbaLeadersBuilder] box-score aggregation failed: ${err.message}`);
+      console.warn(`[nbaLeadersBuilder] KV latest read failed: ${err.message}`);
     }
+  }
+
+  try {
+    const lastknown = await getJson(keys.lastknown);
+    if (categoryCount(lastknown) >= MIN_CATEGORIES_FOR_LASTKNOWN_WRITE) {
+      console.log(`[nbaLeadersBuilder] using KV last-known-good (${seasonType}): categories=${categoryCount(lastknown)}`);
+      return { data: lastknown, source: 'kv_lastknown', counts: getCounts(lastknown) };
+    }
+  } catch (err) {
+    console.warn(`[nbaLeadersBuilder] KV lastknown read failed: ${err.message}`);
   }
 
   // ── Postseason has NO regular-season fallback (audit Part 2) ──

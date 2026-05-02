@@ -771,4 +771,111 @@ describe('NBA Daily Briefing — Phase 1 foundation', () => {
     expect(isPlayInGame({ competitions: [{ notes: [{ headline: 'Round 1 Game 4' }] }] })).toBe(false);
     expect(isPlayInGame({})).toBe(false);
   });
+
+  it('hasValidPostseasonTotalsPayload is fail-closed when team set is missing', async () => {
+    const { hasValidPostseasonTotalsPayload } = await import('../../../../api/_lib/nbaBoxScoreLeaders.js');
+    const goodPayload = {
+      seasonType: 'postseason', statType: 'totals',
+      categories: {
+        pts: { abbrev: 'PTS', leaders: [{ name: 'A', teamSlug: 'lal' }] },
+        ast: { abbrev: 'AST', leaders: [{ name: 'B', teamSlug: 'hou' }] },
+        reb: { abbrev: 'REB', leaders: [{ name: 'C', teamSlug: 'bos' }] },
+        stl: { abbrev: 'STL', leaders: [{ name: 'D', teamSlug: 'nyk' }] },
+        blk: { abbrev: 'BLK', leaders: [{ name: 'E', teamSlug: 'min' }] },
+      },
+    };
+    // No team set → reject (fail-closed)
+    expect(hasValidPostseasonTotalsPayload(goodPayload, null)).toBe(false);
+    expect(hasValidPostseasonTotalsPayload(goodPayload, new Set())).toBe(false);
+    // Explicit allowMissingTeamSet escape hatch
+    expect(hasValidPostseasonTotalsPayload(goodPayload, null, { allowMissingTeamSet: true })).toBe(true);
+    // Non-empty team set → validates teams
+    const playoffSet = new Set(['lal', 'hou', 'bos', 'nyk', 'min']);
+    expect(hasValidPostseasonTotalsPayload(goodPayload, playoffSet)).toBe(true);
+  });
+
+  it('normalizer sanitizePostseasonLeaders drops non-playoff team leaders', () => {
+    // Build a fixture where the playoff context has BOS/PHI active,
+    // but the leaders payload includes a NOP star (non-playoff team).
+    // The sanitizer should drop NOP and keep BOS/PHI.
+    const leaders = {
+      seasonType: 'postseason', statType: 'totals', _source: 'fresh',
+      categories: {
+        pts: { abbrev: 'PTS', leaders: [
+          { name: 'Zion Williamson', teamAbbrev: 'NOP', teamSlug: 'nop', value: 200, display: '200' },
+          { name: 'Jayson Tatum',    teamAbbrev: 'BOS', teamSlug: 'bos', value: 156, display: '156' },
+        ]},
+        ast: { abbrev: 'AST', leaders: [
+          { name: 'Tyrese Maxey',    teamAbbrev: 'PHI', teamSlug: 'phi', value: 50, display: '50' },
+        ]},
+        reb: { abbrev: 'REB', leaders: [{ name: 'C',  teamAbbrev: 'BOS', teamSlug: 'bos', value: 70, display: '70' }] },
+        stl: { abbrev: 'STL', leaders: [{ name: 'D',  teamAbbrev: 'PHI', teamSlug: 'phi', value: 12, display: '12' }] },
+        blk: { abbrev: 'BLK', leaders: [{ name: 'E',  teamAbbrev: 'BOS', teamSlug: 'bos', value: 18, display: '18' }] },
+      },
+    };
+    // Build a window where BOS/PHI played 4 games (BOS sweep)
+    const games = [1, 2, 3, 4].map((g, i) => ({
+      gameId: `g-bos-phi-${g}`,
+      sport: 'nba', status: 'final',
+      startTime: new Date(Date.now() - (12 - i * 2) * 24 * 3600 * 1000).toISOString(),
+      teams: {
+        away: { slug: i % 2 === 0 ? 'phi' : 'bos', score: i % 2 === 0 ? 95 : 110 },
+        home: { slug: i % 2 === 0 ? 'bos' : 'phi', score: i % 2 === 0 ? 110 : 95 },
+      },
+      gameState: { isFinal: true, isLive: false },
+    }));
+    const payload = normalizeNbaImagePayload({
+      activeSection: 'nba-daily',
+      nbaPicks: synthPicks,
+      nbaLiveGames: games,
+      nbaWindowGames: games,
+      nbaLeaders: leaders,
+      nbaStandings: synthStandings,
+      nbaChampOdds: synthChampOdds,
+    });
+    const ptsLeaders = payload.nbaLeaders?.categories?.pts?.leaders || [];
+    const ptsTeams = ptsLeaders.map(l => l.teamSlug);
+    expect(ptsTeams).not.toContain('nop'); // dropped — non-playoff team
+    expect(ptsTeams).toContain('bos');     // kept
+    expect(payload.nbaLeaders?._sanitizedAtNormalizer).toBe(true);
+  });
+
+  it('buildNbaGameNarrative handles forces-Game-7 + buzzer-beater + halftime comeback', async () => {
+    const { buildNbaGameNarrative } = await import('./buildNbaHotPress.js');
+
+    // Buzzer-beater in OT that forces Game 7
+    const game7Force = {
+      winSlug: 'tor', loseSlug: 'cle', winSide: 'home',
+      winScore: 112, loseScore: 110,
+      inSeries: true, winSeriesWins: 3, loseSeriesWins: 3,
+      narrative: { isOvertime: true, overtimeCount: 1, notesText: 'last-second three at the buzzer' },
+    };
+    const g7Text = buildNbaGameNarrative(game7Force);
+    expect(g7Text).toMatch(/Game 7/);
+    expect(g7Text).toMatch(/last-second/);
+
+    // Comeback from 25+ point halftime hole
+    const historicComeback = {
+      winSlug: 'det', loseSlug: 'orl', winSide: 'home',
+      winScore: 93, loseScore: 79,
+      narrative: {
+        isOvertime: false,
+        homeLine: [10, 15, 30, 38],   // det down 25-50 at half
+        awayLine: [25, 25, 18, 11],
+        notesText: '',
+      },
+    };
+    const cbText = buildNbaGameNarrative(historicComeback);
+    expect(cbText).toMatch(/biggest comebacks|biggest|massive/i);
+    expect(cbText).toMatch(/halftime|down 25 at the half|deficit/i);
+
+    // Forces Game 7 without OT or buzzer
+    const forces = {
+      winSlug: 'lal', loseSlug: 'hou', winSide: 'home',
+      winScore: 110, loseScore: 100,
+      inSeries: true, winSeriesWins: 3, loseSeriesWins: 3,
+      narrative: { isOvertime: false, homeLine: null, awayLine: null, notesText: '' },
+    };
+    expect(buildNbaGameNarrative(forces)).toMatch(/force Game 7/i);
+  });
 });
