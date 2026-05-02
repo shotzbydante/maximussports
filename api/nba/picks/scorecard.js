@@ -20,6 +20,7 @@ import {
   findLatestGradedSlate,
 } from '../../_lib/picksHistory.js';
 import { yesterdayET } from '../../_lib/dateWindows.js';
+import { fetchYesterdayFinals } from '../live/_normalize.js';
 
 /** Inclusive day delta between two YYYY-MM-DD strings (a - b in days). */
 function daysBetween(a, b) {
@@ -168,6 +169,69 @@ export default async function handler(req, res) {
       selectedSlate = explicitDate;
       selectedReason = 'explicit_date';
     } else {
+      // ── Target prior slate inspection ────────────────────────────────
+      // The canonical "Model Performance" slate is yesterdayET() — the
+      // last completed sports slate. Check what state it's in BEFORE
+      // walking back through history, so we can:
+      //   • Prefer it when it's already row-graded.
+      //   • Show "Apr 30 awaiting settlement" when it has picks + finals
+      //     but no pick_results yet (settle cron hasn't run / failed).
+      //   • Show today's pending picks live (separate from performance).
+      const targetPrior = requestedSlate; // yesterdayET()
+      const heal = {
+        settleUrl: `/api/cron/nba/settle-yesterday?date=${targetPrior}&force=1`,
+        scorecardUrl: `/api/cron/nba/build-scorecard?date=${targetPrior}`,
+        debugUrl: `/api/nba/picks/scorecard-debug?date=${targetPrior}`,
+      };
+      let targetPriorSummary = {
+        date: targetPrior,
+        picksCount: 0,
+        rowGradedCount: 0,
+        picksWithoutResults: 0,
+        finalsCount: null,
+        awaitingSettlement: false,
+        awaitingFinals: false,
+        readyToShow: false,
+        healUrls: heal,
+      };
+      try {
+        const { picks: priorPicks } = await getPicksForSlate({
+          sport: 'nba', slateDate: targetPrior,
+        });
+        targetPriorSummary.picksCount = priorPicks.length;
+        let priorGraded = 0;
+        let priorMissing = 0;
+        for (const p of priorPicks) {
+          const r = Array.isArray(p.pick_results) ? p.pick_results[0] : p.pick_results;
+          if (!r) priorMissing += 1;
+          else if (r.status === 'won' || r.status === 'lost' || r.status === 'push') priorGraded += 1;
+        }
+        targetPriorSummary.rowGradedCount = priorGraded;
+        targetPriorSummary.picksWithoutResults = priorMissing;
+
+        if (priorPicks.length > 0 && priorGraded === 0) {
+          // Pull ESPN finals for that slate to distinguish "awaiting
+          // settlement" (games are final, settle just hasn't run) from
+          // "awaiting finals" (games still in progress).
+          try {
+            const finals = await fetchYesterdayFinals({ slateDate: targetPrior });
+            targetPriorSummary.finalsCount = (finals || []).length;
+            if (targetPriorSummary.finalsCount > 0) {
+              targetPriorSummary.awaitingSettlement = true;
+            } else {
+              targetPriorSummary.awaitingFinals = true;
+            }
+          } catch (e) {
+            targetPriorSummary._finalsError = e?.message;
+          }
+        } else if (priorPicks.length > 0 && priorGraded > 0) {
+          targetPriorSummary.readyToShow = true;
+        }
+      } catch (e) {
+        targetPriorSummary._priorError = e?.message;
+      }
+      diagnostics.targetPrior = targetPriorSummary;
+
       // Inspect both source-of-truth surfaces in parallel:
       //   a) per-pick rows (picks ⨝ pick_results)
       //   b) aggregate scorecard rows (picks_daily_scorecards.record)
@@ -221,6 +285,25 @@ export default async function handler(req, res) {
         selectedReason = 'no_graded_slate';
         diagnostics.reasonIfNoGradedData =
           'No graded pick_results rows and no graded picks_daily_scorecards rows in 21-day lookback.';
+      }
+
+      // If yesterday (the canonical target prior slate) had picks but is
+      // not the slate we ended up selecting, surface why — so the UI can
+      // show "Apr 30 awaiting settlement" instead of silently rendering
+      // Apr 27 as the headline.
+      if (
+        diagnostics.targetPrior?.picksCount > 0 &&
+        selectedSlate !== yesterday
+      ) {
+        if (diagnostics.targetPrior.awaitingSettlement) {
+          // Picks exist + games final but no pick_results — operator action
+          // needed (settle cron failed, or aggregate-only state).
+          selectedReason = 'awaiting_settlement';
+        } else if (diagnostics.targetPrior.awaitingFinals) {
+          selectedReason = 'awaiting_finals';
+        }
+        // Always tag the older slate as a fallback in this case.
+        usedFallback = true;
       }
     }
 
@@ -357,7 +440,11 @@ export default async function handler(req, res) {
       // Surface today's pending slate so UI can show "Today's slate pending".
       diagnostics.todayPendingSlate = diagnostics.todayPendingSlate || selectedSlate;
       diagnostics.todayPendingCount = diagnostics.todayPendingCount || (totals?.pending ?? picks.length);
-      selectedReason = 'no_graded_slate';
+      // Preserve awaiting_settlement / awaiting_finals so the UI can show
+      // the dated banner instead of a generic "no graded" state.
+      if (selectedReason !== 'awaiting_settlement' && selectedReason !== 'awaiting_finals') {
+        selectedReason = 'no_graded_slate';
+      }
       usedFallback = false;
       card = null;
       picks = [];

@@ -122,6 +122,25 @@ export default async function handler(req, res) {
     out._fallbackError = e?.message;
   }
 
+  // 5b) Recommended heal URLs for this exact date — surfaces the manual
+  //     repair path when the slate has picks + finals but no row-level
+  //     pick_results, or when the aggregate disagrees with row data.
+  out.recommendedHeal = {
+    settle:    `/api/cron/nba/settle-yesterday?date=${targetDate}&force=1`,
+    scorecard: `/api/cron/nba/build-scorecard?date=${targetDate}`,
+    healAll:   `/api/admin/picks/heal-aggregate-only?sport=nba&apply=1`,
+  };
+  out.awaitingSettlement = (
+    out.persistedPicksCount > 0 &&
+    out.gradedPicksCount === 0 &&
+    out.completedGamesCount > 0
+  );
+  out.awaitingFinals = (
+    out.persistedPicksCount > 0 &&
+    out.gradedPicksCount === 0 &&
+    out.completedGamesCount === 0
+  );
+
   // 6) Reason — one-line diagnosis
   if (out.persistedPicksCount === 0) {
     out.reasonIfEmpty = `No picks persisted for ${targetDate}. Verify /api/nba/picks/built ran during the slate window and writePicksRun succeeded.`;
