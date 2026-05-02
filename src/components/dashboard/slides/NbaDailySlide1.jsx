@@ -307,14 +307,66 @@ function buildStoryCard(story, payload) {
   const winName = nicknameFor(winSlug);
   const score = `${story.winScore}–${story.loseScore}`;
 
+  // Detect dramatic context from narrative — never fabricated.
+  // Used to enrich the card title with "in OT" / "on a buzzer-beater"
+  // / "after erasing a 22-pt deficit" suffixes.
+  const narr = story.narrative || {};
+  const ot = !!narr.isOvertime;
+  const otTag = (narr.overtimeCount && narr.overtimeCount > 1) ? `${narr.overtimeCount}OT` : 'OT';
+  const notes = String(narr.notesText || '').toLowerCase();
+  const buzzer = /buzzer[-\s]*beater|game[-\s]*winn|last[-\s]*second|walk[-\s]*off|ot three|overtime three/.test(notes);
+
+  // Comeback margin from per-quarter linescores (winner side).
+  let comebackDef = 0;
+  const winSide = story.winSide;
+  const winLine = winSide === 'home' ? narr.homeLine : winSide === 'away' ? narr.awayLine : null;
+  const losLine = winSide === 'home' ? narr.awayLine : winSide === 'away' ? narr.homeLine : null;
+  if (Array.isArray(winLine) && Array.isArray(losLine)) {
+    let cumW = 0, cumL = 0;
+    for (let i = 0; i < Math.min(winLine.length, losLine.length); i++) {
+      cumW += winLine[i] || 0;
+      cumL += losLine[i] || 0;
+      if (i === winLine.length - 1) break;
+      const def = cumL - cumW;
+      if (def > comebackDef) comebackDef = def;
+    }
+  }
+
   // Grammar-correct playoff titles
   let title;
   if (story.isSweep) title = `${winName} complete sweep over ${nicknameFor(loseSlug)}`;
-  else if (story.isGame7Win) title = `${winName} win Game 7 ${score}`;
+  else if (story.isGame7Win) {
+    if (ot && buzzer) title = `${winName} survive Game 7 ${score} on a last-second OT shot`;
+    else if (ot) title = `${winName} survive Game 7 ${score} in ${otTag}`;
+    else if (buzzer) title = `${winName} win Game 7 ${score} on a last-second shot`;
+    else title = `${winName} win Game 7 ${score}`;
+  }
   else if (story.isClinch) title = `${winName} close out ${nicknameFor(loseSlug)} ${score}`;
   else if (story.isElimWin) title = `${winName} push ${nicknameFor(loseSlug)} to brink`;
-  else if (story.isUpset) title = `${winName} steal Game ${(story.series?.gamesPlayed || 0)} from ${nicknameFor(loseSlug)}`;
-  else if (story.isStolenRoadWin) title = `${winName} steal one on the road from ${nicknameFor(loseSlug)}`;
+  else if (story.isUpset) {
+    const gameNum = story.series?.gamesPlayed || 0;
+    if (ot && buzzer) {
+      title = `${winName} stun ${nicknameFor(loseSlug)} ${score} in OT on a last-second three`;
+    } else if (ot) {
+      title = `${winName} stun ${nicknameFor(loseSlug)} ${score} in ${otTag}`;
+    } else if (buzzer) {
+      title = `${winName} stun ${nicknameFor(loseSlug)} ${score} on a last-second shot`;
+    } else if (gameNum) {
+      title = `${winName} steal Game ${gameNum} from ${nicknameFor(loseSlug)}`;
+    } else {
+      title = `${winName} steal one from ${nicknameFor(loseSlug)}`;
+    }
+  }
+  else if (story.isStolenRoadWin) {
+    if (ot) title = `${winName} steal one on the road from ${nicknameFor(loseSlug)} in ${otTag}`;
+    else title = `${winName} steal one on the road from ${nicknameFor(loseSlug)}`;
+  }
+  else if (comebackDef >= 25) title = `${winName} cap historic ${comebackDef}-pt comeback over ${nicknameFor(loseSlug)} ${score}`;
+  else if (comebackDef >= 20) title = `${winName} erase ${comebackDef}-pt deficit to beat ${nicknameFor(loseSlug)} ${score}`;
+  else if (comebackDef >= 15) title = `${winName} rally past ${nicknameFor(loseSlug)} from ${comebackDef}-pt hole, ${score}`;
+  else if (ot && buzzer) title = `${winName} edge ${nicknameFor(loseSlug)} ${score} on a last-second OT shot`;
+  else if (ot) title = `${winName} edge ${nicknameFor(loseSlug)} ${score} in ${otTag}`;
+  else if (buzzer) title = `${winName} beat ${nicknameFor(loseSlug)} ${score} on a last-second shot`;
   else title = `${winName} top ${nicknameFor(loseSlug)} ${score}`;
 
   // Series subline

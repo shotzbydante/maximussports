@@ -92,10 +92,48 @@ function clincherText(s) {
   return `🚨 ${winnerName} eliminate ${loserName} ${winsW}–${winsL} — series done, ${winnerName} advance and shift the title path.`;
 }
 
-function gameSevenText(s) {
+/**
+ * Build a "comeback" narrative annotation (e.g., " — erasing a 22-point
+ * deficit") from a normalized game's per-quarter linescores. Returns
+ * empty string when no notable deficit detected. The winner side is
+ * required to compute deficit correctly.
+ */
+function comebackTagFromNarrative(narr, winSide) {
+  const winLine = winSide === 'home' ? narr?.homeLine : winSide === 'away' ? narr?.awayLine : null;
+  const losLine = winSide === 'home' ? narr?.awayLine : winSide === 'away' ? narr?.homeLine : null;
+  if (!Array.isArray(winLine) || !Array.isArray(losLine)) return { maxDeficit: 0, halftimeDeficit: 0 };
+  let maxDeficit = 0;
+  let halftimeDeficit = 0;
+  let cumW = 0, cumL = 0;
+  for (let i = 0; i < Math.min(winLine.length, losLine.length); i++) {
+    cumW += winLine[i] || 0;
+    cumL += losLine[i] || 0;
+    if (i === winLine.length - 1) break; // skip final-buzzer state
+    const deficit = cumL - cumW;
+    if (deficit > maxDeficit) maxDeficit = deficit;
+    if (i === 1) halftimeDeficit = deficit;
+  }
+  return { maxDeficit, halftimeDeficit };
+}
+
+function gameSevenText(s, mostRecentNarrative = null) {
   if (!s.topTeam || !s.bottomTeam) return null;
   const aName = nameOf(s.topTeam?.slug);
   const bName = nameOf(s.bottomTeam?.slug);
+  // Enrich with the Game-6 drama when the most recent game carried
+  // an OT / buzzer-beater / comeback signal — never fabricated.
+  const ot = !!mostRecentNarrative?.isOvertime;
+  const notes = String(mostRecentNarrative?.notesText || '').toLowerCase();
+  const buzzer = /buzzer[-\s]*beater|game[-\s]*winn|last[-\s]*second|walk[-\s]*off|ot three|overtime three/.test(notes);
+  if (ot && buzzer) {
+    return `⚔️ ${aName}–${bName} go the distance after a last-second OT three — Game 7 decides the series and shakes the title path.`;
+  }
+  if (buzzer) {
+    return `⚔️ ${aName}–${bName} go the distance after a last-second game-winner — Game 7 decides the series and shakes the title path.`;
+  }
+  if (ot) {
+    return `⚔️ ${aName}–${bName} go the distance after an OT thriller — Game 7 decides the series and shakes the title path.`;
+  }
   return `⚔️ ${aName}–${bName} go the distance — Game 7 decides the series and shakes the title path.`;
 }
 
@@ -180,7 +218,7 @@ function teamCity(slug) {
 
 // ── Bullet builder by event type ────────────────────────────────────
 
-function bulletForSeries(s, score) {
+function bulletForSeries(s, score, mostRecentNarrative = null) {
   const isFreshClincher = s.isClincher && s.mostRecentGameTs &&
     (Date.now() - s.mostRecentGameTs) <= CLINCHER_FRESHNESS_MS;
 
@@ -191,7 +229,7 @@ function bulletForSeries(s, score) {
     text = clincherText(s);
     _source = 'clincher';
   } else if (s.isGameSeven) {
-    text = gameSevenText(s);
+    text = gameSevenText(s, mostRecentNarrative);
     _source = 'game7';
   } else if (s.isCloseoutGame && s.isElimination && s.nextGame) {
     text = closeoutText(s);
@@ -432,6 +470,27 @@ export function buildNbaHotPress({ liveGames = [], playoffContext = null } = {})
   const excludeSlugs = new Set();
 
   // ── Series-driven candidates (every active non-stale series gets scored) ──
+  // Build a quick lookup: series → most-recent-game narrative. Used to
+  // enrich gameSevenText / closeoutText / etc. with OT/buzzer/comeback
+  // context from the actual most recent finals.
+  const finals = (liveGames || []).filter(g => g?.gameState?.isFinal || g?.status === 'final');
+  function mostRecentNarrativeForSeries(s) {
+    if (!s?.topTeam?.slug || !s?.bottomTeam?.slug) return null;
+    const a = s.topTeam.slug, b = s.bottomTeam.slug;
+    let best = null;
+    let bestTs = 0;
+    for (const g of finals) {
+      const aw = g?.teams?.away?.slug, hm = g?.teams?.home?.slug;
+      if (!((aw === a && hm === b) || (aw === b && hm === a))) continue;
+      const ts = g?.startTime ? new Date(g.startTime).getTime() : 0;
+      if (ts > bestTs) {
+        bestTs = ts;
+        best = g?.narrative || null;
+      }
+    }
+    return best;
+  }
+
   const seriesList = (playoffContext?.series || []).filter(s => !s.isStalePlaceholder);
   for (const s of seriesList) {
     const score = scoreSeriesEvent(s);
@@ -440,7 +499,8 @@ export function buildNbaHotPress({ liveGames = [], playoffContext = null } = {})
     const isStale = s.isComplete && s.mostRecentGameTs &&
       (Date.now() - s.mostRecentGameTs) > CLINCHER_FRESHNESS_MS;
     if (isStale) continue;
-    const bullet = bulletForSeries(s, score);
+    const recentNarr = mostRecentNarrativeForSeries(s);
+    const bullet = bulletForSeries(s, score, recentNarr);
     if (bullet) candidates.push(bullet);
   }
 
