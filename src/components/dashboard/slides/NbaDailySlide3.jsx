@@ -133,41 +133,33 @@ export default function NbaDailySlide3({ data, asOf: _a, slideNumber: _s, slideT
  * teams (audit Part 6). Compact rows shrink padding + logo + clamp
  * rationale to a single line so 6-8 teams remain readable.
  */
-// Map a team's status label to the differentiated badge CSS class.
-// Five subtle tiers per audit spec:
-//   Title Favorite → gold      (richest tone, near the existing pill)
-//   Contender      → blue      (cool, secondary)
-//   Upside Team    → green     (live longshot, growth tone)
-//   Long Shot      → tan       (muted neutral)
-//   Eliminated     → gray      (dimmest, signals "out")
+// Map a team's contender label to a subtle differentiated badge tone.
+// Slide 3 only renders ACTIVE teams now, so Eliminated isn't surfaced
+// here — but we keep the four active tiers for visual hierarchy:
+//   Title Favorite → gold (richest)
+//   Contender      → blue
+//   Upside Team    → green
+//   Long Shot      → tan
 function badgeClassFor(label) {
   switch (label) {
     case 'Title Favorite': return styles.badgeTitleFavorite;
     case 'Contender':      return styles.badgeContender;
     case 'Upside Team':    return styles.badgeUpside;
     case 'Long Shot':      return styles.badgeLongShot;
-    case 'Eliminated':     return styles.badgeEliminated;
     default:               return styles.badgeLongShot;
   }
 }
 
 function ConfRow({ rank, team, compact = false }) {
   const isTopSeed = rank === 1 || team.seed === 1;
-  // Audit Part 6: every card gets a prominent seed badge. Falls back
-  // to "—" when seed isn't published so the badge stays aligned.
+  // Every card gets a prominent seed badge. Falls back to "—" when
+  // seed isn't published so the badge stays aligned.
   const seedDisplay = team.seed != null ? `#${team.seed} seed` : '—';
   const logoSize = compact ? 36 : 50;
-  const isElim = team.isEliminated || team.status === 'eliminated';
-  const rowClass = [
-    styles.s3TeamRow,
-    compact ? styles.s3TeamRowCompact : '',
-    isElim ? styles.s3TeamRowEliminated : '',
-  ].filter(Boolean).join(' ');
   return (
     <div
-      className={rowClass}
+      className={`${styles.s3TeamRow} ${compact ? styles.s3TeamRowCompact : ''}`}
       data-top-seed={isTopSeed ? 'true' : 'false'}
-      data-status={team.status || (isElim ? 'eliminated' : 'active')}
     >
       <div className={styles.s3TeamTopLine}>
         <div className={styles.s3TeamRank}>{rank}</div>
@@ -181,7 +173,7 @@ function ConfRow({ rank, team, compact = false }) {
           </span>
         </div>
         <div className={styles.s3MarketBlock}>
-          {!isElim && <div className={styles.s3TeamOdds}>🏆 {team.odds}</div>}
+          <div className={styles.s3TeamOdds}>🏆 {team.odds}</div>
           <div className={styles.s3SeedBadge}>{seedDisplay}</div>
         </div>
       </div>

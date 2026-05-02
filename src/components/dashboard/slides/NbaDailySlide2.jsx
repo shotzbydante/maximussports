@@ -227,9 +227,9 @@ export default function NbaDailySlide2({ data, asOf: _a, slideNumber: _s, slideT
                     <div key={idx} className={styles.s2LeaderRow}>
                       <span className={styles.s2LeaderRank}>{idx + 1}</span>
                       {l.slug
-                        ? <Logo slug={l.slug} size={22} abbrev={l.teamAbbrev} />
-                        : <span style={{ width: 18, display: 'inline-block' }} />}
-                      <span>
+                        ? <Logo slug={l.slug} size={26} backplate abbrev={l.teamAbbrev} />
+                        : <span style={{ width: 26, display: 'inline-block' }} />}
+                      <span style={{ minWidth: 0, overflow: 'hidden' }}>
                         <span className={styles.s2LeaderName}>{l.name}</span>
                         {l.teamAbbrev && <span className={styles.s2LeaderTeam}>{l.teamAbbrev}</span>}
                       </span>
