@@ -5,7 +5,7 @@
  * Play-in seeds are resolved probabilistically before R1 simulation.
  */
 
-import { getNbaEspnLogoUrl } from '../../utils/espnNbaLogos';
+import { getNbaEspnLogoUrl } from '../../utils/espnNbaLogos.js';
 
 function team(seed, slug, name, shortName, record) {
   return { seed, slug, teamId: slug, name, shortName, record, logo: getNbaEspnLogoUrl(slug), isPlaceholder: false };
