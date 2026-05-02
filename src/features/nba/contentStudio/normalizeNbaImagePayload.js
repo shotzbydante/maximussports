@@ -174,6 +174,105 @@ function deriveActiveFromGames(allGames) {
  * Eliminated wins ties across BOTH sources: a team that lost any
  * series is excluded.
  */
+/**
+ * Last-mile guard for postseason leaders. Filters out any leader whose
+ * team is NOT in the active-or-eliminated playoff team set. The server-
+ * side builder already filters on the box-score path, but if a poisoned
+ * cache or out-of-band fetch ever sneaks regular-season ESPN data
+ * through, this stops it from rendering on Slide 2 / Slide 1 / caption.
+ *
+ * Behavior:
+ *   - Returns the leaders payload UNCHANGED for non-postseason data.
+ *   - For postseason data, builds the same playoff-team set the builder
+ *     uses (bracket UNION game-derived) and filters every leader.
+ *   - Logs a single [NBA_LEADERS_FINAL_GUARD] line whenever a leader is
+ *     dropped, so the leak is visible in production logs.
+ *   - When the playoff team set is empty (no playoff context yet), the
+ *     guard does nothing — there's no way to validate, so we trust the
+ *     payload was server-validated. (Hard-throw would crash the slide
+ *     in legitimate edge cases like a fresh boot before any games.)
+ */
+function sanitizePostseasonLeaders(leaders, playoffContext, rawGames) {
+  if (!leaders || !leaders.categories) return leaders;
+  const isPostseason = leaders.seasonType === 'postseason';
+  if (!isPostseason) return leaders;
+
+  // Build the same active∪eliminated team set the server builder used.
+  // Eliminated teams stay in the set because their LEADERS are still
+  // legitimate "postseason leaders" — they played playoff games before
+  // bowing out. (Slide 3 separately excludes eliminated teams from the
+  // bracket outlook.)
+  const playoffTeams = new Set();
+  const seriesPool = playoffContext?.allSeries || playoffContext?.series || [];
+  for (const s of seriesPool) {
+    if (s?.isStalePlaceholder) continue;
+    if (s?.topTeam?.slug && !s?.topTeam?.isPlaceholder)       playoffTeams.add(s.topTeam.slug);
+    if (s?.bottomTeam?.slug && !s?.bottomTeam?.isPlaceholder) playoffTeams.add(s.bottomTeam.slug);
+    if (s?.winnerSlug) playoffTeams.add(s.winnerSlug);
+    if (s?.loserSlug)  playoffTeams.add(s.loserSlug);
+  }
+  // Game-anchored fallback (catches BOS/OKC/SAS placeholder cases)
+  for (const g of (rawGames || [])) {
+    if (!g?.gameState?.isFinal && g?.status !== 'final') continue;
+    const a = g?.teams?.away?.slug;
+    const h = g?.teams?.home?.slug;
+    if (a) playoffTeams.add(a);
+    if (h) playoffTeams.add(h);
+  }
+
+  if (playoffTeams.size === 0) {
+    // No way to validate — trust server payload. (This is the "early
+    // bootstrap" edge case where playoff context hasn't been built yet.)
+    return leaders;
+  }
+
+  // Some leader payloads carry only `teamAbbrev` (uppercase, e.g. "MIN")
+  // and not `teamSlug` (lowercase, "min"). Derive slug from abbrev so
+  // the team check works on either shape.
+  const abbrevToSlug = Object.fromEntries(
+    NBA_TEAMS.map(t => [String(t.abbrev || '').toUpperCase(), t.slug])
+  );
+  const resolveSlug = (ldr) => {
+    if (ldr?.teamSlug) return ldr.teamSlug;
+    const ab = String(ldr?.teamAbbrev || '').toUpperCase();
+    return ab ? (abbrevToSlug[ab] || null) : null;
+  };
+
+  let totalLeadersBefore = 0;
+  let totalLeadersAfter = 0;
+  const droppedSlugs = new Set();
+  const filteredCats = {};
+  for (const [key, cat] of Object.entries(leaders.categories || {})) {
+    const list = Array.isArray(cat?.leaders) ? cat.leaders : [];
+    totalLeadersBefore += list.length;
+    const kept = list.filter(ldr => {
+      const slug = resolveSlug(ldr);
+      if (!slug || !playoffTeams.has(slug)) {
+        if (slug) droppedSlugs.add(slug);
+        return false;
+      }
+      return true;
+    });
+    totalLeadersAfter += kept.length;
+    filteredCats[key] = { ...cat, leaders: kept };
+  }
+
+  if (totalLeadersBefore !== totalLeadersAfter) {
+    // Loud diagnostic — production log should never see this if the
+    // server-side builder is working. If it does, the team filter at
+    // the API layer is being bypassed somehow.
+    console.warn('[NBA_LEADERS_FINAL_GUARD] non-playoff leaders filtered at normalizer', JSON.stringify({
+      before: totalLeadersBefore,
+      after: totalLeadersAfter,
+      droppedTeams: Array.from(droppedSlugs).sort(),
+      validTeams: Array.from(playoffTeams).sort(),
+      source: leaders._source || 'unknown',
+    }));
+  }
+
+  return { ...leaders, categories: filteredCats, _sanitizedAtNormalizer: true };
+}
+
 function computeActivePlayoffTeams(playoffContext, rawGames = []) {
   const activeSlugs = new Set();
   const eliminatedSlugs = new Set();
@@ -550,6 +649,15 @@ export function normalizeNbaImagePayload({
   // and replace `nbaPicks` for downstream consumers.
   const filteredPicks = filterPicksForCompletedSeries(nbaPicks, playoffContext);
 
+  // ── HARD GUARD: postseason leaders must only contain players from
+  // teams in the active playoff bracket. The builder already filters
+  // on the server, but this last-mile check ensures that even if a
+  // poisoned cache or out-of-band fetch sneaks a non-playoff team
+  // through, it never reaches the slide. We FILTER (not throw) so the
+  // dashboard never crashes on bad upstream data — but we LOG loudly
+  // so the leak is visible in production. */
+  const sanitizedLeaders = sanitizePostseasonLeaders(nbaLeaders, playoffContext, nbaWindowGames);
+
   const base = {
     workspace: 'nba',
     sport: 'nba',
@@ -565,7 +673,7 @@ export function normalizeNbaImagePayload({
   const canonicalData = {
     nbaPicks:           filteredPicks ?? null,
     canonicalPicks:     filteredPicks ?? null,
-    nbaLeaders:         nbaLeaders ?? null,
+    nbaLeaders:         sanitizedLeaders,
     nbaStandings:       nbaStandings ?? null,
     nbaChampOdds:       nbaChampOdds ?? null,
     nbaGames:           nbaGames ?? [],

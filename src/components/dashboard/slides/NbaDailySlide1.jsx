@@ -106,7 +106,15 @@ export default function NbaDailySlide1({ data, asOf: _a, slideNumber: _s, slideT
 
   const pc = payload.nbaPlayoffContext;
   const round = pc?.round || 'Round 1';
-  const bullets = (payload.bullets || []).slice(0, 3);
+  // Always render exactly 3 HOTP rows. If the upstream feed is short,
+  // pad with a neutral placeholder so the module height stays stable
+  // and Slide 1 never collapses around an empty zone.
+  const rawBullets = (payload.bullets || []).slice(0, 3);
+  const padded = [...rawBullets];
+  while (padded.length < 3) {
+    padded.push({ text: 'Updates rolling in — refresh closer to tip-off.', logoSlug: null, source: 'placeholder' });
+  }
+  const bullets = padded;
 
   // Slide 1 + Slide 2 must consume the SAME canonical bullets array.
   // Logging at the slide level (not just at the normalizer) means a
