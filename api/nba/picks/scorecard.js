@@ -21,6 +21,7 @@ import {
 } from '../../_lib/picksHistory.js';
 import { yesterdayET } from '../../_lib/dateWindows.js';
 import { fetchYesterdayFinals } from '../live/_normalize.js';
+import { autoHealSlate } from '../../_lib/autoHealSlate.js';
 
 /** Inclusive day delta between two YYYY-MM-DD strings (a - b in days). */
 function daysBetween(a, b) {
@@ -231,6 +232,46 @@ export default async function handler(req, res) {
         targetPriorSummary._priorError = e?.message;
       }
       diagnostics.targetPrior = targetPriorSummary;
+
+      // ── Auto-heal: when the target prior slate has picks + finals but
+      // 0 row-level grades, run the same grading logic the cron runs and
+      // write pick_results inline. Bounded by a 4.5s timeout so the
+      // request never hangs. After healing, re-run the target-prior
+      // inspection so downstream selection sees the freshly-graded data.
+      if (
+        targetPriorSummary.awaitingSettlement &&
+        !req.query?.skipHeal
+      ) {
+        const heal = await autoHealSlate({
+          sport: 'nba',
+          slateDate: targetPrior,
+          fetchFinals: ({ slateDate }) => fetchYesterdayFinals({ slateDate }),
+          timeoutMs: 4500,
+        });
+        diagnostics.autoHeal = heal;
+        diagnostics.autoHealAttempted = heal.attempted;
+        diagnostics.autoHealSucceeded = heal.succeeded;
+
+        if (heal.succeeded) {
+          // Re-fetch the target prior summary so the rest of the pipeline
+          // treats it as ready-to-show.
+          try {
+            const { picks: priorPicks } = await getPicksForSlate({
+              sport: 'nba', slateDate: targetPrior,
+            });
+            let priorGraded = 0;
+            for (const p of priorPicks) {
+              const r = Array.isArray(p.pick_results) ? p.pick_results[0] : p.pick_results;
+              if (r && (r.status === 'won' || r.status === 'lost' || r.status === 'push')) priorGraded += 1;
+            }
+            targetPriorSummary.rowGradedCount = priorGraded;
+            targetPriorSummary.awaitingSettlement = priorGraded === 0;
+            targetPriorSummary.readyToShow = priorGraded > 0;
+          } catch (e) {
+            diagnostics._postHealError = e?.message;
+          }
+        }
+      }
 
       // Inspect both source-of-truth surfaces in parallel:
       //   a) per-pick rows (picks ⨝ pick_results)
