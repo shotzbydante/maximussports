@@ -120,6 +120,27 @@ export default function NbaDailySlide2({ data, asOf: _a, slideNumber: _s, slideT
       counts: Object.fromEntries(leaderCards.map(c => [c.abbrev, c.leaders.length])),
       anyMissing: leaderCards.some(c => c.leaders.length === 0),
     });
+    // Audit Part 1 spec — single-line render-path digest with the actual
+    // names + values + teams that will be drawn on Slide 2. Lets a future
+    // "Postseason feed updating" leak be traced from the browser console
+    // alone, no need to instrument the failing run.
+    // eslint-disable-next-line no-console
+    console.log('[NBA_SLIDE2_LEADERS_FINAL]', {
+      source: payload.nbaLeaders?._source || null,
+      seasonType: payload.nbaLeaders?.seasonType || null,
+      statType: payload.nbaLeaders?.statType || null,
+      categories: Object.fromEntries(
+        Object.entries(leadersRaw).map(([k, v]) => [
+          k,
+          (v?.leaders || []).map(p => ({
+            name: p.name,
+            teamSlug: p.teamSlug || null,
+            teamAbbrev: p.teamAbbrev || null,
+            value: p.value ?? null,
+          })),
+        ])
+      ),
+    });
   }
 
   return (

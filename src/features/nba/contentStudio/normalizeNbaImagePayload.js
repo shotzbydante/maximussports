@@ -338,6 +338,23 @@ function computeActivePlayoffTeams(playoffContext, rawGames = []) {
   for (const slug of fromGames.active) activeSlugs.add(slug);
   for (const slug of fromGames.eliminated) eliminatedSlugs.add(slug);
 
+  // Source 3 (FAIL-CLOSED guard): when neither bracket nor game data has
+  // produced any active or eliminated team, the upstream filter would
+  // bypass entirely (`hasAnyContext === false`) and let all 30 NBA teams
+  // pass through Slide 3 — the user-reported bug where lottery teams like
+  // CHA / NOP / MEM / UTA / BKN appeared. Fall back to bracketTeamSlugs:
+  // if we have ANY hardcoded playoff bracket, treat its named teams as
+  // the active set. Better to render an over-inclusive playoff list than
+  // a regular-season-by-odds list. The caller (`buildPlayoffOutlook`)
+  // will still apply seed/odds filtering on top of this.
+  if (activeSlugs.size === 0 && eliminatedSlugs.size === 0 && bracketTeamSlugs.size > 0) {
+    for (const slug of bracketTeamSlugs) activeSlugs.add(slug);
+    console.warn('[NBA_ACTIVE_TEAMS_BRACKET_FALLBACK]', JSON.stringify({
+      reason: 'no signal from bracket series or games — using static bracket teams',
+      bracketTeams: Array.from(bracketTeamSlugs).sort(),
+    }));
+  }
+
   // Eliminated wins ties — strip out any team that ever lost a series.
   for (const slug of eliminatedSlugs) {
     activeSlugs.delete(slug);
