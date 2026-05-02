@@ -263,10 +263,26 @@ export default function NbaScorecardReport({ dateOverride, variant = 'full', ins
 
   const { scorecard, picks, totals, slateDate, usedFallback, selectedReason, diagnostics } = data;
   const takeaway = buildTakeaway({ totals, scorecardSummary: scorecard, selectedReason });
-  const todayPendingSlate = diagnostics?.todayPendingSlate;
-  const todayPendingCount = diagnostics?.todayPendingCount || 0;
-  const showTodayPendingNote = (usedFallback || selectedReason === 'no_graded_slate')
-    && todayPendingSlate && todayPendingSlate !== slateDate && todayPendingCount > 0;
+  const targetPrior = diagnostics?.targetPrior;
+
+  // Awaiting state for the canonical target prior slate (yesterday). When
+  // yesterday has picks + finals but no graded results, we want a dated,
+  // prominent banner — "Apr 30 awaiting settlement" — not a quiet note.
+  const awaitingSettlement = selectedReason === 'awaiting_settlement'
+    || (targetPrior?.awaitingSettlement && slateDate !== targetPrior.date);
+  const awaitingFinals = selectedReason === 'awaiting_finals'
+    || (targetPrior?.awaitingFinals && slateDate !== targetPrior.date);
+
+  const todayPendingSlate = (awaitingSettlement || awaitingFinals)
+    ? targetPrior?.date
+    : diagnostics?.todayPendingSlate;
+  const todayPendingCount = (awaitingSettlement || awaitingFinals)
+    ? (targetPrior?.picksCount || 0)
+    : (diagnostics?.todayPendingCount || 0);
+  const showTodayPendingNote = (
+    usedFallback || selectedReason === 'no_graded_slate'
+    || awaitingSettlement || awaitingFinals
+  ) && todayPendingSlate && todayPendingSlate !== slateDate && todayPendingCount > 0;
   const todayPendingLabel = (() => {
     if (!todayPendingSlate) return null;
     try {
@@ -309,8 +325,11 @@ export default function NbaScorecardReport({ dateOverride, variant = 'full', ins
           </span>
           {showTodayPendingNote && (
             <span className={styles.pendingNote}>
-              Today&rsquo;s slate is still pending ({todayPendingCount} pick{todayPendingCount === 1 ? '' : 's'}).
-              Showing last settled results{todayPendingLabel ? ` from ${todayPendingLabel}` : ''}.
+              {awaitingSettlement
+                ? `${todayPendingLabel} slate awaiting settlement (${todayPendingCount} pick${todayPendingCount === 1 ? '' : 's'}). Showing last settled results.`
+                : awaitingFinals
+                  ? `${todayPendingLabel} slate in progress (${todayPendingCount} pick${todayPendingCount === 1 ? '' : 's'}). Showing last settled results.`
+                  : `Today's slate is still pending (${todayPendingCount} pick${todayPendingCount === 1 ? '' : 's'}). Showing last settled results${todayPendingLabel ? ` from ${todayPendingLabel}` : ''}.`}
             </span>
           )}
         </div>
