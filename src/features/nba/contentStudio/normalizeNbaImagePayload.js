@@ -249,24 +249,25 @@ function americanToImplied(odds) {
  * Build the Playoff Outlook view (Slide 3) from championship odds +
  * standings + playoff context.
  *
- * Filters:
- *   - Includes ALL teams that touched the postseason — active AND
- *     eliminated. Eliminated teams render with an ELIMINATED badge and
- *     muted styling so the slide tells the full story of the bracket
- *     instead of silently hiding teams that already lost (audit fix).
- *   - Skips teams that never made the playoffs at all (lottery teams).
+ * ACTIVE TEAMS ONLY (per latest spec): eliminated teams are excluded
+ * entirely. The previous "ELIMINATED badge" treatment was reverted —
+ * Slide 3 now shows only teams still alive in the bracket.
  *
- * Ranking:
- *   - Active teams first, sorted by best title odds (favorites first),
- *     seed as tiebreaker.
- *   - Eliminated teams below, sorted by seed.
+ * Active team =
+ *   - team in an incomplete (non-stale) playoff series, OR
+ *   - winner of a completed series who is awaiting the next round
+ *
+ * Eliminated team (excluded):
+ *   - loser of any completed series
+ *   - team not in playoff proper bracket (lottery)
+ *   - stale-placeholder rows
+ *
+ * Ranking: best title odds (favorites first), seed tiebreaker.
  *
  * Output:
- *   { east: [...], west: [...],
- *     eastAlsoAlive: [...legacy], westAlsoAlive: [...legacy],
- *     eliminatedTeams: [...slugs] }
- *   Cards include `team, abbrev, seed, odds, oddsRaw, prob, label,
- *   status ('active'|'eliminated'), isEliminated, rationale, liveSeries`.
+ *   { east: [...], west: [...], eliminatedTeams: [...slugs (for diag)] }
+ *   Cards: { team, abbrev, slug, seed, odds, oddsRaw, prob, label,
+ *            rationale, liveSeries }
  */
 function buildPlayoffOutlook({ champOdds, standings, playoffContext, rawGames = [] }) {
   const { activeSlugs, eliminatedSlugs } = computeActivePlayoffTeams(playoffContext, rawGames);
@@ -275,13 +276,10 @@ function buildPlayoffOutlook({ champOdds, standings, playoffContext, rawGames = 
   const conf = { Eastern: [], Western: [] };
 
   for (const team of NBA_TEAMS) {
-    const isElim = eliminatedSlugs.has(team.slug);
-    const isActive = activeSlugs.has(team.slug);
-    // Skip lottery teams — anything that never made the playoffs at all
-    // shouldn't appear on Slide 3. When playoff context isn't yet
-    // populated (no games played) we keep all teams listed so Slide 3
-    // still has content during the warm-up window.
-    if (hasAnyContext && !isActive && !isElim) continue;
+    // Active-only filter. When playoff context isn't yet populated (no
+    // games played at all) we let everyone through so Slide 3 still
+    // has content during the pre-Round-1 warm-up window.
+    if (hasAnyContext && !activeSlugs.has(team.slug)) continue;
 
     const oddsEntry = champOdds?.[team.slug];
     const american = oddsEntry?.bestChanceAmerican ?? oddsEntry?.american ?? null;
@@ -300,21 +298,6 @@ function buildPlayoffOutlook({ champOdds, standings, playoffContext, rawGames = 
       }
     }
 
-    // For eliminated teams, find the series they LOST (any round).
-    let eliminatingSeries = null;
-    if (isElim) {
-      const series = playoffContext?.allSeries || playoffContext?.series || [];
-      for (const s of series) {
-        if (!s.isComplete) continue;
-        if (s.loserSlug !== team.slug) continue;
-        eliminatingSeries = s;
-        break;
-      }
-    }
-
-    const status = isElim ? 'eliminated' : 'active';
-    const label = isElim ? 'Eliminated' : classifyContender(prob);
-
     conf[team.conference] = conf[team.conference] || [];
     conf[team.conference].push({
       team: team.name,
@@ -325,28 +308,21 @@ function buildPlayoffOutlook({ champOdds, standings, playoffContext, rawGames = 
       odds: fmtAmerican(american),
       oddsRaw: american,
       prob,
-      label,
-      status,
-      isEliminated: isElim,
-      eliminatingSeries,
+      label: classifyContender(prob),
+      status: 'active',
+      isEliminated: false,
       liveSeries,
     });
   }
 
-  // Active teams sort by best title odds; eliminated teams sort by
-  // seed (no implied prob to rank with). Active first, eliminated below.
-  function sortActive(a, b) {
+  // Sort by best title odds; seed tiebreaker.
+  function sortByOdds(a, b) {
     if (b.prob !== a.prob) return b.prob - a.prob;
-    return (a.seed ?? 99) - (b.seed ?? 99);
-  }
-  function sortElim(a, b) {
     return (a.seed ?? 99) - (b.seed ?? 99);
   }
 
   function rank(list) {
-    const active = list.filter(t => !t.isEliminated).sort(sortActive);
-    const elim   = list.filter(t =>  t.isEliminated).sort(sortElim);
-    return [...active, ...elim].map(t => ({ ...t, rationale: buildTeamRationale(t) }));
+    return list.sort(sortByOdds).map(t => ({ ...t, rationale: buildTeamRationale(t) }));
   }
 
   const eastFull = rank(conf['Eastern'] || []);
@@ -384,31 +360,7 @@ function buildPlayoffOutlook({ champOdds, standings, playoffContext, rawGames = 
  * way" — always references a concrete piece of live state.
  */
 function buildTeamRationale(card) {
-  const { team, abbrev, seed, record, prob, liveSeries, label, isEliminated, eliminatingSeries } = card;
-
-  // Eliminated teams: surface who knocked them out + the series score
-  // (e.g. "Eliminated by BOS in Round 1 (4-2)"). When we don't have a
-  // resolved eliminating series, fall back to a generic "Season over"
-  // line so we never render a misleading Vegas-style rationale.
-  if (isEliminated) {
-    if (eliminatingSeries) {
-      const wonByTop = eliminatingSeries.winnerSlug === eliminatingSeries.topTeam?.slug;
-      const oppAbbrev = wonByTop ? eliminatingSeries.topTeam?.abbrev : eliminatingSeries.bottomTeam?.abbrev;
-      const myWins = wonByTop ? eliminatingSeries.seriesScore.bottom : eliminatingSeries.seriesScore.top;
-      const oppWins = wonByTop ? eliminatingSeries.seriesScore.top : eliminatingSeries.seriesScore.bottom;
-      const roundLabel = eliminatingSeries.round === 1
-        ? 'Round 1'
-        : eliminatingSeries.round === 2
-          ? 'Round 2'
-          : eliminatingSeries.round === 3
-            ? 'Conference Finals'
-            : eliminatingSeries.round === 4
-              ? 'NBA Finals'
-              : `Round ${eliminatingSeries.round || '?'}`;
-      return `Eliminated by ${oppAbbrev} in ${roundLabel} (${myWins}-${oppWins}).`;
-    }
-    return `${abbrev} season is over — eliminated from the postseason.`;
-  }
+  const { team, abbrev, seed, record, prob, liveSeries, label } = card;
 
   if (liveSeries) {
     const isTop = liveSeries.topTeam?.slug === card.slug;

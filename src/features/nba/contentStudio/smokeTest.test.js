@@ -443,11 +443,10 @@ describe('NBA Daily Briefing — Phase 1 foundation', () => {
     expect(nonIncreasing(west)).toBe(true);
   });
 
-  it('Slide 3 playoffOutlook keeps eliminated teams visible with isEliminated flag', () => {
+  it('Slide 3 playoffOutlook excludes eliminated teams entirely (active-only)', () => {
     // Build a context where one series has completed in an upset (MIN
-    // beats DEN 4-2). DEN should still appear on the West outlook, but
-    // tagged isEliminated:true with status='eliminated' and label='Eliminated'.
-    // Active teams must sort above eliminated.
+    // beats DEN 4-2). DEN should be entirely absent from the West
+    // outlook — Slide 3 shows only teams still alive in the bracket.
     const completedFinals = [];
     for (let i = 0; i < 6; i++) {
       const minWins = [true, false, true, true, false, true][i];
@@ -473,20 +472,15 @@ describe('NBA Daily Briefing — Phase 1 foundation', () => {
       nbaStandings: synthStandings,
       nbaChampOdds: synthChampOdds,
     });
-    const west = payload.playoffOutlook?.west || [];
-    const minCard = west.find(t => t.slug === 'min');
-    const denCard = west.find(t => t.slug === 'den');
-    expect(minCard).toBeTruthy();                  // winner stays
-    expect(denCard).toBeTruthy();                  // loser stays visible (no longer hidden)
-    expect(minCard.isEliminated).toBeFalsy();
-    expect(minCard.status).toBe('active');
-    expect(denCard.isEliminated).toBe(true);
-    expect(denCard.status).toBe('eliminated');
-    expect(denCard.label).toBe('Eliminated');
-    // Active teams sort above eliminated.
-    const minIdx = west.findIndex(t => t.slug === 'min');
-    const denIdx = west.findIndex(t => t.slug === 'den');
-    expect(minIdx).toBeLessThan(denIdx);
+    const westSlugs = (payload.playoffOutlook?.west || []).map(t => t.slug);
+    expect(westSlugs).toContain('min');     // winner stays
+    expect(westSlugs).not.toContain('den'); // loser excluded
+    // No team in the outlook should carry isEliminated=true (we don't
+    // surface eliminated teams on Slide 3 anymore).
+    const anyElim = (payload.playoffOutlook?.east || [])
+      .concat(payload.playoffOutlook?.west || [])
+      .some(t => t.isEliminated || t.status === 'eliminated');
+    expect(anyElim).toBe(false);
   });
 
   it('postseason leaders use canonical totals categories pts/ast/reb/stl/blk', () => {
@@ -531,19 +525,9 @@ describe('NBA Daily Briefing — Phase 1 foundation', () => {
       nbaStandings: synthStandings,
       nbaChampOdds: synthChampOdds,
     });
-    const east = payload.playoffOutlook?.east || [];
-    const bosCard = east.find(t => t.slug === 'bos');
-    const phiCard = east.find(t => t.slug === 'phi');
-    expect(bosCard).toBeTruthy();           // active despite bracket placeholder
-    expect(bosCard.isEliminated).toBeFalsy();
-    expect(bosCard.status).toBe('active');
-    expect(phiCard).toBeTruthy();           // stays visible, tagged eliminated
-    expect(phiCard.isEliminated).toBe(true);
-    expect(phiCard.status).toBe('eliminated');
-    expect(phiCard.label).toBe('Eliminated');
-    // Active teams sort above eliminated.
-    expect(east.findIndex(t => t.slug === 'bos'))
-      .toBeLessThan(east.findIndex(t => t.slug === 'phi'));
+    const eastSlugs = (payload.playoffOutlook?.east || []).map(t => t.slug);
+    expect(eastSlugs).toContain('bos');     // active despite bracket placeholder
+    expect(eastSlugs).not.toContain('phi'); // eliminated → excluded entirely
   });
 
   it('Slide 3 active set includes completed-series winners (cross-round)', () => {
@@ -569,20 +553,9 @@ describe('NBA Daily Briefing — Phase 1 foundation', () => {
       nbaStandings: synthStandings,
       nbaChampOdds: synthChampOdds,
     });
-    const east = payload.playoffOutlook?.east || [];
-    const nykCard = east.find(t => t.slug === 'nyk');
-    const atlCard = east.find(t => t.slug === 'atl');
-    expect(nykCard).toBeTruthy();           // winner advances — stays active
-    expect(nykCard.isEliminated).toBeFalsy();
-    expect(nykCard.status).toBe('active');
-    expect(atlCard).toBeTruthy();           // stays visible, tagged eliminated
-    expect(atlCard.isEliminated).toBe(true);
-    expect(atlCard.status).toBe('eliminated');
-    expect(atlCard.label).toBe('Eliminated');
-    expect(atlCard.rationale).toMatch(/eliminated by (NYK|Knicks)/i);
-    // Active sorts above eliminated.
-    expect(east.findIndex(t => t.slug === 'nyk'))
-      .toBeLessThan(east.findIndex(t => t.slug === 'atl'));
+    const eastSlugs = (payload.playoffOutlook?.east || []).map(t => t.slug);
+    expect(eastSlugs).toContain('nyk');     // winner advances — stays active
+    expect(eastSlugs).not.toContain('atl'); // loser excluded entirely
   });
 
   it('caption Watch Tonight section appears for closeout games', () => {
@@ -603,11 +576,20 @@ describe('NBA Daily Briefing — Phase 1 foundation', () => {
         gameState: { isFinal: true, isLive: false },
       });
     }
+    // Game 6 scheduled "today" in PT — pin to noon PT so the test isn't
+    // fragile when run late in the day (now + 4hr would roll past
+    // midnight if run after 8pm PT and the upcoming game would no longer
+    // count as a "today" game in the playoff context).
+    const todayPtNoon = (() => {
+      const pt = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
+      // Build a Date at PT noon by anchoring to YYYY-MM-DDT19:00:00Z (noon PT in standard, 19:00 UTC in PDT).
+      return new Date(`${pt}T20:00:00.000Z`).toISOString();
+    })();
     games.push({
       gameId: 'g-lal-hou-6',
       sport: 'nba',
       status: 'upcoming',
-      startTime: new Date(now + 4 * 3600 * 1000).toISOString(),
+      startTime: todayPtNoon,
       teams: {
         away: { slug: 'hou', score: null },
         home: { slug: 'lal', score: null },
@@ -656,5 +638,137 @@ describe('NBA Daily Briefing — Phase 1 foundation', () => {
         blk: { leaders: [{ name: 'E' }] },
       },
     })).toBe(true);
+  });
+
+  it('hasValidPostseasonTotalsPayload rejects payloads with non-playoff teams', async () => {
+    const { hasValidPostseasonTotalsPayload } = await import('../../../../api/_lib/nbaBoxScoreLeaders.js');
+    const validTeams = new Set(['lal', 'hou', 'bos', 'nyk', 'min']);
+
+    // Reject when seasonType wrong
+    expect(hasValidPostseasonTotalsPayload({
+      seasonType: 'regular', statType: 'totals',
+      categories: {
+        pts: { leaders: [{ name: 'A', teamSlug: 'lal' }] },
+        ast: { leaders: [{ name: 'B', teamSlug: 'hou' }] },
+        reb: { leaders: [{ name: 'C', teamSlug: 'bos' }] },
+        stl: { leaders: [{ name: 'D', teamSlug: 'nyk' }] },
+        blk: { leaders: [{ name: 'E', teamSlug: 'min' }] },
+      },
+    }, validTeams)).toBe(false);
+
+    // Reject when statType is averages (PPG abbrev)
+    expect(hasValidPostseasonTotalsPayload({
+      seasonType: 'postseason',
+      categories: {
+        pts: { abbrev: 'PPG', leaders: [{ name: 'A', teamSlug: 'lal' }] },
+        ast: { abbrev: 'APG', leaders: [{ name: 'B', teamSlug: 'hou' }] },
+        reb: { abbrev: 'RPG', leaders: [{ name: 'C', teamSlug: 'bos' }] },
+        stl: { abbrev: 'SPG', leaders: [{ name: 'D', teamSlug: 'nyk' }] },
+        blk: { abbrev: 'BPG', leaders: [{ name: 'E', teamSlug: 'min' }] },
+      },
+    }, validTeams)).toBe(false);
+
+    // Reject when ANY leader's team is not in the valid set
+    expect(hasValidPostseasonTotalsPayload({
+      seasonType: 'postseason', statType: 'totals',
+      categories: {
+        pts: { abbrev: 'PTS', leaders: [{ name: 'A', teamSlug: 'lal' }] },
+        ast: { abbrev: 'AST', leaders: [{ name: 'B', teamSlug: 'nop' /* not playoff */ }] },
+        reb: { abbrev: 'REB', leaders: [{ name: 'C', teamSlug: 'bos' }] },
+        stl: { abbrev: 'STL', leaders: [{ name: 'D', teamSlug: 'nyk' }] },
+        blk: { abbrev: 'BLK', leaders: [{ name: 'E', teamSlug: 'min' }] },
+      },
+    }, validTeams)).toBe(false);
+
+    // Accept when all leaders are on valid playoff teams
+    expect(hasValidPostseasonTotalsPayload({
+      seasonType: 'postseason', statType: 'totals',
+      categories: {
+        pts: { abbrev: 'PTS', leaders: [{ name: 'A', teamSlug: 'lal' }] },
+        ast: { abbrev: 'AST', leaders: [{ name: 'B', teamSlug: 'hou' }] },
+        reb: { abbrev: 'REB', leaders: [{ name: 'C', teamSlug: 'bos' }] },
+        stl: { abbrev: 'STL', leaders: [{ name: 'D', teamSlug: 'nyk' }] },
+        blk: { abbrev: 'BLK', leaders: [{ name: 'E', teamSlug: 'min' }] },
+      },
+    }, validTeams)).toBe(true);
+  });
+
+  it('buildValidPlayoffTeamSlugs unions bracket teams + playoff-proper game teams', async () => {
+    const { buildValidPlayoffTeamSlugs } = await import('../../../../api/_lib/nbaBoxScoreLeaders.js');
+    const games = [
+      { gameId: 'g-bos-phi-1', sport: 'nba', status: 'final',
+        startTime: new Date(Date.now() - 5 * 24 * 3600 * 1000).toISOString(),
+        teams: { away: { slug: 'phi', score: 95 }, home: { slug: 'bos', score: 110 } },
+        gameState: { isFinal: true } },
+    ];
+    const ctx = {
+      allSeries: [
+        { round: 1, isStalePlaceholder: false,
+          topTeam: { slug: 'lal', isPlaceholder: false },
+          bottomTeam: { slug: 'hou', isPlaceholder: false },
+          winnerSlug: null, loserSlug: null },
+      ],
+    };
+    const slugs = buildValidPlayoffTeamSlugs(ctx, games);
+    expect(slugs.has('lal')).toBe(true);
+    expect(slugs.has('hou')).toBe(true);
+    expect(slugs.has('bos')).toBe(true); // from games
+    expect(slugs.has('phi')).toBe(true); // from games
+    expect(slugs.has('nop')).toBe(false); // never appeared
+  });
+
+  it('buildNbaGameNarrative surfaces overtime + comeback + last-second framing', async () => {
+    const { buildNbaGameNarrative } = await import('./buildNbaHotPress.js');
+    // Overtime
+    const otStory = {
+      winSlug: 'tor', loseSlug: 'cle', winSide: 'home',
+      winScore: 112, loseScore: 110,
+      narrative: { isOvertime: true, overtimeCount: 1, notesText: '' },
+    };
+    const otText = buildNbaGameNarrative(otStory);
+    expect(otText).toBeTruthy();
+    expect(otText).toMatch(/OT/);
+
+    // Buzzer beater (notes signal) + OT
+    const bzStory = {
+      winSlug: 'tor', loseSlug: 'cle', winSide: 'home',
+      winScore: 112, loseScore: 110,
+      narrative: { isOvertime: true, overtimeCount: 1, notesText: 'last-second three forces game 7' },
+    };
+    const bzText = buildNbaGameNarrative(bzStory);
+    expect(bzText).toMatch(/last-second|stun/i);
+
+    // Comeback (15+ point deficit at half)
+    const cbStory = {
+      winSlug: 'det', loseSlug: 'orl', winSide: 'home',
+      winScore: 93, loseScore: 79,
+      narrative: {
+        isOvertime: false,
+        // Det (winner / home) is down 25-50 = -25 at half, then comes back
+        homeLine: [10, 15, 30, 38],
+        awayLine: [25, 25, 18, 11],
+        notesText: '',
+      },
+    };
+    const cbText = buildNbaGameNarrative(cbStory);
+    expect(cbText).toBeTruthy();
+    expect(cbText).toMatch(/comeback|deficit|rally/i);
+
+    // Generic game with no special signals returns null
+    const genericStory = {
+      winSlug: 'lal', loseSlug: 'hou', winSide: 'home',
+      winScore: 110, loseScore: 100,
+      narrative: { isOvertime: false, homeLine: null, awayLine: null, notesText: '' },
+    };
+    expect(buildNbaGameNarrative(genericStory)).toBeNull();
+  });
+
+  it('isPlayInGame catches text variants (play-in / play in / tournament play-in)', async () => {
+    const { isPlayInGame } = await import('../../../../api/_lib/nbaBoxScoreLeaders.js');
+    expect(isPlayInGame({ competitions: [{ notes: [{ headline: 'Play-In Tournament' }] }] })).toBe(true);
+    expect(isPlayInGame({ competitions: [{ notes: [{ headline: 'play in tournament' }] }] })).toBe(true);
+    expect(isPlayInGame({ season: { displayName: 'NBA Play-In Tournament' } })).toBe(true);
+    expect(isPlayInGame({ competitions: [{ notes: [{ headline: 'Round 1 Game 4' }] }] })).toBe(false);
+    expect(isPlayInGame({})).toBe(false);
   });
 });

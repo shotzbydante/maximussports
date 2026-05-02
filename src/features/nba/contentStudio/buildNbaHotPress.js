@@ -245,6 +245,12 @@ function pickLogoSlug(s, source) {
 // ── Game-story bullets (close/blowout/individual finals) ────────────
 
 function bulletForGameStory(story) {
+  // Narrative-aware path FIRST: dramatic OT / comeback / buzzer-beater
+  // games surface with stronger language when the game data supports it.
+  // Falls back to the generic templates below if no special signal fires.
+  const dramatic = buildNbaGameNarrative(story);
+  if (dramatic) return dramatic;
+
   const w = teamName(story.winSlug);
   const l = teamName(story.loseSlug);
   const score = `${story.winScore}-${story.loseScore}`;
@@ -260,6 +266,101 @@ function bulletForGameStory(story) {
   if (story.type === 'blowout') return `${w} roll past ${l} ${score}${tag}.`;
   if (story.type === 'close') return `${w} edge ${l} ${score}${tag}.`;
   return `${w} beat ${l} ${score}${tag}.`;
+}
+
+/**
+ * Detect dramatic game context from a normalized game-story object and
+ * return an enriched bullet, or null if nothing special fires.
+ *
+ * Signals (non-fabricated — read straight off the game data):
+ *   - Overtime:        gameState.isOvertime / overtimeCount
+ *   - Comeback:        per-quarter linescores → halftime margin vs final
+ *   - Buzzer-beater:   notes blob containing buzzer / game-winner /
+ *                      last-second pattern
+ *   - Series clincher / Game 7 / elimination: story flags from
+ *                      buildNbaDailyHeadline.extractGameStories
+ *
+ * The returned text leads with an ESPN-style alert emoji + verb so the
+ * bullet reads like a notification, then layers a short stake clause.
+ *
+ * @param {object} story  — game story w/ winSlug / loseSlug / winScore /
+ *                          loseScore + optional `narrative`
+ *                          (carried through from normalized event)
+ * @returns {string|null}
+ */
+export function buildNbaGameNarrative(story) {
+  if (!story || !story.winSlug || !story.loseSlug) return null;
+  const narr = story.narrative || {};
+  const w = teamName(story.winSlug);
+  const l = teamName(story.loseSlug);
+  const score = `${story.winScore}-${story.loseScore}`;
+  const tag = seriesTagLower(story);
+  const margin = (story.winScore || 0) - (story.loseScore || 0);
+
+  // 1. BUZZER-BEATER / GAME-WINNER (highest narrative priority).
+  //    Requires explicit notes-text signal — never inferred.
+  const notes = String(narr.notesText || '').toLowerCase();
+  const buzzerHit = /buzzer[-\s]*beater|game[-\s]*winn|last[-\s]*second|walk[-\s]*off/.test(notes);
+  if (buzzerHit && narr.isOvertime) {
+    return `🚨 ${w} stun ${l} ${score} in OT — a last-second shot flips the series pressure${tag ? ` ${tag.trim()}` : ''}.`;
+  }
+  if (buzzerHit) {
+    return `🚨 ${w} beat ${l} ${score} on a last-second shot${tag} — the kind of moment that swings a series.`;
+  }
+
+  // 2. OVERTIME (no explicit buzzer signal).
+  if (narr.isOvertime) {
+    const otTag = (narr.overtimeCount && narr.overtimeCount > 1) ? `${narr.overtimeCount}OT` : 'OT';
+    if (story.isClinch || story.isGame7Win) {
+      return `🚨 ${w} survive ${l} ${score} in ${otTag} — series clinched in dramatic fashion${tag}.`;
+    }
+    if (story.isElimWin) {
+      return `🚨 ${w} steal ${score} from ${l} in ${otTag} — one win from closing out${tag}.`;
+    }
+    if (story.isUpset) {
+      return `🚨 ${w} pull the upset over ${l} ${score} in ${otTag}${tag} — bracket on notice.`;
+    }
+    return `🚨 ${w} edge ${l} ${score} in ${otTag}${tag} — series shifts on a coin flip.`;
+  }
+
+  // 3. COMEBACK — derived from period-by-period linescores.
+  //    Comeback margin = the largest deficit the WINNER faced at the
+  //    end of any period before the final buzzer. If that deficit is
+  //    ≥15 we describe it as a "comeback"; ≥20 as "massive".
+  const winSlug = story.winSlug;
+  const winningSide = (story?.winSide === 'home' || story?.winSide === 'away')
+    ? story.winSide
+    : null;
+  // Story might not carry a winSide — derive from team slugs vs game.
+  // We also accept linescores attached directly to the story (preferred).
+  const winLine = winningSide === 'home' ? narr.homeLine : winningSide === 'away' ? narr.awayLine : null;
+  const losLine = winningSide === 'home' ? narr.awayLine : winningSide === 'away' ? narr.homeLine : null;
+  if (Array.isArray(winLine) && Array.isArray(losLine) && winLine.length >= 2 && losLine.length >= 2) {
+    let maxDeficit = 0;
+    let cumW = 0, cumL = 0;
+    for (let i = 0; i < Math.min(winLine.length, losLine.length); i++) {
+      cumW += winLine[i] || 0;
+      cumL += losLine[i] || 0;
+      // Don't count the deficit at the final buzzer — that's just the
+      // outcome, not a comeback signal.
+      if (i === winLine.length - 1) break;
+      const deficit = cumL - cumW;
+      if (deficit > maxDeficit) maxDeficit = deficit;
+    }
+    if (maxDeficit >= 20) {
+      return `🔥 ${w} erase a ${maxDeficit}-point deficit to beat ${l} ${score}${tag} — one of the bigger comebacks of the postseason.`;
+    }
+    if (maxDeficit >= 15) {
+      return `🔥 ${w} rally from a ${maxDeficit}-point hole to beat ${l} ${score}${tag} — a real momentum swing.`;
+    }
+  }
+
+  // 4. BLOWOUT in a clinching context (margin ≥ 25 AND series-defining).
+  if (margin >= 25 && (story.isClinch || story.isGame7Win)) {
+    return `🔥 ${w} blow out ${l} ${score}${tag} — series clinched in a statement win.`;
+  }
+
+  return null;
 }
 
 // ── Last-resort filler ──────────────────────────────────────────────

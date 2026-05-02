@@ -128,17 +128,28 @@ function extractGameStories(liveGames, playoffContext) {
     else if (loseScore === 0 || margin >= 20) type = 'blowout';
     else if (margin <= 3) type = 'close';
 
+    // Carry the narrative payload + which side won so the HOTP layer
+    // can detect overtime / comebacks / buzzer-beaters from real game
+    // data (see buildNbaGameNarrative).
+    const winSide = awayScore > homeScore ? 'away' : 'home';
+    const narrative = g.narrative || null;
+
     const story = {
       type,
-      winSlug, loseSlug,
+      winSlug, loseSlug, winSide,
       winScore, loseScore, margin,
       inSeries, series,
       winSeriesWins, loseSeriesWins,
       isClinch, isComeback, isUpset, isElimWin, isGame7Win, isSweep, isStolenRoadWin,
       gameId: g.gameId,
       gameDate: g.startTime || null,
+      narrative,
     };
     story.priority = storyPriority(story);
+    // Boost narrative priority for dramatic games (OT / comeback /
+    // buzzer-beater) so they outrank generic "team wins" stories.
+    if (narrative?.isOvertime) story.priority += 25;
+    if (narrative?.notesText && /buzzer|game[-\s]*winn|last[-\s]*second/.test(narrative.notesText)) story.priority += 30;
     stories.push(story);
   }
 

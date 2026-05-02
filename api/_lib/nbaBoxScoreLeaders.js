@@ -73,6 +73,87 @@ export function hasValidLeaderCategories(leaders) {
   return required.every(k => (leaders?.categories?.[k]?.leaders?.length ?? 0) > 0);
 }
 
+/**
+ * STRICT validator for postseason cached payloads. Defeats two failure
+ * modes that previously poisoned Slide 2:
+ *   1) Stale KV from a prior shape (per-game averages, regular-season
+ *      labels, missing categories).
+ *   2) ESPN types/3 returning non-playoff-team players (e.g. NOP/POR
+ *      stars who are still league-stat leaders despite their teams
+ *      missing the playoffs).
+ *
+ * Returns true ONLY when:
+ *   - seasonType === 'postseason'
+ *   - statType === 'totals'
+ *   - all 5 canonical categories exist with ≥1 leader
+ *   - every leader's team is in `validPlayoffTeamSlugs` (when provided)
+ *   - no category abbrev uses per-game shape (PPG/APG/RPG/SPG/BPG)
+ */
+export function hasValidPostseasonTotalsPayload(leaders, validPlayoffTeamSlugs = null) {
+  if (!leaders) return false;
+  if (leaders.seasonType && leaders.seasonType !== 'postseason') return false;
+  if (leaders.statType && leaders.statType !== 'totals') return false;
+
+  const cats = leaders.categories || {};
+  const required = ['pts', 'ast', 'reb', 'stl', 'blk'];
+  for (const k of required) {
+    const c = cats[k];
+    const list = c?.leaders || [];
+    if (list.length === 0) return false;
+    // Reject per-game category shape on the abbrev (PPG/APG/RPG/SPG/BPG).
+    const abbrev = String(c?.abbrev || '').toUpperCase();
+    if (/^[PARSB]PG$/.test(abbrev)) return false;
+    // Team eligibility: every leader's team must be in the active
+    // playoff field. Skip when no validation set is supplied (caller
+    // doesn't have playoff context, e.g. early bootstrap).
+    if (validPlayoffTeamSlugs && validPlayoffTeamSlugs.size > 0) {
+      for (const ldr of list) {
+        const slug = ldr?.teamSlug || null;
+        if (!slug) return false;            // leaders without team identity are unsafe
+        if (!validPlayoffTeamSlugs.has(slug)) return false;
+      }
+    }
+  }
+  return true;
+}
+
+/**
+ * Build the canonical set of valid playoff-team slugs from BOTH the
+ * static bracket (playoffContext) and live playoff-proper games. Either
+ * source alone is fragile:
+ *   - bracket has Play-In placeholders before the play-in round resolves
+ *   - games-only misses teams between rounds (won R1, awaiting R2)
+ * Union gives us a complete "who's still in the bracket world" set.
+ *
+ * Used as the team-eligibility filter for postseason leaders so a
+ * Pelicans / Trail Blazers / Mavericks star can never appear on Slide 2
+ * just because ESPN's all-NBA leaders endpoint surfaced them.
+ */
+export function buildValidPlayoffTeamSlugs(playoffContext = null, playoffGames = []) {
+  const slugs = new Set();
+
+  // 1. Bracket-anchored: every team in any non-stale series.
+  for (const s of (playoffContext?.allSeries || playoffContext?.series || [])) {
+    if (s?.isStalePlaceholder) continue;
+    if (s?.topTeam?.slug && !s?.topTeam?.isPlaceholder)       slugs.add(s.topTeam.slug);
+    if (s?.bottomTeam?.slug && !s?.bottomTeam?.isPlaceholder) slugs.add(s.bottomTeam.slug);
+    if (s?.winnerSlug) slugs.add(s.winnerSlug);
+    if (s?.loserSlug)  slugs.add(s.loserSlug);
+  }
+
+  // 2. Game-anchored: any team that has actually played a playoff-proper
+  //    game. Catches bracket placeholder cases (winner of play-in).
+  for (const g of (playoffGames || [])) {
+    if (!isNbaPlayoffProperGame(g)) continue;
+    const a = g?.teams?.away?.slug || g?.awayTeam?.slug;
+    const h = g?.teams?.home?.slug || g?.homeTeam?.slug;
+    if (a) slugs.add(a);
+    if (h) slugs.add(h);
+  }
+
+  return slugs;
+}
+
 const espnIdToSlug = {};
 for (const [slug, eid] of Object.entries(NBA_ESPN_IDS)) espnIdToSlug[String(eid)] = slug;
 
@@ -177,9 +258,34 @@ export function isPlayInGame(eventOrGame) {
 
   const blob = fields.filter(Boolean).join(' ');
   if (!blob) return false;
-  // Tight regex — match "play-in" / "play in" / "play-in tournament"
-  // but not "playin field" or unrelated phrases.
-  return /play[\s-]*in\b/.test(blob);
+  // Tight regex — match "play-in" / "play in" / "play in tournament" /
+  // "tournament play-in" but not "playin field" or unrelated phrases.
+  if (/play[\s-]*in\b/.test(blob)) return true;
+  if (/tournament[\s-]*play/.test(blob)) return true;
+  return false;
+}
+
+/**
+ * Reject obviously non-postseason games (preseason, summer league,
+ * regular season, all-star). Conservative: returns true only on clear
+ * negative markers so we don't accidentally drop genuine playoff games.
+ */
+function isObviouslyNonPostseason(eventOrGame) {
+  if (!eventOrGame) return false;
+  const fields = [
+    String(eventOrGame?.season?.slug || '').toLowerCase(),
+    String(eventOrGame?.season?.displayName || '').toLowerCase(),
+    String(eventOrGame?.competitions?.[0]?.notes || '').toLowerCase(),
+    notesText(eventOrGame?.notes),
+    notesText(eventOrGame?.competitions?.[0]?.notes),
+  ];
+  const blob = fields.filter(Boolean).join(' ');
+  if (!blob) return false;
+  if (/preseason|pre-season/.test(blob)) return true;
+  if (/summer\s*league/.test(blob)) return true;
+  if (/all[\s-]*star/.test(blob)) return true;
+  if (/regular\s*season/.test(blob)) return true;
+  return false;
 }
 
 /**
@@ -201,15 +307,18 @@ function isCompleted(g) {
   return !!(g?.gameState?.isFinal || g?.status === 'final');
 }
 
-/** Combined gate (audit Part 2 helper): completed && playoff && !play-in. */
+/** Combined gate: completed && playoff && !play-in && !obviously-non-postseason. */
 export function isNbaPlayoffProperGame(g) {
   if (!isCompleted(g)) return false;
-  // If the game has clear postseason markers, require non-play-in.
-  if (isNbaPostseasonGame(g)) return !isPlayInGame(g);
-  // No explicit postseason marker — fall back to !play-in. This keeps
-  // true playoff games that ESPN normalizers strip down, while still
-  // dropping anything that overtly says "Play-In".
-  return !isPlayInGame(g);
+  if (isPlayInGame(g)) return false;
+  if (isObviouslyNonPostseason(g)) return false;
+  // If the game has clear postseason markers, accept it.
+  if (isNbaPostseasonGame(g)) return true;
+  // No explicit postseason marker — accept only if no negative signal
+  // fired above. This keeps true playoff games that ESPN normalizers
+  // strip down, while dropping anything overtly preseason / regular
+  // season / play-in / summer league.
+  return true;
 }
 
 // ─── Box-score parsing ──────────────────────────────────────────────
@@ -268,23 +377,32 @@ async function fetchOneSummary(gameId) {
 
 /**
  * Pick the top N players by absolute total of `srcKey` after
- * applying adaptive games-played + minutes-played floors.
- *
- * Audit Part 2: thresholds passed in by caller so we can retry
- * individual categories with RELAXED_RETRY when the primary
- * filter leaves a category empty.
+ * applying:
+ *   1. team-eligibility filter (must be in validPlayoffTeamSlugs when
+ *      that set is non-empty) — defeats ESPN types/3 leaking
+ *      non-playoff stars
+ *   2. adaptive games-played floor
+ *   3. adaptive minutes-played floor
  *
  * Returns { leaders, counts } so the caller can build the
  * [NBA_LEADER_FILTER_DEBUG] diagnostic with real before/after
- * numbers.
+ * numbers including filteredOutInactiveTeam.
  */
-function topByTotal(playerMap, srcKey, thresholds, n = 3) {
+function topByTotal(playerMap, srcKey, thresholds, validTeamSlugs, n = 3) {
   const all = Object.values(playerMap);
   const playersBefore = all.length;
 
-  const afterGames = all.filter(p => p.gamesPlayed >= thresholds.minGames);
+  // Team-eligibility filter is the strongest gate. Apply first.
+  const useTeamFilter = !!(validTeamSlugs && validTeamSlugs.size > 0);
+  const afterTeam = useTeamFilter
+    ? all.filter(p => p.teamSlug && validTeamSlugs.has(p.teamSlug))
+    : all;
+  const afterActiveTeamFilter = afterTeam.length;
+  const filteredOutInactiveTeam = playersBefore - afterActiveTeamFilter;
+
+  const afterGames = afterTeam.filter(p => p.gamesPlayed >= thresholds.minGames);
   const afterGamesFilter = afterGames.length;
-  const filteredOutLowGames = playersBefore - afterGamesFilter;
+  const filteredOutLowGames = afterActiveTeamFilter - afterGamesFilter;
 
   const afterMinutes = afterGames.filter(p => (p.minutes || 0) >= thresholds.minMinutes);
   const afterMinutesFilter = afterMinutes.length;
@@ -311,8 +429,10 @@ function topByTotal(playerMap, srcKey, thresholds, n = 3) {
     leaders,
     counts: {
       playersBefore,
+      afterActiveTeamFilter,
       afterGamesFilter,
       afterMinutesFilter,
+      filteredOutInactiveTeam,
       filteredOutLowGames,
       filteredOutLowMinutes,
     },
@@ -331,27 +451,44 @@ function categoryFromLeaders(catKey, leaders) {
 
 /**
  * Build postseason leaders by aggregating box scores from completed
- * playoff games. Audit Part 1 — emits absolute totals.
+ * playoff games. Emits absolute totals. Honors a strict playoff-team
+ * eligibility filter so non-playoff stars (NOP / POR / DAL who happen
+ * to be in box-score data ESPN tags as postseason) cannot leak.
  *
  * @param {object} opts
  * @param {Array}  opts.windowGames — schedule window (filter applied
- *                                    inside: completed + !play-in)
+ *                                    inside: completed + !play-in +
+ *                                    !preseason + !summer-league)
+ * @param {Set<string>} [opts.validPlayoffTeamSlugs] — when provided,
+ *                                    every leader must be on one of
+ *                                    these teams.
  * @returns {Promise<{ categories, fetchedAt, seasonType, statType, _source }|null>}
  */
-export async function buildNbaPostseasonLeadersFromBoxScores({ windowGames = [] } = {}) {
-  // Audit Part 2: filter to true playoff games only
+export async function buildNbaPostseasonLeadersFromBoxScores({
+  windowGames = [],
+  validPlayoffTeamSlugs = null,
+} = {}) {
+  // Filter to true playoff games only (completed + !play-in + !preseason
+  // + !summer-league + !regular-season).
   const totalWindowGames = (windowGames || []).length;
   const includedGames = (windowGames || []).filter(isNbaPlayoffProperGame);
-  const excludedPlayInGames = (windowGames || [])
-    .filter(g => isCompleted(g))
-    .filter(g => isPlayInGame(g));
+  const completedAll = (windowGames || []).filter(isCompleted);
+  const excludedPlayInGames = completedAll.filter(g => isPlayInGame(g));
+  const excludedNonPlayoffGames = completedAll.filter(g =>
+    !isPlayInGame(g) && !isNbaPlayoffProperGame(g)
+  );
 
   console.log('[NBA_PLAYOFF_LEADER_GAMES]', JSON.stringify({
     totalWindowGames,
     includedGames: includedGames.length,
     excludedPlayInGames: excludedPlayInGames.length,
+    excludedNonPlayoffGames: excludedNonPlayoffGames.length,
     includedGameIds: includedGames.slice(0, 30).map(g => g.gameId),
-    excludedGameIds: excludedPlayInGames.map(g => g.gameId),
+    excludedGameIds: [
+      ...excludedPlayInGames.map(g => g.gameId),
+      ...excludedNonPlayoffGames.map(g => g.gameId),
+    ].slice(0, 30),
+    validPlayoffTeamCount: validPlayoffTeamSlugs ? validPlayoffTeamSlugs.size : null,
   }));
 
   if (includedGames.length === 0) {
@@ -421,35 +558,53 @@ export async function buildNbaPostseasonLeadersFromBoxScores({ windowGames = [] 
 
   for (const [src, catKey] of Object.entries(SRC_TO_KEY)) {
     if (!LEADER_KEYS.includes(catKey)) continue;
-    const primary = topByTotal(playerMap, src, thresholds, 3);
+    const primary = topByTotal(playerMap, src, thresholds, validPlayoffTeamSlugs, 3);
     if (!primaryCounts) primaryCounts = primary.counts;
 
     let leaders = primary.leaders;
     if (leaders.length === 0) {
       // Retry just this category with relaxed thresholds — never show
-      // "Postseason feed updating" if box-score data exists.
-      const relaxed = topByTotal(playerMap, src, RELAXED_RETRY, 3);
+      // "Postseason feed updating" if box-score data exists. Team
+      // eligibility filter STAYS strict on retry.
+      const relaxed = topByTotal(playerMap, src, RELAXED_RETRY, validPlayoffTeamSlugs, 3);
       leaders = relaxed.leaders;
       if (leaders.length > 0) retried.push(catKey);
     }
     categories[catKey] = categoryFromLeaders(catKey, leaders);
   }
 
-  // Audit Part 2 diagnostic — single line, audit-spec'd field names.
+  // Diagnostic — single line, audit-spec'd field names.
   console.log('[NBA_LEADER_FILTER_DEBUG]', JSON.stringify({
     playersBefore: primaryCounts?.playersBefore ?? playerCount,
+    afterActiveTeamFilter: primaryCounts?.afterActiveTeamFilter ?? 0,
     afterGamesFilter: primaryCounts?.afterGamesFilter ?? 0,
     afterMinutesFilter: primaryCounts?.afterMinutesFilter ?? 0,
-    afterActiveTeamFilter: primaryCounts?.afterMinutesFilter ?? 0,
+    filteredOutInactiveTeam: primaryCounts?.filteredOutInactiveTeam ?? 0,
     filteredOutLowGames: primaryCounts?.filteredOutLowGames ?? 0,
     filteredOutLowMinutes: primaryCounts?.filteredOutLowMinutes ?? 0,
-    filteredOutInactiveTeam: 0,
     minGames: thresholds.minGames,
     minMinutes: thresholds.minMinutes,
     parsedGames,
     retriedCategories: retried,
     filteredOutPlayIn: excludedPlayInGames.length,
+    filteredOutNonPlayoff: excludedNonPlayoffGames.length,
+    validPlayoffTeamCount: validPlayoffTeamSlugs ? validPlayoffTeamSlugs.size : null,
   }));
+
+  // Diagnostic dedicated to the team-eligibility gate. Emits the
+  // exact teams that were dropped so a Pelicans/Trail Blazers leak
+  // is immediately visible in production logs.
+  if (validPlayoffTeamSlugs && validPlayoffTeamSlugs.size > 0) {
+    const beforeTeams = Array.from(new Set(Object.values(playerMap).map(p => p.teamSlug).filter(Boolean)));
+    const droppedTeams = beforeTeams.filter(s => !validPlayoffTeamSlugs.has(s));
+    console.log('[NBA_POSTSEASON_LEADER_TEAM_FILTER]', JSON.stringify({
+      validTeams: Array.from(validPlayoffTeamSlugs).sort(),
+      teamsBefore: beforeTeams.sort(),
+      excludedTeams: droppedTeams.sort(),
+      playersBefore: primaryCounts?.playersBefore ?? playerCount,
+      playersAfterTeamFilter: primaryCounts?.afterActiveTeamFilter ?? 0,
+    }));
+  }
 
   const result = {
     categories,
@@ -461,6 +616,10 @@ export async function buildNbaPostseasonLeadersFromBoxScores({ windowGames = [] 
       gamesAggregated: parsedGames,
       uniquePlayers: playerCount,
       excludedPlayInGames: excludedPlayInGames.length,
+      excludedNonPlayoffGames: excludedNonPlayoffGames.length,
+      validPlayoffTeams: validPlayoffTeamSlugs
+        ? Array.from(validPlayoffTeamSlugs).sort()
+        : null,
       thresholds,
       retriedCategories: retried,
     },

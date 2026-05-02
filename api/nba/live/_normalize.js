@@ -51,6 +51,54 @@ export function normalizeEvent(ev) {
   if (!gamecastUrl && ev.id) gamecastUrl = `https://www.espn.com/nba/game/_/gameId/${ev.id}`;
 
   const periodLabel = status?.type?.shortDetail || status?.type?.description || null;
+  const periodNumber = Number(status?.period);
+  // NBA regulation = 4 periods. Anything past 4 is overtime. ESPN sometimes
+  // also includes "OT" / "2OT" in the shortDetail for completed games.
+  const labelHasOT = /\bot\b/i.test(periodLabel || '') || /overtime/i.test(periodLabel || '');
+  const isOvertime = (Number.isFinite(periodNumber) && periodNumber > 4) || labelHasOT;
+  const overtimeCount = Number.isFinite(periodNumber) && periodNumber > 4
+    ? periodNumber - 4
+    : (labelHasOT ? 1 : 0);
+
+  // Per-quarter line scores (when ESPN provides them on the scoreboard
+  // payload) — drives comeback / halftime-deficit detection.
+  function lineScoresFor(c) {
+    const arr = c?.linescores;
+    if (!Array.isArray(arr)) return null;
+    return arr.map(ls => Number(ls?.value ?? ls?.displayValue ?? 0));
+  }
+  const homeLine = lineScoresFor(home);
+  const awayLine = lineScoresFor(away);
+
+  // Notes/headline text — drives buzzer-beater / game-winner detection
+  // (we never want to fabricate this). Joined into a single lowercase
+  // blob the narrative builder can pattern-match on.
+  function notesBlob() {
+    const parts = [];
+    const notes = comp?.notes;
+    if (Array.isArray(notes)) {
+      for (const n of notes) {
+        if (typeof n === 'string') parts.push(n);
+        else if (n?.headline) parts.push(n.headline);
+        else if (n?.text) parts.push(n.text);
+      }
+    }
+    if (Array.isArray(ev?.notes)) {
+      for (const n of ev.notes) {
+        if (typeof n === 'string') parts.push(n);
+        else if (n?.headline) parts.push(n.headline);
+        else if (n?.text) parts.push(n.text);
+      }
+    }
+    if (Array.isArray(ev?.competitions?.[0]?.headlines)) {
+      for (const h of ev.competitions[0].headlines) {
+        if (h?.shortLinkText) parts.push(h.shortLinkText);
+        if (h?.description) parts.push(h.description);
+      }
+    }
+    return parts.join(' | ').toLowerCase();
+  }
+  const notesText = notesBlob();
 
   const espnOdds = comp.odds?.[0] || null;
   const hasEspnOdds = espnOdds != null;
@@ -95,9 +143,22 @@ export function normalizeEvent(ev) {
     },
     gameState: {
       periodLabel,
+      period: Number.isFinite(periodNumber) ? periodNumber : null,
+      isOvertime,
+      overtimeCount,
       isLive,
       isFinal,
       statusText: status?.type?.description || (isLive ? 'In Progress' : isFinal ? 'Final' : 'Scheduled'),
+    },
+    // Narrative signals — surfaced for buildNbaGameNarrative + HOTP.
+    // Intentionally minimal: numbers + lowercase notes blob, no fabricated
+    // text. Down-stream code reads what's actually here.
+    narrative: {
+      isOvertime,
+      overtimeCount,
+      homeLine,
+      awayLine,
+      notesText,
     },
     market: { pregameSpread, liveSpread: null, pregameTotal, liveTotal: null, moneyline },
     model: { pregameEdge: null, liveEdge: null, confidence: null, fairSpread: null, fairTotal: null },
