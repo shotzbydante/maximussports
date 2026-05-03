@@ -215,9 +215,9 @@
 }
 .s1StoryCard {
   composes: glassCard;
-  /* Tighter again — 16px vertical padding, recovers another 4-8px per
-     card so the picks card can carry the new sublabel without overflow. */
-  padding: 16px 26px;
+  /* Tighter — 14px vertical padding so 3 picks can fit in the
+     bottomGrid without overflow. Saves ~8px across the 2 stories. */
+  padding: 14px 26px;
   display: grid;
   grid-template-columns: auto 1fr auto;
   gap: 20px;
@@ -234,15 +234,16 @@
 }
 .s1StoryBody { min-width: 0; }
 .s1StoryTitle {
-  /* Was 36px / 1.04. Trim to 32px / 1.05 — still the headline of the
-     card, but ~10px shorter per 2-line title. */
-  font-size: 32px; font-weight: 900; line-height: 1.05;
+  /* 30px / 1.05 — readable, still the card's headline, ~6px shorter
+     per 2-line title vs 32px. Cumulative savings across 2 stories
+     buy room for the third pick row. */
+  font-size: 30px; font-weight: 900; line-height: 1.05;
   color: #fff;
   letter-spacing: -0.4px;
 }
 .s1StorySub {
-  margin-top: 6px;
-  font-size: 18px; font-weight: 600; line-height: 1.3;
+  margin-top: 5px;
+  font-size: 17px; font-weight: 600; line-height: 1.3;
   color: var(--nba-gold-bright);
 }
 .s1StoryScore {
@@ -253,6 +254,21 @@
   letter-spacing: -0.5px;
   text-shadow: 0 2px 12px rgba(212,175,55,0.45);
   white-space: nowrap;
+}
+/* State label (e.g. "GAME 7") — for cards previewing a decisive
+   matchup where rendering the series score on the right would read
+   as a fake final next to a real score on the card above. Smaller,
+   tighter tracking, no glow → reads as a label, not a result. */
+.s1StoryStateLabel {
+  font-size: 30px; font-weight: 900;
+  color: var(--nba-gold-bright);
+  letter-spacing: 1.4px;
+  white-space: nowrap;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: rgba(212,175,55,0.16);
+  border: 1.5px solid rgba(212,175,55,0.45);
+  text-transform: uppercase;
 }
 
 /* ── HOT OFF THE PRESS ── */
@@ -267,17 +283,17 @@
      absorb leftover artboard space; without `flex-shrink: 0` the HOTP
      zone gets squeezed and the third bullet gets clipped. */
   flex: 0 0 auto;
-  /* Hard floor for the module so 3 bullets at 17px / 1.3 line-height
-     × 2 line clamp + 8px gaps + pill always render. Trimmed 220 → 200
-     so the bottomGrid floor (280px) doesn't push the artboard past
-     1350. 3 bullets × ~44px + 8px gaps + 32px pill ≈ 180-190px → fits. */
-  min-height: 200px;
+  /* Hard floor for the module so 3 bullets at 16px / 1.28 line-height
+     × 2 line clamp + 7px gaps + pill always render. Trimmed 200 →
+     180 to free space for the bottomGrid 340px floor (which now
+     carries 3 picks instead of 2). 3 × ~40 + 2 × 7 + 32 ≈ 166px. */
+  min-height: 180px;
 }
 .s1HotpPill {
   composes: sectionPill;
   margin-bottom: 10px;
 }
-.s1HotpBullets { display: flex; flex-direction: column; gap: 8px; }
+.s1HotpBullets { display: flex; flex-direction: column; gap: 7px; }
 .s1HotpRow {
   display: flex; align-items: flex-start; gap: 12px;
 }
@@ -288,9 +304,11 @@
   margin-top: 1px;
 }
 .s1BulletText {
-  /* 17px @ 1.3 LH × 2 lines clamp ≈ 44px per row → 3 rows + gaps fit
-     cleanly within the tightened HOTP zone. */
-  font-size: 17px; font-weight: 700; line-height: 1.3;
+  /* 16px @ 1.28 LH × 2 lines clamp ≈ 40px per row → 3 rows + 7px
+     gaps + pill fit in the trimmed 180px HOTP zone. Slide 2 still
+     carries the larger 17px HOTP bullets — Slide 1 trims to make
+     room for the third pick. */
+  font-size: 16px; font-weight: 700; line-height: 1.28;
   color: #f2ecdc;
   /* Hard 2-line ceiling so a long ESPN-alert bullet can't push the
      HOTP module past its allotted vertical space. */
@@ -305,18 +323,18 @@
 .s1BottomGrid {
   position: relative; z-index: 10;
   display: grid; grid-template-columns: 1fr 1fr; gap: 14px;
-  margin-top: 8px;
-  /* Absorbs leftover artboard space, but can shrink (min-height: 0) so
-     it never pushes HOTP off-canvas when content is tall. Hard floor
-     bumped 230 → 280 so the picks card has room for: section label
-     (16px) + sublabel (12px+10mb) + 2 pick rows (~95px each) + 12px
-     gap + 16/20 padding ≈ 270px without ever clipping. */
+  margin-top: 6px;
+  /* Hard floor bumped 280 → 360 so the picks card always carries 3
+     pick rows (matching Slide 2). Floor budget:
+       section label (16px) + sublabel (12px+10mb) + 3 picks ×
+       ~78px + 2 × 10 gaps + 14/20 card padding ≈ 332px → 360 leaves
+       comfortable margin without clipping. */
   flex: 1 1 0;
-  min-height: 280px;
+  min-height: 360px;
 }
 .s1BottomCard {
   composes: glassCard;
-  padding: 16px 20px;
+  padding: 14px 20px;
   display: flex; flex-direction: column;
 }
 .s1SectionLabel {
@@ -335,29 +353,29 @@
   opacity: 0.92;
 }
 
-.s1RaceList { display: flex; flex-direction: column; gap: 12px; flex: 1; justify-content: space-between; }
+.s1RaceList { display: flex; flex-direction: column; gap: 9px; flex: 1; justify-content: space-between; }
 .s1RaceRow {
   display: grid;
   grid-template-columns: auto 1fr auto;
   gap: 12px; align-items: center;
-  padding-bottom: 11px;
+  padding-bottom: 8px;
   border-bottom: 1px solid rgba(212,175,55,0.14);
 }
 .s1RaceRow:last-child { border-bottom: none; padding-bottom: 0; }
 .s1RaceTeamId { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .s1RaceTeamInfo { display: flex; flex-direction: column; min-width: 0; }
-.s1RaceAbbrev { font-size: 22px; font-weight: 900; color: #fff; letter-spacing: 0.3px; line-height: 1.05; }
-.s1RaceRecord { font-size: 13px; font-weight: 700; color: #a7a29a; letter-spacing: 0.5px; }
+.s1RaceAbbrev { font-size: 21px; font-weight: 900; color: #fff; letter-spacing: 0.3px; line-height: 1.05; }
+.s1RaceRecord { font-size: 12.5px; font-weight: 700; color: #a7a29a; letter-spacing: 0.5px; }
 .s1RaceCenter { display: flex; flex-direction: column; text-align: center; }
-.s1RaceLabel { font-size: 15px; font-weight: 900; color: #f2ecdc; line-height: 1.15; letter-spacing: 0.3px; }
-.s1RaceSub { font-size: 12px; font-weight: 700; color: #a7a29a; margin-top: 3px; }
+.s1RaceLabel { font-size: 14px; font-weight: 900; color: #f2ecdc; line-height: 1.15; letter-spacing: 0.3px; }
+.s1RaceSub { font-size: 11.5px; font-weight: 700; color: #a7a29a; margin-top: 2px; }
 .s1RaceRight { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
 .s1RaceConf { font-size: 11px; font-weight: 900; color: var(--nba-gold); letter-spacing: 1.2px; }
 .s1RaceOdds { font-size: 17px; font-weight: 900; color: #fff; }
 
 .s1PicksList {
   display: flex; flex-direction: column;
-  gap: 12px;
+  gap: 10px;
   /* min-height: 0 so this column can shrink rather than push the
      last pick card off-canvas when the Contenders column is taller. */
   flex: 1; min-height: 0;
@@ -367,10 +385,10 @@
   overflow: hidden;
 }
 .s1PickRow {
-  /* Tightened again — 11/15 padding so 2 cards × ~80px fit reliably
-     under the bottomGrid 280px floor. Typography stays prominent
-     (22px sel, 15px matchup); we're only trimming card-level padding. */
-  padding: 11px 15px;
+  /* 9/14 padding — 3 cards at ~72px fit reliably under the 360px
+     bottomGrid floor. Typography stays readable (20px sel, 14px
+     matchup); we're trimming card-level padding only. */
+  padding: 9px 14px;
   border: 1.5px solid rgba(212,175,55,0.36);
   border-radius: 18px;
   background: linear-gradient(160deg, rgba(40,32,14,0.55) 0%, rgba(0,0,0,0.45) 100%);
@@ -383,10 +401,10 @@
   box-shadow: inset 0 1px 0 rgba(240,207,107,0.18), 0 4px 14px rgba(0,0,0,0.35);
 }
 .s1PickLogoWrap { display: flex; align-items: center; gap: 6px; }
-.s1PickBody { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
-.s1PickMatchup { font-size: 15px; font-weight: 800; color: #d8cfb7; letter-spacing: 0.3px; display: block; }
+.s1PickBody { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.s1PickMatchup { font-size: 14px; font-weight: 800; color: #d8cfb7; letter-spacing: 0.3px; display: block; }
 .s1PickSel {
-  font-size: 22px; font-weight: 900; color: #fff;
+  font-size: 20px; font-weight: 900; color: #fff;
   letter-spacing: 0.4px; line-height: 1.1;
   text-shadow: 0 1px 8px rgba(0,0,0,0.45);
 }
