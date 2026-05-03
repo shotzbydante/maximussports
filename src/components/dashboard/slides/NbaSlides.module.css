@@ -215,9 +215,9 @@
 }
 .s1StoryCard {
   composes: glassCard;
-  /* Was 24px 28px. Tighter padding reclaims ~10px per card → ~20px
-     total across the 2 stories so the bottomGrid breathes. */
-  padding: 18px 26px;
+  /* Tighter again — 16px vertical padding, recovers another 4-8px per
+     card so the picks card can carry the new sublabel without overflow. */
+  padding: 16px 26px;
   display: grid;
   grid-template-columns: auto 1fr auto;
   gap: 20px;
@@ -268,9 +268,10 @@
      zone gets squeezed and the third bullet gets clipped. */
   flex: 0 0 auto;
   /* Hard floor for the module so 3 bullets at 17px / 1.3 line-height
-     × 2 line clamp + 8px gaps + pill always render. Reduced from 250
-     to 220 so the bottomGrid below has room for 2 picks. */
-  min-height: 220px;
+     × 2 line clamp + 8px gaps + pill always render. Trimmed 220 → 200
+     so the bottomGrid floor (280px) doesn't push the artboard past
+     1350. 3 bullets × ~44px + 8px gaps + 32px pill ≈ 180-190px → fits. */
+  min-height: 200px;
 }
 .s1HotpPill {
   composes: sectionPill;
@@ -307,9 +308,11 @@
   margin-top: 8px;
   /* Absorbs leftover artboard space, but can shrink (min-height: 0) so
      it never pushes HOTP off-canvas when content is tall. Hard floor
-     ensures both pick rows render even when other modules are tall. */
+     bumped 230 → 280 so the picks card has room for: section label
+     (16px) + sublabel (12px+10mb) + 2 pick rows (~95px each) + 12px
+     gap + 16/20 padding ≈ 270px without ever clipping. */
   flex: 1 1 0;
-  min-height: 230px;
+  min-height: 280px;
 }
 .s1BottomCard {
   composes: glassCard;
@@ -320,7 +323,16 @@
   font-size: 16px; font-weight: 900; letter-spacing: 2.2px;
   color: var(--nba-gold-bright);
   text-transform: uppercase;
-  margin-bottom: 12px;
+  margin-bottom: 4px;
+}
+/* Slide 1 sublabel — editorial framing under the section header so
+   readers see "Model Spread Leans" without us blowing the layout. */
+.s1SectionSublabel {
+  font-size: 12px; font-weight: 700; letter-spacing: 1.4px;
+  color: #c5b994;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+  opacity: 0.92;
 }
 
 .s1RaceList { display: flex; flex-direction: column; gap: 12px; flex: 1; justify-content: space-between; }
@@ -355,10 +367,10 @@
   overflow: hidden;
 }
 .s1PickRow {
-  /* Was 16/18 padding. Trim to 13/16 so 2 picks fit reliably. Typography
-     stays prominent (24px sel, 15px matchup) — this trims card-level
-     padding only. */
-  padding: 13px 16px;
+  /* Tightened again — 11/15 padding so 2 cards × ~80px fit reliably
+     under the bottomGrid 280px floor. Typography stays prominent
+     (22px sel, 15px matchup); we're only trimming card-level padding. */
+  padding: 11px 15px;
   border: 1.5px solid rgba(212,175,55,0.36);
   border-radius: 18px;
   background: linear-gradient(160deg, rgba(40,32,14,0.55) 0%, rgba(0,0,0,0.45) 100%);
@@ -801,12 +813,18 @@
 .s3TeamLogoBox {
   display: flex; align-items: center; justify-content: center;
 }
-/* Identity column: team abbrev stacked above contender pill so the
-   horizontal grid stays compact even with long contender labels. */
+/* Identity column: team abbrev only (tier badge moved to its own row
+   below the rationale per the latest visual pass). */
 .s3TeamIdentity {
-  display: flex; flex-direction: column;
-  gap: 4px;
+  display: flex; align-items: center;
   min-width: 0;
+}
+/* Tier badge row — sits as the last row of the team card, below the
+   rationale. Left-aligned so it doesn't compete with the odds on the
+   right of the top line. */
+.s3TeamLabelRow {
+  display: flex; align-items: center;
+  margin-top: 2px;
 }
 .s3TeamAbbrev { font-size: 32px; font-weight: 900; color: #fff; letter-spacing: 0.5px; line-height: 1.0; }
 /* Base label pill — color tone is overridden per-status below. */

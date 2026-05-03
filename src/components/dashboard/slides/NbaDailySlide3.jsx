@@ -151,11 +151,12 @@ function badgeClassFor(label) {
 }
 
 function ConfRow({ rank: _rank, team, compact = false }) {
-  // Audit Part 6: left-side number is now the SEED, not the rank
-  // (cards are still sorted by championship odds, so the seed order
-  // can be 4, 1, 3, 2 down the column — that's the point: surface the
-  // seed identity while ranking by title path). Right side is odds-
-  // only, no seed badge.
+  // Card structure (audit Part 7 update):
+  //   Row 1: seed badge | logo | abbrev | odds
+  //   Row 2: one-line rationale
+  //   Row 3: tier badge (Title Favorite / Contender / Upside Team)
+  // The badge moved off Row 1 so each top line scans in one glance —
+  // no more crowded label-against-odds collision.
   const seedDisplay = team.seed != null ? `#${team.seed}` : '—';
   const isTopSeed = team.seed === 1;
   const logoSize = compact ? 36 : 50;
@@ -171,9 +172,6 @@ function ConfRow({ rank: _rank, team, compact = false }) {
         </div>
         <div className={styles.s3TeamIdentity}>
           <span className={styles.s3TeamAbbrev}>{team.abbrev}</span>
-          <span className={`${styles.s3TeamLabel} ${badgeClassFor(team.label)}`}>
-            {(team.label || '').toUpperCase()}
-          </span>
         </div>
         <div className={styles.s3MarketBlock}>
           <div className={styles.s3TeamOdds}>🏆 {team.odds}</div>
@@ -181,6 +179,13 @@ function ConfRow({ rank: _rank, team, compact = false }) {
       </div>
       {team.rationale && (
         <div className={styles.s3Rationale}>{team.rationale}</div>
+      )}
+      {team.label && (
+        <div className={styles.s3TeamLabelRow}>
+          <span className={`${styles.s3TeamLabel} ${badgeClassFor(team.label)}`}>
+            {team.label.toUpperCase()}
+          </span>
+        </div>
       )}
     </div>
   );

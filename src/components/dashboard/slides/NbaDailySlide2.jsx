@@ -11,6 +11,7 @@
  */
 
 import { normalizeNbaImagePayload } from '../../../features/nba/contentStudio/normalizeNbaImagePayload';
+import { resolveSlidePicks } from '../../../features/nba/contentStudio/resolveSlidePicks';
 import { LEADER_CATEGORIES } from '../../../data/nba/seasonLeaders';
 import { getNbaEspnLogoUrl } from '../../../utils/espnNbaLogos';
 import styles from './NbaSlides.module.css';
@@ -77,13 +78,10 @@ export default function NbaDailySlide2({ data, asOf: _a, slideNumber: _s, slideT
 
   const bullets = (payload.bullets || []).slice(0, 4);
 
-  const cats = payload.nbaPicks?.categories || {};
-  const allPicks = [
-    ...(cats.pickEms || []).map(p => ({ ...p, _cat: 'Moneyline' })),
-    ...(cats.ats     || []).map(p => ({ ...p, _cat: 'Spread' })),
-    ...(cats.totals  || []).map(p => ({ ...p, _cat: 'Total' })),
-    ...(cats.leans   || []).map(p => ({ ...p, _cat: 'Lean' })),
-  ].sort((a, b) => (b.betScore?.total ?? b.confidenceScore ?? 0) - (a.betScore?.total ?? a.confidenceScore ?? 0)).slice(0, 3);
+  // Slide 2 picks: cap 3 from the canonical resolver. Slide 1 (cap 2)
+  // is provably the strict prefix of this list — same source, same
+  // sort, no drift.
+  const allPicks = resolveSlidePicks(payload, 3);
 
   // Leaders — top 3 per category w/ team logos.
   // Source diagnostic so we can see in the console whether the source is

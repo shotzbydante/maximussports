@@ -36,6 +36,7 @@ import { NBA_TEAMS } from '../../../sports/nba/teams.js';
 import { LEADER_CATEGORIES } from '../../../data/nba/seasonLeaders.js';
 import { buildNbaDailyHeadline } from './buildNbaDailyHeadline.js';
 import { buildNbaHotPress } from './buildNbaHotPress.js';
+import { resolveCanonicalNbaPicks } from './resolveSlidePicks.js';
 
 export const NO_SLATE_REASON = 'nba_no_slate';
 const MIN_CAPTION_CHARS = 80;
@@ -71,15 +72,10 @@ function _fmtConviction(tier) {
 }
 
 function resolvePicks(data, count = 999) {
-  const cats = data?.nbaPicks?.categories || data?.canonicalPicks?.categories || {};
-  const pickEms = (cats.pickEms || []).map(p => ({ ...p, _cat: 'Moneyline' }));
-  const ats     = (cats.ats     || []).map(p => ({ ...p, _cat: 'Spread' }));
-  const leans   = (cats.leans   || []).map(p => ({ ...p, _cat: 'Lean' }));
-  const totals  = (cats.totals  || []).map(p => ({ ...p, _cat: 'Total' }));
-
-  // Sort by V2 betScore (fallback to confidenceScore)
-  const score = p => p?.betScore?.total ?? p?.confidenceScore ?? 0;
-  const all = [...pickEms, ...ats, ...leans, ...totals].sort((a, b) => score(b) - score(a));
+  // Caption picks share Slide 1's + Slide 2's canonical resolver — one
+  // sort, one ordering. Caption can request more (count = 999) but the
+  // first N must match Slide 2's first N, which must prefix Slide 1's.
+  const all = resolveCanonicalNbaPicks(data);
 
   return all.slice(0, count).map(p => {
     // V2 matchup shape: { awayTeam: { slug, shortName, name }, homeTeam: {...} }
