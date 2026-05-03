@@ -23,6 +23,39 @@
  */
 
 import { getJson } from '../_globalCache.js';
+import { normalizeEvent, ESPN_SCOREBOARD as NBA_ESPN_SCOREBOARD, FETCH_TIMEOUT_MS as NBA_FETCH_TIMEOUT } from '../nba/live/_normalize.js';
+
+/**
+ * Fetch yesterday's NBA final games directly from ESPN scoreboard.
+ * Used for "Yesterday's NBA Results" in Global Daily Briefing.
+ * Includes playoff context if ESPN provides series metadata in the event.
+ */
+async function fetchYesterdayResults() {
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  const dateStr = d.toISOString().slice(0, 10).replace(/-/g, '');
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), NBA_FETCH_TIMEOUT);
+  try {
+    const r = await fetch(`${NBA_ESPN_SCOREBOARD}?dates=${dateStr}`, { signal: controller.signal });
+    if (!r.ok) return [];
+    const data = await r.json();
+    const events = Array.isArray(data.events) ? data.events : [];
+    const finals = events.map(normalizeEvent).filter(g => g && g.status === 'final');
+    return finals.slice(0, 6).map(g => ({
+      gameId: g.gameId,
+      away: { slug: g.awayTeam?.slug, abbrev: g.awayTeam?.abbrev, score: g.awayTeam?.score },
+      home: { slug: g.homeTeam?.slug, abbrev: g.homeTeam?.abbrev, score: g.homeTeam?.score },
+      statusText: g.statusText || 'Final',
+      seriesNote: g.seriesNote || null, // playoff series context if present
+    }));
+  } catch (err) {
+    console.warn(`[nbaEmailData] yesterday's results fetch failed: ${err.message}`);
+    return [];
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 const KV_CHAMP_ODDS = 'odds:championship:nba:v1';
 const KV_SUMMARY_FRESH = 'chat:nba:home:summary:v1';
@@ -90,9 +123,15 @@ export async function assembleNbaEmailData(baseUrl, opts = {}) {
     fetchPromises.push(readSummaryFromKV());
   }
 
+  // Yesterday's NBA results (parallel)
+  fetchPromises.push(
+    fetchYesterdayResults().then(results => ({ data: results, source: 'fresh' }))
+  );
+
   const results = await Promise.all(fetchPromises);
   const [headlinesResult, standingsResult, champOddsResult, ...rest] = results;
   const summaryResult = includeSummary ? rest.shift() : null;
+  const yesterdayResultsResult = rest.shift();
 
   const sources = {
     headlines: headlinesResult.source,
@@ -148,11 +187,24 @@ export async function assembleNbaEmailData(baseUrl, opts = {}) {
 
   console.log(`[nbaEmailData] Final: ${headlinesRaw.length} headlines, ${east.length}+${west.length} teams in standings, ${titleOutlook.length} title-outlook teams, narrative=${narrativeParagraph.length}ch`);
 
+  // Yesterday's results
+  const yesterdayResults = yesterdayResultsResult?.data || [];
+
+  // GAPS (documented):
+  // - NBA picks board: no canonical /api/nba/picks/built endpoint exists
+  // - NBA picks scorecard: no settled-pick tracking exists
+  // The template will render graceful "coming soon" fallbacks.
+  const picksBoard = null;
+  const picksScorecard = null;
+
   return {
     narrativeParagraph,
     headlines: headlinesRaw,
     standings: { east, west },
     titleOutlook,
     champOdds,
+    yesterdayResults,
+    picksBoard,
+    picksScorecard,
   };
 }

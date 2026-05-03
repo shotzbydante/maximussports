@@ -187,38 +187,51 @@ describe('Global Briefing: durable sections survive sparse data', () => {
 });
 
 describe('Global Briefing: rendered HTML section contract', () => {
-  it('includes all hero email section headers when data is complete', () => {
+  it('includes all sections from the new compact cross-sport contract', () => {
     const emailData = buildEmailData('global_briefing', fullAssembled(), { displayName: 'Test' });
     const html = renderGlobalBriefingHTML(emailData);
 
-    // Explicit section header assertions — these are the hero-email contract
+    // NEW CONTRACT: NBA Playoffs first, MLB second, parallel 5-section structure
+    // Sport headers
+    expect(html).toContain('NBA PLAYOFFS');
+    expect(html).toContain('MLB');
+    // NBA block
+    expect(html).toContain('NBA DAILY INTELLIGENCE');
+    expect(html).toContain('NBA PICKS SCORECARD');
+    expect(html).toContain('NBA CHAMPIONSHIP ODDS');
     // MLB block
     expect(html).toContain('MLB DAILY INTELLIGENCE');
-    expect(html).toContain('PENNANT RACE SNAPSHOT');
-    expect(html).toContain("MAXIMUS'S PICKS"); // Tier 2 hero-critical
-    expect(html).toContain('SEASON LEADERS');
-    expect(html).toContain('WORLD SERIES OUTLOOK');
-    expect(html).toContain('HEADLINES');
-    // NBA block (cross-sport hero email)
-    expect(html).toContain('NBA DAILY INTELLIGENCE');
-    expect(html).toContain('NBA PLAYOFF RACE');
-    expect(html).toContain('NBA TITLE OUTLOOK');
-    expect(html).toContain('NBA HEADLINES');
+    expect(html).toContain('MLB PICKS SCORECARD');
+    expect(html).toContain('TODAY’S MLB PICKS');
+    expect(html).toContain('WORLD SERIES ODDS');
     // Partner module
     expect(html).toContain('ACT ON TODAY');
+  });
+
+  it('renders NBA section BEFORE MLB section (NBA Playoffs lead)', () => {
+    const emailData = buildEmailData('global_briefing', fullAssembled(), { displayName: 'Test' });
+    const html = renderGlobalBriefingHTML(emailData);
+
+    const nbaIdx = html.indexOf('NBA PLAYOFFS');
+    const mlbIdx = html.indexOf('>MLB<');  // sport header (not "MLB DAILY")
+    const partnerIdx = html.indexOf('ACT ON TODAY');
+
+    expect(nbaIdx).toBeGreaterThan(-1);
+    expect(mlbIdx).toBeGreaterThan(nbaIdx);
+    expect(partnerIdx).toBeGreaterThan(mlbIdx);
   });
 
   it('renders partner module AFTER main briefing content', () => {
     const emailData = buildEmailData('global_briefing', fullAssembled(), { displayName: 'Test' });
     const html = renderGlobalBriefingHTML(emailData);
 
-    const pennantIdx = html.indexOf('PENNANT RACE SNAPSHOT');
-    const outlookIdx = html.indexOf('WORLD SERIES OUTLOOK');
+    const nbaIdx = html.indexOf('NBA DAILY INTELLIGENCE');
+    const mlbOddsIdx = html.indexOf('WORLD SERIES ODDS');
     const partnerIdx = html.indexOf('ACT ON TODAY');
 
-    expect(pennantIdx).toBeGreaterThan(-1);
-    expect(outlookIdx).toBeGreaterThan(-1);
-    expect(partnerIdx).toBeGreaterThan(outlookIdx);
+    expect(nbaIdx).toBeGreaterThan(-1);
+    expect(mlbOddsIdx).toBeGreaterThan(-1);
+    expect(partnerIdx).toBeGreaterThan(mlbOddsIdx);
   });
 
   it('suppresses partner module when briefing content is empty (last-resort)', () => {
@@ -245,33 +258,32 @@ describe('Global Briefing: rendered HTML section contract', () => {
 });
 
 describe('Global Briefing: section digest and expected hero sections', () => {
-  it('digest reports all sections present for full data', () => {
+  it('digest reports all sections present for full data (new contract)', () => {
     const emailData = buildEmailData('global_briefing', fullAssembled(), { displayName: 'Test' });
     const digest = globalBriefingSectionDigest(emailData);
 
-    expect(digest.hasNarrative).toBe(true);
-    expect(digest.hasHeadlines).toBe(true);
-    expect(digest.hasPicks).toBe(true);
-    expect(digest.hasPennant).toBe(true);
-    expect(digest.hasLeaders).toBe(true);
-    expect(digest.hasOutlook).toBe(true);
-    expect(digest.hasChampOdds).toBe(true);
+    // New compact contract: NBA + MLB sections
+    expect(digest.hasNbaNarrative).toBe(true);
+    expect(digest.hasNbaChampOdds).toBe(true);
+    expect(digest.hasMlbNarrative).toBe(true);
+    expect(digest.hasMlbPicks).toBe(true);
+    expect(digest.hasMlbChampOdds).toBe(true);
   });
 
-  it('expectedHeroSections returns empty for full data', () => {
+  it('expectedHeroSections returns empty when both champ odds present', () => {
     const emailData = buildEmailData('global_briefing', fullAssembled(), { displayName: 'Test' });
     const missing = expectedHeroSections(globalBriefingSectionDigest(emailData));
     expect(missing).toEqual([]);
   });
 
-  it('expectedHeroSections flags missing durable fields', () => {
+  it('expectedHeroSections flags missing championship odds (the only Tier 1)', () => {
     const assembled = fullAssembled();
-    assembled.mlbData.pennantRace = null;
-    assembled.mlbData.worldSeriesOutlook = null;
+    assembled.mlbData.champOdds = {};
+    assembled.nbaData.champOdds = {};
     const emailData = buildEmailData('global_briefing', assembled, { displayName: 'Test' });
     const missing = expectedHeroSections(globalBriefingSectionDigest(emailData));
-    expect(missing).toContain('pennantRace');
-    expect(missing).toContain('worldSeriesOutlook');
+    expect(missing).toContain('mlbChampOdds');
+    expect(missing).toContain('nbaChampOdds');
   });
 });
 
@@ -306,18 +318,16 @@ describe('Global Briefing: prod/test parity (same input → same output)', () =>
     const prodHtml = renderGlobalBriefingHTML(prodData);
     const testHtml = renderGlobalBriefingHTML(testData);
 
-    // Section presence parity — the cross-sport hero contract
+    // Section presence parity — new compact cross-sport contract
     const sections = [
-      'MLB DAILY INTELLIGENCE',
-      'PENNANT RACE SNAPSHOT',
-      "MAXIMUS'S PICKS",
-      'SEASON LEADERS',
-      'WORLD SERIES OUTLOOK',
-      'HEADLINES',
+      'NBA PLAYOFFS',
       'NBA DAILY INTELLIGENCE',
-      'NBA PLAYOFF RACE',
-      'NBA TITLE OUTLOOK',
-      'NBA HEADLINES',
+      'NBA PICKS SCORECARD',
+      'NBA CHAMPIONSHIP ODDS',
+      'MLB DAILY INTELLIGENCE',
+      'MLB PICKS SCORECARD',
+      'TODAY’S MLB PICKS',
+      'WORLD SERIES ODDS',
       'ACT ON TODAY',
     ];
     for (const section of sections) {
@@ -327,72 +337,66 @@ describe('Global Briefing: prod/test parity (same input → same output)', () =>
   });
 });
 
-describe("Global Briefing: MAXIMUS'S PICKS contract (Tier 2 degradable)", () => {
-  it('renders picks section when canonical picks source is available', () => {
+describe("Global Briefing: MLB picks section (Tier 2 degradable)", () => {
+  it('renders MLB picks under TODAY’S MLB PICKS when canonical board exists', () => {
     const emailData = buildEmailData('global_briefing', fullAssembled(), { displayName: 'Test' });
     const html = renderGlobalBriefingHTML(emailData);
 
-    expect(html).toContain("MAXIMUS'S PICKS");
-    // Mock pick labels should render
+    expect(html).toContain("TODAY’S MLB PICKS");
     expect(html).toContain('PHI -135');
     expect(html).toContain('KC -1.5');
   });
 
-  it('digest reports hasPicks=true when board has picks', () => {
+  it('digest reports hasMlbPicks=true when board has picks', () => {
     const emailData = buildEmailData('global_briefing', fullAssembled(), { displayName: 'Test' });
     const digest = globalBriefingSectionDigest(emailData);
-    expect(digest.hasPicks).toBe(true);
+    expect(digest.hasMlbPicks).toBe(true);
   });
 
-  it('gracefully degrades when picks source is null (still renders durable sections)', () => {
+  it('gracefully degrades when MLB picks board is null', () => {
     const assembled = fullAssembled();
     assembled.mlbData.picksBoard = null;
     const emailData = buildEmailData('global_briefing', assembled, { displayName: 'Test' });
     const html = renderGlobalBriefingHTML(emailData);
 
-    // Picks section should be absent
-    expect(html).not.toContain("MAXIMUS'S PICKS");
-    // Durable sections must still be present
-    expect(html).toContain('PENNANT RACE SNAPSHOT');
-    expect(html).toContain('SEASON LEADERS');
-    expect(html).toContain('WORLD SERIES OUTLOOK');
-    // Hero email still has substantive content — partner module should render
+    expect(html).not.toContain("TODAY’S MLB PICKS");
+    // Other MLB sections still render
+    expect(html).toContain('MLB DAILY INTELLIGENCE');
+    expect(html).toContain('WORLD SERIES ODDS');
     expect(html).toContain('ACT ON TODAY');
   });
 
-  it('gracefully degrades when picks categories are all empty', () => {
+  it('gracefully degrades when MLB picks categories are all empty', () => {
     const assembled = fullAssembled();
     assembled.mlbData.picksBoard = { categories: { pickEms: [], ats: [], leans: [], totals: [] } };
     const emailData = buildEmailData('global_briefing', assembled, { displayName: 'Test' });
     const html = renderGlobalBriefingHTML(emailData);
 
-    expect(html).not.toContain("MAXIMUS'S PICKS");
-    expect(html).toContain('PENNANT RACE SNAPSHOT');
+    expect(html).not.toContain("TODAY’S MLB PICKS");
+    expect(html).toContain('MLB DAILY INTELLIGENCE');
   });
 
-  it('missing picks is reported via degradableHeroSections (not expectedHeroSections)', () => {
+  it('missing MLB picks is reported via degradableHeroSections (not expectedHeroSections)', () => {
     const assembled = fullAssembled();
     assembled.mlbData.picksBoard = null;
     const emailData = buildEmailData('global_briefing', assembled, { displayName: 'Test' });
     const digest = globalBriefingSectionDigest(emailData);
 
-    // Picks is NOT in the durable list — missing it must NOT fail the strict contract
+    // Picks is NOT in the durable list — only champ odds are Tier 1
     expect(expectedHeroSections(digest)).toEqual([]);
-    // But it IS reported as a degradable gap for diagnostics
-    expect(degradableHeroSections(digest)).toContain('picks');
+    expect(degradableHeroSections(digest)).toContain('mlbPicks');
   });
 
-  it('durable sections missing still reports via expectedHeroSections (stricter than picks)', () => {
+  it('missing championship odds triggers expectedHeroSections (Tier 1)', () => {
     const assembled = fullAssembled();
-    assembled.mlbData.pennantRace = null;
-    assembled.mlbData.worldSeriesOutlook = null;
+    assembled.mlbData.champOdds = {};
+    assembled.nbaData.champOdds = {};
     const emailData = buildEmailData('global_briefing', assembled, { displayName: 'Test' });
     const digest = globalBriefingSectionDigest(emailData);
 
-    // Durable misses trigger the strict contract
     const missingDurable = expectedHeroSections(digest);
-    expect(missingDurable).toContain('pennantRace');
-    expect(missingDurable).toContain('worldSeriesOutlook');
+    expect(missingDurable).toContain('mlbChampOdds');
+    expect(missingDurable).toContain('nbaChampOdds');
   });
 });
 
@@ -616,19 +620,18 @@ describe('Global Briefing: NBA section contract', () => {
     expect(emailData.nbaTitleOutlook).toHaveLength(3);
   });
 
-  it('renders NBA headers in HTML when nbaData is present', () => {
+  it('renders NBA headers in HTML when nbaData is present (new compact contract)', () => {
     const emailData = buildEmailData('global_briefing', fullAssembled(), { displayName: 'Test' });
     const html = renderGlobalBriefingHTML(emailData);
 
+    expect(html).toContain('NBA PLAYOFFS');
     expect(html).toContain('NBA DAILY INTELLIGENCE');
-    expect(html).toContain('NBA PLAYOFF RACE');
-    expect(html).toContain('NBA TITLE OUTLOOK');
-    expect(html).toContain('NBA HEADLINES');
-    // Specific team data should appear
+    expect(html).toContain('NBA PICKS SCORECARD');
+    expect(html).toContain('NBA CHAMPIONSHIP ODDS');
+    // Specific odds team data should appear
     expect(html).toContain('BOS');
     expect(html).toContain('OKC');
-    expect(html).toContain('50-20');  // record
-    expect(html).toContain('+250');    // odds formatted
+    expect(html).toContain('+250');  // odds formatted
   });
 
   it('uses ESPN CDN absolute URLs for NBA team logos (no relative paths)', () => {
@@ -645,11 +648,11 @@ describe('Global Briefing: NBA section contract', () => {
     const emailData = buildEmailData('global_briefing', fullAssembled(), { displayName: 'Test' });
     const digest = globalBriefingSectionDigest(emailData);
 
+    // New compact contract fields
     expect(digest.hasNbaNarrative).toBe(true);
-    expect(digest.hasNbaStandings).toBe(true);
-    expect(digest.hasNbaTitleOutlook).toBe(true);
-    expect(digest.hasNbaHeadlines).toBe(true);
     expect(digest.hasNbaChampOdds).toBe(true);
+    // Legacy aliases still work for back-compat diagnostics
+    expect(digest.hasNbaHeadlines).toBe(true);
   });
 });
 
@@ -660,15 +663,13 @@ describe('Global Briefing: cross-sport graceful degradation', () => {
     const emailData = buildEmailData('global_briefing', assembled, { displayName: 'Test' });
     const html = renderGlobalBriefingHTML(emailData);
 
-    // MLB sections still present
+    // MLB sections still present (compact contract)
     expect(html).toContain('MLB DAILY INTELLIGENCE');
-    expect(html).toContain('PENNANT RACE SNAPSHOT');
-    expect(html).toContain('SEASON LEADERS');
-    expect(html).toContain('WORLD SERIES OUTLOOK');
+    expect(html).toContain('WORLD SERIES ODDS');
+    expect(html).toContain('TODAY’S MLB PICKS');
     // NBA sections absent
     expect(html).not.toContain('NBA DAILY INTELLIGENCE');
-    expect(html).not.toContain('NBA PLAYOFF RACE');
-    expect(html).not.toContain('NBA TITLE OUTLOOK');
+    expect(html).not.toContain('NBA CHAMPIONSHIP ODDS');
     // Partner module still renders
     expect(html).toContain('ACT ON TODAY');
   });
@@ -683,10 +684,9 @@ describe('Global Briefing: cross-sport graceful degradation', () => {
     const emailData = buildEmailData('global_briefing', assembled, { displayName: 'Test' });
     const html = renderGlobalBriefingHTML(emailData);
 
-    // NBA sections still render
+    // NBA sections still render (compact contract)
     expect(html).toContain('NBA DAILY INTELLIGENCE');
-    expect(html).toContain('NBA PLAYOFF RACE');
-    expect(html).toContain('NBA TITLE OUTLOOK');
+    expect(html).toContain('NBA CHAMPIONSHIP ODDS');
     // Partner module still renders since NBA has substantive content
     expect(html).toContain('ACT ON TODAY');
   });
@@ -705,8 +705,8 @@ describe('Global Briefing: cross-sport graceful degradation', () => {
     // Empty-state message should appear
     expect(html).toContain('still being assembled');
     // No section headers
-    expect(html).not.toContain('PENNANT RACE SNAPSHOT');
-    expect(html).not.toContain('NBA TITLE OUTLOOK');
+    expect(html).not.toContain('MLB DAILY INTELLIGENCE');
+    expect(html).not.toContain('NBA CHAMPIONSHIP ODDS');
     // Partner module suppressed when no substantive content
     expect(html).not.toContain('ACT ON TODAY');
   });

@@ -369,6 +369,12 @@ export function buildEmailData(type, assembledData, recipientContext = {}) {
     nbaTitleOutlook: assembledData.nbaData?.titleOutlook || [],
     nbaChampOdds: assembledData.nbaData?.champOdds || {},
     nbaHeadlines: assembledData.nbaData?.headlines || [],
+    nbaYesterdayResults: assembledData.nbaData?.yesterdayResults || [],
+    nbaPicksBoard: assembledData.nbaData?.picksBoard || null,
+    nbaPicksScorecard: assembledData.nbaData?.picksScorecard || null,
+    // Compact MLB fields for new Global Briefing structure
+    mlbYesterdayResults: assembledData.mlbData?.yesterdayResults || [],
+    mlbPicksScorecard: assembledData.mlbData?.picksScorecard || null,
   };
 }
 
@@ -444,10 +450,22 @@ export async function prepareEmailPayload(type, baseUrl, recipientContext = {}) 
 
 /**
  * Returns the explicit section presence profile for a global_briefing payload.
- * Used by both the production send path and parity tests.
  *
- * Includes both MLB sections and NBA sections — the Global Daily Briefing
- * is now a cross-sport hero email.
+ * NEW CONTRACT (NBA Playoffs first, MLB second, parallel 5-section structure):
+ *   NBA Playoffs:
+ *     - HOTP / narrative
+ *     - Yesterday's results
+ *     - Picks scorecard (gap: not yet built for NBA)
+ *     - Today's picks (gap: not yet built for NBA)
+ *     - Championship odds
+ *   MLB:
+ *     - HOTP / narrative
+ *     - Yesterday's results
+ *     - Picks scorecard (gap: pipeline not yet built)
+ *     - Today's picks (canonical board)
+ *     - World Series odds
+ *   Partner module
+ *   Footer CTA
  */
 export function globalBriefingSectionDigest(emailData) {
   const md = emailData?.mlbData || {};
@@ -456,38 +474,40 @@ export function globalBriefingSectionDigest(emailData) {
   const picksCount = (picks.pickEms?.length || 0) + (picks.ats?.length || 0)
                    + (picks.leans?.length || 0) + (picks.totals?.length || 0);
   return {
-    // ─── MLB sections ───
-    // Tier 2 — hero-critical, degradable
+    // ─── NBA sections (new compact structure) ───
+    hasNbaNarrative: !!(nd.narrativeParagraph && nd.narrativeParagraph.length > 30),
+    hasNbaResults: Array.isArray(emailData?.nbaYesterdayResults) && emailData.nbaYesterdayResults.length > 0,
+    hasNbaScorecard: !!emailData?.nbaPicksScorecard,
+    hasNbaPicks: !!emailData?.nbaPicksBoard,
+    hasNbaChampOdds: !!(emailData?.nbaChampOdds && Object.keys(emailData.nbaChampOdds).length > 0),
+    // ─── MLB sections (new compact structure) ───
+    hasMlbNarrative: !!(md.narrativeParagraph && md.narrativeParagraph.length > 30),
+    hasMlbResults: Array.isArray(emailData?.mlbYesterdayResults) && emailData.mlbYesterdayResults.length > 0,
+    hasMlbScorecard: !!emailData?.mlbPicksScorecard,
+    hasMlbPicks: picksCount > 0,
+    hasMlbChampOdds: !!(emailData?.champOdds && Object.keys(emailData.champOdds).length > 0),
+    // ─── Legacy aliases (kept for back-compat with older diagnostics) ───
     hasNarrative: !!(md.narrativeParagraph && md.narrativeParagraph.length > 30),
     hasHeadlines: Array.isArray(md.headlines) && md.headlines.length > 0,
     hasPicks: picksCount > 0,
-    // Tier 1 — durable, always-available
-    hasPennant: !!(emailData?.pennantRace?.al?.length && emailData?.pennantRace?.nl?.length),
-    hasLeaders: !!(emailData?.leadersCategories && Object.keys(emailData.leadersCategories).length > 0),
-    hasOutlook: !!(emailData?.worldSeriesOutlook?.al?.length && emailData?.worldSeriesOutlook?.nl?.length),
     hasChampOdds: !!(emailData?.champOdds && Object.keys(emailData.champOdds).length > 0),
-    // ─── NBA sections ───
-    hasNbaNarrative: !!(nd.narrativeParagraph && nd.narrativeParagraph.length > 30),
-    hasNbaStandings: !!(emailData?.nbaStandings?.east?.length && emailData?.nbaStandings?.west?.length),
-    hasNbaTitleOutlook: Array.isArray(emailData?.nbaTitleOutlook) && emailData.nbaTitleOutlook.length > 0,
     hasNbaHeadlines: Array.isArray(emailData?.nbaHeadlines) && emailData.nbaHeadlines.length > 0,
-    hasNbaChampOdds: !!(emailData?.nbaChampOdds && Object.keys(emailData.nbaChampOdds).length > 0),
   };
 }
 
 /**
  * Returns the list of TIER 1 (durable) hero sections that should be present
- * but are not. These are regression signals — missing any of these indicates
- * a pipeline drift or upstream failure.
+ * but are not. Under the new compact cross-sport contract:
+ *   - MLB championship odds (durable, KV-backed)
+ *   - NBA championship odds (durable, KV-backed)
+ * are the only strictly-required durable sections.
  *
  * @returns {string[]} missing durable section names
  */
 export function expectedHeroSections(digest) {
   const missing = [];
-  if (!digest.hasPennant) missing.push('pennantRace');
-  if (!digest.hasOutlook) missing.push('worldSeriesOutlook');
-  if (!digest.hasLeaders) missing.push('leadersCategories');
-  if (!digest.hasChampOdds) missing.push('champOdds');
+  if (!digest.hasMlbChampOdds) missing.push('mlbChampOdds');
+  if (!digest.hasNbaChampOdds) missing.push('nbaChampOdds');
   return missing;
 }
 
@@ -499,15 +519,23 @@ export function expectedHeroSections(digest) {
  *
  * @returns {string[]} missing degradable section names
  */
+/**
+ * TIER 2 sections — graceful-degrade when source is unavailable.
+ * Under the new compact contract: HOTP narrative, yesterday's results,
+ * scorecard, and today's picks for each sport.
+ */
 export function degradableHeroSections(digest) {
   const missing = [];
-  if (!digest.hasNarrative) missing.push('narrative');
-  if (!digest.hasPicks) missing.push('picks');
-  if (!digest.hasHeadlines) missing.push('headlines');
+  // NBA
   if (!digest.hasNbaNarrative) missing.push('nbaNarrative');
-  if (!digest.hasNbaStandings) missing.push('nbaStandings');
-  if (!digest.hasNbaTitleOutlook) missing.push('nbaTitleOutlook');
-  if (!digest.hasNbaHeadlines) missing.push('nbaHeadlines');
+  if (!digest.hasNbaResults) missing.push('nbaResults');
+  if (!digest.hasNbaScorecard) missing.push('nbaScorecard');
+  if (!digest.hasNbaPicks) missing.push('nbaPicks');
+  // MLB
+  if (!digest.hasMlbNarrative) missing.push('mlbNarrative');
+  if (!digest.hasMlbResults) missing.push('mlbResults');
+  if (!digest.hasMlbScorecard) missing.push('mlbScorecard');
+  if (!digest.hasMlbPicks) missing.push('mlbPicks');
   return missing;
 }
 
