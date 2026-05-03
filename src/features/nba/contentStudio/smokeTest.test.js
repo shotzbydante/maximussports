@@ -659,9 +659,10 @@ describe('NBA Daily Briefing — Phase 1 foundation', () => {
       },
     }, validTeams)).toBe(false);
 
-    // Reject when statType is averages (PPG abbrev)
+    // ACCEPT averages (PPG abbrev) — the spec was reverted to per-game
+    // averages, so ESPN-style PPG/APG/RPG/SPG/BPG abbrevs are valid.
     expect(hasValidPostseasonTotalsPayload({
-      seasonType: 'postseason',
+      seasonType: 'postseason', statType: 'averages',
       categories: {
         pts: { abbrev: 'PPG', leaders: [{ name: 'A', teamSlug: 'lal' }] },
         ast: { abbrev: 'APG', leaders: [{ name: 'B', teamSlug: 'hou' }] },
@@ -669,7 +670,7 @@ describe('NBA Daily Briefing — Phase 1 foundation', () => {
         stl: { abbrev: 'SPG', leaders: [{ name: 'D', teamSlug: 'nyk' }] },
         blk: { abbrev: 'BPG', leaders: [{ name: 'E', teamSlug: 'min' }] },
       },
-    }, validTeams)).toBe(false);
+    }, validTeams)).toBe(true);
 
     // Reject when ANY leader's team is not in the valid set
     expect(hasValidPostseasonTotalsPayload({

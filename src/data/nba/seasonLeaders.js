@@ -4,27 +4,26 @@
  * Single source of truth for the 5 NBA stat categories used in the Daily
  * Briefing slides + caption + team intel.
  *
- * UPDATED for postseason TOTALS (audit Part 1):
- *   The Daily Briefing now surfaces ABSOLUTE totals across the active
- *   playoff window — total points, total assists, total rebounds, total
- *   steals, total blocks. NOT per-game averages.
+ * Postseason values are PER-GAME AVERAGES (PPG / APG / RPG / SPG / BPG),
+ * mirroring the ESPN postseason leaders editorial table. Display uses
+ * one decimal place. The slide abbrev stays compact (PTS / AST / REB /
+ * STL / BLK) so the layout stays readable; the underlying value carries
+ * the per-game average.
  *
- *   `key` = internal category key (also matches ESPN core API category
- *           names for the totals endpoints — `points`, `assists`, etc.)
+ *   `key` = internal category key.
  *   `label` = public display label.
  *   `abbrev` = compact label for dense layouts (PTS/AST/REB/STL/BLK).
  *   `icon` = caption emoji.
- *   `espnAlt` = alternate ESPN category names that also map to this
- *               same totals stat (e.g. ESPN sometimes uses
- *               `totalPoints` vs `points`).
+ *   `espnAlt` = alternate ESPN category names — averages first, totals
+ *               kept for back-compat in case ESPN renames mid-season.
  */
 
 export const LEADER_CATEGORIES = [
-  { key: 'pts', label: 'Points',   abbrev: 'PTS', icon: '🔥', espnAlt: ['points', 'totalPoints'] },
-  { key: 'ast', label: 'Assists',  abbrev: 'AST', icon: '🎯', espnAlt: ['assists', 'totalAssists'] },
-  { key: 'reb', label: 'Rebounds', abbrev: 'REB', icon: '💪', espnAlt: ['rebounds', 'totalRebounds'] },
-  { key: 'stl', label: 'Steals',   abbrev: 'STL', icon: '⚡', espnAlt: ['steals', 'totalSteals'] },
-  { key: 'blk', label: 'Blocks',   abbrev: 'BLK', icon: '🛡️', espnAlt: ['blocks', 'totalBlocks'] },
+  { key: 'pts', label: 'Points',   abbrev: 'PTS', icon: '🔥', espnAlt: ['avgPoints',   'pointsPerGame',   'points',   'totalPoints']   },
+  { key: 'ast', label: 'Assists',  abbrev: 'AST', icon: '🎯', espnAlt: ['avgAssists',  'assistsPerGame',  'assists',  'totalAssists']  },
+  { key: 'reb', label: 'Rebounds', abbrev: 'REB', icon: '💪', espnAlt: ['avgRebounds', 'reboundsPerGame', 'rebounds', 'totalRebounds'] },
+  { key: 'stl', label: 'Steals',   abbrev: 'STL', icon: '⚡', espnAlt: ['avgSteals',   'stealsPerGame',   'steals',   'totalSteals']   },
+  { key: 'blk', label: 'Blocks',   abbrev: 'BLK', icon: '🛡️', espnAlt: ['avgBlocks',   'blocksPerGame',   'blocks',   'totalBlocks']   },
 ];
 
 export const LEADER_KEYS = LEADER_CATEGORIES.map(c => c.key);

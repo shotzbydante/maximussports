@@ -301,10 +301,10 @@
   display: flex; flex-direction: column;
 }
 .s1SectionLabel {
-  font-size: 14px; font-weight: 900; letter-spacing: 2.2px;
+  font-size: 17px; font-weight: 900; letter-spacing: 2.4px;
   color: var(--nba-gold-bright);
   text-transform: uppercase;
-  margin-bottom: 14px;
+  margin-bottom: 16px;
 }
 
 .s1RaceList { display: flex; flex-direction: column; gap: 12px; flex: 1; justify-content: space-between; }
@@ -329,8 +329,8 @@
 
 .s1PicksList {
   display: flex; flex-direction: column;
-  gap: 10px;
-  /* Hard min-height: 0 so this column can shrink rather than push the
+  gap: 12px;
+  /* min-height: 0 so this column can shrink rather than push the
      last pick card off-canvas when the Contenders column is taller. */
   flex: 1; min-height: 0;
   justify-content: flex-start;
@@ -339,34 +339,40 @@
   overflow: hidden;
 }
 .s1PickRow {
-  padding: 11px 14px;
-  border: 1.5px solid rgba(212,175,55,0.28);
-  border-radius: 16px;
-  background: rgba(0,0,0,0.32);
+  padding: 16px 18px;
+  border: 1.5px solid rgba(212,175,55,0.36);
+  border-radius: 18px;
+  background: linear-gradient(160deg, rgba(40,32,14,0.55) 0%, rgba(0,0,0,0.45) 100%);
   display: grid;
   grid-template-columns: auto 1fr auto;
-  gap: 12px;
+  gap: 14px;
   align-items: center;
-  /* Lock card so it never shrinks below content height — prevents the
-     "selection cut in half" bug from the audit screenshot. */
+  /* Lock card so it never shrinks below content height. */
   flex-shrink: 0;
+  box-shadow: inset 0 1px 0 rgba(240,207,107,0.18), 0 4px 14px rgba(0,0,0,0.35);
 }
 .s1PickLogoWrap { display: flex; align-items: center; gap: 6px; }
-.s1PickBody { min-width: 0; }
-.s1PickMatchup { font-size: 13px; font-weight: 800; color: #cfc6b3; letter-spacing: 0.2px; display: block; margin-bottom: 2px; }
-.s1PickSel { font-size: 20px; font-weight: 900; color: #fff; letter-spacing: 0.3px; }
-.s1PickRight { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.s1PickBody { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.s1PickMatchup { font-size: 15px; font-weight: 800; color: #d8cfb7; letter-spacing: 0.3px; display: block; }
+.s1PickSel {
+  font-size: 24px; font-weight: 900; color: #fff;
+  letter-spacing: 0.4px; line-height: 1.1;
+  text-shadow: 0 1px 8px rgba(0,0,0,0.45);
+}
+.s1PickRight { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
 .s1PickType {
-  font-size: 10px; font-weight: 900; letter-spacing: 1.2px;
-  padding: 3px 9px; border-radius: 6px;
-  background: rgba(212,175,55,0.25); color: var(--nba-gold-bright);
+  font-size: 12px; font-weight: 900; letter-spacing: 1.4px;
+  padding: 4px 11px; border-radius: 7px;
+  background: rgba(212,175,55,0.32); color: var(--nba-gold-bright);
   text-transform: uppercase;
+  border: 1px solid rgba(212,175,55,0.55);
 }
 .s1PickConv {
-  font-size: 10px; font-weight: 900; letter-spacing: 0.6px;
-  padding: 2px 9px; border-radius: 999px;
-  background: rgba(212,175,55,0.18); color: var(--nba-gold-bright);
+  font-size: 12px; font-weight: 900; letter-spacing: 0.8px;
+  padding: 3px 11px; border-radius: 999px;
+  background: rgba(212,175,55,0.22); color: var(--nba-gold-bright);
   text-transform: uppercase;
+  border: 1px solid rgba(212,175,55,0.40);
 }
 
 .s1Footer {

@@ -40,7 +40,24 @@
 import {
   NBA_PLAYOFF_BRACKET,
   buildFullNbaBracket,
+  PLAY_IN_TEAMS,
 } from './playoffBracket.js';
+
+/**
+ * Lookup table: slug → real team metadata pulled from PLAY_IN_TEAMS.
+ * Used by the placeholder-resolution pass to give a play-in winner the
+ * proper name/shortName/record so downstream copy reads "76ers win
+ * Game 7" instead of "PHI win Game 7".
+ */
+const PLAY_IN_BY_SLUG = (() => {
+  const m = {};
+  for (const conf of Object.values(PLAY_IN_TEAMS || {})) {
+    for (const team of Object.values(conf || {})) {
+      if (team?.slug) m[team.slug] = team;
+    }
+  }
+  return m;
+})();
 
 const ROUND_LABEL = {
   1: 'Round 1',
@@ -413,10 +430,84 @@ export function buildNbaPlayoffContext({ liveGames = [], windowGames = null, bra
   );
 
   // Round 1 matchups are authoritative in the static bracket.
+  // CLONE so placeholder resolution below doesn't mutate the imported
+  // module-level constant.
   const round1 = [
     ...(bracket?.western?.matchups || []),
     ...(bracket?.eastern?.matchups || []),
-  ];
+  ].map(m => ({ ...m, topTeam: { ...m.topTeam }, bottomTeam: { ...m.bottomTeam } }));
+
+  // ── Placeholder resolution pass ────────────────────────────────────
+  // The static bracket carries Play-In-Winner placeholders (e.g.
+  // "BOS vs Play-In Winner"). When real games show BOS playing PHI,
+  // those games are invisible to the rest of the pipeline because the
+  // bracket's placeholder slot has slug=null. Resolve placeholders by
+  // scanning finals: if a bracket-anchored team has played consistently
+  // against a single non-bracket opponent, that opponent IS the
+  // play-in winner.
+  const resolvedTeamCache = new Map();
+  function resolvePlaceholderOpponent(matchup) {
+    const topPh = !!matchup.topTeam?.isPlaceholder;
+    const botPh = !!matchup.bottomTeam?.isPlaceholder;
+    if (!topPh && !botPh) return; // nothing to resolve
+    const anchor = topPh ? matchup.bottomTeam : matchup.topTeam;
+    if (!anchor?.slug) return;
+    const cacheKey = anchor.slug;
+    if (resolvedTeamCache.has(cacheKey)) {
+      const opponent = resolvedTeamCache.get(cacheKey);
+      if (opponent) applyOpponent(matchup, topPh, opponent);
+      return;
+    }
+    // Find the most-frequent non-anchor opponent in finals against
+    // this anchor. We don't worry about play-in confusion here —
+    // bracket-anchored teams in Round 1 only face their R1 opponent.
+    const opponentCounts = new Map();
+    for (const g of finals) {
+      const a = g?.teams?.away?.slug;
+      const h = g?.teams?.home?.slug;
+      if (!a || !h) continue;
+      let other = null;
+      if (a === anchor.slug) other = h;
+      else if (h === anchor.slug) other = a;
+      if (!other || other === anchor.slug) continue;
+      opponentCounts.set(other, (opponentCounts.get(other) || 0) + 1);
+    }
+    let best = null;
+    let bestCount = 0;
+    for (const [slug, n] of opponentCounts) {
+      if (n > bestCount) { best = slug; bestCount = n; }
+    }
+    if (!best || bestCount === 0) {
+      resolvedTeamCache.set(cacheKey, null);
+      return;
+    }
+    // Build a resolved team object using PLAY_IN_TEAMS metadata when
+    // available — gives downstream copy "76ers" instead of "PHI" for
+    // a play-in winner. Falls back to slug-derived shape if the
+    // resolved opponent isn't in the play-in pool (rare edge case).
+    const meta = PLAY_IN_BY_SLUG[best];
+    const slotSeed = matchup.topTeam?.isPlaceholder ? matchup.topTeam.seed : matchup.bottomTeam.seed;
+    const resolved = meta
+      ? { ...meta, seed: slotSeed, isPlaceholder: false, _resolvedFromPlayInGames: true }
+      : {
+          seed: slotSeed,
+          slug: best,
+          teamId: best,
+          name: best.toUpperCase(),
+          shortName: best.toUpperCase(),
+          record: null,
+          logo: null,
+          isPlaceholder: false,
+          _resolvedFromPlayInGames: true,
+        };
+    resolvedTeamCache.set(cacheKey, resolved);
+    applyOpponent(matchup, topPh, resolved);
+  }
+  function applyOpponent(matchup, topIsPh, resolved) {
+    if (topIsPh) matchup.topTeam = resolved;
+    else matchup.bottomTeam = resolved;
+  }
+  for (const m of round1) resolvePlaceholderOpponent(m);
 
   // Include scaffold rounds (R2, R3, Finals) so we can report when those
   // series activate. buildFullNbaBracket returns the full map; we only use
