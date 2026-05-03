@@ -24,34 +24,78 @@
 
 import { getJson } from '../_globalCache.js';
 import { normalizeEvent, ESPN_SCOREBOARD as NBA_ESPN_SCOREBOARD, FETCH_TIMEOUT_MS as NBA_FETCH_TIMEOUT } from '../nba/live/_normalize.js';
+import { resolveEmailDateContext, espnDateString } from './emailDateContext.js';
+
+function isValidResult(row) {
+  return !!(
+    row?.away?.abbrev && row?.home?.abbrev &&
+    row?.away?.score != null && row?.home?.score != null
+  );
+}
 
 /**
  * Fetch yesterday's NBA final games directly from ESPN scoreboard.
- * Used for "Yesterday's NBA Results" in Global Daily Briefing.
- * Includes playoff context if ESPN provides series metadata in the event.
+ * Uses canonical date context (product TZ, not UTC).
  */
-async function fetchYesterdayResults() {
-  const d = new Date();
-  d.setDate(d.getDate() - 1);
-  const dateStr = d.toISOString().slice(0, 10).replace(/-/g, '');
+async function fetchYesterdayResults(dateCtx) {
+  const dateStr = espnDateString(dateCtx?.yesterdayDate || '');
+  if (!dateStr) {
+    console.warn('[nbaEmailData] no yesterday date provided to results fetcher');
+    return { results: [], totalEvents: 0, finalsCount: 0, validCount: 0, skippedCount: 0 };
+  }
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), NBA_FETCH_TIMEOUT);
   try {
     const r = await fetch(`${NBA_ESPN_SCOREBOARD}?dates=${dateStr}`, { signal: controller.signal });
-    if (!r.ok) return [];
+    if (!r.ok) {
+      console.warn(`[nbaEmailData] yesterday results HTTP ${r.status} for ${dateStr}`);
+      return { results: [], totalEvents: 0, finalsCount: 0, validCount: 0, skippedCount: 0 };
+    }
     const data = await r.json();
     const events = Array.isArray(data.events) ? data.events : [];
-    const finals = events.map(normalizeEvent).filter(g => g && g.status === 'final');
-    return finals.slice(0, 6).map(g => ({
+    const normalized = events.map(normalizeEvent).filter(Boolean);
+    const finals = normalized.filter(g => g.status === 'final');
+
+    // Map using normalizeEvent's actual structure (g.teams.away / g.teams.home)
+    const allRows = finals.map(g => ({
       gameId: g.gameId,
-      away: { slug: g.awayTeam?.slug, abbrev: g.awayTeam?.abbrev, score: g.awayTeam?.score },
-      home: { slug: g.homeTeam?.slug, abbrev: g.homeTeam?.abbrev, score: g.homeTeam?.score },
-      statusText: g.statusText || 'Final',
-      seriesNote: g.seriesNote || null, // playoff series context if present
+      away: {
+        slug: g.teams?.away?.slug || null,
+        name: g.teams?.away?.name || null,
+        abbrev: g.teams?.away?.abbrev || null,
+        score: g.teams?.away?.score ?? null,
+      },
+      home: {
+        slug: g.teams?.home?.slug || null,
+        name: g.teams?.home?.name || null,
+        abbrev: g.teams?.home?.abbrev || null,
+        score: g.teams?.home?.score ?? null,
+      },
+      statusText: g.gameState?.statusText || 'Final',
+      seriesNote: g.seriesNote || null,
+      completed: true,
     }));
+
+    const validRows = [];
+    let skipped = 0;
+    for (const row of allRows) {
+      if (isValidResult(row)) validRows.push(row);
+      else skipped++;
+    }
+    if (skipped > 0) {
+      console.warn(`[nbaEmailData] skipped ${skipped} invalid result rows for ${dateStr}`);
+    }
+
+    return {
+      results: validRows.slice(0, 6),
+      totalEvents: events.length,
+      finalsCount: finals.length,
+      validCount: validRows.length,
+      skippedCount: skipped,
+    };
   } catch (err) {
     console.warn(`[nbaEmailData] yesterday's results fetch failed: ${err.message}`);
-    return [];
+    return { results: [], totalEvents: 0, finalsCount: 0, validCount: 0, skippedCount: 0 };
   } finally {
     clearTimeout(timer);
   }
@@ -123,9 +167,11 @@ export async function assembleNbaEmailData(baseUrl, opts = {}) {
     fetchPromises.push(readSummaryFromKV());
   }
 
-  // Yesterday's NBA results (parallel)
+  // Yesterday's NBA results — uses canonical date context (product TZ)
+  const dateCtx = opts.dateCtx || resolveEmailDateContext();
+  console.log(`[nbaEmailData] dateCtx: yesterday=${dateCtx.yesterdayDate} tz=${dateCtx.timezone}`);
   fetchPromises.push(
-    fetchYesterdayResults().then(results => ({ data: results, source: 'fresh' }))
+    fetchYesterdayResults(dateCtx).then(r => ({ data: r, source: 'fresh' }))
   );
 
   const results = await Promise.all(fetchPromises);
@@ -187,8 +233,10 @@ export async function assembleNbaEmailData(baseUrl, opts = {}) {
 
   console.log(`[nbaEmailData] Final: ${headlinesRaw.length} headlines, ${east.length}+${west.length} teams in standings, ${titleOutlook.length} title-outlook teams, narrative=${narrativeParagraph.length}ch`);
 
-  // Yesterday's results
-  const yesterdayResults = yesterdayResultsResult?.data || [];
+  // Yesterday's results — already validated in the fetcher (no malformed rows)
+  const yesterdayResultsData = yesterdayResultsResult?.data || { results: [], totalEvents: 0, finalsCount: 0, validCount: 0, skippedCount: 0 };
+  const yesterdayResults = yesterdayResultsData.results;
+  console.log(`[nbaEmailData] yesterday results: events=${yesterdayResultsData.totalEvents} finals=${yesterdayResultsData.finalsCount} valid=${yesterdayResultsData.validCount} skipped=${yesterdayResultsData.skippedCount}`);
 
   // GAPS (documented):
   // - NBA picks board: no canonical /api/nba/picks/built endpoint exists

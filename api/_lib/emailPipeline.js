@@ -18,6 +18,7 @@
 
 import { assembleMlbEmailData } from './mlbEmailData.js';
 import { assembleNbaEmailData } from './nbaEmailData.js';
+import { resolveEmailDateContext } from './emailDateContext.js';
 import { dedupeNewsItems } from './newsDedupe.js';
 import { fetchScoresSource, fetchRankingsSource, fetchNewsAggregateSource, fetchOddsSource } from '../_sources.js';
 import { getAtsLeadersPipeline } from '../home/atsPipeline.js';
@@ -160,9 +161,18 @@ export function filterSportSlugs(slugs, getTeamBySlugFn) {
  * @param {string} baseUrl — e.g. "http://maximussports.ai"
  * @returns {object} assembled data for the email
  */
-export async function assembleEmailData(type, baseUrl) {
+export async function assembleEmailData(type, baseUrl, opts = {}) {
   const config = EMAIL_REGISTRY[type];
   if (!config) throw new Error(`Unknown email type: ${type}`);
+
+  // Single canonical date context — both MLB and NBA assemblers share this.
+  // Tests can pass `opts.now` for deterministic dates.
+  const dateCtx = opts.dateCtx || resolveEmailDateContext({ now: opts.now });
+  console.log(`[emailPipeline] dateCtx for ${type}:`, JSON.stringify({
+    sendDate: dateCtx.sendDate,
+    yesterdayDate: dateCtx.yesterdayDate,
+    tz: dateCtx.timezone,
+  }));
 
   const result = {
     scoresToday: [],
@@ -179,6 +189,7 @@ export async function assembleEmailData(type, baseUrl) {
     modelSignals: [],
     tournamentMeta: {},
     pennantRace: null,
+    dateCtx,  // canonical date context — template uses for date label
   };
 
   const needs = config.dataNeeds || [];
@@ -212,6 +223,7 @@ export async function assembleEmailData(type, baseUrl) {
     const mlbData = await assembleMlbEmailData(baseUrl, {
       includeSummary: flags.includeSummary ?? false,
       includePicks: flags.includePicks ?? false,
+      dateCtx,
     });
 
     if (config.sport === 'mlb') {
@@ -284,6 +296,7 @@ export async function assembleEmailData(type, baseUrl) {
       const flags = config.nbaFlags || {};
       result.nbaData = await assembleNbaEmailData(baseUrl, {
         includeSummary: flags.includeSummary ?? false,
+        dateCtx,
       });
     } catch (err) {
       console.warn(`[emailPipeline] NBA assembly failed: ${err.message}`);
@@ -375,6 +388,8 @@ export function buildEmailData(type, assembledData, recipientContext = {}) {
     // Compact MLB fields for new Global Briefing structure
     mlbYesterdayResults: assembledData.mlbData?.yesterdayResults || [],
     mlbPicksScorecard: assembledData.mlbData?.picksScorecard || null,
+    // Canonical date context — template uses for date label rendering
+    dateCtx: assembledData.dateCtx || null,
   };
 }
 

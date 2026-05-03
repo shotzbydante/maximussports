@@ -144,29 +144,45 @@ function narrativeBullets(narrative, max = 4) {
   ).join('');
 }
 
+/**
+ * Validate result row before rendering. Returns true only if both teams + scores
+ * are present. Prevents malformed "?? ? - @ ?? ? - Final" rows from rendering.
+ */
+function isValidResultRow(g) {
+  return !!(
+    g?.away?.abbrev && g?.home?.abbrev &&
+    g?.away?.score != null && g?.home?.score != null
+  );
+}
+
 /** Render a results row for a single completed game */
 function resultRow(g, logoFn, isLast) {
-  const aLogo = logoFn({ slug: g.away?.slug }, 16);
-  const hLogo = logoFn({ slug: g.home?.slug }, 16);
-  const aWin = (g.away?.score ?? 0) > (g.home?.score ?? 0);
-  const hWin = (g.home?.score ?? 0) > (g.away?.score ?? 0);
+  const aLogo = logoFn({ slug: g.away.slug }, 16);
+  const hLogo = logoFn({ slug: g.home.slug }, 16);
+  const aWin = g.away.score > g.home.score;
+  const hWin = g.home.score > g.away.score;
   return `
   <tr>
     <td style="padding:6px 0${isLast ? '' : `;border-bottom:1px solid ${ROW_BORDER}`};font-family:${F};">
       <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">
         <tr>
           <td style="width:24px;vertical-align:middle;padding-right:6px;">${aLogo}</td>
-          <td style="font-size:13px;font-weight:${aWin ? '800' : '500'};color:${NAVY};vertical-align:middle;width:42px;">${g.away?.abbrev || '?'}</td>
-          <td style="font-size:13px;font-weight:${aWin ? '800' : '500'};color:${NAVY};vertical-align:middle;width:30px;text-align:right;padding-right:8px;">${g.away?.score ?? '-'}</td>
+          <td style="font-size:13px;font-weight:${aWin ? '800' : '500'};color:${NAVY};vertical-align:middle;width:42px;">${g.away.abbrev}</td>
+          <td style="font-size:13px;font-weight:${aWin ? '800' : '500'};color:${NAVY};vertical-align:middle;width:30px;text-align:right;padding-right:8px;">${g.away.score}</td>
           <td style="font-size:11px;color:${DIM};vertical-align:middle;width:14px;text-align:center;">@</td>
           <td style="width:24px;vertical-align:middle;padding-left:6px;">${hLogo}</td>
-          <td style="font-size:13px;font-weight:${hWin ? '800' : '500'};color:${NAVY};vertical-align:middle;width:42px;padding-left:6px;">${g.home?.abbrev || '?'}</td>
-          <td style="font-size:13px;font-weight:${hWin ? '800' : '500'};color:${NAVY};vertical-align:middle;width:30px;text-align:right;padding-right:8px;">${g.home?.score ?? '-'}</td>
+          <td style="font-size:13px;font-weight:${hWin ? '800' : '500'};color:${NAVY};vertical-align:middle;width:42px;padding-left:6px;">${g.home.abbrev}</td>
+          <td style="font-size:13px;font-weight:${hWin ? '800' : '500'};color:${NAVY};vertical-align:middle;width:30px;text-align:right;padding-right:8px;">${g.home.score}</td>
           <td align="right" style="font-size:10px;color:${DIM};vertical-align:middle;font-family:${F};">${g.seriesNote || g.statusText || 'Final'}</td>
         </tr>
       </table>
     </td>
   </tr>`;
+}
+
+/** Render a clean fallback message when no valid results are available. */
+function noResultsFallback(sportLabel) {
+  return `<p style="margin:0;font-size:12px;color:${DIM};font-style:italic;font-family:${F};">No completed ${sportLabel} results were available for yesterday.</p>`;
 }
 
 /** Compact card wrapper for each section */
@@ -182,8 +198,8 @@ function sectionCard({ label, body, accent = RED }) {
 </td></tr>`;
 }
 
-/** Render a picks compact card list (3-5 picks) */
-function renderTodaysPicks(picksBoard, max = 4) {
+/** Render a picks compact card list — Global Briefing shows top 3 unique matchups */
+function renderTodaysPicks(picksBoard, max = 3) {
   if (!picksBoard?.categories) return null;
   const cats = picksBoard.categories;
   const all = [
@@ -194,16 +210,25 @@ function renderTodaysPicks(picksBoard, max = 4) {
   ];
   if (all.length === 0) return null;
 
-  // Dedupe by gameId so we don't spam the same matchup
+  // Dedupe by matchup (away+home) — never show the same matchup twice in
+  // the compact Global Briefing, even across categories or pick types.
+  const matchupKey = (p) => {
+    const a = p.matchup?.awayTeam?.shortName || p.matchup?.awayTeam?.name || p.matchup?.awayTeam?.slug || '';
+    const h = p.matchup?.homeTeam?.shortName || p.matchup?.homeTeam?.name || p.matchup?.homeTeam?.slug || '';
+    return `${a}@${h}`.toLowerCase();
+  };
+
   const seen = new Set();
   const unique = [];
-  for (const p of all.sort((a, b) => (b.confidenceScore || 0) - (a.confidenceScore || 0))) {
-    const k = p.gameId || p.id;
-    if (seen.has(k)) continue;
-    seen.add(k);
+  // Sort by confidenceScore desc, then take first occurrence per matchup
+  for (const p of [...all].sort((a, b) => (b.confidenceScore || 0) - (a.confidenceScore || 0))) {
+    const key = matchupKey(p);
+    if (!key || key === '@' || seen.has(key)) continue;
+    seen.add(key);
     unique.push(p);
     if (unique.length >= max) break;
   }
+  if (unique.length === 0) return null;
 
   return unique.map((p, i) => {
     const away = p.matchup?.awayTeam?.shortName || p.matchup?.awayTeam?.name || '?';
@@ -302,7 +327,8 @@ function renderScorecard(scorecard) {
 function buildNbaBlock(data) {
   const nbaData = data.nbaData;
   const narrative = nbaData?.narrativeParagraph || '';
-  const yesterday = data.nbaYesterdayResults || [];
+  const yesterdayRaw = data.nbaYesterdayResults || [];
+  const yesterday = yesterdayRaw.filter(isValidResultRow);
   const scorecard = data.nbaPicksScorecard;
   const picksBoard = data.nbaPicksBoard;
   const champOdds = data.nbaChampOdds || {};
@@ -317,12 +343,19 @@ ${sectionPill('\u{1F3C0} NBA DAILY INTELLIGENCE', RED)}
 <tr><td style="padding:6px 24px 12px;">${bullets}</td></tr>`);
   }
 
-  // 2. Yesterday's NBA Results
+  // 2. Yesterday's NBA Results — defensive, only valid rows
   if (yesterday.length > 0) {
     const rows = yesterday.slice(0, 5).map((g, i, arr) => resultRow(g, nbaTeamLogoImg, i === arr.length - 1)).join('');
     sections.push(sectionCard({
-      label: 'YESTERDAY’S NBA RESULTS',
+      label: "YESTERDAY’S NBA RESULTS",
       body: `<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">${rows}</table>`,
+      accent: RED,
+    }));
+  } else if (yesterdayRaw.length > 0) {
+    // We had rows but all were invalid — show clean fallback instead of malformed data
+    sections.push(sectionCard({
+      label: "YESTERDAY’S NBA RESULTS",
+      body: noResultsFallback('NBA playoff'),
       accent: RED,
     }));
   }
@@ -330,22 +363,24 @@ ${sectionPill('\u{1F3C0} NBA DAILY INTELLIGENCE', RED)}
   // 3. NBA Picks Scorecard
   sections.push(sectionCard({
     label: 'NBA PICKS SCORECARD',
-    body: renderScorecard(scorecard),
+    body: scorecard
+      ? renderScorecard(scorecard)
+      : `<p style="margin:0;font-size:12px;color:${DIM};font-style:italic;font-family:${F};">NBA scorecard will appear once playoff picks begin settling.</p>`,
     accent: RED,
   }));
 
-  // 4. Today's NBA Picks
-  const picksHtml = renderTodaysPicks(picksBoard, 4);
+  // 4. Today's NBA Picks (graceful fallback when no canonical NBA picks board exists)
+  const picksHtml = renderTodaysPicks(picksBoard, 3);
   if (picksHtml) {
     sections.push(sectionCard({
-      label: 'TODAY’S NBA PICKS',
+      label: "TODAY’S NBA PICKS",
       body: picksHtml,
       accent: RED,
     }));
   } else {
     sections.push(sectionCard({
-      label: 'TODAY’S NBA PICKS',
-      body: `<p style="margin:0;font-size:12px;color:${DIM};font-style:italic;font-family:${F};">NBA picks board coming soon.</p>`,
+      label: "TODAY’S NBA PICKS",
+      body: `<p style="margin:0;font-size:12px;color:${DIM};font-style:italic;font-family:${F};">NBA playoff picks are being prepared. Check the app for live board updates.</p>`,
       accent: RED,
     }));
   }
@@ -376,7 +411,8 @@ ${sections.join('\n')}`,
 function buildMlbBlock(data) {
   const mlbData = data.mlbData;
   const narrative = mlbData?.narrativeParagraph || '';
-  const yesterday = data.mlbYesterdayResults || [];
+  const yesterdayRaw = data.mlbYesterdayResults || [];
+  const yesterday = yesterdayRaw.filter(isValidResultRow);
   const scorecard = data.mlbPicksScorecard;
   const picksBoard = mlbData?.picksBoard;
   const champOdds = data.champOdds || {};
@@ -391,12 +427,18 @@ ${sectionPill('⚾ MLB DAILY INTELLIGENCE', BLUE)}
 <tr><td style="padding:6px 24px 12px;">${bullets}</td></tr>`);
   }
 
-  // 2. Yesterday's MLB Results
+  // 2. Yesterday's MLB Results — defensive
   if (yesterday.length > 0) {
     const rows = yesterday.slice(0, 5).map((g, i, arr) => resultRow(g, mlbTeamLogoImg, i === arr.length - 1)).join('');
     sections.push(sectionCard({
-      label: 'YESTERDAY’S MLB RESULTS',
+      label: "YESTERDAY’S MLB RESULTS",
       body: `<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">${rows}</table>`,
+      accent: BLUE,
+    }));
+  } else if (yesterdayRaw.length > 0) {
+    sections.push(sectionCard({
+      label: "YESTERDAY’S MLB RESULTS",
+      body: noResultsFallback('MLB'),
       accent: BLUE,
     }));
   }
@@ -404,15 +446,17 @@ ${sectionPill('⚾ MLB DAILY INTELLIGENCE', BLUE)}
   // 3. MLB Picks Scorecard
   sections.push(sectionCard({
     label: 'MLB PICKS SCORECARD',
-    body: renderScorecard(scorecard),
+    body: scorecard
+      ? renderScorecard(scorecard)
+      : `<p style="margin:0;font-size:12px;color:${DIM};font-style:italic;font-family:${F};">MLB scorecard will appear once yesterday’s picks settle.</p>`,
     accent: BLUE,
   }));
 
-  // 4. Today's MLB Picks
-  const picksHtml = renderTodaysPicks(picksBoard, 4);
+  // 4. Today's MLB Picks (compact: top 3 unique matchups, no duplicates)
+  const picksHtml = renderTodaysPicks(picksBoard, 3);
   if (picksHtml) {
     sections.push(sectionCard({
-      label: 'TODAY’S MLB PICKS',
+      label: "TODAY’S MLB PICKS",
       body: picksHtml,
       accent: BLUE,
     }));
@@ -446,10 +490,16 @@ export function getSubject() {
 }
 
 export function renderHTML(data = {}) {
-  const { displayName } = data;
+  const { displayName, dateCtx } = data;
   const greetingName = (displayName ? displayName.split(' ')[0] : null) || 'there';
-  const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
-  const partOfDay = new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 17 ? 'afternoon' : 'evening';
+  // Prefer canonical date context (product TZ) over raw new Date(). This keeps
+  // near-midnight sends from showing the wrong date.
+  const today = dateCtx?.briefingDateLabel
+    || new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'America/Los_Angeles' });
+  // Part-of-day in product TZ for greeting tone
+  const ptHourFmt = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Los_Angeles', hour: 'numeric', hour12: false });
+  const ptHour = parseInt(ptHourFmt.format(new Date()), 10);
+  const partOfDay = ptHour < 12 ? 'morning' : ptHour < 17 ? 'afternoon' : 'evening';
 
   // Build NBA-first, then MLB
   const nba = buildNbaBlock(data);
@@ -504,9 +554,10 @@ ${hasAnyContent ? renderPartnerModule({ padding: '8px 24px 16px' }) : ''}`;
 }
 
 export function renderText(data = {}) {
-  const { displayName, mlbData, nbaData } = data;
+  const { displayName, mlbData, nbaData, dateCtx } = data;
   const name = (displayName ? displayName.split(' ')[0] : null) || 'there';
-  const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+  const today = dateCtx?.briefingDateLabel
+    || new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'America/Los_Angeles' });
   const lines = [
     '\u{1F4E1} MAXIMUS SPORTS — Daily Global Intel Briefing',
     today, '',

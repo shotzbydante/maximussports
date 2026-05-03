@@ -60,32 +60,87 @@ import { buildLeadersEditorialHook } from '../../src/data/mlb/seasonLeaders.js';
 import { getJson } from '../_globalCache.js';
 import { buildPicksBoard } from './mlbPicksBuilder.js';
 import { normalizeEvent, ESPN_SCOREBOARD as MLB_ESPN_SCOREBOARD, FETCH_TIMEOUT_MS as MLB_FETCH_TIMEOUT } from '../mlb/live/_normalize.js';
+import { resolveEmailDateContext, espnDateString } from './emailDateContext.js';
+
+/**
+ * Validate that a normalized result row has the minimum data needed to render.
+ * Returns true only if BOTH teams have abbrev AND scores. No partial rows allowed.
+ */
+function isValidResult(row) {
+  return !!(
+    row?.away?.abbrev && row?.home?.abbrev &&
+    row?.away?.score != null && row?.home?.score != null
+  );
+}
 
 /**
  * Fetch yesterday's MLB final games directly from ESPN scoreboard.
- * Used for "Yesterday's MLB Results" in Global Daily Briefing.
+ * Uses the canonical date context (product timezone, not UTC).
  */
-async function fetchYesterdayResults() {
-  const d = new Date();
-  d.setDate(d.getDate() - 1);
-  const dateStr = d.toISOString().slice(0, 10).replace(/-/g, '');
+async function fetchYesterdayResults(dateCtx) {
+  const dateStr = espnDateString(dateCtx?.yesterdayDate || '');
+  if (!dateStr) {
+    console.warn('[mlbEmailData] no yesterday date provided to results fetcher');
+    return { results: [], totalEvents: 0, finalsCount: 0, validCount: 0, skippedCount: 0 };
+  }
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), MLB_FETCH_TIMEOUT);
   try {
     const r = await fetch(`${MLB_ESPN_SCOREBOARD}?dates=${dateStr}`, { signal: controller.signal });
-    if (!r.ok) return [];
+    if (!r.ok) {
+      console.warn(`[mlbEmailData] yesterday results HTTP ${r.status} for ${dateStr}`);
+      return { results: [], totalEvents: 0, finalsCount: 0, validCount: 0, skippedCount: 0 };
+    }
     const data = await r.json();
     const events = Array.isArray(data.events) ? data.events : [];
-    const finals = events.map(normalizeEvent).filter(g => g && g.status === 'final');
-    return finals.slice(0, 6).map(g => ({
+    const normalized = events.map(normalizeEvent).filter(Boolean);
+    const finals = normalized.filter(g => g.status === 'final');
+
+    // Map to email-friendly shape using normalizeEvent's actual structure
+    // (g.teams.away / g.teams.home, NOT g.awayTeam / g.homeTeam)
+    const allRows = finals.map(g => ({
       gameId: g.gameId,
-      away: { slug: g.awayTeam?.slug, abbrev: g.awayTeam?.abbrev, score: g.awayTeam?.score },
-      home: { slug: g.homeTeam?.slug, abbrev: g.homeTeam?.abbrev, score: g.homeTeam?.score },
-      statusText: g.statusText || 'Final',
+      away: {
+        slug: g.teams?.away?.slug || null,
+        name: g.teams?.away?.name || null,
+        abbrev: g.teams?.away?.abbrev || null,
+        score: g.teams?.away?.score ?? null,
+      },
+      home: {
+        slug: g.teams?.home?.slug || null,
+        name: g.teams?.home?.name || null,
+        abbrev: g.teams?.home?.abbrev || null,
+        score: g.teams?.home?.score ?? null,
+      },
+      statusText: g.gameState?.statusText || 'Final',
+      completed: true,
     }));
+
+    // Defensive: only return rows where both teams + scores are present.
+    // Any row missing data gets skipped (and logged) to prevent "?? ? @ ?? ?".
+    const validRows = [];
+    let skipped = 0;
+    for (const row of allRows) {
+      if (isValidResult(row)) {
+        validRows.push(row);
+      } else {
+        skipped++;
+      }
+    }
+    if (skipped > 0) {
+      console.warn(`[mlbEmailData] skipped ${skipped} invalid result rows for ${dateStr}`);
+    }
+
+    return {
+      results: validRows.slice(0, 6),
+      totalEvents: events.length,
+      finalsCount: finals.length,
+      validCount: validRows.length,
+      skippedCount: skipped,
+    };
   } catch (err) {
     console.warn(`[mlbEmailData] yesterday's results fetch failed: ${err.message}`);
-    return [];
+    return { results: [], totalEvents: 0, finalsCount: 0, validCount: 0, skippedCount: 0 };
   } finally {
     clearTimeout(timer);
   }
@@ -216,9 +271,11 @@ export async function assembleMlbEmailData(baseUrl, opts = {}) {
     );
   }
 
-  // Yesterday's MLB results (parallel, direct ESPN fetch)
+  // Yesterday's MLB results — uses canonical date context (product TZ)
+  const dateCtx = opts.dateCtx || resolveEmailDateContext();
+  console.log(`[mlbEmailData] dateCtx: yesterday=${dateCtx.yesterdayDate} tz=${dateCtx.timezone}`);
   fetchPromises.push(
-    fetchYesterdayResults().then(results => ({ data: results, source: 'fresh' }))
+    fetchYesterdayResults(dateCtx).then(r => ({ data: r, source: 'fresh' }))
   );
 
   const results = await Promise.all(fetchPromises);
@@ -301,8 +358,10 @@ export async function assembleMlbEmailData(baseUrl, opts = {}) {
 
   console.log(`[mlbEmailData] Final: ${headlines.length} headlines, ${scoresToday.length} games, narrative=${narrativeParagraph.length > 0 ? narrativeParagraph.length + 'ch' : 'empty'}, picks=${!!picksBoard}, leaders=${Object.keys(mlbLeadersData?.categories || {}).length} cats, champOdds=${Object.keys(champOdds).length} teams`);
 
-  // Yesterday's results
-  const yesterdayResults = yesterdayResultsResult?.data || [];
+  // Yesterday's results — already validated (skipped invalid rows in fetcher)
+  const yesterdayResultsData = yesterdayResultsResult?.data || { results: [], totalEvents: 0, finalsCount: 0, validCount: 0, skippedCount: 0 };
+  const yesterdayResults = yesterdayResultsData.results;
+  console.log(`[mlbEmailData] yesterday results: events=${yesterdayResultsData.totalEvents} finals=${yesterdayResultsData.finalsCount} valid=${yesterdayResultsData.validCount} skipped=${yesterdayResultsData.skippedCount}`);
 
   // Picks scorecard — placeholder until canonical scorecard pipeline lands.
   // Documented gap: no KV/source for settled-pick outcomes yet.

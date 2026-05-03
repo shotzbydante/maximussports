@@ -735,3 +735,186 @@ describe('Global Briefing: NBA prod/test parity', () => {
     expect(emailData.mlbData).toBeTruthy();
   });
 });
+
+// ═══════════════════════════════════════════════════════════════
+// DATE CONTEXT + RECENT RESULTS REGRESSION TESTS
+// ═══════════════════════════════════════════════════════════════
+
+import { resolveEmailDateContext } from './emailDateContext.js';
+
+describe('Date context: timezone-safe resolution', () => {
+  it('resolves the correct PT date at 11:45 PM PT (the near-midnight bug)', () => {
+    // 06:45 UTC May 3 = 11:45 PM PT May 2
+    const nightPT = new Date('2026-05-03T06:45:00.000Z');
+    const ctx = resolveEmailDateContext({ now: nightPT });
+
+    expect(ctx.sendDate).toBe('2026-05-02');
+    expect(ctx.briefingDate).toBe('2026-05-02');
+    expect(ctx.yesterdayDate).toBe('2026-05-01');
+    expect(ctx.sportsDataDate).toBe('20260501');
+    expect(ctx.briefingDateLabel).toBe('Saturday, May 2');
+    expect(ctx.timezone).toBe('America/Los_Angeles');
+  });
+
+  it('resolves correctly at noon PT', () => {
+    // 19:00 UTC May 2 = 12:00 PM PT May 2
+    const noonPT = new Date('2026-05-02T19:00:00.000Z');
+    const ctx = resolveEmailDateContext({ now: noonPT });
+
+    expect(ctx.sendDate).toBe('2026-05-02');
+    expect(ctx.yesterdayDate).toBe('2026-05-01');
+  });
+
+  it('rolls correctly across month boundary', () => {
+    // 03:00 UTC May 1 = 8:00 PM PT April 30
+    const apr30pm = new Date('2026-05-01T03:00:00.000Z');
+    const ctx = resolveEmailDateContext({ now: apr30pm });
+
+    expect(ctx.sendDate).toBe('2026-04-30');
+    expect(ctx.yesterdayDate).toBe('2026-04-29');
+  });
+});
+
+describe('Recent Results: defensive rendering (no malformed rows)', () => {
+  it('rendered HTML never contains "?? ? - @ ?? ? - Final" placeholders', () => {
+    const assembled = fullAssembled();
+    // Inject a malformed result row
+    assembled.mlbData.yesterdayResults = [
+      { gameId: 'bad1', away: { abbrev: null, score: null }, home: { abbrev: null, score: null }, statusText: 'Final' },
+    ];
+    assembled.nbaData.yesterdayResults = [
+      { gameId: 'bad2', away: { abbrev: null, score: null }, home: { abbrev: null, score: null }, statusText: 'Final' },
+    ];
+    const emailData = buildEmailData('global_briefing', assembled, { displayName: 'Test' });
+    const html = renderGlobalBriefingHTML(emailData);
+
+    expect(html).not.toContain('?? ?');
+    expect(html).not.toContain('undefined');
+    expect(html).not.toContain('NaN');
+    // Should render the clean fallback message instead
+    expect(html).toMatch(/No completed.*results were available/i);
+  });
+
+  it('renders valid result rows correctly', () => {
+    const assembled = fullAssembled();
+    assembled.mlbData.yesterdayResults = [
+      { gameId: '1', away: { slug: 'lad', abbrev: 'LAD', score: 7 }, home: { slug: 'sf', abbrev: 'SF', score: 3 }, statusText: 'Final' },
+    ];
+    assembled.nbaData.yesterdayResults = [
+      { gameId: '2', away: { slug: 'bos', abbrev: 'BOS', score: 110 }, home: { slug: 'nyk', abbrev: 'NYK', score: 95 }, statusText: 'Final' },
+    ];
+    const emailData = buildEmailData('global_briefing', assembled, { displayName: 'Test' });
+    const html = renderGlobalBriefingHTML(emailData);
+
+    // Valid rows should render with actual data
+    expect(html).toContain('LAD');
+    expect(html).toContain('SF');
+    expect(html).toContain('>7<');
+    expect(html).toContain('>3<');
+    expect(html).toContain('BOS');
+    expect(html).toContain('NYK');
+    expect(html).toContain('>110<');
+    expect(html).toContain('>95<');
+    // Still no placeholders
+    expect(html).not.toContain('?? ?');
+  });
+
+  it('mixed valid + invalid: only valid rows render', () => {
+    const assembled = fullAssembled();
+    assembled.mlbData.yesterdayResults = [
+      { gameId: '1', away: { slug: 'lad', abbrev: 'LAD', score: 7 }, home: { slug: 'sf', abbrev: 'SF', score: 3 }, statusText: 'Final' },
+      { gameId: 'bad', away: { abbrev: null, score: null }, home: { abbrev: null, score: null }, statusText: 'Final' },
+    ];
+    const emailData = buildEmailData('global_briefing', assembled, { displayName: 'Test' });
+    const html = renderGlobalBriefingHTML(emailData);
+
+    expect(html).toContain('LAD');
+    expect(html).not.toContain('?? ?');
+  });
+});
+
+describe('MLB Picks dedupe in Global Briefing', () => {
+  it('does not render the same matchup twice across categories', () => {
+    const assembled = fullAssembled();
+    // Inject duplicate matchup across pickEms and ats
+    assembled.mlbData.picksBoard = {
+      categories: {
+        pickEms: [{
+          id: 'a', gameId: 'g1',
+          matchup: { awayTeam: { slug: 'phi', shortName: 'PHI' }, homeTeam: { slug: 'mia', shortName: 'MIA' } },
+          pick: { label: 'PHI -135', side: 'away', explanation: 'Test.' },
+          confidence: 'high', confidenceScore: 90,
+        }],
+        ats: [{
+          id: 'b', gameId: 'g1',
+          matchup: { awayTeam: { slug: 'phi', shortName: 'PHI' }, homeTeam: { slug: 'mia', shortName: 'MIA' } },
+          pick: { label: 'PHI -1.5', side: 'away', explanation: 'Test.' },
+          confidence: 'medium', confidenceScore: 75,
+        }],
+        leans: [{
+          id: 'c', gameId: 'g2',
+          matchup: { awayTeam: { slug: 'lad', shortName: 'LAD' }, homeTeam: { slug: 'sf', shortName: 'SF' } },
+          pick: { label: 'LAD ML', side: 'away', explanation: 'Test.' },
+          confidence: 'medium', confidenceScore: 70,
+        }],
+        totals: [],
+      },
+    };
+    const emailData = buildEmailData('global_briefing', assembled, { displayName: 'Test' });
+    const html = renderGlobalBriefingHTML(emailData);
+
+    // PHI vs MIA should appear only ONCE (the higher confidence pickEm wins)
+    const phiMiaCount = (html.match(/PHI vs MIA/g) || []).length;
+    expect(phiMiaCount).toBe(1);
+    // The higher-confidence pick should be the one shown
+    expect(html).toContain('PHI -135');
+    expect(html).not.toContain('PHI -1.5');
+    // LAD vs SF should also render
+    expect(html).toContain('LAD vs SF');
+  });
+
+  it('caps Global Briefing picks to 3 unique matchups', () => {
+    const assembled = fullAssembled();
+    const matchups = ['phi-mia', 'lad-sf', 'nyy-bos', 'hou-tex', 'atl-was'];
+    assembled.mlbData.picksBoard = {
+      categories: {
+        pickEms: matchups.map((m, i) => {
+          const [a, h] = m.split('-');
+          return {
+            id: `p${i}`, gameId: `g${i}`,
+            matchup: { awayTeam: { slug: a, shortName: a.toUpperCase() }, homeTeam: { slug: h, shortName: h.toUpperCase() } },
+            pick: { label: `${a.toUpperCase()} ML`, side: 'away', explanation: '.' },
+            confidence: 'high', confidenceScore: 90 - i,
+          };
+        }),
+        ats: [], leans: [], totals: [],
+      },
+    };
+    const emailData = buildEmailData('global_briefing', assembled, { displayName: 'Test' });
+    const html = renderGlobalBriefingHTML(emailData);
+
+    // Only the top 3 should appear
+    expect(html).toContain('PHI vs MIA');
+    expect(html).toContain('LAD vs SF');
+    expect(html).toContain('NYY vs BOS');
+    expect(html).not.toContain('HOU vs TEX');
+    expect(html).not.toContain('ATL vs WAS');
+  });
+});
+
+describe('Date context propagates to template label', () => {
+  it('uses dateCtx.briefingDateLabel for date display when provided', () => {
+    const assembled = fullAssembled();
+    assembled.dateCtx = {
+      briefingDateLabel: 'Saturday, May 2',
+      sendDate: '2026-05-02',
+      yesterdayDate: '2026-05-01',
+      sportsDataDate: '20260501',
+      timezone: 'America/Los_Angeles',
+    };
+    const emailData = buildEmailData('global_briefing', assembled, { displayName: 'Test' });
+    const html = renderGlobalBriefingHTML(emailData);
+
+    expect(html).toContain('Saturday, May 2');
+  });
+});
