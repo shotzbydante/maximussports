@@ -1,0 +1,125 @@
+/* ByMarketSummary — premium glass strip on the dark NBA hero.
+   Three tiles for Pick 'Em / ATS / Totals; always visible regardless of
+   which markets the slate produced. Tinted accents keep market identity
+   obvious at a glance. */
+
+.root {
+  margin: 0 0 16px;
+  padding: 16px 18px;
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0.015) 100%),
+    rgba(15, 30, 48, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow:
+    0 6px 24px rgba(0, 0, 0, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(10px) saturate(1.1);
+  -webkit-backdrop-filter: blur(10px) saturate(1.1);
+  position: relative;
+  overflow: hidden;
+}
+
+.root::before {
+  content: '';
+  position: absolute; inset: 0 0 auto 0; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(201, 162, 74, 0.45), transparent);
+  pointer-events: none;
+}
+
+.header {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.eyebrow {
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #c9a24a;
+}
+
+.sub {
+  font-size: 0.74rem;
+  color: rgba(232, 237, 246, 0.66);
+  line-height: 1.4;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+@media (max-width: 720px) {
+  .grid { grid-template-columns: 1fr; }
+}
+
+.tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  transition: border-color 160ms ease, transform 160ms ease;
+}
+.tile:hover { border-color: rgba(255, 255, 255, 0.16); }
+
+.tile_ml  { box-shadow: inset 3px 0 0 rgba(80, 140, 220, 0.55); }
+.tile_ats { box-shadow: inset 3px 0 0 rgba(201, 162, 74, 0.55); }
+.tile_tot { box-shadow: inset 3px 0 0 rgba(106, 180, 156, 0.55); }
+.tileInactive { opacity: 0.78; }
+
+.kicker {
+  font-size: 0.56rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(232, 237, 246, 0.55);
+}
+
+.title {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: -0.005em;
+  line-height: 1.1;
+}
+
+.countRow {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.count {
+  font-size: 1.55rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: #fff;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+.countLabel {
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(232, 237, 246, 0.55);
+}
+
+.caption {
+  margin-top: 4px;
+  font-size: 0.7rem;
+  line-height: 1.4;
+  color: rgba(232, 237, 246, 0.66);
+  max-width: 38ch;
+}

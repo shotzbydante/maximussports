@@ -33,6 +33,7 @@ import TrackRecord from './TrackRecord';
 import PerformanceLearning from './PerformanceLearning';
 import AuditInsights from './AuditInsights';
 import AboutTheModel from './AboutTheModel';
+import ByMarketSummary from '../../nba/picks/ByMarketSummary';
 import tokens from './picks.tokens.module.css';
 import styles from './MlbMaximusPicksSectionV2.module.css';
 
@@ -197,6 +198,22 @@ export default function MlbMaximusPicksSectionV2({
               <YesterdayContinuity summary={scorecardSummary} />
             </div>
           </div>
+        )}
+
+        {/* 3b. By-Market summary — explicit Pick 'Em / ATS / Totals tiles
+            so the user sees all three categories regardless of which
+            tiers actually fired. NBA-only on home mode (Odds Insights
+            already groups by market in its tier subgroups). */}
+        {sport === 'nba' && (
+          <ByMarketSummary
+            picks={allSurviving}
+            notes={{
+              // Today the NBA odds enricher has no fair-total model. The
+              // builder honestly can't publish totals — surface that
+              // truth in the strip rather than hiding it.
+              totalsInactive: true,
+            }}
+          />
         )}
 
         {/* 4. Today's Picks section header — framing copy lives HERE */}

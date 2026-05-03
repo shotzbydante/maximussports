@@ -178,3 +178,66 @@
   .header { flex-direction: column; align-items: stretch; }
   .headerRight { justify-content: flex-end; }
 }
+
+/* ── Dark surface (NBA Home picksHero) ──
+   When this section is rendered as a descendant of an element with
+   data-dark-surface='true' (i.e. inside the dark NBA Home picksHero
+   shell), the light-mode tokens above are illegible. The attribute
+   selector traverses the DOM (not the CSS-module scope), so these rules
+   target the hashed classes correctly across module boundaries. Light
+   Odds Insights styling is unaffected. */
+
+[data-dark-surface='true'] .header {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+[data-dark-surface='true'] .kicker { color: rgba(232, 237, 246, 0.62); }
+[data-dark-surface='true'] .title  {
+  color: #fff;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.18);
+}
+[data-dark-surface='true'] .sub    { color: rgba(232, 237, 246, 0.66); }
+
+[data-dark-surface='true'] .countPill {
+  color: rgba(232, 237, 246, 0.85);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+[data-dark-surface='true'] .collapseBtn {
+  color: #c9a24a;
+}
+[data-dark-surface='true'] .collapseBtn:hover { color: #e6c47a; }
+
+[data-dark-surface='true'] .empty {
+  color: rgba(232, 237, 246, 0.62);
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.10);
+}
+
+[data-dark-surface='true'] .subgroupHeader {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  padding-bottom: 5px;
+}
+[data-dark-surface='true'] .subgroupIcon {
+  color: #9bc1ff;
+  background: rgba(80, 140, 220, 0.16);
+}
+[data-dark-surface='true'] .subgroupLabel { color: #fff; }
+[data-dark-surface='true'] .subgroupCount { color: rgba(232, 237, 246, 0.55); }
+
+/* Tier-specific gradients re-toned for dark glass */
+[data-dark-surface='true'] .tier1 .header {
+  background: linear-gradient(90deg, rgba(201, 162, 74, 0.18), rgba(255, 255, 255, 0.04) 60%);
+}
+[data-dark-surface='true'] .tier1 .kicker { color: #e6c47a; }
+[data-dark-surface='true'] .tier2 .kicker { color: #9bc1ff; }
+[data-dark-surface='true'] .tier3 .header {
+  background: rgba(255, 255, 255, 0.035);
+}
+[data-dark-surface='true'] .coverage .header {
+  background: rgba(255, 255, 255, 0.025);
+  opacity: 0.95;
+}
+[data-dark-surface='true'] .coverage .title  { color: rgba(232, 237, 246, 0.85); }
+[data-dark-surface='true'] .coverage .kicker { color: rgba(232, 237, 246, 0.55); }
+[data-dark-surface='true'] .coverage .sub    { color: rgba(232, 237, 246, 0.55); }

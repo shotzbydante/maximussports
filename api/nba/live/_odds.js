@@ -174,7 +174,15 @@ export async function enrichGamesWithOdds(games) {
     return {
       ...game,
       market: { ...game.market, pregameSpread: spread ?? game.market?.pregameSpread, pregameTotal: total ?? game.market?.pregameTotal, moneyline: moneyline ?? game.market?.moneyline },
-      model: { ...game.model, pregameEdge: pregameEdge ?? game.model?.pregameEdge, confidence: confidence ?? game.model?.confidence, fairSpread: fairSpread ?? game.model?.fairSpread, fairTotal: total ?? game.model?.fairTotal },
+      // `model.fairTotal` is intentionally NOT populated from the market
+      // total. There is no fair-total model in the NBA pipeline today
+      // (see docs/nba-home-picks-ui-categories-history-and-improvement-audit-v4.md);
+      // mirroring the market would produce a 0-edge totals candidate every
+      // game and silently inflate the totals coverage. Leaving it null
+      // makes the totals gate fail for the right reason — until a real
+      // pace/efficiency total prior is wired in. The UI's ByMarketSummary
+      // surfaces this absence explicitly via `totalsInactive: true`.
+      model: { ...game.model, pregameEdge: pregameEdge ?? game.model?.pregameEdge, confidence: confidence ?? game.model?.confidence, fairSpread: fairSpread ?? game.model?.fairSpread, fairTotal: game.model?.fairTotal ?? null },
       betting: { spreadDisplay, totalDisplay },
     };
   });
