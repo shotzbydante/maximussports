@@ -206,8 +206,20 @@
 .root[data-dark-surface='true'] .todaysKicker { color: #c9a24a; }
 .root[data-dark-surface='true'] .todaysTitle  { color: #fff; }
 .root[data-dark-surface='true'] .todaysCopy   { color: rgba(232, 237, 246, 0.75); }
-.root[data-dark-surface='true'] .todaysCountLabel { color: rgba(232, 237, 246, 0.55); }
-.root[data-dark-surface='true'] .todaysCountValue { color: #fff; }
+
+/* Gold "Published N" pill — premium glass treatment on dark.
+   Pre-v5: beige background + brass text on navy = low contrast.
+   Post-v5: gold-on-glass tint, stronger gold edge, light-gold text,
+   inset highlight for cut-glass feel. */
+.root[data-dark-surface='true'] .todaysCountPill {
+  background: rgba(201, 162, 74, 0.18);
+  border: 1px solid rgba(201, 162, 74, 0.55);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.10),
+    0 1px 4px rgba(0, 0, 0, 0.18);
+}
+.root[data-dark-surface='true'] .todaysCountLabel { color: #c9a24a; }
+.root[data-dark-surface='true'] .todaysCountValue { color: #f4dca0; }
 
 .root[data-dark-surface='true'] .fullBoardLink { color: #c9a24a; }
 .root[data-dark-surface='true'] .homeFollowLine { color: rgba(232, 237, 246, 0.55); }

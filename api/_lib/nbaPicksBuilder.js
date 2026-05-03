@@ -29,6 +29,7 @@ import { buildNbaPlayoffContext, findSeriesForGame } from '../../src/data/nba/pl
 import { getJson, setJson } from '../_globalCache.js';
 import { writePicksRun, getActiveConfig, getScorecard, getLatestGradedScorecard } from './picksHistory.js';
 import { yesterdayET } from './dateWindows.js';
+import { seriesPaceFairTotal } from './seriesPaceFairTotal.js';
 
 const KV_LATEST = 'nba:picks:built:latest';
 const KV_LASTKNOWN = 'nba:picks:built:lastknown';
@@ -176,6 +177,36 @@ export async function buildNbaPicksBoard(opts = {}) {
       enriched = await enrichGamesWithOdds(upcoming);
     } catch (err) {
       console.warn(`[nbaPicksBuilder] odds enrichment failed: ${err.message}`);
+    }
+
+    // ── Series-pace fair-total MVP (v5) ──
+    // The odds enricher leaves `model.fairTotal === null` (no built-in
+    // model). For each upcoming game with ≥2 prior finals between the
+    // same teams in the 7-day window, derive a series-pace average and
+    // inject it as the fair total. Below sample → leave null so the
+    // totals gate fails honestly.
+    let totalsCandidatesEnabled = 0;
+    enriched = enriched.map(g => {
+      const a = g?.teams?.away?.slug;
+      const h = g?.teams?.home?.slug;
+      const sig = seriesPaceFairTotal({ awaySlug: a, homeSlug: h, windowGames });
+      if (sig.fairTotal == null) return g;
+      totalsCandidatesEnabled += 1;
+      return {
+        ...g,
+        model: {
+          ...g.model,
+          fairTotal: sig.fairTotal,
+          fairTotalSample: sig.priorGamesUsed,
+          fairTotalConfidence: sig.confidence,
+          fairTotalSource: 'series_pace_v1',
+        },
+      };
+    });
+    if (totalsCandidatesEnabled > 0) {
+      console.log(
+        `[nbaPicksBuilder] series-pace fair-total signal active for ${totalsCandidatesEnabled}/${enriched.length} game(s)`
+      );
     }
 
     // Resolve active NBA tuning config (DB > default)

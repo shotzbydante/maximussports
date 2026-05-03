@@ -13,6 +13,7 @@
 
 import { useEffect, useState } from 'react';
 import styles from './NbaScorecardReport.module.css';
+import { resolveTeamLogo } from '../../../utils/teamLogo';
 
 const TIER_LABELS = { tier1: 'Top Play', tier2: 'Strong', tier3: 'Watch' };
 const STATUS_LABELS = { won: 'Win', lost: 'Loss', push: 'Push', pending: 'Pending' };
@@ -138,10 +139,46 @@ function PickRow({ pick }) {
   const contextLabel = pick.contextLabel
     || pick.gameDateLabel
     || (pick.slateDate ? formatGameDate(pick.slateDate) : null);
+  // Team logos via the canonical NBA-safe resolver. Both await/home slugs
+  // are persisted (`pick.awayTeam` / `pick.homeTeam` per annotatePick), so
+  // every row can render the matchup with logos. `loading="lazy"` +
+  // `onError` text-only fallback keeps the row safe when a slug doesn't
+  // resolve (rare but possible if a future enricher emits an unknown id).
+  const awayLogo = resolveTeamLogo({ sport: 'nba', slug: pick.awayTeam });
+  const homeLogo = resolveTeamLogo({ sport: 'nba', slug: pick.homeTeam });
+  const awayAbbr = (pick.awayTeam || '').toUpperCase();
+  const homeAbbr = (pick.homeTeam || '').toUpperCase();
+
   return (
     <div className={`${styles.row} ${styles[`row_${pick.status}`] || ''}`}>
       <div className={styles.rowLeft}>
-        <span className={styles.matchup}>{pick.matchup}</span>
+        <span className={styles.matchup}>
+          {awayLogo && (
+            <img
+              src={awayLogo}
+              alt=""
+              width={18}
+              height={18}
+              className={styles.teamLogo}
+              loading="lazy"
+              onError={(e) => { e.currentTarget.style.display = 'none'; }}
+            />
+          )}
+          <span className={styles.teamSlug}>{awayAbbr}</span>
+          <span className={styles.matchupAt}>@</span>
+          {homeLogo && (
+            <img
+              src={homeLogo}
+              alt=""
+              width={18}
+              height={18}
+              className={styles.teamLogo}
+              loading="lazy"
+              onError={(e) => { e.currentTarget.style.display = 'none'; }}
+            />
+          )}
+          <span className={styles.teamSlug}>{homeAbbr}</span>
+        </span>
         {contextLabel && (
           <span className={styles.gameContext} title={pick.seriesScoreSummary || undefined}>
             {contextLabel}

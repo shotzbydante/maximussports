@@ -163,6 +163,11 @@
 /* Per-row metadata under the matchup line */
 .sectionEmbedded .gameContext { color: rgba(232, 237, 246, 0.62); }
 .sectionEmbedded .gameContextFlag { color: #f48a8a; }
+.sectionEmbedded .teamLogo {
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+}
+.sectionEmbedded .matchupAt { color: rgba(232, 237, 246, 0.45); }
 
 /* Row separators + win/loss/push tints — the original gradient stops are
    tuned for a white card; on glass they vanish. Bump them. */
@@ -329,8 +334,24 @@
 
 .rowLeft { display: flex; flex-direction: column; gap: 3px; }
 .matchup {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   font-size: 0.78rem; font-weight: 700; color: var(--color-text);
   letter-spacing: 0.02em;
+}
+.teamLogo {
+  flex-shrink: 0;
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.04);
+  padding: 1px;
+  object-fit: contain;
+}
+.teamSlug { letter-spacing: 0.04em; }
+.matchupAt {
+  font-weight: 500;
+  color: var(--color-text-muted);
+  margin: 0 1px;
 }
 .gameContext {
   font-size: 0.62rem; font-weight: 600;
