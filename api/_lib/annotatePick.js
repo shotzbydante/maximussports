@@ -25,7 +25,7 @@
  *   cover ===0 → push
  */
 
-export function annotatePick(pick) {
+export function annotatePick(pick, opts = {}) {
   // pick_results joins via primary key (pick_id is PK referencing picks.id),
   // so PostgREST returns it as either an object (1-to-1) or array depending
   // on relationship inference. Handle both shapes.
@@ -94,10 +94,16 @@ export function annotatePick(pick) {
     }
   }
 
+  // Optional series/date context (Phase 3 of the repeat-matchup audit).
+  // Surfaced on every pick row so the UI can render unambiguous labels for
+  // repeat playoff matchups (HOU/LAL Game 5 vs Game 6, etc.).
+  const ctx = opts.seriesContext || null;
+
   return {
     id: pick.id,
     pickKey: pick.pick_key,
     gameId: pick.game_id,
+    slateDate: pick.slate_date || null,
     awayTeam: pick.away_team_slug,
     homeTeam: pick.home_team_slug,
     matchup: `${(pick.away_team_slug || '').toUpperCase()} @ ${(pick.home_team_slug || '').toUpperCase()}`,
@@ -119,5 +125,16 @@ export function annotatePick(pick) {
     finalHomeScore: homeScore,
     finalScore,
     resultReason,
+    // Game identity / series context (nullable when ctx is not supplied
+    // or the matchup isn't a tracked playoff series).
+    gameDate:           ctx?.gameDate ?? null,
+    gameDateLabel:      ctx?.gameDateLabel ?? null,
+    gameNumber:         ctx?.gameNumber ?? null,
+    seriesRound:        ctx?.seriesRound ?? null,
+    seriesRoundShort:   ctx?.seriesRoundShort ?? null,
+    seriesScoreSummary: ctx?.seriesScoreSummary ?? null,
+    isElimination:      !!ctx?.isElimination,
+    isGameSeven:        !!ctx?.isGameSeven,
+    contextLabel:       ctx?.contextLabel ?? null,
   };
 }

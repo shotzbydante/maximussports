@@ -10,6 +10,7 @@ import { fetchYesterdayFinals } from '../../nba/live/_normalize.js';
 import { getPicksForSlate, upsertPickResults } from '../../_lib/picksHistory.js';
 import { gradePicks } from '../../../src/features/mlb/picks/v2/settle.js';
 import { yesterdayET } from '../../_lib/dateWindows.js';
+import { buildFinalsIndex, resolveFinalForPick } from '../../_lib/finalsIndex.js';
 
 export default async function handler(req, res) {
   const t0 = Date.now();
@@ -32,19 +33,7 @@ export default async function handler(req, res) {
     }
 
     const finals = await fetchYesterdayFinals({ slateDate });
-    const finalsByGameId = new Map();
-    const finalsBySlugPair = new Map();
-    const slugPairKey = (a, b) => {
-      const ax = String(a || '').toLowerCase();
-      const bx = String(b || '').toLowerCase();
-      return ax < bx ? `${ax}|${bx}` : `${bx}|${ax}`;
-    };
-    for (const g of (finals || [])) {
-      if (g.gameId) finalsByGameId.set(String(g.gameId), g);
-      const aSlug = g?.teams?.away?.slug;
-      const hSlug = g?.teams?.home?.slug;
-      if (aSlug && hSlug) finalsBySlugPair.set(slugPairKey(aSlug, hSlug), g);
-    }
+    const index = buildFinalsIndex(finals);
 
     // ?force=1 re-grades every pick (including ones marked won/lost/push
     // already) — used by the heal-aggregate-only admin endpoint to repair
@@ -58,16 +47,26 @@ export default async function handler(req, res) {
       }
     }
 
-    // Augment the index: for any pick whose persisted game_id doesn't
-    // resolve to an ESPN final, fall back to matching by unordered team-
-    // slug pair on the slate. Repairs picks persisted with non-ESPN ids.
-    const augmented = new Map(finalsByGameId);
+    // Augment the index per-pick. resolveFinalForPick enforces cross-date
+    // safety: a slug-pair fallback that would resolve to a final on a
+    // different ET day than the pick's slate is rejected (defense against
+    // repeat playoff matchups grading against the wrong game).
+    const augmented = new Map(index.map);
+    const fallbackHits = [];
+    const crossDateRejections = [];
     for (const p of picks) {
       if (alreadyGraded.has(p.id)) continue;
       if (p.game_id && augmented.has(String(p.game_id))) continue;
-      const pairKey = slugPairKey(p.away_team_slug, p.home_team_slug);
-      const aliasFinal = finalsBySlugPair.get(pairKey);
-      if (aliasFinal) augmented.set(String(p.game_id || p.id), aliasFinal);
+      const r = resolveFinalForPick(p, index, { slateDate });
+      if (r.final) {
+        augmented.set(String(p.game_id || p.id), r.final);
+        if (r.via === 'slug_pair') fallbackHits.push({ pickId: p.id, espnGameId: r.final.gameId });
+      } else if (r.rejectedReason === 'cross_date_slug_pair') {
+        crossDateRejections.push({ pickId: p.id, ...r.detail });
+        console.warn(
+          `[cron/nba/settle-yesterday] cross-date fallback rejected: pick=${p.id} slate=${slateDate} finalDate=${r.detail?.finalDate} pair=${r.detail?.pair}`
+        );
+      }
     }
     const rows = gradePicks(picks, augmented, alreadyGraded);
     const matched = rows.filter(r => r.status !== 'pending').length;
@@ -81,7 +80,7 @@ export default async function handler(req, res) {
     console.log(
       `[cron/nba/settle-yesterday] slate=${slateDate} ` +
       `totalPicks=${picks.length} alreadyGraded=${alreadyGraded.size} ` +
-      `finalsSeen=${finalsByGameId.size} matched=${matched} unmatched=${unmatched} ` +
+      `finalsSeen=${index.map.size} matched=${matched} unmatched=${unmatched} ` +
       `written=${count}`
     );
 
@@ -90,7 +89,7 @@ export default async function handler(req, res) {
       slateDate, sport: 'nba',
       totalPicks: picks.length, totalRaw, runIds: runIds.size, droppedDuplicates,
       alreadyGraded: alreadyGraded.size,
-      finalsSeen: finalsByGameId.size,
+      finalsSeen: index.map.size,
       matched, unmatched, graded: count,
       durationMs: Date.now() - t0,
       error: error || null,

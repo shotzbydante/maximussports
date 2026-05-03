@@ -186,6 +186,14 @@
   font-size: 0.78rem; font-weight: 700; color: var(--color-text);
   letter-spacing: 0.02em;
 }
+.gameContext {
+  font-size: 0.62rem; font-weight: 600;
+  color: var(--color-text-muted);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  line-height: 1.2;
+}
+.gameContextFlag { color: #b34a4a; }
 .metaRow { display: flex; gap: 6px; align-items: center; }
 .cat {
   font-size: 0.5rem; font-weight: 700; letter-spacing: 0.08em;

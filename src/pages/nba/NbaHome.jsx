@@ -210,17 +210,32 @@ export default function NbaHome() {
       </section>
 
       <NbaPinnedTeamSection />
-      {/* Compact unified Model Performance preview — shows yesterday's
-          scorecard, category chips, and top 3 results, with a CTA to the
-          full scorecard. Replaces the duplicate trust-strip cards V2 used
-          to render in home mode (suppressed below). */}
-      <NbaScorecardReport variant="compact" insightsHref={buildPath('/insights')} />
-      <MlbMaximusPicksSectionV2
-        mode="home"
-        sport="nba"
-        endpoint="/api/nba/picks/built"
-        suppressPerformanceBlocks
-      />
+      {/* Premium hero shell — Maximus's Picks scorecard + full picks board
+          presented as one cohesive intelligence surface. Glass framing,
+          gold accent, integrated section transitions. */}
+      <section className={styles.picksHero} aria-label="Maximus's NBA Picks">
+        <div className={styles.picksHeroGlow} aria-hidden="true" />
+        <div className={styles.picksHeroInner}>
+          <header className={styles.picksHeroHeader}>
+            <span className={styles.picksHeroEyebrow}>Maximus&rsquo;s Picks</span>
+            <h2 className={styles.picksHeroTitle}>NBA Playoff Intelligence</h2>
+            <p className={styles.picksHeroSub}>
+              Model-graded picks, daily scorecard, and rolling performance &mdash; one surface, fully transparent.
+            </p>
+          </header>
+          {/* Daily scorecard — clear date + game context for repeat playoff matchups */}
+          <NbaScorecardReport variant="compact" insightsHref={buildPath('/insights')} />
+          {/* Today's full picks board — every published tier + coverage,
+              no preview truncation (homeShowAll). */}
+          <MlbMaximusPicksSectionV2
+            mode="home"
+            sport="nba"
+            endpoint="/api/nba/picks/built"
+            suppressPerformanceBlocks
+            homeShowAll
+          />
+        </div>
+      </section>
       <NbaFinalsWatch />
       <NbaIntelFeed />
     </div>

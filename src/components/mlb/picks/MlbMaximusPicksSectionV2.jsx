@@ -70,6 +70,10 @@ export default function MlbMaximusPicksSectionV2({
   // NbaScorecardReport) can own a single unified performance section
   // without duplication. MLB defaults to false → no regression.
   suppressPerformanceBlocks = false,
+  // NBA Home: surface every published pick + every coverage pick instead
+  // of the truncated home preview. MLB Home keeps the existing preview
+  // behavior (homeShowAll defaults to false). Only respected in mode='home'.
+  homeShowAll = false,
 }) {
   const {
     payload, loading,
@@ -188,19 +192,39 @@ export default function MlbMaximusPicksSectionV2({
         {/* 4. Today's Picks section header — framing copy lives HERE */}
         {totalPicks > 0 && <TodaysPicksHeader totalPicks={totalPicks} compact />}
 
-        {/* 5. Picks grid */}
+        {/* 5. Picks grid
+            homeShowAll=true (NBA Home): render every tier + every coverage
+            pick — no artificial truncation. Default home behavior is the
+            preview (tier2.slice(3), tier3.slice(2), coverage cap). */}
         {totalPicks > 0 ? (
           <>
             {tier1Cards.length > 0 && <TierSection tier="tier1" cards={tier1Cards} mode="home" />}
-            {tier2Cards.length > 0 && <TierSection tier="tier2" cards={tier2Cards.slice(0, 3)} mode="home" />}
-            {tier3Cards.length > 0 && <TierSection tier="tier3" cards={tier3Cards.slice(0, 2)} mode="home" />}
-            {needCoverageOnHome && (
+            {tier2Cards.length > 0 && (
               <TierSection
-                tier="coverage"
-                cards={coverageCards.slice(0, Math.max(0, MIN_COVERAGE - homePreviewCount))}
+                tier="tier2"
+                cards={homeShowAll ? tier2Cards : tier2Cards.slice(0, 3)}
                 mode="home"
               />
             )}
+            {tier3Cards.length > 0 && (
+              <TierSection
+                tier="tier3"
+                cards={homeShowAll ? tier3Cards : tier3Cards.slice(0, 2)}
+                mode="home"
+              />
+            )}
+            {homeShowAll
+              ? coverageCards.length > 0 && (
+                  <TierSection tier="coverage" cards={coverageCards} mode="home" />
+                )
+              : needCoverageOnHome && (
+                  <TierSection
+                    tier="coverage"
+                    cards={coverageCards.slice(0, Math.max(0, MIN_COVERAGE - homePreviewCount))}
+                    mode="home"
+                  />
+                )
+            }
           </>
         ) : (
           !topPick && <EmptyBoard />

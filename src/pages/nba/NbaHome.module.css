@@ -324,3 +324,80 @@
   .bracketPromoAssetWrap { width: 160px; height: 130px; align-self: center; }
   .bracketPromoAsset { width: 140px; }
 }
+
+/* ── Maximus's Picks Hero — premium glass shell ─────────────────────────
+   Wraps the daily scorecard + full picks board in one cohesive surface.
+   Same visual language as the Bracketology promo (deep navy gradient,
+   subtle gold accent, soft glow) but reads as a content surface, not a
+   CTA. */
+
+.picksHero {
+  position: relative;
+  margin: 28px 0 32px;
+  padding: 0;
+  overflow: hidden;
+  border-radius: var(--radius-lg, 14px);
+  background: linear-gradient(155deg, #0e1a2a 0%, #15263d 45%, #0f1e30 100%);
+  border: 1px solid rgba(201, 162, 74, 0.14);
+  box-shadow:
+    0 4px 24px rgba(0, 0, 0, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.picksHero::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(201, 162, 74, 0.30), transparent);
+  pointer-events: none;
+}
+
+.picksHeroGlow {
+  position: absolute;
+  top: -30%; left: -10%;
+  width: 60%; height: 160%;
+  background: radial-gradient(ellipse, rgba(201, 162, 74, 0.05) 0%, transparent 65%);
+  pointer-events: none;
+}
+
+.picksHeroInner {
+  position: relative;
+  padding: clamp(20px, 4vw, 32px) clamp(16px, 3vw, 28px);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.picksHeroHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-bottom: 4px;
+}
+
+.picksHeroEyebrow {
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: #C9A24A;
+}
+
+.picksHeroTitle {
+  font-size: clamp(1.25rem, 3.2vw, 1.65rem);
+  font-weight: 800;
+  letter-spacing: -0.015em;
+  color: #fff;
+  margin: 0;
+}
+
+.picksHeroSub {
+  font-size: 0.84rem;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.66);
+  margin: 0;
+  max-width: 60ch;
+}
+
+@media (max-width: 640px) {
+  .picksHeroInner { padding: 18px 12px; gap: 16px; }
+}

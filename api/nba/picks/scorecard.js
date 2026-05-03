@@ -23,6 +23,10 @@ import { yesterdayET } from '../../_lib/dateWindows.js';
 import { fetchYesterdayFinals } from '../live/_normalize.js';
 import { autoHealSlate } from '../../_lib/autoHealSlate.js';
 import { annotatePick } from '../../_lib/annotatePick.js';
+import { seriesContextForPick } from '../../_lib/seriesContextForPick.js';
+import { fetchScoreboard } from '../live/_normalize.js';
+import { etDateCompact } from '../../_lib/dateWindows.js';
+import { buildNbaPlayoffContext } from '../../../src/data/nba/playoffContext.js';
 
 /** Inclusive day delta between two YYYY-MM-DD strings (a - b in days). */
 function daysBetween(a, b) {
@@ -332,7 +336,55 @@ export default async function handler(req, res) {
         );
       }
 
-      picks = rawPicks.map(annotatePick);
+      // ── Series context (Phase 3 — repeat-matchup audit) ──────────────
+      // Pull a multi-day ESPN window so playoffContext can derive series
+      // state (game number, round, series score). Best-effort; on any
+      // failure we render rows without context and the UI falls back to
+      // date-only labels — never invents a game number.
+      let playoffContext = null;
+      try {
+        const days = [];
+        const baseTs = new Date(`${slateForPicks}T12:00:00`).getTime();
+        // Fetch the slate day + a 7-day trailing window so prior series
+        // games count toward the game-number derivation.
+        for (let i = 0; i <= 7; i++) {
+          const d = new Date(baseTs - i * 86400000);
+          days.push(etDateCompact(d.toISOString().slice(0, 10)));
+        }
+        const arrays = await Promise.all(days.map(dateStr => fetchScoreboard({ dateStr }).catch(() => [])));
+        const seen = new Set();
+        const windowGames = [];
+        for (const g of arrays.flat()) {
+          if (!g?.gameId || seen.has(g.gameId)) continue;
+          seen.add(g.gameId);
+          windowGames.push(g);
+        }
+        playoffContext = buildNbaPlayoffContext({ liveGames: [], windowGames });
+      } catch (e) {
+        diagnostics.seriesContextError = e?.message;
+      }
+
+      // For each pick, look up its corresponding final's startTime so we
+      // can resolve the playoff game number that matches THIS specific
+      // game (vs a prior or later game in the same series).
+      const finalsByGameId = new Map();
+      try {
+        const sameDayFinals = await fetchYesterdayFinals({ slateDate: slateForPicks });
+        for (const g of sameDayFinals || []) {
+          if (g?.gameId) finalsByGameId.set(String(g.gameId), g);
+        }
+      } catch { /* non-fatal */ }
+
+      picks = rawPicks.map(p => {
+        const final = p.game_id ? finalsByGameId.get(String(p.game_id)) : null;
+        const gameStartTimeISO = final?.startTime || p.start_time || null;
+        const seriesContext = seriesContextForPick({
+          pick: p,
+          gameStartTimeISO,
+          playoffContext,
+        });
+        return annotatePick(p, { seriesContext });
+      });
 
       // Aggregate by category for stat chips
       const buckets = {

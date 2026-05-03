@@ -52,3 +52,18 @@ export function daysAgoFromYesterdayET(n, now = new Date()) {
 export function etDateCompact(ymd) {
   return (ymd || '').replace(/-/g, '');
 }
+
+/**
+ * Resolve any ISO timestamp (or YYYY-MM-DD string) to the ET calendar day.
+ * Returns 'YYYY-MM-DD' or null when the input can't be parsed. Used by the
+ * settlement pipeline to verify that a fallback final actually belongs to
+ * the same slate as the pick — defense against cross-date team-pair
+ * collisions in repeat playoff matchups.
+ */
+export function etDayFromISO(iso) {
+  if (!iso) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) return iso;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return formatET(d);
+}

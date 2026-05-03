@@ -132,10 +132,24 @@ function PickRow({ pick }) {
            : pick.marketType === 'runline' || pick.marketType === 'spread' ? 'ATS'
            : pick.marketType === 'total' ? 'Total'
            : pick.marketType;
+  // Single-line context label — date + round + game number when known.
+  // Falls back to date-only when no playoff context is available, never
+  // invents a game number.
+  const contextLabel = pick.contextLabel
+    || pick.gameDateLabel
+    || (pick.slateDate ? formatGameDate(pick.slateDate) : null);
   return (
     <div className={`${styles.row} ${styles[`row_${pick.status}`] || ''}`}>
       <div className={styles.rowLeft}>
         <span className={styles.matchup}>{pick.matchup}</span>
+        {contextLabel && (
+          <span className={styles.gameContext} title={pick.seriesScoreSummary || undefined}>
+            {contextLabel}
+            {pick.isGameSeven && pick.gameNumber !== 7 && (
+              <span className={styles.gameContextFlag}> · Game 7</span>
+            )}
+          </span>
+        )}
         <span className={styles.metaRow}>
           <span className={styles.cat}>{cat}</span>
           {pick.convictionTier && (
@@ -149,7 +163,7 @@ function PickRow({ pick }) {
         {pick.finalScore && <span className={styles.finalScore}>{pick.finalScore}</span>}
         {pick.resultReason && <span className={styles.reason}>{pick.resultReason}</span>}
         {!pick.finalScore && pick.status === 'pending' && (
-          <span className={styles.reason}>Awaiting tipoff or final.</span>
+          <span className={styles.reason}>{pendingReasonFor(pick)}</span>
         )}
       </div>
 
@@ -158,6 +172,34 @@ function PickRow({ pick }) {
       </div>
     </div>
   );
+}
+
+function formatGameDate(ymd) {
+  if (!ymd) return null;
+  try {
+    const d = new Date(`${ymd}T12:00:00`);
+    return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  } catch { return ymd; }
+}
+
+/**
+ * Pending-pick copy that uses series context when available so repeat
+ * playoff matchups read clearly:
+ *   "Game 7 awaiting tipoff."
+ *   "Game 5 awaiting settlement."  (when slate date is in the past)
+ *   "Awaiting tipoff or final."    (fallback)
+ */
+function pendingReasonFor(pick) {
+  const gn = pick.gameNumber;
+  const today = new Date().toISOString().slice(0, 10);
+  const slate = pick.slateDate || pick.gameDate || null;
+  const isPast = slate && slate < today;
+  if (gn) {
+    return isPast
+      ? `Game ${gn} awaiting settlement.`
+      : `Game ${gn} awaiting tipoff.`;
+  }
+  return isPast ? 'Awaiting settlement.' : 'Awaiting tipoff or final.';
 }
 
 export default function NbaScorecardReport({ dateOverride, variant = 'full', insightsHref = '/nba/insights' } = {}) {

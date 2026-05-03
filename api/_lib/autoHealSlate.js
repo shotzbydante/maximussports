@@ -31,6 +31,7 @@
 import { getPicksForSlate, upsertPickResults, upsertScorecard } from './picksHistory.js';
 import { gradePicks } from '../../src/features/mlb/picks/v2/settle.js';
 import { buildScorecard } from '../../src/features/mlb/picks/v2/scorecard.js';
+import { buildFinalsIndex, resolveFinalForPick, slugPairKey } from './finalsIndex.js';
 
 const DEFAULT_TIMEOUT_MS = 4500;
 
@@ -88,22 +89,12 @@ export async function autoHealSlate({
         return;
       }
       // Build a primary index by ESPN game_id and a secondary index by
-      // unordered team-slug pair on the slate. The secondary index repairs
-      // legacy picks whose persisted game_id is an Odds-API id (or any non-
-      // ESPN id) so we don't lose graded data over an id format mismatch.
-      const finalsByGameId = new Map();
-      const finalsBySlugPair = new Map();
-      const slugPairKey = (a, b) => {
-        const ax = String(a || '').toLowerCase();
-        const bx = String(b || '').toLowerCase();
-        return ax < bx ? `${ax}|${bx}` : `${bx}|${ax}`;
-      };
-      for (const g of finalsArr) {
-        if (g?.gameId) finalsByGameId.set(String(g.gameId), g);
-        const aSlug = g?.teams?.away?.slug;
-        const hSlug = g?.teams?.home?.slug;
-        if (aSlug && hSlug) finalsBySlugPair.set(slugPairKey(aSlug, hSlug), g);
-      }
+      // unordered team-slug pair on the slate. resolveFinalForPick (below)
+      // ENFORCES cross-date safety on slug-pair fallbacks — a final whose
+      // ET day differs from the pick's slate_date is rejected so repeat
+      // playoff matchups can never silently cross-grade.
+      const index = buildFinalsIndex(finalsArr);
+      const finalsByGameId = index.map;
 
       // 3. Skip picks already graded — only fix what's pending.
       // pick_results joins via primary key — PostgREST may return object OR array.
@@ -121,11 +112,12 @@ export async function autoHealSlate({
       // Build an augmented map keyed by each pick's persisted game_id so
       // gradePicks() resolves through fallbacks transparently. For each
       // unmatched pick, try the slug-pair index; if found, alias the
-      // pick.game_id → final in the map gradePicks consults. Track
-      // diagnostics for any pick we can't match by either path.
+      // pick.game_id → final in the map gradePicks consults. Cross-date
+      // slug-pair hits are explicitly rejected (see resolveFinalForPick).
       const augmented = new Map(finalsByGameId);
       const matchAttempts = [];
       const unmatchedPicks = [];
+      const crossDateRejections = [];
       for (const p of picks) {
         if (alreadyGraded.has(p.id)) continue;
         if (p.game_id && augmented.has(String(p.game_id))) {
@@ -133,13 +125,22 @@ export async function autoHealSlate({
           continue;
         }
         const pairKey = slugPairKey(p.away_team_slug, p.home_team_slug);
-        const aliasFinal = finalsBySlugPair.get(pairKey);
-        if (aliasFinal) {
-          augmented.set(String(p.game_id || p.id), aliasFinal);
+        const r = resolveFinalForPick(p, index, { slateDate });
+        if (r.final) {
+          augmented.set(String(p.game_id || p.id), r.final);
           matchAttempts.push({
-            pickId: p.id, via: 'slug_pair',
-            pickGameId: p.game_id, espnGameId: aliasFinal.gameId,
+            pickId: p.id, via: r.via,
+            pickGameId: p.game_id, espnGameId: r.final.gameId,
             pair: pairKey,
+          });
+        } else if (r.rejectedReason === 'cross_date_slug_pair') {
+          crossDateRejections.push({ pickId: p.id, ...r.detail });
+          unmatchedPicks.push({
+            pickId: p.id,
+            pickGameId: p.game_id,
+            matchup: `${p.away_team_slug || '?'}@${p.home_team_slug || '?'}`,
+            pair: pairKey,
+            reason: `cross-date slug-pair rejected (slate=${r.detail?.pickSlateDate} final=${r.detail?.finalDate})`,
           });
         } else {
           unmatchedPicks.push({
@@ -153,6 +154,7 @@ export async function autoHealSlate({
           });
         }
       }
+      out.crossDateRejections = crossDateRejections;
       out.matchAttempts = matchAttempts;
       out.unmatchedPickSummaries = unmatchedPicks;
       out.unmatchedPickIds = unmatchedPicks.map(u => u.pickId);
