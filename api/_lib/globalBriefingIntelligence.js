@@ -45,6 +45,133 @@ function sortedOddsArray(odds) {
 }
 
 // ══════════════════════════════════════════════════════════════
+// 0. NARRATIVE SANITIZATION (result-aware)
+// ══════════════════════════════════════════════════════════════
+
+/**
+ * Map of slug → array of common name variants used in narrative text.
+ * Used by sanitizeNbaNarrativeBullets to detect team mentions in bullets.
+ */
+const NBA_TEAM_NAMES = {
+  bos: ['celtics', 'boston'],
+  nyk: ['knicks', 'new york'],
+  phi: ['76ers', 'sixers', 'philadelphia'],
+  mil: ['bucks', 'milwaukee'],
+  mia: ['heat', 'miami'],
+  ind: ['pacers', 'indiana'],
+  cle: ['cavaliers', 'cavs', 'cleveland'],
+  orl: ['magic', 'orlando'],
+  atl: ['hawks', 'atlanta'],
+  chi: ['bulls', 'chicago'],
+  det: ['pistons', 'detroit'],
+  cha: ['hornets', 'charlotte'],
+  was: ['wizards', 'washington'],
+  tor: ['raptors', 'toronto'],
+  bkn: ['nets', 'brooklyn'],
+  okc: ['thunder', 'oklahoma city', 'oklahoma'],
+  min: ['timberwolves', 'wolves', 'minnesota'],
+  den: ['nuggets', 'denver'],
+  lal: ['lakers', 'los angeles lakers'],
+  gsw: ['warriors', 'golden state'],
+  dal: ['mavericks', 'mavs', 'dallas'],
+  lac: ['clippers', 'la clippers'],
+  hou: ['rockets', 'houston'],
+  mem: ['grizzlies', 'memphis'],
+  sas: ['spurs', 'san antonio'],
+  nop: ['pelicans', 'new orleans'],
+  sac: ['kings', 'sacramento'],
+  phx: ['suns', 'phoenix'],
+  por: ['trail blazers', 'blazers', 'portland'],
+  uta: ['jazz', 'utah'],
+};
+
+function findTeamMentionInBullet(bullet) {
+  const txt = lc(bullet);
+  for (const [slug, names] of Object.entries(NBA_TEAM_NAMES)) {
+    for (const n of names) {
+      if (txt.includes(n)) return slug;
+    }
+  }
+  return null;
+}
+
+function bulletReferencesGame7Pregame(bullet) {
+  const txt = lc(bullet);
+  // Stale pregame phrasing about Game 7 / forcing / pushing series
+  return /(forc(e|es|ed|ing)\s+(a\s+)?(decisive\s+)?game\s*7|push(es|ed|ing)?\s+(to\s+)?game\s*7|set(s|ting)?\s+up\s+game\s*7|stav(es|ed|ing|e)\s+off\s+elimination|stay(s|ing)?\s+alive\s+for\s+game\s*7|heading\s+into\s+game\s*7|riding\s+high\s+after\s+forcing)/i.test(txt);
+}
+
+/**
+ * Build a "result-aware" replacement bullet for a finalized Game 7 / decisive game.
+ * Returns a deterministic short sentence; never fabricates.
+ */
+function decisiveResultBullet(result, slug) {
+  const winner = result.away.score > result.home.score ? result.away : result.home;
+  const loser = result.away.score > result.home.score ? result.home : result.away;
+  const wAbb = (winner.abbrev || winner.slug || '').toUpperCase();
+  const lAbb = (loser.abbrev || loser.slug || '').toUpperCase();
+  if (!wAbb || !lAbb) return null;
+  // Use seriesNote if present and informative
+  if (result.seriesNote && /advance|elimin|win|series/i.test(result.seriesNote)) {
+    return `${wAbb} closed out ${lAbb} ${winner.score}-${loser.score}. ${result.seriesNote}`;
+  }
+  return `${wAbb} won the decisive game over ${lAbb} ${winner.score}-${loser.score}.`;
+}
+
+/**
+ * Remove or rewrite NBA narrative bullets that contradict yesterday's final results.
+ *
+ * Specifically: if a bullet says "X forced Game 7" but X already played Game 7
+ * (and the result is final), the pregame copy is stale. Either rewrite to
+ * reflect the actual outcome or remove the bullet entirely.
+ *
+ * Pure deterministic — no LLM, no fabrication. Returns:
+ *   { bullets: string[], removedCount: number, rewrittenCount: number }
+ *
+ * @param {object} args
+ * @param {string[]} args.bullets — narrative sentences after splitting
+ * @param {Array} args.yesterdayResults — validated result rows (with seriesNote if any)
+ */
+export function sanitizeNbaNarrativeBullets({ bullets = [], yesterdayResults = [] } = {}) {
+  if (!bullets.length) return { bullets: [], removedCount: 0, rewrittenCount: 0 };
+  if (!yesterdayResults.length) return { bullets, removedCount: 0, rewrittenCount: 0 };
+
+  // Build a quick map: slug → result it played in yesterday
+  const slugToResult = new Map();
+  for (const r of yesterdayResults) {
+    if (r.away?.slug) slugToResult.set(r.away.slug.toLowerCase(), r);
+    if (r.home?.slug) slugToResult.set(r.home.slug.toLowerCase(), r);
+  }
+
+  const out = [];
+  let removed = 0;
+  let rewritten = 0;
+  for (const bullet of bullets) {
+    if (!bulletReferencesGame7Pregame(bullet)) {
+      out.push(bullet);
+      continue;
+    }
+    // Bullet talks about forcing/pushing Game 7 — check if a referenced team
+    // already played a final game yesterday.
+    const slug = findTeamMentionInBullet(bullet);
+    if (!slug || !slugToResult.has(slug)) {
+      // Can't safely rewrite — drop the stale bullet
+      removed++;
+      continue;
+    }
+    const result = slugToResult.get(slug);
+    const rewrite = decisiveResultBullet(result, slug);
+    if (rewrite) {
+      out.push(rewrite);
+      rewritten++;
+    } else {
+      removed++;
+    }
+  }
+  return { bullets: out, removedCount: removed, rewrittenCount: rewritten };
+}
+
+// ══════════════════════════════════════════════════════════════
 // 1. CROSS-SPORT HOOK
 // ══════════════════════════════════════════════════════════════
 
@@ -115,21 +242,37 @@ export function buildResultInsight(result, ctx = {}) {
   const narrative = lc(ctx.narrative);
 
   if (sport === 'nba') {
-    // Series context wins (only use what ESPN actually returned)
+    const winAbb = winner.abbrev || winner.slug?.toUpperCase() || '';
+    // Series context wins — use what ESPN actually returned
     const series = lc(result.seriesNote || '');
     if (series.includes('advance') || series.includes('eliminat')) {
-      return `${winner.abbrev || winner.slug?.toUpperCase() || ''} advance`.trim();
+      return `${winAbb} advances`.trim();
     }
-    if (series.includes('game 7') || series.includes('force')) {
+    if (series.includes('game 7')) {
+      // Game 7 final = series-clinching result
+      return `${winAbb} wins Game 7`.trim();
+    }
+    if (series.includes('force')) {
       return 'Series goes the distance';
     }
     if (series && series !== 'final') {
       // Use the series note directly if ESPN provided one (e.g. "OKC leads 3-2")
       return series.charAt(0).toUpperCase() + series.slice(1);
     }
-    // No series context — generic playoff phrasing
+    // No series context — narrative-aware fallback
+    const text = narrative;
+    if (winnerSlug && text) {
+      // If narrative mentions Game 7 / decisive context for this winner,
+      // it's safe to call the result decisive (the narrative confirms it).
+      const winNames = NBA_TEAM_NAMES[winnerSlug] || [];
+      const namedInNarrative = winNames.some(n => text.includes(n));
+      const game7Context = /game\s*7|elimination|decisive/i.test(text);
+      if (namedInNarrative && game7Context) {
+        return `${winAbb} takes the decisive playoff result`;
+      }
+    }
     if (winnerSlug && topOdds.includes(winnerSlug)) {
-      return `${winner.abbrev || winner.slug?.toUpperCase()} keeps title-side pressure`;
+      return `${winAbb} keeps title-side pressure`;
     }
     return 'Adds pressure to the playoff race';
   }
