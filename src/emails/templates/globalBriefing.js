@@ -32,6 +32,10 @@ import {
   stripInlineEmoji, normalizeSpacing, cleanNarrativeText,
   mlbTeamLogoImg, nbaTeamLogoImg, renderPartnerModule,
 } from '../MlbEmailShell.js';
+import {
+  buildCrossSportHook, buildResultInsight,
+  buildNbaModelWatch, buildOddsMarketRead,
+} from '../../../api/_lib/globalBriefingIntelligence.js';
 
 const F = "'DM Sans',Arial,Helvetica,sans-serif";
 const RED = '#c41e3a';
@@ -155,12 +159,13 @@ function isValidResultRow(g) {
   );
 }
 
-/** Render a results row for a single completed game */
-function resultRow(g, logoFn, isLast) {
+/** Render a results row for a single completed game with optional insight */
+function resultRow(g, logoFn, isLast, insight) {
   const aLogo = logoFn({ slug: g.away.slug }, 16);
   const hLogo = logoFn({ slug: g.home.slug }, 16);
   const aWin = g.away.score > g.home.score;
   const hWin = g.home.score > g.away.score;
+  const insightText = insight || g.seriesNote || g.statusText || 'Final';
   return `
   <tr>
     <td style="padding:6px 0${isLast ? '' : `;border-bottom:1px solid ${ROW_BORDER}`};font-family:${F};">
@@ -173,7 +178,9 @@ function resultRow(g, logoFn, isLast) {
           <td style="width:24px;vertical-align:middle;padding-left:6px;">${hLogo}</td>
           <td style="font-size:13px;font-weight:${hWin ? '800' : '500'};color:${NAVY};vertical-align:middle;width:42px;padding-left:6px;">${g.home.abbrev}</td>
           <td style="font-size:13px;font-weight:${hWin ? '800' : '500'};color:${NAVY};vertical-align:middle;width:30px;text-align:right;padding-right:8px;">${g.home.score}</td>
-          <td align="right" style="font-size:10px;color:${DIM};vertical-align:middle;font-family:${F};">${g.seriesNote || g.statusText || 'Final'}</td>
+        </tr>
+        <tr>
+          <td colspan="7" style="padding:1px 0 0 30px;font-size:10px;color:${DIM};font-family:${F};line-height:13px;">→ ${normalizeSpacing(stripInlineEmoji(insightText))}</td>
         </tr>
       </table>
     </td>
@@ -343,9 +350,13 @@ ${sectionPill('\u{1F3C0} NBA DAILY INTELLIGENCE', RED)}
 <tr><td style="padding:6px 24px 12px;">${bullets}</td></tr>`);
   }
 
-  // 2. Yesterday's NBA Results — defensive, only valid rows
+  // 2. Yesterday's NBA Results — defensive, only valid rows, with insights
   if (yesterday.length > 0) {
-    const rows = yesterday.slice(0, 5).map((g, i, arr) => resultRow(g, nbaTeamLogoImg, i === arr.length - 1)).join('');
+    const topNbaOddsSlugs = Object.keys(champOdds).slice(0, 5);
+    const rows = yesterday.slice(0, 5).map((g, i, arr) => {
+      const insight = buildResultInsight(g, { sport: 'nba', topOddsSlugs: topNbaOddsSlugs, narrative });
+      return resultRow(g, nbaTeamLogoImg, i === arr.length - 1, insight);
+    }).join('');
     sections.push(sectionCard({
       label: "YESTERDAY’S NBA RESULTS",
       body: `<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">${rows}</table>`,
@@ -360,16 +371,16 @@ ${sectionPill('\u{1F3C0} NBA DAILY INTELLIGENCE', RED)}
     }));
   }
 
-  // 3. NBA Picks Scorecard
+  // 3. NBA Picks Scorecard (compact placeholder until backend ships)
   sections.push(sectionCard({
     label: 'NBA PICKS SCORECARD',
     body: scorecard
       ? renderScorecard(scorecard)
-      : `<p style="margin:0;font-size:12px;color:${DIM};font-style:italic;font-family:${F};">NBA scorecard will appear once playoff picks begin settling.</p>`,
+      : `<p style="margin:0;font-size:12px;color:${DIM};font-style:italic;font-family:${F};">NBA scorecard activates once official playoff model picks begin settling.</p>`,
     accent: RED,
   }));
 
-  // 4. Today's NBA Picks (graceful fallback when no canonical NBA picks board exists)
+  // 4. Today's NBA Picks OR NBA Model Watch (deterministic from existing data)
   const picksHtml = renderTodaysPicks(picksBoard, 3);
   if (picksHtml) {
     sections.push(sectionCard({
@@ -378,19 +389,53 @@ ${sectionPill('\u{1F3C0} NBA DAILY INTELLIGENCE', RED)}
       accent: RED,
     }));
   } else {
-    sections.push(sectionCard({
-      label: "TODAY’S NBA PICKS",
-      body: `<p style="margin:0;font-size:12px;color:${DIM};font-style:italic;font-family:${F};">NBA playoff picks are being prepared. Check the app for live board updates.</p>`,
-      accent: RED,
-    }));
+    // No official picks backend — render Model Watch from existing odds + results
+    const watch = buildNbaModelWatch({
+      nbaChampOdds: champOdds,
+      nbaStandings: data.nbaStandings,
+      nbaYesterdayResults: yesterday,
+      nbaNarrative: narrative,
+    });
+    if (watch.length > 0) {
+      const rows = watch.map((w, i) => `
+        <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;${i === watch.length - 1 ? '' : `border-bottom:1px solid ${ROW_BORDER};`}">
+          <tr><td style="padding:8px 0;font-family:${F};">
+            <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">
+              <tr>
+                <td style="width:24px;vertical-align:middle;padding-right:8px;">${nbaTeamLogoImg({ slug: w.slug }, 18)}</td>
+                <td style="font-size:13px;font-weight:800;color:${NAVY};vertical-align:middle;width:48px;">${w.label}</td>
+                <td style="font-size:12px;color:${BODY};vertical-align:middle;line-height:16px;">${w.signal}</td>
+                <td align="right" style="vertical-align:middle;">
+                  <span style="display:inline-block;font-size:9px;font-weight:700;color:${RED};background:#fef2f2;border-radius:3px;padding:2px 6px;letter-spacing:0.04em;text-transform:uppercase;font-family:${F};">${w.kind === 'anchor' ? 'Anchor' : w.kind === 'riser' ? 'Riser' : 'Lean'}</span>
+                </td>
+              </tr>
+            </table>
+          </td></tr>
+        </table>`).join('');
+      sections.push(sectionCard({
+        label: "TODAY’S NBA MODEL WATCH",
+        body: `${rows}<p style="margin:8px 0 0;font-size:10px;color:${DIM};font-style:italic;font-family:${F};">Model watch — derived from current championship pricing and recent results. Not official picks.</p>`,
+        accent: RED,
+      }));
+    } else {
+      sections.push(sectionCard({
+        label: "TODAY’S NBA MODEL WATCH",
+        body: `<p style="margin:0;font-size:12px;color:${DIM};font-style:italic;font-family:${F};">NBA playoff model watch updates as title odds and matchup data refresh.</p>`,
+        accent: RED,
+      }));
+    }
   }
 
-  // 5. NBA Championship Odds
+  // 5. NBA Championship Odds (with market read above the list)
   const oddsHtml = renderChampOddsCompact(champOdds, NBA_TEAM_INFO, nbaTeamLogoImg, 5);
   if (oddsHtml) {
+    const marketRead = buildOddsMarketRead(champOdds, { sport: 'nba', teamInfo: NBA_TEAM_INFO });
+    const marketReadHtml = marketRead
+      ? `<p style="margin:0 0 10px;font-size:12px;line-height:17px;color:${BODY};font-family:${F};">${normalizeSpacing(stripInlineEmoji(marketRead))}</p>`
+      : '';
     sections.push(sectionCard({
       label: 'NBA CHAMPIONSHIP ODDS',
-      body: oddsHtml,
+      body: marketReadHtml + oddsHtml,
       accent: RED,
     }));
   }
@@ -427,9 +472,13 @@ ${sectionPill('⚾ MLB DAILY INTELLIGENCE', BLUE)}
 <tr><td style="padding:6px 24px 12px;">${bullets}</td></tr>`);
   }
 
-  // 2. Yesterday's MLB Results — defensive
+  // 2. Yesterday's MLB Results — defensive, with insights
   if (yesterday.length > 0) {
-    const rows = yesterday.slice(0, 5).map((g, i, arr) => resultRow(g, mlbTeamLogoImg, i === arr.length - 1)).join('');
+    const topMlbOddsSlugs = Object.keys(champOdds).slice(0, 5);
+    const rows = yesterday.slice(0, 5).map((g, i, arr) => {
+      const insight = buildResultInsight(g, { sport: 'mlb', topOddsSlugs: topMlbOddsSlugs, narrative });
+      return resultRow(g, mlbTeamLogoImg, i === arr.length - 1, insight);
+    }).join('');
     sections.push(sectionCard({
       label: "YESTERDAY’S MLB RESULTS",
       body: `<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">${rows}</table>`,
@@ -462,12 +511,16 @@ ${sectionPill('⚾ MLB DAILY INTELLIGENCE', BLUE)}
     }));
   }
 
-  // 5. World Series Odds (compact)
+  // 5. World Series Odds (with market read)
   const oddsHtml = renderChampOddsCompact(champOdds, MLB_TEAM_INFO, mlbTeamLogoImg, 5);
   if (oddsHtml) {
+    const marketRead = buildOddsMarketRead(champOdds, { sport: 'mlb', teamInfo: MLB_TEAM_INFO });
+    const marketReadHtml = marketRead
+      ? `<p style="margin:0 0 10px;font-size:12px;line-height:17px;color:${BODY};font-family:${F};">${normalizeSpacing(stripInlineEmoji(marketRead))}</p>`
+      : '';
     sections.push(sectionCard({
       label: 'WORLD SERIES ODDS',
-      body: oddsHtml,
+      body: marketReadHtml + oddsHtml,
       accent: BLUE,
     }));
   }
@@ -490,31 +543,39 @@ export function getSubject() {
 }
 
 export function renderHTML(data = {}) {
-  const { displayName, dateCtx } = data;
+  const { displayName, dateCtx, mlbData, nbaData } = data;
   const greetingName = (displayName ? displayName.split(' ')[0] : null) || 'there';
-  // Prefer canonical date context (product TZ) over raw new Date(). This keeps
-  // near-midnight sends from showing the wrong date.
   const today = dateCtx?.briefingDateLabel
     || new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'America/Los_Angeles' });
-  // Part-of-day in product TZ for greeting tone
   const ptHourFmt = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Los_Angeles', hour: 'numeric', hour12: false });
   const ptHour = parseInt(ptHourFmt.format(new Date()), 10);
   const partOfDay = ptHour < 12 ? 'morning' : ptHour < 17 ? 'afternoon' : 'evening';
+
+  // Cross-sport intelligence hook (one synthesis line)
+  const crossSportHook = buildCrossSportHook({ nbaData, mlbData });
 
   // Build NBA-first, then MLB
   const nba = buildNbaBlock(data);
   const mlb = buildMlbBlock(data);
 
-  // Diagnostic
+  // Diagnostic — sections + intelligence-layer signals
+  const nbaWatch = !data.nbaPicksBoard ? buildNbaModelWatch({
+    nbaChampOdds: data.nbaChampOdds, nbaStandings: data.nbaStandings,
+    nbaYesterdayResults: data.nbaYesterdayResults, nbaNarrative: nbaData?.narrativeParagraph,
+  }) : [];
   console.log('[globalBriefing] sections:', {
     nba: nba.hasContent,
     mlb: mlb.hasContent,
+    crossSportHook: !!crossSportHook,
     nbaResults: (data.nbaYesterdayResults || []).length,
     nbaPicks: !!data.nbaPicksBoard,
+    nbaModelWatch: nbaWatch.length,
+    nbaOddsMarketRead: Object.keys(data.nbaChampOdds || {}).length > 0,
     nbaOdds: Object.keys(data.nbaChampOdds || {}).length,
     nbaNarrative: !!(data.nbaData?.narrativeParagraph),
     mlbResults: (data.mlbYesterdayResults || []).length,
     mlbPicks: !!(data.mlbData?.picksBoard),
+    mlbOddsMarketRead: Object.keys(data.champOdds || {}).length > 0,
     mlbOdds: Object.keys(data.champOdds || {}).length,
     mlbNarrative: !!(data.mlbData?.narrativeParagraph),
   });
@@ -535,11 +596,22 @@ export function renderHTML(data = {}) {
     mlb.hasContent ? mlb.html : '',
   ].filter(Boolean).join('\n' + divider() + '\n');
 
+  const hookBlock = (hasAnyContent && crossSportHook) ? `
+<tr><td style="padding:0 24px 14px;">
+  <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:#fef2f2;border-left:3px solid ${RED};border-radius:4px;border-collapse:collapse;">
+    <tr><td style="padding:10px 14px;">
+      <span style="font-size:10px;font-weight:700;color:${RED};letter-spacing:0.08em;text-transform:uppercase;font-family:${F};">TODAY’S EDGE</span>
+      <p style="margin:3px 0 0;font-size:13px;line-height:18px;color:${NAVY};font-family:${F};">${normalizeSpacing(stripInlineEmoji(crossSportHook))}</p>
+    </td></tr>
+  </table>
+</td></tr>` : '';
+
   const content = `
 ${heroBlock({ line: 'Your daily cross-sport intelligence briefing.', sublabel: today })}
 <tr><td style="padding:8px 24px 14px;">
   <p style="margin:0;font-size:14px;color:#4b5563;line-height:1.55;font-family:${F};">Good ${partOfDay}, ${greetingName}. NBA Playoffs lead today’s board, with MLB right behind.</p>
 </td></tr>
+${hookBlock}
 ${compactDivider()}
 ${hasAnyContent ? sportBlocks : emptyState}
 ${hasAnyContent ? divider() : ''}
