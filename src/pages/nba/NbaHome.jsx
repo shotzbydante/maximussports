@@ -14,6 +14,7 @@ import MlbMaximusPicksSectionV2 from '../../components/mlb/picks/MlbMaximusPicks
 import NbaScorecardReport from '../../components/nba/picks/NbaScorecardReport';
 import NbaIntelFeed from '../../components/nba/NbaIntelFeed';
 import NbaFinalsWatch from '../../components/nba/NbaFinalsWatch';
+import SEOHead, { buildOgImageUrl } from '../../components/seo/SEOHead';
 import styles from './NbaHome.module.css';
 
 const SPLASH_KEY = '__maximus_nba_splash_shown';
@@ -115,8 +116,35 @@ export default function NbaHome() {
 
   if (showSplash) return <NbaLoading />;
 
+  // SEO metadata for /nba — discoverability for NBA playoff betting
+  // searches. Title + description name the markets explicitly; canonical
+  // is the unprefixed /nba route; OG image is generated dynamically. The
+  // copy is intentionally product-led (not "best picks" / "guaranteed").
+  const seoTitle = 'NBA Playoff Betting Picks, Predictions, Spreads & Totals';
+  const seoDescription =
+    'Model-graded NBA playoff betting picks, moneyline predictions, spread picks, and over/under insights with daily scorecards and transparent performance tracking from Maximus Sports.';
+  const seoOgImage = buildOgImageUrl({
+    title: 'NBA Playoff Picks',
+    subtitle: 'Model-graded predictions across moneylines, spreads, and totals',
+    type: 'Sports Intelligence',
+  });
+  const seoJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'WebPage',
+    name: seoTitle,
+    description: seoDescription,
+    url: 'https://maximussports.ai/nba',
+  };
+
   return (
     <div className={styles.page}>
+      <SEOHead
+        title={seoTitle}
+        description={seoDescription}
+        canonicalPath="/nba"
+        ogImage={seoOgImage}
+        jsonLd={seoJsonLd}
+      />
       <header className={styles.pageIntro}>
         <span className={styles.pageIntroDate}>
           {new Date().toLocaleDateString('en-US', {
@@ -210,25 +238,25 @@ export default function NbaHome() {
       </section>
 
       <NbaPinnedTeamSection />
-      {/* Premium hero shell — Maximus's Picks scorecard + full picks board
-          presented as one cohesive intelligence surface. Glass framing,
-          gold accent, integrated section transitions. */}
+      {/* Premium hero shell — Maximus's Picks board on top (the engaging
+          entry surface), daily scorecard + rolling performance underneath.
+          Glass framing, gold accent, intentional spacing between the two
+          peer surfaces. */}
       <section className={styles.picksHero} aria-label="Maximus's NBA Picks">
         <div className={styles.picksHeroGlow} aria-hidden="true" />
         <div className={styles.picksHeroInner}>
           <header className={styles.picksHeroHeader}>
             <span className={styles.picksHeroEyebrow}>Maximus&rsquo;s Picks</span>
-            <h2 className={styles.picksHeroTitle}>NBA Playoff Intelligence</h2>
+            <h1 className={styles.picksHeroTitle}>NBA Playoff Intelligence</h1>
             <p className={styles.picksHeroSub}>
-              Model-graded picks, daily scorecard, and rolling performance &mdash; one surface, fully transparent.
+              Model-graded NBA playoff betting picks across moneylines, spreads, and totals.
+              Each slate ships with conviction scoring, market context, and a transparent daily
+              scorecard so you can track the model over time.
             </p>
           </header>
-          {/* Daily scorecard — embedded variant. Renders the SAME content
-              as /nba/insights (no truncation, full row list, rolling perf,
-              grading explainer); only chrome adapts to the dark hero. */}
-          <NbaScorecardReport variant="embedded" insightsHref={buildPath('/insights')} />
-          {/* Today's full picks board — every published tier + coverage,
-              no preview truncation (homeShowAll). */}
+          {/* Today's full picks board — moved above scorecard. Every
+              published tier + coverage, no preview truncation
+              (homeShowAll). */}
           <MlbMaximusPicksSectionV2
             mode="home"
             sport="nba"
@@ -237,6 +265,13 @@ export default function NbaHome() {
             homeShowAll
             darkSurface
           />
+          {/* Daily scorecard — embedded variant, rendered second.
+              Identical content to /nba/insights (no truncation), chrome
+              adapts to the dark hero. */}
+          <NbaScorecardReport variant="embedded" insightsHref={buildPath('/insights')} />
+          <p className={styles.picksHeroDisclaimer}>
+            For entertainment only. Please bet responsibly. 21+.
+          </p>
         </div>
       </section>
       <NbaFinalsWatch />

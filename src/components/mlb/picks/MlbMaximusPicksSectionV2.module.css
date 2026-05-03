@@ -231,6 +231,55 @@
 .root[data-dark-surface='true'] .emptyBoardTitle { color: #fff; }
 .root[data-dark-surface='true'] .emptyBoardDesc  { color: rgba(232, 237, 246, 0.66); }
 
+/* ── v6: peer-surface glass shell for the picks section ──
+   Wraps the entire picks board in its own translucent navy gradient so
+   it reads as a peer surface to the embedded scorecard, not a child of
+   the parent .picksHero. Soft drop shadow + 1px gold accent strip
+   matches the scorecard chrome rhythm. */
+.root[data-dark-surface='true'].modeHome {
+  position: relative;
+  padding: clamp(18px, 3vw, 28px) clamp(16px, 3vw, 26px);
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045) 0%, rgba(255, 255, 255, 0.015) 100%),
+    rgba(15, 30, 48, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow:
+    0 6px 28px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(10px) saturate(1.1);
+  -webkit-backdrop-filter: blur(10px) saturate(1.1);
+  overflow: hidden;
+}
+.root[data-dark-surface='true'].modeHome::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(201, 162, 74, 0.55), transparent);
+  pointer-events: none;
+}
+
+/* Promote the bottom "View full Odds Insights →" link to a polished pill */
+.root[data-dark-surface='true'] .fullBoardLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: rgba(201, 162, 74, 0.10);
+  border: 1px solid rgba(201, 162, 74, 0.35);
+  color: #c9a24a;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  transition: background 160ms ease, transform 160ms ease;
+}
+.root[data-dark-surface='true'] .fullBoardLink:hover {
+  background: rgba(201, 162, 74, 0.18);
+  text-decoration: none;
+  transform: translateX(2px);
+}
+
 .homeHeader {
   display: flex;
   align-items: flex-end;

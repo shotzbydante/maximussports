@@ -123,3 +123,51 @@
   .blockHome { flex-direction: column; align-items: flex-start; }
   .cta { align-self: flex-start; }
 }
+
+/* Dark-surface variant — translucent navy fill, gold accent strip,
+   light text. Reaches across CSS-module boundaries via the
+   data-dark-surface attribute selector traversing the DOM. */
+[data-dark-surface='true'] .block {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+[data-dark-surface='true'] .block::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(201, 162, 74, 0.45), transparent);
+  pointer-events: none;
+  z-index: 0;
+}
+[data-dark-surface='true'] .frame {
+  background:
+    radial-gradient(90% 60% at 100% 0%, rgba(201, 162, 74, 0.06), transparent 55%),
+    radial-gradient(70% 60% at 0% 100%, rgba(80, 140, 220, 0.06), transparent 55%);
+}
+[data-dark-surface='true'] .kicker { color: #c9a24a; }
+[data-dark-surface='true'] .title  { color: #fff; }
+[data-dark-surface='true'] .blockHome .title {
+  color: rgba(232, 237, 246, 0.82);
+}
+[data-dark-surface='true'] .point {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+[data-dark-surface='true'] .pointIcon {
+  color: #9bc1ff;
+  background: rgba(80, 140, 220, 0.16);
+}
+[data-dark-surface='true'] .pointTitle { color: #fff; }
+[data-dark-surface='true'] .pointBody  { color: rgba(232, 237, 246, 0.78); }
+
+[data-dark-surface='true'] .cta {
+  color: #c9a24a;
+  background: rgba(201, 162, 74, 0.12);
+  border: 1px solid rgba(201, 162, 74, 0.32);
+}
+[data-dark-surface='true'] .cta:hover {
+  background: rgba(201, 162, 74, 0.20);
+  transform: translateX(2px);
+}
