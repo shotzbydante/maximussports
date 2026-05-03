@@ -238,10 +238,32 @@ export async function assembleNbaEmailData(baseUrl, opts = {}) {
   const yesterdayResults = yesterdayResultsData.results;
   console.log(`[nbaEmailData] yesterday results: events=${yesterdayResultsData.totalEvents} finals=${yesterdayResultsData.finalsCount} valid=${yesterdayResultsData.validCount} skipped=${yesterdayResultsData.skippedCount}`);
 
-  // GAPS (documented):
-  // - NBA picks board: no canonical /api/nba/picks/built endpoint exists
-  // - NBA picks scorecard: no settled-pick tracking exists
-  // The template will render graceful "coming soon" fallbacks.
+  // ═══════════════════════════════════════════════════════════════
+  // BACKEND GAP: NBA picks board + scorecard
+  // ═══════════════════════════════════════════════════════════════
+  // As of this commit, this worktree has NO canonical NBA picks engine.
+  // The MLB equivalents (buildMlbPicks + classifyMlbPick + scoreMlbMatchup
+  // in src/features/mlb/picks/) do not have NBA counterparts. NbaHome.jsx
+  // and NbaPicks.jsx both render live games / odds, NOT a categorized
+  // picks board.
+  //
+  // To wire real NBA picks into the email, the following needs to be built
+  // FIRST in the canonical app pipeline (not in the email layer):
+  //   1. src/features/nba/picks/buildNbaPicks.js (parallel to MLB)
+  //   2. src/features/nba/picks/scoreNbaMatchup.js + classifyNbaPick.js
+  //   3. api/nba/picks/built.js (HTTP handler that writes KV)
+  //   4. api/_lib/nbaPicksBuilder.js (direct in-process builder, like
+  //      mlbPicksBuilder.js — to avoid Vercel self-fetch)
+  //   5. KV keys: nba:picks:built:latest + nba:picks:built:lastknown
+  //   6. Settled-pick tracking for scorecard (yesterday's W/L/P)
+  //
+  // Once that exists, this assembler should call buildNbaPicksBoard()
+  // the same way mlbEmailData uses buildPicksBoard() — and the template
+  // will automatically render TODAY'S NBA PICKS instead of MODEL WATCH.
+  //
+  // Until then, the email gracefully falls back to the deterministic
+  // NBA Model Watch (built from existing championship odds + results).
+  // No fake picks, no fabricated spreads/edges.
   const picksBoard = null;
   const picksScorecard = null;
 

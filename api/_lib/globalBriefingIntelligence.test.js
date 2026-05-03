@@ -326,3 +326,199 @@ describe('Integration: intelligence layer renders in Global Briefing HTML', () =
     expect(watchSection).toMatch(/Not official picks/i);
   });
 });
+
+// ═══════════════════════════════════════════════════════════════
+// SANITIZE NBA NARRATIVE BULLETS
+// ═══════════════════════════════════════════════════════════════
+
+import { sanitizeNbaNarrativeBullets } from './globalBriefingIntelligence.js';
+
+describe('sanitizeNbaNarrativeBullets — result-aware suppression', () => {
+  it('rewrites stale "forced Game 7" bullet when Game 7 is final', () => {
+    const result = sanitizeNbaNarrativeBullets({
+      bullets: [
+        'Philadelphia 76ers are riding high after forcing a decisive Game 7 against the Celtics.',
+        'Knicks vs Pacers continues tonight.',
+      ],
+      yesterdayResults: [
+        { away: { slug: 'phi', abbrev: 'PHI', score: 109 }, home: { slug: 'bos', abbrev: 'BOS', score: 100 }, seriesNote: 'PHI advances' },
+      ],
+    });
+    expect(result.bullets).toHaveLength(2);
+    expect(result.bullets[0]).not.toMatch(/forcing.*Game 7/i);
+    expect(result.bullets[0]).toMatch(/PHI.*BOS.*109.*100/);
+    expect(result.rewrittenCount).toBe(1);
+    expect(result.removedCount).toBe(0);
+  });
+
+  it('removes stale bullet when team mention does not match any result', () => {
+    const result = sanitizeNbaNarrativeBullets({
+      bullets: [
+        'The Lakers are pushing to Game 7 with momentum.',
+        'Other story.',
+      ],
+      yesterdayResults: [
+        { away: { slug: 'phi', abbrev: 'PHI', score: 109 }, home: { slug: 'bos', abbrev: 'BOS', score: 100 } },
+      ],
+    });
+    // LAL not in yesterday results — bullet is dropped
+    expect(result.bullets).toHaveLength(1);
+    expect(result.bullets[0]).toBe('Other story.');
+    expect(result.removedCount).toBe(1);
+  });
+
+  it('leaves bullets untouched when no Game 7 reference', () => {
+    const result = sanitizeNbaNarrativeBullets({
+      bullets: ['The Knicks beat the Pacers in a tight one.', 'OKC keeps rolling.'],
+      yesterdayResults: [
+        { away: { slug: 'phi', abbrev: 'PHI', score: 109 }, home: { slug: 'bos', abbrev: 'BOS', score: 100 } },
+      ],
+    });
+    expect(result.bullets).toHaveLength(2);
+    expect(result.removedCount).toBe(0);
+    expect(result.rewrittenCount).toBe(0);
+  });
+
+  it('returns input unchanged when no yesterday results', () => {
+    const result = sanitizeNbaNarrativeBullets({
+      bullets: ['76ers force Game 7 tonight.'],
+      yesterdayResults: [],
+    });
+    // Without results to check against, we cannot say the bullet is stale
+    expect(result.bullets).toEqual(['76ers force Game 7 tonight.']);
+    expect(result.removedCount).toBe(0);
+  });
+
+  it('handles empty inputs gracefully', () => {
+    expect(sanitizeNbaNarrativeBullets({})).toEqual({ bullets: [], removedCount: 0, rewrittenCount: 0 });
+    expect(sanitizeNbaNarrativeBullets({ bullets: [] })).toEqual({ bullets: [], removedCount: 0, rewrittenCount: 0 });
+  });
+
+  it('detects multiple stale-bullet variants (push, set up, stave off elimination)', () => {
+    const result = sanitizeNbaNarrativeBullets({
+      bullets: [
+        'Sixers push to Game 7 after a clutch performance.',
+        'Boston staves off elimination heading into Game 7.',
+      ],
+      yesterdayResults: [
+        { away: { slug: 'phi', abbrev: 'PHI', score: 109 }, home: { slug: 'bos', abbrev: 'BOS', score: 100 } },
+      ],
+    });
+    // Both bullets reference teams in the result, both should be rewritten/dropped
+    expect(result.rewrittenCount + result.removedCount).toBe(2);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// GAME 7 / DECISIVE PLAYOFF RESULT INSIGHT
+// ═══════════════════════════════════════════════════════════════
+
+describe('buildResultInsight — Game 7 / decisive playoff results', () => {
+  it('NBA Game 7 final produces specific "wins Game 7" phrasing (not generic)', () => {
+    const insight = buildResultInsight(
+      { away: { slug: 'phi', abbrev: 'PHI', score: 109 }, home: { slug: 'bos', abbrev: 'BOS', score: 100 }, seriesNote: 'Game 7' },
+      { sport: 'nba' }
+    );
+    expect(insight).toContain('PHI');
+    expect(insight).toMatch(/Game 7/i);
+    expect(insight).not.toMatch(/Adds pressure to the playoff race/i);
+  });
+
+  it('NBA advance series note produces "advances" phrasing', () => {
+    const insight = buildResultInsight(
+      { away: { slug: 'phi', abbrev: 'PHI', score: 109 }, home: { slug: 'bos', abbrev: 'BOS', score: 100 }, seriesNote: 'PHI advances to second round' },
+      { sport: 'nba' }
+    );
+    expect(insight).toMatch(/advances/i);
+    expect(insight).toContain('PHI');
+  });
+
+  it('NBA narrative-aware Game 7 fallback when no series note', () => {
+    const insight = buildResultInsight(
+      { away: { slug: 'phi', abbrev: 'PHI', score: 109 }, home: { slug: 'bos', abbrev: 'BOS', score: 100 } },
+      { sport: 'nba', narrative: 'Sixers and Celtics meet in a decisive Game 7 tonight.' }
+    );
+    // Narrative confirms Game 7 context for PHI — safe to call decisive
+    expect(insight).toMatch(/decisive playoff result/i);
+    expect(insight).toContain('PHI');
+  });
+
+  it('NBA generic fallback when no series note and no narrative match', () => {
+    const insight = buildResultInsight(
+      { away: { slug: 'phi', abbrev: 'PHI', score: 109 }, home: { slug: 'bos', abbrev: 'BOS', score: 100 } },
+      { sport: 'nba' }
+    );
+    expect(insight).toMatch(/Adds pressure|title-side pressure/);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// INTEGRATION: NBA narrative sanitization in rendered HTML
+// ═══════════════════════════════════════════════════════════════
+
+import { buildEmailData as buildEmailData2 } from './emailPipeline.js';
+import { renderHTML as renderHtml2 } from '../../src/emails/templates/globalBriefing.js';
+
+describe('Integration: NBA narrative sanitization in rendered HTML', () => {
+  function assembledWithStaleNarrative() {
+    return {
+      scoresToday: [], rankingsTop25: [], atsLeaders: { best: [], worst: [] },
+      headlines: [], oddsGames: [], botIntelBullets: [],
+      mlbData: { narrativeParagraph: '', headlines: [], picksBoard: null, yesterdayResults: [], champOdds: {} },
+      nbaData: {
+        narrativeParagraph: 'Philadelphia 76ers are riding high after forcing a decisive Game 7 against the Celtics. The series is at its most intense moment.',
+        headlines: [],
+        yesterdayResults: [
+          { away: { slug: 'phi', abbrev: 'PHI', score: 109 }, home: { slug: 'bos', abbrev: 'BOS', score: 100 }, statusText: 'Final', seriesNote: 'PHI advances' },
+        ],
+        titleOutlook: [],
+        champOdds: { phi: { bestChanceAmerican: 1500 }, bos: { bestChanceAmerican: 800 } },
+      },
+      briefingContext: {}, picksBoard: null, modelSignals: [], tournamentMeta: {},
+    };
+  }
+
+  it('rendered HTML does NOT contain "forcing a decisive Game 7" stale copy', () => {
+    const emailData = buildEmailData2('global_briefing', assembledWithStaleNarrative(), { displayName: 'Test' });
+    const html = renderHtml2(emailData);
+    expect(html).not.toMatch(/forcing a decisive Game 7/i);
+  });
+
+  it('rendered HTML DOES contain the result-aware rewrite', () => {
+    const emailData = buildEmailData2('global_briefing', assembledWithStaleNarrative(), { displayName: 'Test' });
+    const html = renderHtml2(emailData);
+    expect(html).toMatch(/PHI.*109.*100/);
+  });
+
+  it('Game 7 result row uses specific insight, not generic "adds pressure"', () => {
+    const emailData = buildEmailData2('global_briefing', assembledWithStaleNarrative(), { displayName: 'Test' });
+    const html = renderHtml2(emailData);
+    // The result insight section uses → arrow
+    expect(html).toMatch(/→.*PHI advances/i);
+    // Ensure the generic phrasing is NOT used for this Game 7 result
+    const phiResultIdx = html.indexOf('PHI');
+    const next200 = html.slice(phiResultIdx, phiResultIdx + 500);
+    expect(next200).not.toMatch(/Adds pressure to the playoff race/i);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// PARITY: prod and test produce identical sanitization behavior
+// ═══════════════════════════════════════════════════════════════
+
+describe('Sanitization parity: prod and test produce identical output', () => {
+  it('same input → same sanitized bullets (deterministic)', () => {
+    const input = {
+      bullets: [
+        '76ers forced Game 7 against the Celtics tonight.',
+        'Knicks looking strong in their series.',
+      ],
+      yesterdayResults: [
+        { away: { slug: 'phi', abbrev: 'PHI', score: 109 }, home: { slug: 'bos', abbrev: 'BOS', score: 100 }, seriesNote: 'PHI advances' },
+      ],
+    };
+    const a = sanitizeNbaNarrativeBullets(input);
+    const b = sanitizeNbaNarrativeBullets(input);
+    expect(a).toEqual(b);
+  });
+});

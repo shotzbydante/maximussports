@@ -35,6 +35,7 @@ import {
 import {
   buildCrossSportHook, buildResultInsight,
   buildNbaModelWatch, buildOddsMarketRead,
+  sanitizeNbaNarrativeBullets,
 } from '../../../api/_lib/globalBriefingIntelligence.js';
 
 const F = "'DM Sans',Arial,Helvetica,sans-serif";
@@ -127,13 +128,12 @@ function compactDivider() {
   return `<tr><td style="padding:4px 24px;"><div style="height:1px;background:${ROW_BORDER};font-size:0;">&nbsp;</div></td></tr>`;
 }
 
-/** Render narrative bullets from a paragraph (3-5 max, deduped). */
-function narrativeBullets(narrative, max = 4) {
-  if (!narrative) return '';
+/** Extract narrative bullets from a paragraph as an array (deduped). */
+function extractNarrativeBullets(narrative, max = 4) {
+  if (!narrative) return [];
   const all = narrative.split(/\n{2,}/)
     .map(p => cleanNarrativeText(p)).filter(p => p.length > 30)
     .flatMap(p => p.replace(/<[^>]+>/g, '').split(/(?<=[.!?])\s+(?=[A-Z])/).filter(s => s.length > 15));
-  // Dedupe by first 30 chars to avoid repetitive bullets
   const seen = new Set();
   const unique = [];
   for (const b of all) {
@@ -143,9 +143,20 @@ function narrativeBullets(narrative, max = 4) {
     unique.push(b);
     if (unique.length >= max) break;
   }
-  return unique.map(b =>
+  return unique;
+}
+
+/** Render an array of bullet strings as HTML paragraphs. */
+function renderBulletsHtml(bullets) {
+  if (!bullets?.length) return '';
+  return bullets.map(b =>
     `<p style="margin:0 0 7px;font-size:14px;line-height:21px;color:#4b5563;font-family:${F};">&bull; ${normalizeSpacing(stripInlineEmoji(b))}</p>`
   ).join('');
+}
+
+/** Backwards-compat wrapper: extract + render in one call. */
+function narrativeBullets(narrative, max = 4) {
+  return renderBulletsHtml(extractNarrativeBullets(narrative, max));
 }
 
 /**
@@ -342,8 +353,14 @@ function buildNbaBlock(data) {
 
   const sections = [];
 
-  // 1. NBA Daily Intelligence
-  const bullets = narrativeBullets(narrative, 4);
+  // 1. NBA Daily Intelligence — sanitize bullets against actual results.
+  // Stale "forced Game 7" copy gets removed/rewritten when Game 7 is final.
+  const rawBullets = extractNarrativeBullets(narrative, 4);
+  const sanitized = sanitizeNbaNarrativeBullets({ bullets: rawBullets, yesterdayResults: yesterday });
+  if (sanitized.removedCount > 0 || sanitized.rewrittenCount > 0) {
+    console.log(`[globalBriefing] NBA narrative sanitized: removed=${sanitized.removedCount} rewritten=${sanitized.rewrittenCount}`);
+  }
+  const bullets = renderBulletsHtml(sanitized.bullets);
   if (bullets) {
     sections.push(`
 ${sectionPill('\u{1F3C0} NBA DAILY INTELLIGENCE', RED)}
