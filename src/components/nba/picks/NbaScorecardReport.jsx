@@ -203,7 +203,13 @@ function pendingReasonFor(pick) {
 }
 
 export default function NbaScorecardReport({ dateOverride, variant = 'full', insightsHref = '/nba/insights' } = {}) {
-  const isCompact = variant === 'compact';
+  // `embedded` controls layout/density only (e.g. when hosted inside the
+  // NBA Home picks hero shell). It MUST NOT truncate rows — the canonical
+  // per-pick scorecard renders identically on /nba and /nba/insights so a
+  // user sees the same picks, statuses, and reasons in both places. The
+  // pre-2026-05-04 `compact` variant clipped to `slice(0, 3)` and showed a
+  // "Top Results · showing 3 of 6" header — that disparity is removed.
+  const embedded = variant === 'compact' || variant === 'embedded';
   const [data, setData] = useState(null);
   const [perf, setPerf] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -228,16 +234,15 @@ export default function NbaScorecardReport({ dateOverride, variant = 'full', ins
   }, [dateOverride]);
 
   // Rolling 7d/30d performance — non-blocking; report still renders without it.
-  // Skipped in compact mode (Home preview keeps the surface tight).
+  // Always fetched (Home + Insights render the same content; only chrome differs).
   useEffect(() => {
-    if (isCompact) return;
     let cancelled = false;
     fetch('/api/nba/picks/performance?sport=nba')
       .then(r => r.ok ? r.json() : null)
       .then(d => { if (!cancelled) setPerf(d || null); })
       .catch(() => { if (!cancelled) setPerf(null); });
     return () => { cancelled = true; };
-  }, [isCompact]);
+  }, []);
 
   if (loading) {
     return (
@@ -293,7 +298,7 @@ export default function NbaScorecardReport({ dateOverride, variant = 'full', ins
     }
     const pendingForNote = apiPending || data?.diagnostics?.todayPendingCount || 0;
     return (
-      <section className={`${styles.section} ${isCompact ? styles.sectionCompact : ''}`}>
+      <section className={`${styles.section} ${embedded ? styles.sectionEmbedded : ''}`}>
         <div className={styles.headerStrip}>
           <div className={styles.headerLeft}>
             <span className={styles.eyebrow}>Model Performance</span>
@@ -309,7 +314,7 @@ export default function NbaScorecardReport({ dateOverride, variant = 'full', ins
             ? `Today's picks are live (${pendingForNote} pick${pendingForNote === 1 ? '' : 's'}) and will grade after final scores post. Results will appear here once games go final.`
             : "Scorecard tracking begins after the first graded slate. Today's picks are listed in the picks board below; results post here once games go final."}
         </p>
-        {isCompact && (
+        {embedded && (
           <div className={styles.compactCtaRow}>
             <a href={insightsHref} className={styles.compactCta}>
               View today&rsquo;s picks &rarr;
@@ -366,10 +371,12 @@ export default function NbaScorecardReport({ dateOverride, variant = 'full', ins
     return (b.betScore || 0) - (a.betScore || 0);
   });
 
-  const displayPicks = isCompact ? sortedPicks.slice(0, 3) : sortedPicks;
+  // Always render every persisted row in canonical order — Home and Insights
+  // are required to be identical (no truncation, no "Top Results 3 of 6").
+  const displayPicks = sortedPicks;
 
   return (
-    <section className={`${styles.section} ${isCompact ? styles.sectionCompact : ''}`}>
+    <section className={`${styles.section} ${embedded ? styles.sectionEmbedded : ''}`}>
       {/* Header strip */}
       <div className={styles.headerStrip}>
         <div className={styles.headerLeft}>
@@ -430,48 +437,26 @@ export default function NbaScorecardReport({ dateOverride, variant = 'full', ins
         </div>
       )}
 
-      {/* Per-pick report — prefer rows whenever they exist, regardless of dataMode. */}
+      {/* Per-pick report — every row, every status. Single canonical
+          presentation used by /nba (embedded) and /nba/insights (page). */}
       {displayPicks.length > 0 ? (
         <div className={styles.picksList}>
-          {!isCompact && (
-            <div className={styles.picksHeader}>
-              <span>Pick-by-Pick Results</span>
-              <span className={styles.picksHeaderHint}>sorted by result</span>
-            </div>
-          )}
-          {isCompact && (
-            <div className={styles.picksHeader}>
-              <span>Top Results</span>
-              <span className={styles.picksHeaderHint}>
-                {sortedPicks.length > displayPicks.length
-                  ? `showing ${displayPicks.length} of ${sortedPicks.length}`
-                  : 'sorted by result'}
-              </span>
-            </div>
-          )}
+          <div className={styles.picksHeader}>
+            <span>Pick-by-Pick Results</span>
+            <span className={styles.picksHeaderHint}>sorted by result</span>
+          </div>
           {displayPicks.map(p => <PickRow key={p.id || p.pickKey} pick={p} />)}
         </div>
       ) : (
-        !isCompact && (
-          <p className={styles.noPicks}>
-            Per-pick detail is unavailable for this slate. The summary above reflects the persisted scorecard row.
-          </p>
-        )
+        <p className={styles.noPicks}>
+          Per-pick detail is unavailable for this slate. The summary above reflects the persisted scorecard row.
+        </p>
       )}
 
-      {isCompact && (
-        <div className={styles.compactCtaRow}>
-          <a href={insightsHref} className={styles.compactCta}>
-            View full scorecard &rarr;
-          </a>
-        </div>
-      )}
+      {/* Rolling performance — always rendered (Home + Insights parity). */}
+      <RollingPerformance perf={perf} />
 
-      {/* Rolling performance — full view only */}
-      {!isCompact && <RollingPerformance perf={perf} />}
-
-      {/* Model grading explainer — full view only */}
-      {!isCompact && (
+      {/* Model grading explainer — always rendered (Home + Insights parity). */}
       <div className={styles.explainer}>
         <h3 className={styles.explainerTitle}>How the model is graded</h3>
         <ul className={styles.explainerList}>
@@ -482,7 +467,6 @@ export default function NbaScorecardReport({ dateOverride, variant = 'full', ins
           <li>Daily results inform future confidence calibration — performance is tracked, not invented.</li>
         </ul>
       </div>
-      )}
     </section>
   );
 }

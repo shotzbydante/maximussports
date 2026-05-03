@@ -27,6 +27,7 @@ import { seriesContextForPick } from '../../_lib/seriesContextForPick.js';
 import { fetchScoreboard } from '../live/_normalize.js';
 import { etDateCompact } from '../../_lib/dateWindows.js';
 import { buildNbaPlayoffContext } from '../../../src/data/nba/playoffContext.js';
+import { buildFinalsIndex, resolveFinalForPick, slugPairKey } from '../../_lib/finalsIndex.js';
 
 /** Inclusive day delta between two YYYY-MM-DD strings (a - b in days). */
 function daysBetween(a, b) {
@@ -61,6 +62,11 @@ export default async function handler(req, res) {
   // grading-math fix lands so the existing 'won'/'lost' rows pick up the
   // corrected logic instead of staying stuck with stale values.
   const regrade = req.query?.regrade === '1' && !!explicitDate;
+  // Operator forensics: ?debug=1 attaches per-pick `_debug` blocks
+  // exposing the exact match path (game_id vs slug_pair), the matched
+  // final's ESPN id + ET day, and any cross-date rejection reason. Off
+  // by default — never leaks debug data into the normal UI surface.
+  const debugRequested = req.query?.debug === '1';
 
   try {
     // ── Slate selection ────────────────────────────────────────────────
@@ -364,26 +370,41 @@ export default async function handler(req, res) {
         diagnostics.seriesContextError = e?.message;
       }
 
-      // For each pick, look up its corresponding final's startTime so we
-      // can resolve the playoff game number that matches THIS specific
-      // game (vs a prior or later game in the same series).
-      const finalsByGameId = new Map();
+      // For each pick, resolve the matched ESPN final the same way the
+      // grader does: primary = pick.game_id, fallback = same-day team-pair
+      // (cross-date rejected). When debug=1 we attach per-pick match
+      // metadata so an operator can confirm the exact game a row was
+      // graded against.
+      let sameDayFinals = [];
       try {
-        const sameDayFinals = await fetchYesterdayFinals({ slateDate: slateForPicks });
-        for (const g of sameDayFinals || []) {
-          if (g?.gameId) finalsByGameId.set(String(g.gameId), g);
-        }
+        sameDayFinals = await fetchYesterdayFinals({ slateDate: slateForPicks }) || [];
       } catch { /* non-fatal */ }
+      const finalsIndex = buildFinalsIndex(sameDayFinals);
 
       picks = rawPicks.map(p => {
-        const final = p.game_id ? finalsByGameId.get(String(p.game_id)) : null;
+        const r = resolveFinalForPick(p, finalsIndex, { slateDate: slateForPicks });
+        const final = r.final;
         const gameStartTimeISO = final?.startTime || p.start_time || null;
         const seriesContext = seriesContextForPick({
           pick: p,
           gameStartTimeISO,
           playoffContext,
         });
-        return annotatePick(p, { seriesContext });
+        const annotated = annotatePick(p, { seriesContext });
+        if (debugRequested) {
+          annotated._debug = {
+            matchMethod: r.via,
+            rejectedReason: r.rejectedReason || null,
+            pickSlateDate: p.slate_date || null,
+            pickGameId: p.game_id || null,
+            matchedFinalId: final?.gameId || null,
+            finalDate: final?.startTime
+              ? new Date(final.startTime).toISOString().slice(0, 10)
+              : null,
+            pair: slugPairKey(p.away_team_slug, p.home_team_slug),
+          };
+        }
+        return annotated;
       });
 
       // Aggregate by category for stat chips

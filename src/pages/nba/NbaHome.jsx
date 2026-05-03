@@ -223,8 +223,10 @@ export default function NbaHome() {
               Model-graded picks, daily scorecard, and rolling performance &mdash; one surface, fully transparent.
             </p>
           </header>
-          {/* Daily scorecard — clear date + game context for repeat playoff matchups */}
-          <NbaScorecardReport variant="compact" insightsHref={buildPath('/insights')} />
+          {/* Daily scorecard — embedded variant. Renders the SAME content
+              as /nba/insights (no truncation, full row list, rolling perf,
+              grading explainer); only chrome adapts to the dark hero. */}
+          <NbaScorecardReport variant="embedded" insightsHref={buildPath('/insights')} />
           {/* Today's full picks board — every published tier + coverage,
               no preview truncation (homeShowAll). */}
           <MlbMaximusPicksSectionV2

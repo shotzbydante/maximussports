@@ -9,31 +9,117 @@
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
-/* Compact variant — Home hero. Glass-card treatment with a soft NBA navy
-   accent line so it reads as a confident accountability section. */
-.sectionCompact {
-  padding: 18px 20px 16px;
-  margin-bottom: var(--space-lg, 20px);
+/* Embedded variant — used when the scorecard is hosted inside the NBA
+   Home dark hero (.picksHero). Translucent glass card on top of the
+   navy gradient: dim navy fill, soft white edge, top-edge gold accent.
+   Renders the SAME content as the page-mode scorecard — only chrome
+   adapts. (Pre-2026-05-04: this variant also truncated rows; that
+   behavior was removed.) */
+.sectionEmbedded {
+  padding: 22px 24px 18px;
+  margin-bottom: 0;
   background:
-    linear-gradient(180deg, rgba(29, 66, 138, 0.025) 0%, rgba(255,255,255,0) 70%),
-    var(--color-bg-elevated, #fff);
-  border: 1px solid rgba(29, 66, 138, 0.10);
-  box-shadow: 0 4px 18px rgba(29, 66, 138, 0.06), 0 1px 3px rgba(0,0,0,0.04);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045) 0%, rgba(255, 255, 255, 0.015) 100%),
+    rgba(15, 30, 48, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  box-shadow:
+    0 6px 28px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(10px) saturate(1.1);
+  -webkit-backdrop-filter: blur(10px) saturate(1.1);
   position: relative;
   overflow: hidden;
+  color: #e8edf6;
 }
-.sectionCompact::before {
+.sectionEmbedded::before {
   content: '';
   position: absolute;
   inset: 0 0 auto 0;
-  height: 3px;
-  background: linear-gradient(90deg, #1d428a 0%, #c9a24a 100%);
-  opacity: 0.7;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(201, 162, 74, 0.55), transparent);
 }
-.sectionCompact .picksList { margin-top: 12px; }
-.sectionCompact .row { padding: 10px 0; }
-.sectionCompact .title { font-size: 1.1rem; }
-.sectionCompact .eyebrow { color: #1d428a; }
+
+/* Light text on dark glass */
+.sectionEmbedded .eyebrow { color: #c9a24a; }
+.sectionEmbedded .title { color: #fff; font-size: 1.18rem; letter-spacing: -0.005em; }
+.sectionEmbedded .slateDate { color: rgba(232, 237, 246, 0.62); }
+.sectionEmbedded .pendingNote {
+  background: rgba(201, 162, 74, 0.10);
+  border-color: rgba(201, 162, 74, 0.28);
+  color: rgba(232, 237, 246, 0.78);
+}
+
+/* Stats — light, gold-accented numbers */
+.sectionEmbedded .statLabel { color: rgba(232, 237, 246, 0.55); }
+.sectionEmbedded .statValue { color: #fff; }
+
+/* Takeaway pill on glass */
+.sectionEmbedded .takeaway {
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(232, 237, 246, 0.86);
+}
+.sectionEmbedded .takeawayKicker { color: rgba(232, 237, 246, 0.55); }
+.sectionEmbedded .takeaway_positive { background: rgba(22, 163, 74, 0.12); }
+.sectionEmbedded .takeaway_negative { background: rgba(220, 38, 38, 0.14); }
+.sectionEmbedded .takeaway_neutral  { background: rgba(201, 162, 74, 0.10); }
+
+/* Category chips — translucent on dark */
+.sectionEmbedded .chip {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.10);
+}
+.sectionEmbedded .chipLabel { color: rgba(232, 237, 246, 0.55); }
+.sectionEmbedded .chipValue { color: #fff; }
+.sectionEmbedded .chipRate  { color: rgba(232, 237, 246, 0.72); }
+
+/* Picks list */
+.sectionEmbedded .picksHeader {
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+  color: rgba(232, 237, 246, 0.78);
+}
+.sectionEmbedded .picksHeaderHint { color: rgba(232, 237, 246, 0.45); }
+.sectionEmbedded .row {
+  border-bottom-color: rgba(255, 255, 255, 0.06);
+}
+.sectionEmbedded .matchup { color: #fff; }
+.sectionEmbedded .gameContext { color: rgba(232, 237, 246, 0.55); }
+.sectionEmbedded .cat {
+  background: rgba(80, 140, 220, 0.16);
+  color: #9bc1ff;
+}
+.sectionEmbedded .tier {
+  background: rgba(201, 162, 74, 0.18);
+  color: #e6c47a;
+}
+.sectionEmbedded .pickLabel { color: #fff; }
+.sectionEmbedded .finalScore { color: rgba(232, 237, 246, 0.66); }
+.sectionEmbedded .reason { color: rgba(232, 237, 246, 0.50); }
+
+/* Result badges on glass */
+.sectionEmbedded .badge { backdrop-filter: blur(4px); }
+.sectionEmbedded .badgeWon  { background: rgba(22, 163, 74, 0.20); color: #6cd396; border-color: rgba(22, 163, 74, 0.35); }
+.sectionEmbedded .badgeLost { background: rgba(220, 38, 38, 0.18); color: #f48a8a; border-color: rgba(220, 38, 38, 0.35); }
+.sectionEmbedded .badgePush { background: rgba(201, 162, 74, 0.18); color: #e6c47a; border-color: rgba(201, 162, 74, 0.35); }
+.sectionEmbedded .badgePending { background: rgba(255, 255, 255, 0.06); color: rgba(232, 237, 246, 0.65); border-color: rgba(255, 255, 255, 0.14); }
+
+/* Won/lost row tints */
+.sectionEmbedded .row_won  { background: linear-gradient(90deg, rgba(22,163,74,0.05), transparent 30%); }
+.sectionEmbedded .row_lost { background: linear-gradient(90deg, rgba(220,38,38,0.06), transparent 30%); }
+.sectionEmbedded .row_push { background: linear-gradient(90deg, rgba(201,162,74,0.05), transparent 30%); }
+
+/* Rolling perf + grading explainer */
+.sectionEmbedded .rolling,
+.sectionEmbedded .explainer {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+.sectionEmbedded .rollingTitle,
+.sectionEmbedded .explainerTitle { color: #fff; }
+.sectionEmbedded .rollingCardLabel,
+.sectionEmbedded .explainerList { color: rgba(232, 237, 246, 0.72); }
+.sectionEmbedded .rollingCardValue { color: #fff; }
+.sectionEmbedded .rollingEmpty { color: rgba(232, 237, 246, 0.55); }
 
 .compactCtaRow {
   display: flex;
