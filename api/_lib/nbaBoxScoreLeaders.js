@@ -695,5 +695,75 @@ export async function buildNbaPostseasonLeadersFromBoxScores({
     topPts: categories?.pts?.leaders?.[0] || null,
   }));
 
+  // Audit Part 4 spec — the validation log the prompt explicitly asked
+  // for. Single line, all 5 categories, with playoff totals visible at
+  // a glance so a "where's LeBron?" question can be answered from the
+  // browser/server console alone (no instrumentation required).
+  console.log('[NBA_POSTSEASON_TOTALS_FINAL]', JSON.stringify({
+    gamesUsed: parsedGames,
+    includedTeams: Array.from(expandedTeamSet).sort(),
+    categories: Object.fromEntries(
+      Object.entries(categories || {}).map(([k, v]) => [
+        k,
+        (v?.leaders || []).map(p => ({
+          name: p.name,
+          team: p.teamAbbrev,
+          value: p.value,
+          gamesPlayed: p.gamesPlayed,
+        })),
+      ])
+    ),
+  }));
+
+  // Audit Part 4 spec — diagnostic for "why isn't player X showing?"
+  // questions. Surfaces, per known-but-excluded player, the specific
+  // reason: missing-boxscore (didn't aggregate), team-excluded
+  // (eligibility filter), low-games (under threshold), or low-rank
+  // (qualified but not top 3).
+  const KNOWN_PLAYOFF_STARS = [
+    { name: 'LeBron James', teamSlug: 'lal' },
+    { name: 'Anthony Davis', teamSlug: 'lal' },
+    { name: 'Luka Dončić', teamSlug: 'lal' },
+    { name: 'Jayson Tatum', teamSlug: 'bos' },
+    { name: 'Jaylen Brown', teamSlug: 'bos' },
+    { name: 'Shai Gilgeous-Alexander', teamSlug: 'okc' },
+    { name: 'Victor Wembanyama', teamSlug: 'sas' },
+    { name: 'Anthony Edwards', teamSlug: 'min' },
+    { name: 'Jalen Brunson', teamSlug: 'nyk' },
+    { name: 'Joel Embiid', teamSlug: 'phi' },
+    { name: 'Cade Cunningham', teamSlug: 'det' },
+    { name: 'Donovan Mitchell', teamSlug: 'cle' },
+  ];
+  function lookupPlayerStatus(name, teamSlug) {
+    const inTeamSet = expandedTeamSet.has(teamSlug);
+    const player = Object.values(playerMap).find(p => p?.name === name);
+    if (!player) {
+      return inTeamSet
+        ? { reason: 'missing_boxscore', detail: 'team in playoff set but no parsed boxscore for this player' }
+        : { reason: 'team_excluded', detail: `team "${teamSlug}" not in expanded playoff set` };
+    }
+    if (!inTeamSet) return { reason: 'team_excluded', detail: `team "${teamSlug}" filtered out` };
+    if (player.gamesPlayed < thresholds.minGames) {
+      return { reason: 'low_games', detail: `${player.gamesPlayed} games (threshold ${thresholds.minGames})`, points: player.points };
+    }
+    // Player qualified — find their PTS rank.
+    const ranked = Object.values(playerMap)
+      .filter(p => p.teamSlug && expandedTeamSet.has(p.teamSlug))
+      .filter(p => p.gamesPlayed >= thresholds.minGames)
+      .sort((a, b) => (b.points || 0) - (a.points || 0));
+    const rank = ranked.findIndex(p => p.playerId === player.playerId) + 1;
+    return { reason: rank <= 3 ? 'top3_pts' : 'lower_total_than_top3', rank, points: player.points };
+  }
+  const starAudit = KNOWN_PLAYOFF_STARS.map(s => ({
+    ...s,
+    status: lookupPlayerStatus(s.name, s.teamSlug),
+  }));
+  console.log('[NBA_POSTSEASON_PLAYER_AUDIT]', JSON.stringify({
+    parsedGames,
+    minGames: thresholds.minGames,
+    expandedTeams: Array.from(expandedTeamSet).sort(),
+    stars: starAudit,
+  }));
+
   return result;
 }

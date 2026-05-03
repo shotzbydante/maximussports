@@ -81,9 +81,12 @@ function clincherText(s) {
   const conf = s.conference === 'Western' ? 'West' : s.conference === 'Eastern' ? 'East' : null;
   const bracketTag = conf ? `${conf} bracket` : 'bracket';
 
+  // 3-1 comeback (loser had reached 3 wins, winner finished 4-3).
+  // Highest narrative priority — series-defining moment.
+  if (winsW === 4 && winsL === 3) {
+    return `🚨 ${winnerName} complete the 3-1 comeback — ${winnerName} eliminate ${loserName} 4-3 and blow up the ${bracketTag}.`;
+  }
   if (s.isUpset) {
-    // Lower seed eliminates the higher seed — single, plain-English line
-    // that lands the upset stake without forced betting jargon.
     return `🚨 ${winnerName} finish ${loserName} ${winsW}–${winsL} — a major Round 1 upset that reshapes the ${bracketTag}.`;
   }
   if (winsL === 0) {
@@ -293,9 +296,13 @@ function bulletForGameStory(story) {
   const l = teamName(story.loseSlug);
   const score = `${story.winScore}-${story.loseScore}`;
   const tag = seriesTagLower(story);
+  if (story.isComebackFrom31) return `${w} complete the 3-1 comeback to stun ${l} ${score} and advance.`;
   if (story.isSweep) return `${w} sweep ${l} ${score}${tag}.`;
   if (story.isGame7Win) return `${w} win Game 7 over ${l} ${score} and advance.`;
-  if (story.isClinch) return `${w} close out ${l} ${score}${tag}.`;
+  if (story.isClinch) return `${w} eliminate ${l} ${score}${tag}.`;
+  if (story.forcesGame7) return `${w} force Game 7 over ${l} ${score} — series goes the distance.`;
+  if (story.closeoutFailed) return `${w} stave off elimination ${score} over ${l} — series extends.`;
+  if (story.eliminationAvoided) return `${w} avoid elimination ${score} over ${l}${tag}.`;
   if (story.isElimWin) return `${w} beat ${l} ${score}${tag} — one win from closing out.`;
   if (story.isUpset) return `${w} pull the upset over ${l} ${score}${tag}.`;
   if (story.isStolenRoadWin && story.winSeriesWins >= story.loseSeriesWins) {
@@ -348,6 +355,24 @@ export function buildNbaGameNarrative(story) {
     && !story.isClinch && !story.isGame7Win;
   const forcesGame7 = story.inSeries
     && story.winSeriesWins === 3 && story.loseSeriesWins === 3;
+
+  // 0. 3-1 COMEBACK CLINCHER — rarest, highest-priority narrative beat.
+  //    Outranks even buzzer/OT — "complete the 3-1 comeback" is the
+  //    line that defines a postseason for years.
+  if (story.isComebackFrom31) {
+    return `🚨 ${w} complete the 3-1 comeback — ${w} eliminate ${l} ${score} and rewrite the bracket.`;
+  }
+  // 0a. CLOSEOUT FAILED — winner staved off elimination at 3-2/3-1/3-0.
+  //     Distinguish from forces-G7 (handled separately at the right
+  //     score). closeoutFailed fires when the winner forced extension
+  //     at any score short of 3-3.
+  if (story.closeoutFailed && !story.forcesGame7) {
+    return `🔥 ${w} stave off elimination ${score} over ${l} — series extends, ${l} can't close the door.`;
+  }
+  // 0b. ELIMINATION AVOIDED — winner was facing elimination, won.
+  if (story.eliminationAvoided && !story.forcesGame7 && !story.closeoutFailed) {
+    return `🔥 ${w} avoid elimination ${score} over ${l}${tag} — season lives another night.`;
+  }
 
   // 1. BUZZER-BEATER / GAME-WINNER (highest narrative priority).
   //    Requires explicit notes-text signal — never inferred.

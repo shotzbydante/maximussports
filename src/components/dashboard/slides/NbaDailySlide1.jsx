@@ -145,14 +145,16 @@ export default function NbaDailySlide1({ data, asOf: _a, slideNumber: _s, slideT
     .sort((a, b) => (b.prob ?? 0) - (a.prob ?? 0));
   const raceTeams = allOutlook.slice(0, 5);
 
-  // Picks: top 3 from V2 engine
+  // Picks: top 2 on Slide 1 (audit Part 2 — was top-3, the 3rd card was
+  // clipping when the Contenders column ran 5 rows tall). Caption +
+  // Slide 2 still surface the canonical full picks list.
   const cats = payload.nbaPicks?.categories || {};
   const allPicks = [
     ...(cats.pickEms || []).map(p => ({ ...p, _cat: 'ML' })),
     ...(cats.ats     || []).map(p => ({ ...p, _cat: 'SPR' })),
     ...(cats.totals  || []).map(p => ({ ...p, _cat: 'O/U' })),
     ...(cats.leans   || []).map(p => ({ ...p, _cat: 'LEAN' })),
-  ].sort((a, b) => (b.betScore?.total ?? b.confidenceScore ?? 0) - (a.betScore?.total ?? a.confidenceScore ?? 0)).slice(0, 3);
+  ].sort((a, b) => (b.betScore?.total ?? b.confidenceScore ?? 0) - (a.betScore?.total ?? a.confidenceScore ?? 0)).slice(0, 2);
   const picks = allPicks.map(p => {
     const away = p.matchup?.awayTeam || {};
     const home = p.matchup?.homeTeam || {};
@@ -334,14 +336,32 @@ function buildStoryCard(story, payload) {
 
   // Grammar-correct playoff titles
   let title;
-  if (story.isSweep) title = `${winName} complete sweep over ${nicknameFor(loseSlug)}`;
+  // 3-1 SERIES COMEBACK — outranks every other clincher template.
+  if (story.isComebackFrom31) {
+    title = `${winName} complete 3-1 comeback to stun ${nicknameFor(loseSlug)}`;
+  }
+  else if (story.isSweep) title = `${winName} complete sweep over ${nicknameFor(loseSlug)}`;
   else if (story.isGame7Win) {
     if (ot && buzzer) title = `${winName} survive Game 7 ${score} on a last-second OT shot`;
     else if (ot) title = `${winName} survive Game 7 ${score} in ${otTag}`;
     else if (buzzer) title = `${winName} win Game 7 ${score} on a last-second shot`;
-    else title = `${winName} win Game 7 ${score}`;
+    else if (comebackDef >= 15) title = `${winName} erase ${comebackDef}-pt Game 7 deficit to advance`;
+    else title = `${winName} win Game 7 ${score} and advance`;
   }
-  else if (story.isClinch) title = `${winName} close out ${nicknameFor(loseSlug)} ${score}`;
+  else if (story.isClinch) title = `${winName} eliminate ${nicknameFor(loseSlug)} ${score} and advance`;
+  else if (story.forcesGame7) {
+    if (ot && buzzer) title = `${winName} force Game 7 in OT on a last-second shot`;
+    else if (ot) title = `${winName} outlast ${nicknameFor(loseSlug)} in ${otTag} to force Game 7`;
+    else if (buzzer) title = `${winName} force Game 7 on a last-second shot`;
+    else if (comebackDef >= 15) title = `${winName} rally from ${comebackDef} down to force Game 7`;
+    else title = `${winName} force Game 7 over ${nicknameFor(loseSlug)} ${score}`;
+  }
+  else if (story.closeoutFailed) {
+    title = `${winName} stay alive — push series to Game ${(story.winSeriesWins||0) + (story.loseSeriesWins||0) + 1}`;
+  }
+  else if (story.eliminationAvoided) {
+    title = `${winName} avoid elimination ${score} over ${nicknameFor(loseSlug)}`;
+  }
   else if (story.isElimWin) title = `${winName} push ${nicknameFor(loseSlug)} to brink`;
   else if (story.isUpset) {
     const gameNum = story.series?.gamesPlayed || 0;
