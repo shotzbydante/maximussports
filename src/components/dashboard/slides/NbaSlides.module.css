@@ -123,7 +123,10 @@
 
 .s1 {
   composes: artboard;
-  padding: 38px 44px 34px;
+  /* Tighter top + bottom padding (was 38/34) reclaims ~16px of vertical
+     real estate so the bottomGrid (Contenders + Picks) never clips its
+     second pick row. */
+  padding: 30px 44px 26px;
 }
 
 .s1TopBar {
@@ -157,9 +160,9 @@
   grid-template-columns: 1fr auto;
   align-items: end;
   gap: 8px;
-  /* Tighter spacing reclaims room for HOTP. flex-shrink: 0 so this
-     block never gets squeezed by the bottomGrid. */
-  margin-top: 4px; margin-bottom: 10px;
+  /* Tighter spacing — was margin-top 4 / margin-bottom 10. Trimmed to
+     reclaim ~6px for the bottomGrid below. */
+  margin-top: 2px; margin-bottom: 6px;
   flex: 0 0 auto;
 }
 .s1TopBar { flex: 0 0 auto; }
@@ -167,7 +170,10 @@
   position: relative;
 }
 .s1Title {
-  font-size: 92px; font-weight: 900; letter-spacing: -1.5px; line-height: 0.92;
+  /* Was 92px / line-height 0.92. Trimmed to 78px / 0.94 — still the
+     dominant element on Slide 1, but reclaims ~38px of vertical space
+     for the bottomGrid so 2 picks fit cleanly. */
+  font-size: 78px; font-weight: 900; letter-spacing: -1.3px; line-height: 0.94;
   margin: 0;
   color: #fff;
   text-shadow: 0 4px 20px rgba(212,175,55,0.22);
@@ -179,21 +185,24 @@
   -webkit-text-fill-color: transparent;
 }
 .s1Date {
-  margin-top: 12px;
-  font-size: 24px; font-weight: 700; letter-spacing: 0.3px;
+  /* Was margin-top 12 / 24px. Tighter spacing + slightly smaller date
+     keeps the hero block compact without reducing scannability. */
+  margin-top: 8px;
+  font-size: 21px; font-weight: 700; letter-spacing: 0.3px;
   color: #b8b0a0;
 }
 
-/* Mascot — Slide 1 hero prop */
+/* Mascot — Slide 1 hero prop. Trimmed 180 → 152 so it scales with the
+   smaller hero title and doesn't push the title row down. */
 .s1Mascot {
   position: relative;
-  width: 180px; height: 180px;
+  width: 152px; height: 152px;
   object-fit: contain;
   z-index: 11;
   filter:
     drop-shadow(0 0 22px rgba(212,175,55,0.45))
     drop-shadow(0 8px 16px rgba(0,0,0,0.55));
-  margin-bottom: -6px;
+  margin-bottom: -4px;
 }
 
 /* ── Story cards — bigger, matchup-forward ─────────────────── */
@@ -206,10 +215,12 @@
 }
 .s1StoryCard {
   composes: glassCard;
-  padding: 24px 28px;
+  /* Was 24px 28px. Tighter padding reclaims ~10px per card → ~20px
+     total across the 2 stories so the bottomGrid breathes. */
+  padding: 18px 26px;
   display: grid;
   grid-template-columns: auto 1fr auto;
-  gap: 22px;
+  gap: 20px;
   align-items: center;
 }
 .s1StoryLogos {
@@ -223,17 +234,21 @@
 }
 .s1StoryBody { min-width: 0; }
 .s1StoryTitle {
-  font-size: 36px; font-weight: 900; line-height: 1.04;
+  /* Was 36px / 1.04. Trim to 32px / 1.05 — still the headline of the
+     card, but ~10px shorter per 2-line title. */
+  font-size: 32px; font-weight: 900; line-height: 1.05;
   color: #fff;
   letter-spacing: -0.4px;
 }
 .s1StorySub {
-  margin-top: 8px;
-  font-size: 20px; font-weight: 600; line-height: 1.32;
+  margin-top: 6px;
+  font-size: 18px; font-weight: 600; line-height: 1.3;
   color: var(--nba-gold-bright);
 }
 .s1StoryScore {
-  font-size: 50px; font-weight: 900;
+  /* Was 50px. Trim to 44px to match the smaller title — score is still
+     the dominant glance element on the card. */
+  font-size: 44px; font-weight: 900;
   color: var(--nba-gold-bright);
   letter-spacing: -0.5px;
   text-shadow: 0 2px 12px rgba(212,175,55,0.45);
@@ -243,24 +258,25 @@
 /* ── HOT OFF THE PRESS ── */
 .s1HotpZone {
   position: relative; z-index: 10;
-  margin-top: 8px;
+  margin-top: 6px;
   composes: glassCard;
   /* Tighter padding to make headroom for 3 bullets without bleeding
      into Playoff Contenders below. */
-  padding: 14px 22px 16px;
+  padding: 13px 22px 14px;
   /* CRITICAL: do NOT shrink. The bottomGrid below uses flex: 1 to
      absorb leftover artboard space; without `flex-shrink: 0` the HOTP
      zone gets squeezed and the third bullet gets clipped. */
   flex: 0 0 auto;
-  /* Hard floor for the module so 3 bullets at 18px / 1.32 line-height
-     × 2 line clamp + 9px gaps + pill always render. */
-  min-height: 250px;
+  /* Hard floor for the module so 3 bullets at 17px / 1.3 line-height
+     × 2 line clamp + 8px gaps + pill always render. Reduced from 250
+     to 220 so the bottomGrid below has room for 2 picks. */
+  min-height: 220px;
 }
 .s1HotpPill {
   composes: sectionPill;
   margin-bottom: 10px;
 }
-.s1HotpBullets { display: flex; flex-direction: column; gap: 9px; }
+.s1HotpBullets { display: flex; flex-direction: column; gap: 8px; }
 .s1HotpRow {
   display: flex; align-items: flex-start; gap: 12px;
 }
@@ -271,10 +287,9 @@
   margin-top: 1px;
 }
 .s1BulletText {
-  /* Slightly tighter font-size to guarantee 3 bullets fit without
-     sacrificing readability — 18px @ 1.32 LH × 2 lines clamp ≈ 48px
-     per row, so 3 rows + gaps fit cleanly. */
-  font-size: 18px; font-weight: 700; line-height: 1.32;
+  /* 17px @ 1.3 LH × 2 lines clamp ≈ 44px per row → 3 rows + gaps fit
+     cleanly within the tightened HOTP zone. */
+  font-size: 17px; font-weight: 700; line-height: 1.3;
   color: #f2ecdc;
   /* Hard 2-line ceiling so a long ESPN-alert bullet can't push the
      HOTP module past its allotted vertical space. */
@@ -289,22 +304,23 @@
 .s1BottomGrid {
   position: relative; z-index: 10;
   display: grid; grid-template-columns: 1fr 1fr; gap: 14px;
-  margin-top: 10px;
+  margin-top: 8px;
   /* Absorbs leftover artboard space, but can shrink (min-height: 0) so
-     it never pushes HOTP off-canvas when content is tall. */
+     it never pushes HOTP off-canvas when content is tall. Hard floor
+     ensures both pick rows render even when other modules are tall. */
   flex: 1 1 0;
-  min-height: 0;
+  min-height: 230px;
 }
 .s1BottomCard {
   composes: glassCard;
-  padding: 18px 22px;
+  padding: 16px 20px;
   display: flex; flex-direction: column;
 }
 .s1SectionLabel {
-  font-size: 17px; font-weight: 900; letter-spacing: 2.4px;
+  font-size: 16px; font-weight: 900; letter-spacing: 2.2px;
   color: var(--nba-gold-bright);
   text-transform: uppercase;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 .s1RaceList { display: flex; flex-direction: column; gap: 12px; flex: 1; justify-content: space-between; }
@@ -339,7 +355,10 @@
   overflow: hidden;
 }
 .s1PickRow {
-  padding: 16px 18px;
+  /* Was 16/18 padding. Trim to 13/16 so 2 picks fit reliably. Typography
+     stays prominent (24px sel, 15px matchup) — this trims card-level
+     padding only. */
+  padding: 13px 16px;
   border: 1.5px solid rgba(212,175,55,0.36);
   border-radius: 18px;
   background: linear-gradient(160deg, rgba(40,32,14,0.55) 0%, rgba(0,0,0,0.45) 100%);
@@ -352,10 +371,10 @@
   box-shadow: inset 0 1px 0 rgba(240,207,107,0.18), 0 4px 14px rgba(0,0,0,0.35);
 }
 .s1PickLogoWrap { display: flex; align-items: center; gap: 6px; }
-.s1PickBody { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.s1PickBody { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
 .s1PickMatchup { font-size: 15px; font-weight: 800; color: #d8cfb7; letter-spacing: 0.3px; display: block; }
 .s1PickSel {
-  font-size: 24px; font-weight: 900; color: #fff;
+  font-size: 22px; font-weight: 900; color: #fff;
   letter-spacing: 0.4px; line-height: 1.1;
   text-shadow: 0 1px 8px rgba(0,0,0,0.45);
 }
@@ -378,7 +397,8 @@
 .s1Footer {
   position: relative; z-index: 10;
   display: flex; justify-content: center;
-  margin-top: 14px;
+  margin-top: 10px;
+  flex-shrink: 0;
 }
 .s1CtaPill {
   display: inline-flex; align-items: center; gap: 12px;
@@ -396,14 +416,15 @@
 
 .s2 {
   composes: artboard;
-  /* Tighter top padding to reclaim ~20px so Leaders module never clips. */
-  padding: 28px 44px 26px;
+  /* Tighter top + bottom padding (was 28/26) reclaims ~12px so the
+     Leaders grid never clips its STL/BLK row at the bottom. */
+  padding: 24px 44px 22px;
 }
 
 .s2TopBar {
   position: relative; z-index: 10;
   display: flex; align-items: center; justify-content: space-between;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 .s2Pill {
   composes: sectionPill;
@@ -426,42 +447,42 @@
 
 .s2HeadlineBlock {
   position: relative; z-index: 10;
-  margin-top: 2px; margin-bottom: 12px;
+  margin-top: 0; margin-bottom: 8px;
 }
 .s2HeadlineDivider {
   width: 76px; height: 3px;
   background: linear-gradient(90deg, var(--nba-gold-bright) 0%, var(--nba-gold) 60%, transparent 100%);
   border-radius: 2px;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 .s2Headline {
-  /* Trimmed from 58 → 52 + tighter line-height to recover a row of vertical
-     real estate for the leaders grid below. */
-  font-size: 52px; font-weight: 900; line-height: 1.0;
+  /* Was 52px / 1.0. Trim to 46px / 1.0 — still dominant, but recovers
+     ~12-18px depending on whether headline runs 2 or 3 lines. */
+  font-size: 46px; font-weight: 900; line-height: 1.02;
   color: #fff;
-  letter-spacing: -1.0px;
+  letter-spacing: -0.9px;
   text-shadow: 0 3px 14px rgba(212,175,55,0.18);
 }
 .s2Subhead {
-  margin-top: 8px;
-  font-size: 20px; font-weight: 600; line-height: 1.28;
+  margin-top: 6px;
+  font-size: 18px; font-weight: 600; line-height: 1.26;
   color: #d6cdba;
 }
 
 .s2HotpZone {
   position: relative; z-index: 10;
   composes: glassCard;
-  padding: 16px 24px;
-  margin-bottom: 10px;
+  padding: 14px 22px;
+  margin-bottom: 8px;
 }
 .s2HotpHeader {
   composes: sectionPill;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
-.s2HotpList { display: flex; flex-direction: column; gap: 9px; }
+.s2HotpList { display: flex; flex-direction: column; gap: 7px; }
 .s2HotpRow {
   display: flex; align-items: center; gap: 12px;
-  padding-bottom: 7px;
+  padding-bottom: 6px;
   border-bottom: 1px solid rgba(212,175,55,0.12);
 }
 .s2HotpRow:last-child { border-bottom: none; padding-bottom: 0; }
@@ -469,26 +490,26 @@
   color: var(--nba-gold-bright); font-weight: 900; font-size: 19px;
   flex-shrink: 0;
 }
-.s2HotpText { font-size: 18px; font-weight: 700; line-height: 1.28; color: #f2ecdc; flex: 1; }
+.s2HotpText { font-size: 17px; font-weight: 700; line-height: 1.26; color: #f2ecdc; flex: 1; }
 
 .s2PicksZone {
   position: relative; z-index: 10;
   composes: glassCard;
-  padding: 14px 22px;
-  margin-bottom: 10px;
+  padding: 12px 20px;
+  margin-bottom: 8px;
 }
 .s2PicksHeader {
   composes: sectionPill;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 .s2PicksRow {
   display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;
 }
 .s2PickTile {
-  padding: 12px 14px; border-radius: 16px;
+  padding: 10px 14px; border-radius: 16px;
   background: rgba(0,0,0,0.35);
   border: 1.5px solid rgba(212,175,55,0.28);
-  display: flex; flex-direction: column; gap: 6px;
+  display: flex; flex-direction: column; gap: 5px;
 }
 .s2PickTileTop { display: flex; justify-content: space-between; align-items: center; }
 .s2PickTileLogoRow { display: flex; align-items: center; gap: 6px; }
@@ -505,7 +526,7 @@
 .s2LeadersZone {
   position: relative; z-index: 10;
   composes: glassCard;
-  padding: 16px 22px;
+  padding: 14px 20px;
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -514,7 +535,7 @@
 }
 .s2LeadersHeader {
   composes: sectionPill;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
   flex-shrink: 0;
 }
 /* 2-row grid: row 1 = PPG/APG/RPG (3 columns), row 2 = SPG/BPG (2 columns spanning the same width).
@@ -529,7 +550,7 @@
 }
 .s2LeaderCat {
   display: flex; flex-direction: column;
-  padding: 14px 14px; border-radius: 14px;
+  padding: 12px 13px; border-radius: 14px;
   background: rgba(0,0,0,0.40);
   border: 1.5px solid rgba(212,175,55,0.28);
   /* No min-height — the grid-auto-rows: 1fr above lets each card take
@@ -540,13 +561,12 @@
 .s2LeaderCatRow1 { grid-column: span 2; }
 .s2LeaderCatRow2 { grid-column: span 3; }
 .s2LeaderCatLabel {
-  /* Bigger, more confident category header. */
-  font-size: 18px; font-weight: 900; letter-spacing: 1.8px;
+  font-size: 17px; font-weight: 900; letter-spacing: 1.8px;
   color: var(--nba-gold-bright);
   text-transform: uppercase;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
   border-bottom: 1.5px solid rgba(212,175,55,0.45);
-  padding-bottom: 7px;
+  padding-bottom: 6px;
   width: 100%; text-align: center;
   flex-shrink: 0;
   text-shadow: 0 1px 6px rgba(212,175,55,0.36);
@@ -559,8 +579,8 @@
   display: grid;
   grid-template-columns: 22px auto 1fr auto;
   align-items: center;
-  gap: 11px;
-  padding: 8px 4px;
+  gap: 10px;
+  padding: 6px 4px;
   border-bottom: 1px dashed rgba(212,175,55,0.14);
   overflow: hidden;
 }
@@ -572,24 +592,20 @@
   line-height: 1;
 }
 .s2LeaderName {
-  /* Player name bumped 15 → 18 — readable on mobile, scans like the
-     subject of the row. */
-  font-size: 18px; font-weight: 800; color: #fff; line-height: 1.18;
+  font-size: 17px; font-weight: 800; color: #fff; line-height: 1.16;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   min-width: 0;
 }
 .s2LeaderTeam {
-  /* Team abbrev bumped 11 → 13, slightly less muted, so it actually
-     reads alongside the player name. */
-  font-size: 13px; font-weight: 800;
+  font-size: 12px; font-weight: 800;
   color: #d8c8ad; letter-spacing: 0.6px;
   margin-left: 6px;
 }
 .s2LeaderValue {
-  /* Stat value bumped 20 → 26 — this is the headline of the row.
-     Brighter gold + soft glow + heavier weight makes it the visual
-     anchor of every leader card. */
-  font-size: 26px; font-weight: 900;
+  /* Stat value stays the visual anchor of each row. 24px keeps it
+     prominent while reclaiming a couple of pixels per row → ~10px
+     across the leaders grid. */
+  font-size: 24px; font-weight: 900;
   color: var(--nba-gold-bright);
   letter-spacing: 0.4px;
   text-align: right;
@@ -609,13 +625,14 @@
 
 .s3 {
   composes: artboard;
-  padding: 38px 44px 34px;
+  padding: 32px 44px 28px;
 }
 
 .s3TopBar {
   position: relative; z-index: 10;
   display: flex; align-items: center; justify-content: space-between;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
+  flex-shrink: 0;
 }
 
 .s3MascotWatermark {
@@ -632,75 +649,90 @@
 
 .s3TitleBlock {
   position: relative; z-index: 10;
-  margin-top: 4px; margin-bottom: 18px;
+  margin-top: 2px; margin-bottom: 14px;
+  flex-shrink: 0;
 }
 .s3Title {
-  font-size: 64px; font-weight: 900; line-height: 0.98;
-  letter-spacing: -1.3px;
+  font-size: 56px; font-weight: 900; line-height: 0.98;
+  letter-spacing: -1.2px;
   background: linear-gradient(92deg, var(--nba-gold) 0%, var(--nba-gold-bright) 55%, var(--nba-gold) 100%);
   -webkit-background-clip: text; background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 .s3SubTitle {
-  margin-top: 10px;
-  font-size: 21px; font-weight: 600;
+  margin-top: 8px;
+  font-size: 19px; font-weight: 600;
   color: #d6cdba;
 }
 .s3TitleDivider {
   width: 120px; height: 4px;
   background: linear-gradient(90deg, var(--nba-gold-bright) 0%, var(--nba-gold) 60%, transparent 100%);
   border-radius: 2px;
-  margin-top: 14px;
+  margin-top: 10px;
 }
 
 .s3ConfGrid {
   position: relative; z-index: 10;
-  display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+  display: grid; grid-template-columns: 1fr 1fr; gap: 18px;
+  /* Both columns share the same row → identical top + bottom Y. */
+  grid-auto-rows: 1fr;
+  align-items: stretch;
   flex: 1;
-  /* Slide 3 columns now fully claim available height. Combined with
-     `justify-content: space-between` on the team list this fills the
-     canvas with the existing 5 rows rather than crunching them up top. */
   min-height: 0;
 }
 .s3ConfCard {
   composes: glassCard;
-  padding: 22px 24px;
+  padding: 22px 22px 22px;
   display: flex; flex-direction: column;
+  /* Stretch alongside the grid row so both East + West cards have
+     the same vertical bounds even when one rationale runs longer. */
+  height: 100%;
+  min-height: 0;
 }
 .s3ConfHeader {
   composes: sectionPill;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
   flex-shrink: 0;
+  /* Same height across East + West so the team lists below start at
+     the same Y. */
+  align-self: flex-start;
 }
 .s3TeamList {
   display: flex; flex-direction: column;
-  gap: 10px;
+  gap: 14px;
   flex: 1;
-  /* Audit Part 4: when there are 6-8 active teams per conference,
-     `justify-content: space-between` would over-stretch the rows.
-     Instead let rows flow naturally with a fixed gap and let the
-     compact-mode CSS handle density when the count is high. */
-  justify-content: flex-start;
+  /* Audit pass 4: with the slide capped at 4 teams per conf,
+     space-between fills the column from top to bottom — no dead
+     gap below the 4th card. East and West use the same flex sizing
+     so columns end at the same Y coordinate. */
+  justify-content: space-between;
   /* Hard ceiling so a long active list doesn't push past the footer */
   min-height: 0;
   overflow: hidden;
 }
 /* Audit Part 5: 2-row card layout — top line for identity/odds/seed,
-   rationale beneath. Eliminates the cramped 4-column grid that made
-   long rationales overflow into the next column. */
+   rationale beneath. With 4 teams per conf the cards now flex-grow to
+   fill the column — no dead space below the 4th card. */
 .s3TeamRow {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 14px 18px;
+  gap: 12px;
+  padding: 20px 22px;
   border: 1.5px solid rgba(212,175,55,0.24);
   border-radius: 18px;
   background: rgba(0,0,0,0.36);
+  /* Each of the 4 cards claims an equal slice of the column — gives a
+     filled, editorial layout instead of the previous sparse stack. */
+  flex: 1 1 0;
+  min-height: 0;
+  /* Centered content vertically so the (logo + abbrev + rationale)
+     block sits balanced inside a taller card. */
+  justify-content: center;
 }
 .s3TeamTopLine {
   display: grid;
   grid-template-columns: auto auto 1fr auto;
-  gap: 14px; align-items: center;
+  gap: 16px; align-items: center;
 }
 /* Compact density mode — kicks in when a conference has >5 active
    teams. Slide 3 caps to 4 by default, so this is mostly a safety
@@ -740,18 +772,17 @@
 }
 
 /* Audit Part 6: left-side SEED badge (was the numeric rank). Reads as a
-   stat pill, gold on dark, slightly larger than the old rank so it
-   anchors the row visually. Compact mode shrinks to keep parity with
-   smaller logos. */
+   stat pill, gold on dark, larger now to anchor the bigger team row.
+   Compact mode shrinks to keep parity with smaller logos. */
 .s3TeamSeedLeft {
   display: inline-flex; align-items: center; justify-content: center;
-  min-width: 44px;
-  padding: 4px 10px;
+  min-width: 52px;
+  padding: 6px 12px;
   border-radius: 999px;
   background: rgba(212,175,55,0.20);
   border: 1.5px solid rgba(212,175,55,0.50);
   color: var(--nba-gold-bright);
-  font-size: 17px; font-weight: 900;
+  font-size: 19px; font-weight: 900;
   letter-spacing: 0.4px;
   line-height: 1.05;
   text-shadow: 0 0 10px rgba(212,175,55,0.35);
@@ -777,12 +808,12 @@
   gap: 4px;
   min-width: 0;
 }
-.s3TeamAbbrev { font-size: 26px; font-weight: 900; color: #fff; letter-spacing: 0.5px; line-height: 1.0; }
+.s3TeamAbbrev { font-size: 32px; font-weight: 900; color: #fff; letter-spacing: 0.5px; line-height: 1.0; }
 /* Base label pill — color tone is overridden per-status below. */
 .s3TeamLabel {
   display: inline-block;
-  font-size: 11px; font-weight: 900; letter-spacing: 1.1px;
-  padding: 3px 9px; border-radius: 6px;
+  font-size: 12.5px; font-weight: 900; letter-spacing: 1.2px;
+  padding: 4px 11px; border-radius: 6px;
   background: rgba(212,175,55,0.28); color: var(--nba-gold-bright);
   text-transform: uppercase;
   align-self: flex-start;
@@ -838,16 +869,17 @@
 /* Market block aligned right — odds + seed badge stacked. */
 .s3MarketBlock { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
 /* Rationale lives BELOW the top line — full card width, line-clamped
-   to 2 lines (or 1 in compact mode). */
+   to 2 lines (or 1 in compact mode). Larger size + tighter line-height
+   so it scans cleanly inside the bigger card. */
 .s3Rationale {
-  font-size: 14px; font-weight: 600; color: #cfc6b3; line-height: 1.38;
+  font-size: 15.5px; font-weight: 600; color: #cfc6b3; line-height: 1.36;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
 .s3TeamOdds {
-  font-size: 26px; font-weight: 900;
+  font-size: 30px; font-weight: 900;
   color: #fff;
   letter-spacing: 0.2px;
   text-shadow: 0 0 8px rgba(212,175,55,0.32);
@@ -906,7 +938,8 @@
 
 .s3Footer {
   position: relative; z-index: 10;
-  display: flex; justify-content: center; margin-top: 14px;
+  display: flex; justify-content: center; margin-top: 12px;
+  flex-shrink: 0;
 }
 
 /* ══════════════════════════════════════════════════════════════
