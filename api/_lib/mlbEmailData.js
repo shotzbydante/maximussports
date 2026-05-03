@@ -59,6 +59,37 @@ function validateMlbScores(scores) {
 import { buildLeadersEditorialHook } from '../../src/data/mlb/seasonLeaders.js';
 import { getJson } from '../_globalCache.js';
 import { buildPicksBoard } from './mlbPicksBuilder.js';
+import { normalizeEvent, ESPN_SCOREBOARD as MLB_ESPN_SCOREBOARD, FETCH_TIMEOUT_MS as MLB_FETCH_TIMEOUT } from '../mlb/live/_normalize.js';
+
+/**
+ * Fetch yesterday's MLB final games directly from ESPN scoreboard.
+ * Used for "Yesterday's MLB Results" in Global Daily Briefing.
+ */
+async function fetchYesterdayResults() {
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  const dateStr = d.toISOString().slice(0, 10).replace(/-/g, '');
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), MLB_FETCH_TIMEOUT);
+  try {
+    const r = await fetch(`${MLB_ESPN_SCOREBOARD}?dates=${dateStr}`, { signal: controller.signal });
+    if (!r.ok) return [];
+    const data = await r.json();
+    const events = Array.isArray(data.events) ? data.events : [];
+    const finals = events.map(normalizeEvent).filter(g => g && g.status === 'final');
+    return finals.slice(0, 6).map(g => ({
+      gameId: g.gameId,
+      away: { slug: g.awayTeam?.slug, abbrev: g.awayTeam?.abbrev, score: g.awayTeam?.score },
+      home: { slug: g.homeTeam?.slug, abbrev: g.homeTeam?.abbrev, score: g.homeTeam?.score },
+      statusText: g.statusText || 'Final',
+    }));
+  } catch (err) {
+    console.warn(`[mlbEmailData] yesterday's results fetch failed: ${err.message}`);
+    return [];
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 // ── KV keys for direct cache reads (bypass HTTP self-fetch) ────────
 const KV_CHAMP_ODDS = 'odds:championship:mlb:v1';
@@ -185,10 +216,16 @@ export async function assembleMlbEmailData(baseUrl, opts = {}) {
     );
   }
 
+  // Yesterday's MLB results (parallel, direct ESPN fetch)
+  fetchPromises.push(
+    fetchYesterdayResults().then(results => ({ data: results, source: 'fresh' }))
+  );
+
   const results = await Promise.all(fetchPromises);
   const [headlinesResult, liveResult, leadersResult, champOddsResult, ...rest] = results;
   const summaryResult = includeSummary ? rest.shift() : null;
   const picksResult = includePicks ? rest.shift() : null;
+  const yesterdayResultsResult = rest.shift();
 
   // ── Diagnostic logging ────────────────────────────────────────
   const sources = {
@@ -264,6 +301,13 @@ export async function assembleMlbEmailData(baseUrl, opts = {}) {
 
   console.log(`[mlbEmailData] Final: ${headlines.length} headlines, ${scoresToday.length} games, narrative=${narrativeParagraph.length > 0 ? narrativeParagraph.length + 'ch' : 'empty'}, picks=${!!picksBoard}, leaders=${Object.keys(mlbLeadersData?.categories || {}).length} cats, champOdds=${Object.keys(champOdds).length} teams`);
 
+  // Yesterday's results
+  const yesterdayResults = yesterdayResultsResult?.data || [];
+
+  // Picks scorecard — placeholder until canonical scorecard pipeline lands.
+  // Documented gap: no KV/source for settled-pick outcomes yet.
+  const picksScorecard = null;
+
   return {
     headlines,
     scoresToday,
@@ -273,6 +317,8 @@ export async function assembleMlbEmailData(baseUrl, opts = {}) {
     leadersEditorial,
     leadersCategories: mlbLeadersData?.categories || {},
     champOdds,
+    yesterdayResults,
+    picksScorecard,
     // Empty NCAAM-specific fields so templates don't break
     rankingsTop25: [],
     atsLeaders: { best: [], worst: [] },
