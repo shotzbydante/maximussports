@@ -146,10 +146,10 @@ export default function NbaDailySlide1({ data, asOf: _a, slideNumber: _s, slideT
     .sort((a, b) => (b.prob ?? 0) - (a.prob ?? 0));
   const raceTeams = allOutlook.slice(0, 5);
 
-  // Picks: STRICT prefix of Slide 2's list. resolveSlidePicks() is the
-  // shared canonical resolver — Slide 1 (cap 2) === Slide 2 (cap 3)
-  // .slice(0, 2). No drift, no recomputation, no separate sort key.
-  const allPicks = resolveSlidePicks(payload, 2);
+  // Picks: SAME 3-pick subset as Slide 2. resolveSlidePicks() is the
+  // shared canonical resolver — Slide 1 (cap 3) === Slide 2 (cap 3).
+  // No drift, no recomputation, no separate sort key.
+  const allPicks = resolveSlidePicks(payload, 3);
   const picks = allPicks.map(p => {
     const away = p.matchup?.awayTeam || {};
     const home = p.matchup?.homeTeam || {};
@@ -414,9 +414,35 @@ function buildStoryCard(story, payload) {
   };
 }
 
-function buildFallbackStoryCard(pc) {
+export function buildFallbackStoryCard(pc) {
   const elim = pc?.eliminationGames?.[0];
   if (elim) {
+    const ts = elim.seriesScore?.top ?? 0;
+    const bs = elim.seriesScore?.bottom ?? 0;
+    // Game 7 special-case (audit Part 1): when the series is tied 3-3,
+    // both teams face elimination — "X try to close out Y" is wrong,
+    // and rendering "3-3" as the big right-side display reads like a
+    // fake final score sitting next to the real score on the card
+    // above. Use a neutral "GAME 7" label instead.
+    const isTiedGame7 = (ts === 3 && bs === 3) || !!elim.isGameSeven;
+    if (isTiedGame7) {
+      const topT = elim.topTeam || {};
+      const botT = elim.bottomTeam || {};
+      return {
+        winSlug: topT.slug,
+        loseSlug: botT.slug,
+        winAbbrev: topT.abbrev,
+        loseAbbrev: botT.abbrev,
+        title: `${topT.name || topT.abbrev} and ${botT.name || botT.abbrev} go to Game 7`,
+        sub: elim.seriesScore?.summary || `Series tied ${ts}-${bs}`,
+        // "GAME 7" replaces the score-shaped "3-3" so it doesn't read
+        // like a final next to the real game score above. The
+        // scoreIsLabel flag drops the gold-glow score styling so it
+        // renders as a state label, not a result.
+        score: 'GAME 7',
+        scoreIsLabel: true,
+      };
+    }
     const leader = elim.eliminationFor === 'top' ? elim.bottomTeam : elim.topTeam;
     const trailer = elim.eliminationFor === 'top' ? elim.topTeam : elim.bottomTeam;
     return {
@@ -469,7 +495,11 @@ function StoryCard({ card }) {
         <div className={styles.s1StoryTitle}>{card.title}</div>
         {card.sub && <div className={styles.s1StorySub}>{card.sub}</div>}
       </div>
-      {card.score && <div className={styles.s1StoryScore}>{card.score}</div>}
+      {card.score && (
+        <div className={card.scoreIsLabel ? styles.s1StoryStateLabel : styles.s1StoryScore}>
+          {card.score}
+        </div>
+      )}
     </div>
   );
 }

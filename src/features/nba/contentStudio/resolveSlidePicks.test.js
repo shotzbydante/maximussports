@@ -44,14 +44,31 @@ const sampleData = {
   },
 };
 
-describe('resolveSlidePicks — Slide 1 ⊆ Slide 2 ⊆ canonical', () => {
-  it('Slide 1 (cap 2) is the strict prefix of Slide 2 (cap 3)', () => {
-    const slide1 = resolveSlidePicks(sampleData, 2);
+describe('resolveSlidePicks — Slide 1 === Slide 2 ⊆ canonical', () => {
+  it('Slide 1 (cap 3) === Slide 2 (cap 3) — same picks, same order', () => {
+    const slide1 = resolveSlidePicks(sampleData, 3);
     const slide2 = resolveSlidePicks(sampleData, 3);
-    expect(slide1.length).toBe(2);
+    expect(slide1.length).toBe(3);
     expect(slide2.length).toBe(3);
-    expect(slide1[0].pick.label).toBe(slide2[0].pick.label);
-    expect(slide1[1].pick.label).toBe(slide2[1].pick.label);
+    for (let i = 0; i < 3; i++) {
+      expect(slide1[i].pick.label).toBe(slide2[i].pick.label);
+    }
+  });
+
+  it('Slide 1 cap is now 3 — when source has ≥3 picks, Slide 1 renders 3', () => {
+    const slide1 = resolveSlidePicks(sampleData, 3);
+    expect(slide1.length).toBe(3);
+  });
+
+  it('regression: Slide 1 picks IDs match Slide 2 picks IDs exactly', () => {
+    // Locks the parity bug from the audit screenshot — Slide 2 had 3
+    // picks but Slide 1 was rendering 1. With the canonical resolver
+    // both slides MUST surface identical pick identities in identical
+    // order (same selection labels prove it).
+    const slide1 = resolveSlidePicks(sampleData, 3);
+    const slide2 = resolveSlidePicks(sampleData, 3);
+    expect(slide1.map(p => p.pick.label)).toEqual(slide2.map(p => p.pick.label));
+    expect(slide1.map(p => p._cat)).toEqual(slide2.map(p => p._cat));
   });
 
   it('Slide 2 is the strict prefix of canonical (caption full list)', () => {
@@ -63,21 +80,19 @@ describe('resolveSlidePicks — Slide 1 ⊆ Slide 2 ⊆ canonical', () => {
     }
   });
 
-  it('Slide 1 never renders fewer than 2 when source has ≥2 picks', () => {
-    const slide1 = resolveSlidePicks(sampleData, 2);
-    expect(slide1.length).toBe(2);
-  });
-
   it('Slide 1 falls back to source size when fewer than cap exist', () => {
-    const oneOnly = {
+    const twoOnly = {
       nbaPicks: {
         categories: {
-          ats: [mkPick({ ats: 'away', score: 95, awaySlug: 'min', homeSlug: 'sas', label: 'SAS -14' })],
+          ats: [
+            mkPick({ ats: 'away', score: 95, awaySlug: 'min', homeSlug: 'sas', label: 'SAS -14' }),
+            mkPick({ ats: 'away', score: 88, awaySlug: 'phi', homeSlug: 'nyk', label: 'NYK -7' }),
+          ],
         },
       },
     };
-    const slide1 = resolveSlidePicks(oneOnly, 2);
-    expect(slide1.length).toBe(1);
+    const slide1 = resolveSlidePicks(twoOnly, 3);
+    expect(slide1.length).toBe(2);
   });
 
   it('top picks ranked by betScore desc with Spread breaking same-score ties', () => {
