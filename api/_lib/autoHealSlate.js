@@ -50,6 +50,14 @@ export async function autoHealSlate({
   fetchFinals,
   timeoutMs = DEFAULT_TIMEOUT_MS,
   rebuildScorecard = true,
+  /**
+   * When true, ignore the existing pick_results.status and re-grade every
+   * pick. Used by the operator escape hatch after a grading-math fix
+   * lands — the existing rows have stale (wrong) statuses and the normal
+   * "skip already-graded" path leaves them broken. Default false; only the
+   * scorecard endpoint with ?regrade=1 sets this to true.
+   */
+  forceRegrade = false,
 }) {
   const out = {
     attempted: false,
@@ -99,12 +107,16 @@ export async function autoHealSlate({
 
       // 3. Skip picks already graded — only fix what's pending.
       // pick_results joins via primary key — PostgREST may return object OR array.
+      // forceRegrade=true: ignore existing status, re-grade everything.
       const alreadyGraded = new Set();
-      for (const p of picks) {
-        const raw = p.pick_results;
-        const r = Array.isArray(raw) ? raw[0] : raw;
-        if (r && r.status !== 'pending') alreadyGraded.add(p.id);
+      if (!forceRegrade) {
+        for (const p of picks) {
+          const raw = p.pick_results;
+          const r = Array.isArray(raw) ? raw[0] : raw;
+          if (r && r.status !== 'pending') alreadyGraded.add(p.id);
+        }
       }
+      out.forceRegrade = !!forceRegrade;
 
       // Build an augmented map keyed by each pick's persisted game_id so
       // gradePicks() resolves through fallbacks transparently. For each

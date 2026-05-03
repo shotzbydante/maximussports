@@ -22,6 +22,7 @@ import {
 import { yesterdayET } from '../../_lib/dateWindows.js';
 import { fetchYesterdayFinals } from '../live/_normalize.js';
 import { autoHealSlate } from '../../_lib/autoHealSlate.js';
+import { annotatePick } from '../../_lib/annotatePick.js';
 
 /** Inclusive day delta between two YYYY-MM-DD strings (a - b in days). */
 function daysBetween(a, b) {
@@ -32,103 +33,10 @@ function daysBetween(a, b) {
   return Math.round((da - db) / 86400000);
 }
 
-/** Compute Won/Lost/Push/Pending + plain-English reason for one pick. */
-function annotatePick(pick) {
-  // pick_results joins via primary key (pick_id is PK referencing picks.id),
-  // so PostgREST returns it as either an object (1-to-1) or array depending
-  // on relationship inference. Handle both shapes — same convention used
-  // throughout this file (lines 206, 264, 368) and the MLB scorecard.
-  const rawResult = pick?.pick_results;
-  const result = Array.isArray(rawResult) ? rawResult[0] : rawResult || null;
-  const status = result?.status || 'pending';
-  const awayScore = result?.final_away_score;
-  const homeScore = result?.final_home_score;
-  const hasFinal = awayScore != null && homeScore != null;
-
-  const market = pick.market_type;       // 'moneyline' | 'runline' | 'total'
-  const side = pick.selection_side;      // 'home'|'away'|'over'|'under'
-  const line = pick.line_value;          // numeric, may be null
-  const price = pick.price_american;     // moneyline price
-
-  // Build human-readable pick label
-  let pickLabel = '';
-  if (market === 'moneyline') {
-    const team = side === 'home' ? pick.home_team_slug : pick.away_team_slug;
-    pickLabel = `${(team || '').toUpperCase()} ML${price != null ? ` ${price > 0 ? '+' : ''}${price}` : ''}`;
-  } else if (market === 'runline' || market === 'spread') {
-    const team = side === 'home' ? pick.home_team_slug : pick.away_team_slug;
-    const teamLine = side === 'home' ? line : (line != null ? -line : null);
-    const lineStr = teamLine != null ? `${teamLine > 0 ? '+' : ''}${teamLine}` : '';
-    pickLabel = `${(team || '').toUpperCase()} ${lineStr}`.trim();
-  } else if (market === 'total') {
-    const ouLabel = side === 'over' ? 'OVER' : 'UNDER';
-    pickLabel = `${ouLabel} ${line != null ? line : ''}`.trim();
-  }
-
-  // Final score display + result reason text
-  let finalScore = null;
-  let resultReason = null;
-  if (hasFinal) {
-    finalScore = `${(pick.away_team_slug || '').toUpperCase()} ${awayScore} – ${(pick.home_team_slug || '').toUpperCase()} ${homeScore}`;
-
-    if (market === 'moneyline') {
-      const winner = awayScore > homeScore ? 'away' : awayScore < homeScore ? 'home' : 'tie';
-      const winnerName = winner === 'away' ? pick.away_team_slug
-                       : winner === 'home' ? pick.home_team_slug : null;
-      if (status === 'won') resultReason = `${(winnerName || '').toUpperCase()} won outright.`;
-      else if (status === 'lost') resultReason = `${(winnerName || '').toUpperCase()} won the game.`;
-      else if (status === 'push') resultReason = `Game ended tied.`;
-    } else if (market === 'runline' || market === 'spread') {
-      const margin = (side === 'home' ? homeScore - awayScore : awayScore - homeScore);
-      const lineForSide = side === 'home' ? line : (line != null ? -line : null);
-      if (lineForSide != null) {
-        const cover = margin + lineForSide;
-        if (status === 'won') resultReason = `Covered by ${Math.abs(cover).toFixed(1)} points.`;
-        else if (status === 'lost') resultReason = `Lost cover by ${Math.abs(cover).toFixed(1)} points.`;
-        else if (status === 'push') resultReason = `Margin landed exactly on the spread.`;
-      }
-    } else if (market === 'total') {
-      const totalScore = awayScore + homeScore;
-      if (line != null) {
-        const diff = totalScore - line;
-        if (status === 'won') resultReason = side === 'over'
-          ? `Total finished ${totalScore} — over by ${diff.toFixed(1)}.`
-          : `Total finished ${totalScore} — under by ${Math.abs(diff).toFixed(1)}.`;
-        else if (status === 'lost') resultReason = side === 'over'
-          ? `Total finished ${totalScore} — came up ${Math.abs(diff).toFixed(1)} short.`
-          : `Total finished ${totalScore} — went ${diff.toFixed(1)} over.`;
-        else if (status === 'push') resultReason = `Total landed exactly on the line.`;
-      }
-    }
-  }
-
-  return {
-    id: pick.id,
-    pickKey: pick.pick_key,
-    gameId: pick.game_id,
-    awayTeam: pick.away_team_slug,
-    homeTeam: pick.home_team_slug,
-    matchup: `${(pick.away_team_slug || '').toUpperCase()} @ ${(pick.home_team_slug || '').toUpperCase()}`,
-    marketType: market,
-    selectionSide: side,
-    lineValue: line,
-    priceAmerican: price,
-    pickLabel,
-    convictionTier: pick.tier,
-    betScore: pick.bet_score,
-    rawEdge: pick.raw_edge,
-    modelProb: pick.model_prob,
-    impliedProb: pick.implied_prob,
-    topSignals: pick.top_signals,
-    rationale: pick.rationale,
-    startTime: pick.start_time,
-    status,
-    finalAwayScore: awayScore,
-    finalHomeScore: homeScore,
-    finalScore,
-    resultReason,
-  };
-}
+// Note: annotatePick is imported from ../../_lib/annotatePick.js — single
+// source of truth for the per-pick UI shape (pickLabel, finalScore,
+// resultReason). See its module header for the May 2 grading display bug
+// it locks down.
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -144,6 +52,11 @@ export default async function handler(req, res) {
     ? req.query.date : null;
   const includePicks = req.query?.includePicks === '1';
   const requestedSlate = explicitDate || yesterdayET();
+  // Operator escape hatch: ?regrade=1 (with an explicit ?date=) re-grades
+  // every pick for that slate, ignoring existing status. Used after a
+  // grading-math fix lands so the existing 'won'/'lost' rows pick up the
+  // corrected logic instead of staying stuck with stale values.
+  const regrade = req.query?.regrade === '1' && !!explicitDate;
 
   try {
     // ── Slate selection ────────────────────────────────────────────────
@@ -171,9 +84,39 @@ export default async function handler(req, res) {
     };
 
     if (explicitDate) {
+      // ── Optional force-regrade ──────────────────────────────────────
+      // When ?regrade=1 is present alongside ?date=, run autoHealSlate
+      // with forceRegrade so every pick for that slate is regraded
+      // through the current settle logic. Bounded by the same 4.5s
+      // timeout used elsewhere.
+      if (regrade) {
+        try {
+          const heal = await autoHealSlate({
+            sport: 'nba',
+            slateDate: explicitDate,
+            fetchFinals: ({ slateDate }) => fetchYesterdayFinals({ slateDate }),
+            timeoutMs: 4500,
+            forceRegrade: true,
+          });
+          diagnostics.regrade = heal;
+          diagnostics.regradeAttempted = !!heal.attempted;
+          diagnostics.regradeSucceeded = !!heal.succeeded;
+          if (heal.succeeded) {
+            console.log(
+              `[nba/scorecard] ?regrade=1 succeeded for ${explicitDate}: graded=${heal.gradedCount} scorecardRebuilt=${heal.scorecardRebuilt}`
+            );
+          } else {
+            console.warn(
+              `[nba/scorecard] ?regrade=1 did not heal ${explicitDate}: reason=${heal.reason || heal.error || 'unknown'}`
+            );
+          }
+        } catch (e) {
+          diagnostics.regradeError = e?.message;
+        }
+      }
       card = await getScorecard({ sport: 'nba', slateDate: explicitDate });
       selectedSlate = explicitDate;
-      selectedReason = 'explicit_date';
+      selectedReason = regrade ? 'explicit_date_regraded' : 'explicit_date';
     } else {
       // ── Target prior slate inspection ────────────────────────────────
       // The canonical "Model Performance" slate is yesterdayET() — the

@@ -39,6 +39,10 @@ export function settlePick(pick, finalGame) {
       return { status: 'void', ...common, notes: `unknown side ${side}` };
     }
     case 'runline': {
+      // Number(null) === 0 — guard explicitly against null/undefined so a
+      // missing line voids instead of silently grading as if the spread
+      // were 0.
+      if (pick.line_value == null) return { status: 'void', ...common, notes: 'missing line' };
       const line = Number(pick.line_value);
       if (!isFinite(line)) return { status: 'void', ...common, notes: 'missing line' };
       // selection_side: 'away' means "away team covers line_value (awayLine)";
@@ -57,6 +61,7 @@ export function settlePick(pick, finalGame) {
       return { status: 'void', ...common, notes: `unknown side ${pick.selection_side}` };
     }
     case 'total': {
+      if (pick.line_value == null) return { status: 'void', ...common, notes: 'missing line' };
       const line = Number(pick.line_value);
       if (!isFinite(line)) return { status: 'void', ...common, notes: 'missing line' };
       if (total === line) return { status: 'push', ...common, notes: '' };
