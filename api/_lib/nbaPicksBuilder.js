@@ -25,6 +25,7 @@
 import { normalizeEvent, ESPN_SCOREBOARD, FETCH_TIMEOUT_MS } from '../nba/live/_normalize.js';
 import { enrichGamesWithOdds } from '../nba/live/_odds.js';
 import { buildNbaPicksV2, NBA_DEFAULT_CONFIG } from '../../src/features/nba/picks/v2/buildNbaPicksV2.js';
+import { buildNbaPlayoffContext, findSeriesForGame } from '../../src/data/nba/playoffContext.js';
 import { getJson, setJson } from '../_globalCache.js';
 import { writePicksRun, getActiveConfig, getScorecard, getLatestGradedScorecard } from './picksHistory.js';
 import { yesterdayET } from './dateWindows.js';
@@ -42,6 +43,53 @@ function getDateStrings(days = 2) {
     dates.push(d.toISOString().slice(0, 10).replace(/-/g, ''));
   }
   return dates;
+}
+
+/**
+ * Past-window date strings (YYYYMMDD) for the last N days. Used to load
+ * recent finals so playoff context (series scores, elimination labels)
+ * can be derived for the picks engine.
+ */
+function getPastDateStrings(days = 7) {
+  const dates = [];
+  for (let i = 1; i <= days; i++) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    dates.push(d.toISOString().slice(0, 10).replace(/-/g, ''));
+  }
+  return dates;
+}
+
+/**
+ * Build per-game playoff context (`{[gameId]: { isElimination, isGameSeven, eliminationFor }}`)
+ * from a multi-day scoreboard window. Drives the discipline rules for elim
+ * + Game 7 spots in buildNbaPicksV2.
+ */
+function buildPicksGameContext(upcomingGames, windowGames) {
+  const ctx = {};
+  if (!Array.isArray(upcomingGames) || upcomingGames.length === 0) return ctx;
+  let pc;
+  try {
+    pc = buildNbaPlayoffContext({ liveGames: upcomingGames, windowGames });
+  } catch (err) {
+    console.warn(`[nbaPicksBuilder] playoff context derive failed: ${err.message}`);
+    return ctx;
+  }
+  if (!pc) return ctx;
+  for (const g of upcomingGames) {
+    const found = findSeriesForGame(g, pc);
+    if (!found?.series) continue;
+    const s = found.series;
+    if (s.isElimination || s.isGameSeven) {
+      ctx[g.gameId] = {
+        isElimination: !!s.isElimination,
+        isGameSeven:   !!s.isGameSeven,
+        eliminationFor: s.eliminationFor || null,
+        eliminationLabel: s.eliminationLabel || null,
+      };
+    }
+  }
+  return ctx;
 }
 
 async function fetchScoreboardForDate(dateStr) {
@@ -103,6 +151,22 @@ export async function buildNbaPicksBoard(opts = {}) {
       return true;
     });
 
+    // Past-week finals — needed only for playoff context derivation
+    // (series scores, elimination labels). Best-effort; non-fatal on failure.
+    let pastGames = [];
+    try {
+      const pastArrays = await Promise.all(getPastDateStrings(7).map(fetchScoreboardForDate));
+      pastGames = pastArrays.flat().filter(g => {
+        if (!g?.gameId) return false;
+        if (seen.has(g.gameId)) return false;
+        seen.add(g.gameId);
+        return true;
+      });
+    } catch (err) {
+      console.warn(`[nbaPicksBuilder] past-window fetch failed: ${err.message}`);
+    }
+    const windowGames = [...allGames, ...pastGames];
+
     const upcoming = allGames.filter(g =>
       g.status === 'upcoming' && !g.gameState?.isLive && !g.gameState?.isFinal
     );
@@ -151,7 +215,23 @@ export async function buildNbaPicksBoard(opts = {}) {
       }
     } catch { /* non-fatal */ }
 
-    const result = buildNbaPicksV2({ games: enriched, config: activeConfig, scorecardSummary });
+    // Per-game playoff context (Game 7 / elimination flags) — only attached
+    // for games that match a tracked playoff series. The discipline layer
+    // uses these to suppress / cap chalk picks in volatile spots.
+    const gameContext = buildPicksGameContext(enriched, windowGames);
+    if (Object.keys(gameContext).length > 0) {
+      console.log(`[nbaPicksBuilder] playoff context attached to ${Object.keys(gameContext).length} game(s)`);
+    }
+
+    const result = buildNbaPicksV2({
+      games: enriched,
+      config: activeConfig,
+      scorecardSummary,
+      gameContext,
+      // No injury feed yet — engine assumes worst-case and refuses Top Play
+      // for favorites. Flip this to `true` once an injury source is wired.
+      injuryDataAvailable: false,
+    });
     freshBoard = {
       ...result,
       _debug: { totalGames: allGames.length, upcoming: upcoming.length, enriched: enriched.length, engine: 'v2' },

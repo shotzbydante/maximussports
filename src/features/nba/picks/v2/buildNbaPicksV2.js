@@ -21,6 +21,7 @@
 
 import { computeBetScore } from '../../../mlb/picks/v2/betScore.js';
 import { assignTiers } from '../../../mlb/picks/v2/tier.js';
+import { applyDiscipline, NBA_DISCIPLINE_DEFAULTS } from './discipline.js';
 
 const COVERAGE_MIN_SCORE = 0.30;
 const COVERAGE_MAX_PICKS = 15;
@@ -106,9 +107,16 @@ export const NBA_DEFAULT_CONFIG = Object.freeze({
     },
   },
   coverage: {
-    minScore: 0.40,                 // narrower pool than MLB (0.30)
-    maxPicks: 12,                   // down from 15
+    minScore: 0.45,                 // tightened from 0.40 after the 2026-05-02 audit
+    maxPicks: 10,                   // quality over quantity — don't pad weak leans
   },
+  /**
+   * Discipline knobs applied AFTER betScore is computed and BEFORE tier
+   * assignment. Each rule sets a `flags.*` marker on the pick so the UI can
+   * label honestly. See src/features/nba/picks/v2/discipline.js + the audit
+   * doc (docs/nba-playoff-picks-model-audit-v1.md) for the rationale.
+   */
+  discipline: NBA_DISCIPLINE_DEFAULTS,
 });
 
 function isNum(v) { return v != null && Number.isFinite(v); }
@@ -319,6 +327,21 @@ export function buildNbaPicksV2({
   config = NBA_DEFAULT_CONFIG,
   modelVersion = NBA_MODEL_VERSION,
   scorecardSummary = null,
+  /**
+   * Optional per-game playoff context keyed by gameId:
+   *   { [gameId]: { isElimination, isGameSeven, eliminationFor, ... } }
+   * When omitted, picks build with no playoff awareness (current behavior
+   * pre-audit). When supplied, the discipline layer will suppress / cap
+   * picks in elimination + Game 7 spots.
+   */
+  gameContext = {},
+  /**
+   * False (default) means the engine has NO injury feed and must not surface
+   * picks as Top Play that could be invalidated by a star sit. Once an
+   * injury feed is wired in, callers should pass `true` and per-game injury
+   * intel should land in `gameContext`.
+   */
+  injuryDataAvailable = false,
 } = {}) {
   const today = todayET();
   const meta = { totalCandidates: 0, qualifiedGames: 0, skippedGames: 0, picksPublished: 0, flags: [] };
@@ -337,6 +360,29 @@ export function buildNbaPicksV2({
   if (candidates.length < 3) meta.flags.push('low_slate');
 
   const allPickCandidates = [];
+
+  // Per-pick discipline context resolved per game from gameContext + the
+  // engine-level `injuryDataAvailable` flag. The audit (2026-05-02) showed
+  // that the picks engine had zero playoff/availability awareness; this is
+  // the channel that surfaces it without growing the matchup payload.
+  function disciplineCtx(gameId) {
+    const ctx = gameContext?.[gameId] || {};
+    return {
+      injuryDataAvailable,
+      isElimination: !!ctx.isElimination,
+      isGameSeven:   !!ctx.isGameSeven,
+      eliminationFor: ctx.eliminationFor || null,
+    };
+  }
+
+  function pushDisciplined(pick, gameId) {
+    const d = applyDiscipline(pick, disciplineCtx(gameId), config);
+    if (!d) {
+      meta.flags.push(`suppressed:${pick?.id || gameId}`);
+      return;
+    }
+    allPickCandidates.push(d);
+  }
 
   for (const g of candidates) {
     const matchup = toMatchup(g);
@@ -391,10 +437,10 @@ export function buildNbaPicksV2({
       });
       bs = maybePenalize(bs, rawEdge);
       if (!Number.isFinite(bs.total) || bs.total <= 0) continue;
-      allPickCandidates.push(makePick(matchup, score, {
+      pushDisciplined(makePick(matchup, score, {
         marketType: 'moneyline', side: s.side, lineValue: null,
         priceAmerican: s.price ?? null, rawEdge, modelProb: s.modelProb, impliedProb: s.implied,
-      }, bs));
+      }, bs), matchup.gameId);
     }
 
     // ── Spread ──
@@ -415,12 +461,12 @@ export function buildNbaPicksV2({
           });
           bs = maybePenalize(bs, s.rawEdge);
           if (!Number.isFinite(bs.total) || bs.total <= 0) continue;
-          allPickCandidates.push(makePick(matchup, score, {
+          pushDisciplined(makePick(matchup, score, {
             marketType: 'spread', side: s.side, lineValue: s.line,
             priceAmerican: null, rawEdge: s.rawEdge,
             modelProb: s.side === 'away' ? score.awayWinProb : score.homeWinProb,
             impliedProb: s.side === 'away' ? implAway : implHome,
-          }, bs));
+          }, bs), matchup.gameId);
         }
       }
     }
@@ -438,11 +484,11 @@ export function buildNbaPicksV2({
           rawEdge: null, totalDelta: delta, config,
         });
         if (Number.isFinite(bs.total) && bs.total > 0) {
-          allPickCandidates.push(makePick(matchup, score, {
+          pushDisciplined(makePick(matchup, score, {
             marketType: 'total', side, lineValue: m.total.points,
             priceAmerican: null, rawEdge: null, modelProb: null, impliedProb: null,
             expectedTotal: score.expectedTotal, totalDelta: delta,
-          }, bs));
+          }, bs), matchup.gameId);
         }
       }
     }

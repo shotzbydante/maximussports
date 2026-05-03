@@ -80,7 +80,7 @@
   flex-wrap: wrap;
 }
 
-.topTag, .dhTag, .time {
+.topTag, .dhTag, .flagTag, .time {
   display: inline-flex;
   align-items: center;
   height: 18px;
@@ -95,6 +95,11 @@
 
 .topTag { background: var(--picks-gold-soft); color: var(--picks-gold); border: 1px solid rgba(167,138,61,0.3); }
 .dhTag  { background: var(--picks-accent-soft); color: var(--picks-accent); border: 1px solid rgba(71,102,176,0.2); }
+.flagTag {
+  background: rgba(220, 80, 80, 0.10);
+  color: #b34a4a;
+  border: 1px solid rgba(220, 80, 80, 0.35);
+}
 .time   { background: transparent; color: var(--picks-silver); text-transform: none; font-weight: 500; letter-spacing: 0.02em; padding: 0 4px; }
 
 /* ── Pick row ───────────────────────────────────────────────────────────── */

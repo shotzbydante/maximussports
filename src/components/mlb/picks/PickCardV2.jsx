@@ -86,6 +86,9 @@ export default function PickCardV2({ pick, tier, siblings = [], relativeStrength
         </span>
         <div className={styles.tags}>
           {doubleheader && <span className={styles.dhTag}>Game {doubleheader}</span>}
+          {pick.flags?.gameSeven && <span className={styles.flagTag} title="Game 7 — elimination">Game 7</span>}
+          {pick.flags?.elimination && !pick.flags?.gameSeven && <span className={styles.flagTag} title="Elimination game">Elimination</span>}
+          {pick.flags?.marketOnlyLean && <span className={styles.flagTag} title="Driven by market mispricing only — no other supporting signal">Market-only lean</span>}
           {isTopPick && <span className={styles.topTag}>★ Top Play</span>}
           {time && <span className={styles.time}>{time}</span>}
         </div>
