@@ -12,6 +12,7 @@
  */
 
 import { normalizeNbaImagePayload } from '../../../features/nba/contentStudio/normalizeNbaImagePayload';
+import { resolveSlidePicks } from '../../../features/nba/contentStudio/resolveSlidePicks';
 import { getNbaEspnLogoUrl } from '../../../utils/espnNbaLogos';
 import { NBA_TEAMS } from '../../../sports/nba/teams';
 import styles from './NbaSlides.module.css';
@@ -145,16 +146,10 @@ export default function NbaDailySlide1({ data, asOf: _a, slideNumber: _s, slideT
     .sort((a, b) => (b.prob ?? 0) - (a.prob ?? 0));
   const raceTeams = allOutlook.slice(0, 5);
 
-  // Picks: top 2 on Slide 1 (audit Part 2 — was top-3, the 3rd card was
-  // clipping when the Contenders column ran 5 rows tall). Caption +
-  // Slide 2 still surface the canonical full picks list.
-  const cats = payload.nbaPicks?.categories || {};
-  const allPicks = [
-    ...(cats.pickEms || []).map(p => ({ ...p, _cat: 'ML' })),
-    ...(cats.ats     || []).map(p => ({ ...p, _cat: 'SPR' })),
-    ...(cats.totals  || []).map(p => ({ ...p, _cat: 'O/U' })),
-    ...(cats.leans   || []).map(p => ({ ...p, _cat: 'LEAN' })),
-  ].sort((a, b) => (b.betScore?.total ?? b.confidenceScore ?? 0) - (a.betScore?.total ?? a.confidenceScore ?? 0)).slice(0, 2);
+  // Picks: STRICT prefix of Slide 2's list. resolveSlidePicks() is the
+  // shared canonical resolver — Slide 1 (cap 2) === Slide 2 (cap 3)
+  // .slice(0, 2). No drift, no recomputation, no separate sort key.
+  const allPicks = resolveSlidePicks(payload, 2);
   const picks = allPicks.map(p => {
     const away = p.matchup?.awayTeam || {};
     const home = p.matchup?.homeTeam || {};
@@ -168,11 +163,18 @@ export default function NbaDailySlide1({ data, asOf: _a, slideNumber: _s, slideT
       selectedSlug: selectedTeam?.slug || null,
       selectedAbbrev: selectedTeam?.shortName || selectedTeam?.abbrev,
       matchup: `${away.shortName || away.abbrev || '?'} @ ${home.shortName || home.abbrev || '?'}`,
-      type: p._cat,
+      // Compact label for Slide 1 ("SPR" / "ML" / "O/U" / "LEAN") so
+      // the small pill stays readable. Slide 2 uses the long label.
+      type: p._catShort || p._cat,
       selection: p.pick?.label || '—',
       conviction: formatConv(p.confidence || p.tier),
     };
   });
+  // True only when EVERY pick on Slide 1 came from the spread market —
+  // drives the editorial sublabel ("Model Spread Leans"). Otherwise we
+  // fall back to a generic sublabel that still makes the model framing
+  // obvious without over-claiming the market.
+  const allSpread = picks.length > 0 && picks.every(p => p.type === 'SPR');
 
   return (
     <div className={styles.s1} data-slide="1" {...rest}>
@@ -261,6 +263,9 @@ export default function NbaDailySlide1({ data, asOf: _a, slideNumber: _s, slideT
 
         <div className={styles.s1BottomCard}>
           <div className={styles.s1SectionLabel}>MAXIMUS'S PICKS</div>
+          <div className={styles.s1SectionSublabel}>
+            {allSpread ? 'Model Spread Leans' : 'Model Leans'}
+          </div>
           <div className={styles.s1PicksList}>
             {picks.map((p, i) => (
               <div key={i} className={styles.s1PickRow}>
