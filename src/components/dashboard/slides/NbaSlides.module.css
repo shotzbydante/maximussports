@@ -327,16 +327,29 @@
 .s1RaceConf { font-size: 11px; font-weight: 900; color: var(--nba-gold); letter-spacing: 1.2px; }
 .s1RaceOdds { font-size: 17px; font-weight: 900; color: #fff; }
 
-.s1PicksList { display: flex; flex-direction: column; gap: 12px; flex: 1; justify-content: space-between; }
+.s1PicksList {
+  display: flex; flex-direction: column;
+  gap: 10px;
+  /* Hard min-height: 0 so this column can shrink rather than push the
+     last pick card off-canvas when the Contenders column is taller. */
+  flex: 1; min-height: 0;
+  justify-content: flex-start;
+  /* Hide any pick card that overflows instead of clipping mid-row. The
+     canonical full picks list is still visible on Slide 2 + caption. */
+  overflow: hidden;
+}
 .s1PickRow {
-  padding: 14px 16px;
+  padding: 11px 14px;
   border: 1.5px solid rgba(212,175,55,0.28);
   border-radius: 16px;
   background: rgba(0,0,0,0.32);
   display: grid;
   grid-template-columns: auto 1fr auto;
-  gap: 14px;
+  gap: 12px;
   align-items: center;
+  /* Lock card so it never shrinks below content height — prevents the
+     "selection cut in half" bug from the audit screenshot. */
+  flex-shrink: 0;
 }
 .s1PickLogoWrap { display: flex; align-items: center; gap: 6px; }
 .s1PickBody { min-width: 0; }
@@ -680,18 +693,18 @@
 }
 .s3TeamTopLine {
   display: grid;
-  grid-template-columns: 30px auto 1fr auto;
+  grid-template-columns: auto auto 1fr auto;
   gap: 14px; align-items: center;
 }
-/* Audit Part 6: compact density mode — kicks in when a conference has
-   >5 active teams. Smaller padding + smaller logo + 1-line rationale
-   so 6-8 contenders all fit without dropping any team. */
+/* Compact density mode — kicks in when a conference has >5 active
+   teams. Slide 3 caps to 4 by default, so this is mostly a safety
+   floor for caption / Title Path consumers. */
 .s3TeamRowCompact {
   padding: 10px 14px;
   gap: 5px;
 }
 .s3TeamRowCompact .s3TeamTopLine {
-  grid-template-columns: 24px auto 1fr auto;
+  grid-template-columns: auto auto 1fr auto;
   gap: 10px;
 }
 .s3TeamRowCompact .s3TeamAbbrev { font-size: 22px; }
@@ -718,6 +731,35 @@
   color: var(--nba-gold-bright);
   text-align: center;
   line-height: 1.1;
+}
+
+/* Audit Part 6: left-side SEED badge (was the numeric rank). Reads as a
+   stat pill, gold on dark, slightly larger than the old rank so it
+   anchors the row visually. Compact mode shrinks to keep parity with
+   smaller logos. */
+.s3TeamSeedLeft {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 44px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(212,175,55,0.20);
+  border: 1.5px solid rgba(212,175,55,0.50);
+  color: var(--nba-gold-bright);
+  font-size: 17px; font-weight: 900;
+  letter-spacing: 0.4px;
+  line-height: 1.05;
+  text-shadow: 0 0 10px rgba(212,175,55,0.35);
+}
+.s3TeamRow[data-top-seed="true"] .s3TeamSeedLeft {
+  color: #fff;
+  background: rgba(240,207,107,0.32);
+  border-color: rgba(240,207,107,0.75);
+  text-shadow: 0 0 14px rgba(240,207,107,0.65);
+}
+.s3TeamRowCompact .s3TeamSeedLeft {
+  min-width: 38px;
+  padding: 3px 8px;
+  font-size: 14px;
 }
 .s3TeamLogoBox {
   display: flex; align-items: center; justify-content: center;

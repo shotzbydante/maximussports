@@ -607,7 +607,10 @@ describe('NBA Daily Briefing — Phase 1 foundation', () => {
       nbaChampOdds: synthChampOdds,
     });
     const { shortCaption } = buildNbaCaption(payload);
-    expect(shortCaption).toMatch(/👀 Watch tonight:/);
+    // Audit Part 7 caption restructure: section was renamed
+    // "Watch tonight" → "Watch next" so caption flow goes from
+    // "where we stand" (Title Path) to "what's next" (Watch next).
+    expect(shortCaption).toMatch(/👀 Watch next:/);
     // Some form of "Game 6" + elimination framing should appear
     expect(shortCaption).toMatch(/Game 6/);
     expect(shortCaption.toLowerCase()).toMatch(/elimination|win.{0,5}or.{0,5}go.{0,5}home|series tips|series swings|takes the series/);

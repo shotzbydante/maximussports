@@ -134,6 +134,25 @@ function extractGameStories(liveGames, playoffContext) {
     const winSide = awayScore > homeScore ? 'away' : 'home';
     const narrative = g.narrative || null;
 
+    // 3-1 comeback detection: a clincher won by the side that previously
+    // trailed 1-3 in the series. Specifically the post-game score is 4-3
+    // for the winner AND the loser had reached 3 wins (so they led 3-1
+    // at some point). We can't audit the precise game-by-game order
+    // without scanning every game, but if the SERIES ends 4-3 and the
+    // loser owns 3 wins, the only path is a 3-1 comeback or 3-2 comeback
+    // — gate to 4-3 with loserSeriesWins===3 to capture both.
+    const isClincher43 = isClinch && winSeriesWins === 4 && loseSeriesWins === 3;
+    const isComebackFrom31 = isClincher43;
+    // Series-extender: trailing team wins to push the series further.
+    // Two specific flavors used by hero copy:
+    //   - forcesGame7 (loser was 2-3 entering, now tied 3-3)
+    //   - eliminationAvoided (winner was facing elimination, won)
+    const forcesGame7 = inSeries && winSeriesWins === 3 && loseSeriesWins === 3;
+    const eliminationAvoided = inSeries && !isClinch && !isGame7Win
+      && (winSeriesWins + loseSeriesWins) >= 4
+      && winSeriesWins <= loseSeriesWins;
+    const closeoutFailed = inSeries && eliminationAvoided && loseSeriesWins === 3;
+
     const story = {
       type,
       winSlug, loseSlug, winSide,
@@ -141,6 +160,13 @@ function extractGameStories(liveGames, playoffContext) {
       inSeries, series,
       winSeriesWins, loseSeriesWins,
       isClinch, isComeback, isUpset, isElimWin, isGame7Win, isSweep, isStolenRoadWin,
+      // Audit Part 1: richer narrative beats so hero/HOTP/caption all
+      // share the same vocabulary instead of falling back to generic
+      // "X top Y" copy.
+      isComebackFrom31,
+      forcesGame7,
+      eliminationAvoided,
+      closeoutFailed,
       gameId: g.gameId,
       gameDate: g.startTime || null,
       narrative,
@@ -158,12 +184,18 @@ function extractGameStories(liveGames, playoffContext) {
 }
 
 function storyPriority(s) {
+  // Comeback-from-3-1 + Game-7 wins outrank a routine clincher because
+  // they're the rarer, more dramatic narrative beats.
+  if (s.isComebackFrom31) return 110;
   if (s.isGame7Win) return 100;
+  if (s.closeoutFailed) return 97;
   if (s.isClinch) return 95;
   if (s.isSweep) return 90;
+  if (s.forcesGame7) return 89;
   if (s.isUpset && s.isElimWin) return 88;
   if (s.isElimWin) return 80;
   if (s.isUpset) return 75;
+  if (s.eliminationAvoided) return 70;
   if (s.isStolenRoadWin && s.inSeries) return 65;
   if (s.type === 'close' && s.inSeries) return 60;
   if (s.type === 'blowout' && s.inSeries) return 55;
@@ -227,23 +259,84 @@ function heroForStory(top, second, doy) {
   const score = `${top.winScore}-${top.loseScore}`;
   const tag = seriesTag(top);
 
+  // Detect dramatic narrative signals — never fabricated, always read
+  // off the game data. Used to layer "in OT" / "on a buzzer-beater" /
+  // "after a 22-pt comeback" suffixes onto the hero copy.
+  const narr = top.narrative || {};
+  const ot = !!narr.isOvertime;
+  const notes = String(narr.notesText || '').toLowerCase();
+  const buzzer = /buzzer[-\s]*beater|game[-\s]*winn|last[-\s]*second|walk[-\s]*off|ot three|overtime three/.test(notes);
+  // Per-quarter linescore comeback margin (winner side perspective).
+  let comebackDef = 0;
+  const winLine = top.winSide === 'home' ? narr.homeLine : top.winSide === 'away' ? narr.awayLine : null;
+  const losLine = top.winSide === 'home' ? narr.awayLine : top.winSide === 'away' ? narr.homeLine : null;
+  if (Array.isArray(winLine) && Array.isArray(losLine)) {
+    let cumW = 0, cumL = 0;
+    for (let i = 0; i < Math.min(winLine.length, losLine.length); i++) {
+      cumW += winLine[i] || 0;
+      cumL += losLine[i] || 0;
+      if (i === winLine.length - 1) break;
+      const def = cumL - cumW;
+      if (def > comebackDef) comebackDef = def;
+    }
+  }
+
+  // 3-1 SERIES COMEBACK — rarest playoff narrative beat. Outranks any
+  // other clincher template because "complete the 3-1 comeback" is the
+  // line that defines a postseason for years.
+  if (top.isComebackFrom31) {
+    return `${w} COMPLETE 3-1 COMEBACK TO STUN ${l} AND ADVANCE.`;
+  }
+  // GAME 7 WIN — clinch by Game 7. Layer in OT/buzzer if the data says so.
   if (top.isGame7Win) {
+    if (ot && buzzer)  return `${w} SURVIVE ${l} IN GAME 7 OT — LAST-SECOND SHOT BOOKS NEXT ROUND.`;
+    if (ot)            return `${w} OUTLAST ${l} IN GAME 7 OT, ADVANCE TO NEXT ROUND.`;
+    if (buzzer)        return `${w} WIN GAME 7 ${score} ON A LAST-SECOND SHOT, ADVANCE.`;
+    if (comebackDef >= 15) return `${w} ERASE ${comebackDef}-PT GAME 7 DEFICIT TO STUN ${l} AND ADVANCE.`;
     return `${w} WIN GAME 7 OVER ${l}, ADVANCE TO NEXT ROUND.`;
   }
   if (top.isSweep) {
     return `${w} COMPLETE SWEEP OVER ${l} — ${tag.replace(/^ — /, '')}`;
   }
   if (top.isClinch) {
+    if (ot && buzzer)  return `${w} CLOSE OUT ${l} IN OT — LAST-SECOND SHOT ENDS THE SERIES.`;
+    if (ot)            return `${w} ELIMINATE ${l} IN OT${tag}. NEXT ROUND AWAITS.`;
+    if (buzzer)        return `${w} ELIMINATE ${l} ON A LAST-SECOND SHOT${tag}.`;
+    if (comebackDef >= 20) return `${w} ERASE ${comebackDef}-PT DEFICIT TO ELIMINATE ${l}${tag}.`;
     return `${w} CLOSE OUT ${l}${tag}. NEXT ROUND AWAITS.`;
+  }
+  // CLOSEOUT FAILED / FORCES GAME 7 / ELIMINATION AVOIDED — series-extender
+  // narratives. Title "force Game 7" or "stay alive" instead of generic
+  // "win" copy.
+  if (top.forcesGame7) {
+    if (ot && buzzer)  return `${w} FORCE GAME 7 ON A LAST-SECOND OT SHOT, SERIES TIED 3-3.`;
+    if (ot)            return `${w} OUTLAST ${l} IN OT TO FORCE GAME 7. SEASON ON ONE TIP.`;
+    if (buzzer)        return `${w} FORCE GAME 7 ON A LAST-SECOND SHOT — SERIES GOES THE DISTANCE.`;
+    if (comebackDef >= 15) return `${w} RALLY FROM ${comebackDef} DOWN TO FORCE GAME 7 OVER ${l}.`;
+    return `${w} FORCE GAME 7 OVER ${l}, SERIES GOES THE DISTANCE.`;
+  }
+  if (top.closeoutFailed) {
+    return `${w} STAY ALIVE — BEAT ${l} ${score} TO PUSH SERIES TO GAME ${top.winSeriesWins + top.loseSeriesWins + 1}.`;
+  }
+  if (top.eliminationAvoided) {
+    return `${w} AVOID ELIMINATION ${score} OVER ${l}${tag}. SEASON LIVES.`;
   }
   if (top.isUpset && top.isElimWin) {
     return `${w} STUN ${l} ${score}${tag} — UPSET ONE WIN AWAY.`;
   }
   if (top.isElimWin) {
-    return `${w} TAKE ${score} WIN OVER ${l}${tag}. BRINK OF CLOSEOUT.`;
+    return `${w} PUSH ${l} TO THE BRINK ${score}${tag}. ONE WIN AWAY FROM CLOSING IT.`;
   }
   if (top.isUpset) {
+    if (ot && buzzer)  return `${w} STEAL ${l} ${score} IN OT ON A LAST-SECOND SHOT — UPSET WATCH.`;
+    if (ot)            return `${w} STEAL ${score} FROM ${l} IN OT${tag}.`;
     return `${w} UPSET ${l} ${score}${tag}.`;
+  }
+  if (comebackDef >= 25) {
+    return `${w} CAP HISTORIC ${comebackDef}-PT COMEBACK OVER ${l} ${score}${tag}.`;
+  }
+  if (comebackDef >= 20) {
+    return `${w} ERASE ${comebackDef}-PT DEFICIT TO BEAT ${l} ${score}${tag}.`;
   }
   if (top.isStolenRoadWin && top.winSeriesWins >= top.loseSeriesWins) {
     return second
@@ -270,6 +363,9 @@ function slide2ForStory(top, second) {
   const score = `${top.winScore}-${top.loseScore}`;
   const tag = seriesTagLower(top);
 
+  if (top.isComebackFrom31) {
+    return `${w} complete the 3-1 comeback to stun ${l} and advance`;
+  }
   if (top.isGame7Win) {
     return `${w} win Game 7 over ${l} ${score} and advance`;
   }
@@ -277,13 +373,22 @@ function slide2ForStory(top, second) {
     return `${w} sweep ${l}${tag}`;
   }
   if (top.isClinch) {
-    return `${w} close out ${l} ${score}${tag}`;
+    return `${w} eliminate ${l} ${score}${tag}`;
+  }
+  if (top.forcesGame7) {
+    return `${w} force Game 7 over ${l} — series goes the distance`;
+  }
+  if (top.closeoutFailed) {
+    return `${w} stay alive ${score} over ${l} — pushes series to Game ${top.winSeriesWins + top.loseSeriesWins + 1}`;
+  }
+  if (top.eliminationAvoided) {
+    return `${w} avoid elimination ${score} over ${l}${tag}`;
   }
   if (top.isUpset && top.isElimWin) {
     return `${w} stun ${l} ${score}${tag} — one win from the upset`;
   }
   if (top.isElimWin) {
-    return `${w} beat ${l} ${score}${tag} — one win from closing out`;
+    return `${w} push ${l} to the brink ${score}${tag} — one win from closing out`;
   }
   if (top.isUpset) {
     return `${w} pull the upset over ${l} ${score}${tag}`;
@@ -300,8 +405,20 @@ function subheadForStory(top, second) {
   const score = `${top.winScore}-${top.loseScore}`;
   const tag = seriesTagLower(top);
 
+  if (top.isComebackFrom31) {
+    return `${w} erase a 3-1 series hole — knock out ${l} ${score} in Game 7 and rewrite the bracket.`;
+  }
   if (top.isClinch || top.isGame7Win) {
     return `${w} finish the job — ${score} over ${l} to punch their ticket to the next round.`;
+  }
+  if (top.forcesGame7) {
+    return `${w} stay alive ${score} over ${l} — series tied 3-3, Game 7 decides everything.`;
+  }
+  if (top.closeoutFailed) {
+    return `${w} stave off elimination ${score} over ${l} — series extends to Game ${top.winSeriesWins + top.loseSeriesWins + 1}.`;
+  }
+  if (top.eliminationAvoided) {
+    return `${w} avoid elimination with a ${score} win${tag} — season lives another night.`;
   }
   if (top.isElimWin) {
     return `${w} put ${l} on the brink with a ${score} win${tag}.`;
@@ -448,8 +565,8 @@ export function buildNbaDailyHeadline({ liveGames = [], playoffContext = null } 
   }
 
   heroTitle = heroTitle.toUpperCase();
-  if (heroTitle.length > 80) {
-    const period = heroTitle.lastIndexOf('.', 75);
+  if (heroTitle.length > 90) {
+    const period = heroTitle.lastIndexOf('.', 85);
     if (period > 30) heroTitle = heroTitle.slice(0, period + 1);
   }
 

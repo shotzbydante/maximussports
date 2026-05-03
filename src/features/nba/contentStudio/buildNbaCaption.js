@@ -238,6 +238,17 @@ function dailyCaption(payload) {
     outlookCount: titlePathSource.length,
   });
 
+  // Audit Part 7 — Caption restructured for IG virality:
+  //   1. Opener
+  //   2. Narrative headline (🔥)
+  //   3. What happened (📊) — HOTP
+  //   4. Why it matters (📈) — bracket / title path / market stakes
+  //   5. Maximus's Picks (🎯) — top 3 (cap, since IG caption length matters)
+  //   6. Postseason Leaders (🏆) — ALL 5 categories (totals)
+  //   7. Title Path (🔭) — top East + top West contender per conference
+  //   8. Watch next (👀) — next key Game 7 / closeout / R2 game
+  //   9. CTA + disclaimer
+
   // ── 1. OPENER ──
   parts.push('🏀 Your Daily NBA Playoff Briefing is here.');
   parts.push('');
@@ -249,8 +260,6 @@ function dailyCaption(payload) {
   }
 
   // ── 3. WHAT HAPPENED ──
-  // Pulls from the same buildNbaHotPress() output Slide 1 and Slide 2
-  // consume — full data parity (audit Part 6).
   parts.push('📊 What happened:');
   if (bullets.length > 0) {
     for (const b of bullets.slice(0, 4)) parts.push(`• ${b.text}`);
@@ -268,60 +277,80 @@ function dailyCaption(payload) {
   parts.push('');
 
   // ── 5. MAXIMUS'S PICKS ──
+  // Cap at top 3 in caption (IG length budget) — Slide 2 still surfaces
+  // the canonical full picks list, and resolvedPicks already holds it.
+  const captionPicks = resolvedPicks.slice(0, 3);
   parts.push('🎯 Maximus\'s Picks:');
-  for (const p of resolvedPicks) {
+  for (const p of captionPicks) {
     parts.push(`▸ ${p.matchup} — ${p.selection} (${p.type}, ${p.conviction})`);
   }
   parts.push('');
 
-  // ── 5.5. WATCH TONIGHT ──
-  // Audit Part 9: surface today's most-anticipated playoff games with
-  // their elimination/closeout context. Cap at 3 items so the caption
-  // doesn't get unwieldy. Skip the section entirely when there are no
-  // active games today (e.g. travel days between Game 5 and Game 6).
-  const watchTonight = buildWatchTonight(payload);
-  if (watchTonight.length > 0) {
-    parts.push('👀 Watch tonight:');
-    for (const line of watchTonight) parts.push(`▸ ${line}`);
-    parts.push('');
-  }
-
   // ── 6. POSTSEASON LEADERS ──
-  // PPG / APG / RPG / SPG / BPG, top 1 each (compact for IG caption).
-  // Renders "Postseason leader feed updating" inline if no categories
-  // resolved — never silently empty, never fails the whole caption.
+  // ALL 5 categories (PTS / AST / REB / STL / BLK) — top 1 each.
+  // Renders "feed updating" inline if no categories resolved.
   parts.push('🏆 Postseason Leaders:');
   if (resolvedLeaders.length === 0) {
     parts.push('▸ Postseason leader feed updating — check back at tip-off.');
   } else {
-    for (const cat of resolvedLeaders) {
-      const top = cat.leaders?.[0];
-      if (!top) continue;
+    // Always emit a row per CANONICAL category so IG followers always
+    // see PTS/AST/REB/STL/BLK at a glance, even when one category came
+    // up empty in this aggregation pass.
+    const byKey = Object.fromEntries(resolvedLeaders.map(c => [c.key, c]));
+    for (const meta of LEADER_CATEGORIES) {
+      const cat = byKey[meta.key];
+      const top = cat?.leaders?.[0];
+      if (!top) {
+        parts.push(`▸ ${meta.abbrev}: feed updating`);
+        continue;
+      }
       const team = fullFromAbbrev(top.teamAbbrev) || top.teamAbbrev || '';
       const teamTag = team ? ` (${team})` : '';
-      parts.push(`▸ ${cat.abbrev}: ${top.name}${teamTag} — ${top.value}`);
+      parts.push(`▸ ${meta.abbrev}: ${top.name}${teamTag} — ${top.value}`);
     }
   }
   parts.push('');
 
   // ── 7. TITLE PATH ──
-  // Top contenders by championship odds (East + West merged, ranked).
-  // Mirrors the Slide 3 Playoff Outlook view so caption == slide.
-  if (titlePathSource.length > 0) {
+  // Best East + best West contender by championship odds — mirrors
+  // the Slide 3 Playoff Outlook spirit (top per conference) without
+  // dumping a full leaderboard into the caption.
+  const titleEast = (payload.playoffOutlook?.eastFull || payload.playoffOutlook?.east || [])
+    .filter(t => !t.isEliminated)
+    .filter(t => t.prob != null)
+    .sort((a, b) => (b.prob ?? 0) - (a.prob ?? 0));
+  const titleWest = (payload.playoffOutlook?.westFull || payload.playoffOutlook?.west || [])
+    .filter(t => !t.isEliminated)
+    .filter(t => t.prob != null)
+    .sort((a, b) => (b.prob ?? 0) - (a.prob ?? 0));
+  if (titleEast.length > 0 || titleWest.length > 0) {
     parts.push('🔭 Title Path:');
-    for (const t of titlePathSource.slice(0, 4)) {
-      const conf = isEastSlug(t.slug) ? 'East' : 'West';
+    for (const t of titleEast.slice(0, 2)) {
       const labelTag = t.label ? ` ${t.label}` : '';
-      parts.push(`▸ ${t.abbrev || t.team || '?'} (${conf}) — ${t.odds}${labelTag}`);
+      parts.push(`▸ ${t.abbrev || t.team || '?'} (East) — ${t.odds}${labelTag}`);
+    }
+    for (const t of titleWest.slice(0, 2)) {
+      const labelTag = t.label ? ` ${t.label}` : '';
+      parts.push(`▸ ${t.abbrev || t.team || '?'} (West) — ${t.odds}${labelTag}`);
     }
     parts.push('');
   }
 
-  // ── 8. CTA ──
+  // ── 8. WATCH NEXT — surface today's anchor matchup with stakes ──
+  // Was "Watch tonight" — moved AFTER Title Path so caption flow goes
+  // from "where we stand" to "what's next." Cap at 3 lines.
+  const watchNext = buildWatchTonight(payload);
+  if (watchNext.length > 0) {
+    parts.push('👀 Watch next:');
+    for (const line of watchNext) parts.push(`▸ ${line}`);
+    parts.push('');
+  }
+
+  // ── 9. CTA ──
   parts.push('🚀 The model never sleeps. Neither should your edge → maximussports.ai');
   parts.push('');
 
-  // ── 9. DISCLAIMER ──
+  // ── 10. DISCLAIMER ──
   parts.push('For entertainment only. Please bet responsibly. 21+');
 
   const hashtags = buildDailyHashtags(pc, hl.topStory, resolvedPicks);

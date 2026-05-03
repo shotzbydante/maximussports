@@ -117,12 +117,29 @@ describe('buildPlayoffOutlook — active team derivation (Slide 3)', () => {
 
     const eastAbbrevs = outlook.east.map(t => t.abbrev).sort();
     const westAbbrevs = outlook.west.map(t => t.abbrev).sort();
+    const eastFullAbbrevs = (outlook.eastFull || []).map(t => t.abbrev).sort();
+    const westFullAbbrevs = (outlook.westFull || []).map(t => t.abbrev).sort();
 
-    // Expected West (4 alive): OKC, LAL, MIN, SAS
+    // Audit Part 5: Slide 3 east/west are capped at 4 teams. Verify
+    // the cap, plus verify the FULL ranked list still contains all
+    // active teams for caption / Title Path consumption.
+    expect(outlook.east.length).toBeLessThanOrEqual(4);
+    expect(outlook.west.length).toBeLessThanOrEqual(4);
+
+    // Full West active set (4 alive): OKC, LAL, MIN, SAS
+    expect(westFullAbbrevs).toEqual(['LAL', 'MIN', 'OKC', 'SAS']);
     expect(westAbbrevs).toEqual(['LAL', 'MIN', 'OKC', 'SAS']);
 
-    // Expected East (7 alive): DET, ORL, CLE, TOR, NYK, BOS, PHI
-    expect(eastAbbrevs).toEqual(['BOS', 'CLE', 'DET', 'NYK', 'ORL', 'PHI', 'TOR']);
+    // Full East active set (7 alive): BOS, CLE, DET, NYK, ORL, PHI, TOR
+    expect(eastFullAbbrevs).toEqual(['BOS', 'CLE', 'DET', 'NYK', 'ORL', 'PHI', 'TOR']);
+    // Slide 3 East shows top-4 by championship odds (no odds passed in
+    // this fixture → all teams have prob=0, sorted purely by seed
+    // tiebreaker, so any 4 of the 7 may appear). Just check the cap +
+    // that every shown East team IS in the active list.
+    expect(outlook.east.length).toBe(4);
+    for (const ab of eastAbbrevs) {
+      expect(eastFullAbbrevs).toContain(ab);
+    }
 
     // Eliminated must include: PHX, POR, HOU, DEN, ATL
     const eliminated = new Set(outlook.eliminatedTeams);

@@ -150,11 +150,14 @@ function badgeClassFor(label) {
   }
 }
 
-function ConfRow({ rank, team, compact = false }) {
-  const isTopSeed = rank === 1 || team.seed === 1;
-  // Every card gets a prominent seed badge. Falls back to "—" when
-  // seed isn't published so the badge stays aligned.
-  const seedDisplay = team.seed != null ? `#${team.seed} seed` : '—';
+function ConfRow({ rank: _rank, team, compact = false }) {
+  // Audit Part 6: left-side number is now the SEED, not the rank
+  // (cards are still sorted by championship odds, so the seed order
+  // can be 4, 1, 3, 2 down the column — that's the point: surface the
+  // seed identity while ranking by title path). Right side is odds-
+  // only, no seed badge.
+  const seedDisplay = team.seed != null ? `#${team.seed}` : '—';
+  const isTopSeed = team.seed === 1;
   const logoSize = compact ? 36 : 50;
   return (
     <div
@@ -162,7 +165,7 @@ function ConfRow({ rank, team, compact = false }) {
       data-top-seed={isTopSeed ? 'true' : 'false'}
     >
       <div className={styles.s3TeamTopLine}>
-        <div className={styles.s3TeamRank}>{rank}</div>
+        <div className={styles.s3TeamSeedLeft}>{seedDisplay}</div>
         <div className={styles.s3TeamLogoBox}>
           <Logo slug={team.slug} size={logoSize} backplate abbrev={team.abbrev} />
         </div>
@@ -174,7 +177,6 @@ function ConfRow({ rank, team, compact = false }) {
         </div>
         <div className={styles.s3MarketBlock}>
           <div className={styles.s3TeamOdds}>🏆 {team.odds}</div>
-          <div className={styles.s3SeedBadge}>{seedDisplay}</div>
         </div>
       </div>
       {team.rationale && (
