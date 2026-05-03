@@ -235,6 +235,7 @@ export default function NbaHome() {
             endpoint="/api/nba/picks/built"
             suppressPerformanceBlocks
             homeShowAll
+            darkSurface
           />
         </div>
       </section>

@@ -177,6 +177,48 @@
 /* ── Home mode — Top Play first, then horizontal trust strip ── */
 .modeHome .title { font-size: 20px; }
 
+/* ── Dark surface (NBA Home picksHero) ──
+   When nested inside the dark `.picksHero` shell, the shared section
+   headings + sub-copy + Today's Picks header use dark-mode tokens that
+   are illegible on navy. The [data-dark-surface] flag flips them to a
+   light-on-glass treatment without affecting MLB Home or the page-mode
+   Odds Insights surface. */
+.root[data-dark-surface='true'] .eyebrow { color: #c9a24a; }
+.root[data-dark-surface='true'] .title {
+  color: #fff;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.18);
+}
+.root[data-dark-surface='true'] .subtitle { color: rgba(232, 237, 246, 0.66); }
+.root[data-dark-surface='true'] .headerCta {
+  color: #c9a24a;
+  background: rgba(201, 162, 74, 0.12);
+}
+.root[data-dark-surface='true'] .headerCta:hover {
+  background: rgba(201, 162, 74, 0.18);
+}
+
+/* Today's Picks header strip (the gold-accent banner above the picks grid) */
+.root[data-dark-surface='true'] .todaysHeader {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.08);
+  border-left-color: #c9a24a;
+}
+.root[data-dark-surface='true'] .todaysKicker { color: #c9a24a; }
+.root[data-dark-surface='true'] .todaysTitle  { color: #fff; }
+.root[data-dark-surface='true'] .todaysCopy   { color: rgba(232, 237, 246, 0.75); }
+.root[data-dark-surface='true'] .todaysCountLabel { color: rgba(232, 237, 246, 0.55); }
+.root[data-dark-surface='true'] .todaysCountValue { color: #fff; }
+
+.root[data-dark-surface='true'] .fullBoardLink { color: #c9a24a; }
+.root[data-dark-surface='true'] .homeFollowLine { color: rgba(232, 237, 246, 0.55); }
+
+.root[data-dark-surface='true'] .emptyBoard {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+.root[data-dark-surface='true'] .emptyBoardTitle { color: #fff; }
+.root[data-dark-surface='true'] .emptyBoardDesc  { color: rgba(232, 237, 246, 0.66); }
+
 .homeHeader {
   display: flex;
   align-items: flex-end;

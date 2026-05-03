@@ -74,6 +74,12 @@ export default function MlbMaximusPicksSectionV2({
   // of the truncated home preview. MLB Home keeps the existing preview
   // behavior (homeShowAll defaults to false). Only respected in mode='home'.
   homeShowAll = false,
+  // NBA Home: when nested inside the dark `.picksHero` shell, the shared
+  // section headings + sub-copy use dark-mode tokens that are illegible
+  // on navy. `darkSurface` flips them to light via the
+  // [data-dark-surface] selector in this component's own module CSS.
+  // MLB Home keeps `darkSurface=false` → no regression.
+  darkSurface = false,
 }) {
   const {
     payload, loading,
@@ -155,7 +161,11 @@ export default function MlbMaximusPicksSectionV2({
     const needCoverageOnHome = homePreviewCount < MIN_COVERAGE && coverageCards.length > 0;
 
     return (
-      <section className={`${tokens.root} ${styles.root} ${styles.modeHome}`} aria-label={meta.label}>
+      <section
+        className={`${tokens.root} ${styles.root} ${styles.modeHome}`}
+        aria-label={meta.label}
+        data-dark-surface={darkSurface ? 'true' : undefined}
+      >
         {/* 1. Header — title + short subheader only */}
         <header className={styles.homeHeader}>
           <div className={styles.headerLeft}>

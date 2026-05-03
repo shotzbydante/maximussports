@@ -117,9 +117,69 @@
 .sectionEmbedded .rollingTitle,
 .sectionEmbedded .explainerTitle { color: #fff; }
 .sectionEmbedded .rollingCardLabel,
-.sectionEmbedded .explainerList { color: rgba(232, 237, 246, 0.72); }
+.sectionEmbedded .explainerList { color: rgba(232, 237, 246, 0.78); }
 .sectionEmbedded .rollingCardValue { color: #fff; }
-.sectionEmbedded .rollingEmpty { color: rgba(232, 237, 246, 0.55); }
+.sectionEmbedded .rollingEmpty { color: rgba(232, 237, 246, 0.62); }
+
+/* ── Embedded leaf-selector overrides (Phase 3 — readability audit) ──
+   The light-mode rules on these descendants would otherwise win the
+   cascade against the parent `.sectionEmbedded` colours. Scoping every
+   rule under `.sectionEmbedded` keeps the light Odds Insights page
+   unchanged. */
+
+/* Grading explainer body (bullets, prose, strong text) */
+.sectionEmbedded .explainerList li {
+  color: rgba(232, 237, 246, 0.82);
+}
+.sectionEmbedded .explainerList li::before {
+  color: rgba(201, 162, 74, 0.85);   /* gold bullet, premium */
+}
+.sectionEmbedded .explainerList strong {
+  color: #fff;
+}
+
+/* Rolling performance — secondary lines */
+.sectionEmbedded .rollingCardEmpty { color: rgba(232, 237, 246, 0.55); }
+.sectionEmbedded .rollingCardRate  { color: rgba(232, 237, 246, 0.85); }
+.sectionEmbedded .rollingCardSample { color: rgba(232, 237, 246, 0.55); }
+
+/* Awaiting / fallback CTA */
+.sectionEmbedded .compactCta {
+  color: #c9a24a;                    /* gold for max contrast on glass */
+  font-weight: 700;
+}
+.sectionEmbedded .compactCta:hover { color: #e6c47a; }
+
+/* Pending / settlement notice on glass */
+.sectionEmbedded .pendingNote {
+  color: rgba(232, 237, 246, 0.88);
+  background: rgba(201, 162, 74, 0.12);
+  border-color: rgba(201, 162, 74, 0.32);
+}
+
+/* Takeaway kicker (the small "TAKEAWAY" label inside the takeaway pill) */
+.sectionEmbedded .takeawayKicker { color: rgba(232, 237, 246, 0.62); }
+
+/* Per-row metadata under the matchup line */
+.sectionEmbedded .gameContext { color: rgba(232, 237, 246, 0.62); }
+.sectionEmbedded .gameContextFlag { color: #f48a8a; }
+
+/* Row separators + win/loss/push tints — the original gradient stops are
+   tuned for a white card; on glass they vanish. Bump them. */
+.sectionEmbedded .picksList { border-top-color: rgba(255, 255, 255, 0.08); }
+.sectionEmbedded .row { border-bottom-color: rgba(255, 255, 255, 0.06); }
+
+/* Inner divider above rolling perf + grading explainer for rhythm */
+.sectionEmbedded .rolling   { border-top: 1px solid rgba(255, 255, 255, 0.08); }
+.sectionEmbedded .explainer { border-top: 1px solid rgba(255, 255, 255, 0.08); }
+
+/* Skeleton block on glass */
+.sectionEmbedded .skelBlock { background: rgba(255, 255, 255, 0.05); }
+
+/* No-picks empty-state copy */
+.sectionEmbedded .noPicks { color: rgba(232, 237, 246, 0.55); border-top-color: rgba(255, 255, 255, 0.06); }
+.sectionEmbedded .emptyTitle { color: #fff; }
+.sectionEmbedded .emptyBody { color: rgba(232, 237, 246, 0.66); }
 
 .compactCtaRow {
   display: flex;
