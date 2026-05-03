@@ -118,17 +118,16 @@ function teamAbbrevFromRef(teamRef) {
 }
 
 /**
- * Integer total formatter — audit Part 1 requires absolute totals,
- * not per-game averages. ESPN occasionally returns floats (e.g.
- * 156.0); we round to the nearest integer for display.
+ * Per-game average formatter — 1 decimal. Mirrors ESPN editorial table
+ * (e.g. "33.8" not "33.83"). Returns '0.0' for zero/NaN.
  */
-function formatTotal(v) {
+function formatPerGame(v) {
   const n = Number(v);
-  if (!Number.isFinite(n)) return '0';
-  return String(Math.round(n));
+  if (!Number.isFinite(n)) return '0.0';
+  return n.toFixed(1);
 }
 
-async function resolveEntry(entry) {
+async function resolveEntry(entry, { isAverage = true } = {}) {
   const athleteRef = entry.athlete?.$ref || '';
   const teamRef = entry.team?.$ref || '';
 
@@ -162,13 +161,16 @@ async function resolveEntry(entry) {
   }
 
   const value = Number(entry.value ?? 0);
+  const display = isAverage
+    ? formatPerGame(value)
+    : (Number.isFinite(value) ? String(Math.round(value)) : '0');
   return {
     name: athleteName,
     team: teamName,
     teamAbbrev,
     teamSlug,
-    value,
-    display: formatTotal(value),
+    value: isAverage ? Number(value.toFixed(1)) : Math.round(value),
+    display,
   };
 }
 
@@ -176,12 +178,57 @@ async function fetchLeadersFresh(seasonType = 'regular', validPlayoffTeamSlugs =
   const season = getCurrentSeason();
   const typeId = espnSeasonType(seasonType);
   const url = `https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/${season}/types/${typeId}/leaders?limit=100`;
+
+  // [NBA_POSTSEASON_LEADERS_ESPN_FETCH] — single line traceability
+  // for the ESPN-first path. Emitted on EVERY postseason fetch so a
+  // failed/empty ESPN response is visible from the console alone.
+  if (seasonType === 'postseason') {
+    console.log('[NBA_POSTSEASON_LEADERS_ESPN_FETCH]', JSON.stringify({
+      url, season, typeId,
+    }));
+  }
+
   const r = await fetchWithTimeout(url, 12000);
-  if (!r.ok) return { categories: {}, fetchedAt: new Date().toISOString(), seasonType };
+  if (!r.ok) {
+    if (seasonType === 'postseason') {
+      console.warn('[NBA_POSTSEASON_LEADERS_ESPN_FETCH_FAIL]', JSON.stringify({
+        status: r.status, url,
+      }));
+    }
+    return { categories: {}, fetchedAt: new Date().toISOString(), seasonType };
+  }
 
   const data = await r.json();
   const cats = data?.categories || [];
   const categories = {};
+
+  // ESPN's leaders endpoint can return BOTH per-game (avgPoints,
+  // pointsPerGame) AND total (points, totalPoints) categories. For
+  // postseason we PREFER per-game averages — the editorial convention
+  // mirrors ESPN's own postseason leaders table (33.8 PPG, 26.3 PPG).
+  // We keep the canonical key (pts/ast/reb/stl/blk) but route the
+  // per-game ESPN category to it when both are present.
+  const isAverageMetric = seasonType === 'postseason';
+  const perGameCategoryNames = new Set([
+    'avgPoints', 'pointsPerGame',
+    'avgAssists', 'assistsPerGame',
+    'avgRebounds', 'reboundsPerGame',
+    'avgSteals', 'stealsPerGame',
+    'avgBlocks', 'blocksPerGame',
+  ]);
+  // First pass: claim per-game categories. They take priority over
+  // totals so ESPN's avgPoints output beats the duplicate `points`
+  // total entry.
+  const claimedKeys = new Set();
+  if (isAverageMetric) {
+    for (const cat of cats) {
+      if (!perGameCategoryNames.has(cat.name)) continue;
+      const canonicalKey = ESPN_CATEGORY_MAP[cat.name];
+      if (canonicalKey && TARGET_CATS.includes(canonicalKey)) {
+        claimedKeys.add(canonicalKey);
+      }
+    }
+  }
 
   // Postseason team filter: ESPN's types/3 leaders endpoint sometimes
   // surfaces all-NBA leaders (regular-season totals) instead of true
@@ -201,12 +248,17 @@ async function fetchLeadersFresh(seasonType = 'regular', validPlayoffTeamSlugs =
   const droppedTeamSlugs = new Set();
 
   for (const cat of cats) {
-    // Map ESPN's category name to our canonical key. Accepts both
-    // totals (`points`, `totalPoints`) AND legacy averages
-    // (`avgPoints`) so we don't break if ESPN renames mid-season.
-    // We KEEP the canonical key so consumers iterate `pts/ast/...`.
+    // Map ESPN's category name to our canonical key. Accepts averages
+    // (`avgPoints`, `pointsPerGame`) AND totals (`points`,
+    // `totalPoints`) — averages preferred for postseason. We KEEP the
+    // canonical key so consumers iterate `pts/ast/...`.
     const canonicalKey = ESPN_CATEGORY_MAP[cat.name];
     if (!canonicalKey || !TARGET_CATS.includes(canonicalKey)) continue;
+    // Postseason: skip the totals entry if the per-game entry has
+    // already claimed this canonical key.
+    if (isAverageMetric && claimedKeys.has(canonicalKey) && !perGameCategoryNames.has(cat.name)) {
+      continue;
+    }
 
     let allEntries = cat.leaders || [];
     totalLeaderEntries += allEntries.length;
@@ -244,12 +296,16 @@ async function fetchLeadersFresh(seasonType = 'regular', validPlayoffTeamSlugs =
 
     // Phase 2 — top-3 league leaders (parallel $ref resolution)
     const top3Entries = allEntries.slice(0, 3);
-    const top3Results = await Promise.allSettled(top3Entries.map(resolveEntry));
+    const top3Results = await Promise.allSettled(
+      top3Entries.map(e => resolveEntry(e, { isAverage: isAverageMetric }))
+    );
     const top3Resolved = top3Results.map((r, i) =>
       r.status === 'fulfilled' ? r.value : {
         name: '—', team: '', teamAbbrev: teamAbbrevFromRef(top3Entries[i]?.team?.$ref),
         value: Number(top3Entries[i]?.value ?? 0),
-        display: formatTotal(top3Entries[i]?.value ?? 0),
+        display: isAverageMetric
+          ? formatPerGame(top3Entries[i]?.value ?? 0)
+          : String(Math.round(Number(top3Entries[i]?.value ?? 0))),
       }
     );
 
@@ -274,12 +330,16 @@ async function fetchLeadersFresh(seasonType = 'regular', validPlayoffTeamSlugs =
     }
     for (let i = 0; i < teamBestToResolve.length; i += batchSize) {
       const batch = teamBestToResolve.slice(i, i + batchSize);
-      const batchResults = await Promise.allSettled(batch.map(({ entry }) => resolveEntry(entry)));
+      const batchResults = await Promise.allSettled(
+        batch.map(({ entry }) => resolveEntry(entry, { isAverage: isAverageMetric }))
+      );
       const resolved = batchResults.map((r, idx) =>
         r.status === 'fulfilled' ? r.value : {
           name: '—', team: '', teamAbbrev: batch[idx].abbrev,
           value: Number(batch[idx].entry?.value ?? 0),
-          display: formatTotal(batch[idx].entry?.value ?? 0),
+          display: isAverageMetric
+            ? formatPerGame(batch[idx].entry?.value ?? 0)
+            : String(Math.round(Number(batch[idx].entry?.value ?? 0))),
         }
       );
       for (let j = 0; j < batch.length; j++) {
@@ -307,13 +367,38 @@ async function fetchLeadersFresh(seasonType = 'regular', validPlayoffTeamSlugs =
     }));
   }
 
+  // [NBA_POSTSEASON_LEADERS_ESPN_NORMALIZED] — single canonical line
+  // showing what we got from ESPN after team-filter + per-category
+  // shaping. If this is empty, the postseason builder will fall back
+  // to box-score aggregation.
+  if (seasonType === 'postseason') {
+    console.log('[NBA_POSTSEASON_LEADERS_ESPN_NORMALIZED]', JSON.stringify({
+      url,
+      categoriesFound: Object.keys(categories),
+      totalLeaderEntries,
+      droppedByTeamFilter,
+      perCategoryTop: Object.fromEntries(
+        Object.entries(categories).map(([k, v]) => [
+          k,
+          (v?.leaders || []).slice(0, 3).map(p => ({
+            name: p.name,
+            team: p.teamAbbrev,
+            value: p.value,
+            display: p.display,
+          })),
+        ])
+      ),
+    }));
+  }
+
   return {
     categories,
     fetchedAt: new Date().toISOString(),
     seasonType,
-    // For postseason, mark the payload as totals so downstream cache
-    // validation (hasValidPostseasonTotalsPayload) can confirm shape.
-    statType: seasonType === 'postseason' ? 'totals' : undefined,
+    // Per-game averages for postseason (mirrors ESPN's editorial table).
+    // Regular season also uses averages so consumers don't need to
+    // branch on seasonType for formatting.
+    statType: seasonType === 'postseason' ? 'averages' : undefined,
   };
 }
 
@@ -357,22 +442,22 @@ export function hasAnyValidLeaderCategory(leaders) {
 }
 
 /**
- * Box-score-only postseason leaders builder. ESPN types/3 is intentionally
- * BYPASSED here because it has historically returned all-NBA leaders rather
- * than playoff-only — even with type=3 it can include players from teams
- * that didn't make the bracket. We always derive postseason leaders from
- * real playoff box scores, with a strict team-eligibility filter.
+ * Postseason leaders builder — ESPN-FIRST with box-score fallback.
  *
- * Order of operations (audit Part 1 — force-refresh box-score aggregation):
- *   1. Build the canonical playoff team set + window games
- *   2. If we have ANY playoff games → run box-score aggregation FIRST
- *      and accept partial categories (any one populated → ship)
- *   3. Only fall back to KV cache when aggregation produced nothing
- *   4. Empty payload as last resort
+ * Order of operations:
+ *   1. Build the canonical playoff team set + window games.
+ *   2. PRIMARY: hit ESPN's types/3 leaders endpoint (per-game averages)
+ *      filtered by playoff teams. The endpoint mirrors ESPN's editorial
+ *      postseason table (33.8 PPG, 26.3 PPG, etc.) so the slide reads
+ *      identical to ESPN's web view.
+ *   3. FALLBACK: aggregate from completed playoff box scores and convert
+ *      totals → averages using gamesPlayed.
+ *   4. Cache fallback (KV latest / lastknown) only if both fail.
  *
- * Fail-closed: if we can't build a non-empty playoff team set AND we have
- * no games, we return an empty postseason payload rather than fall through
- * to ESPN regular-season data.
+ * Team filter (audit Part 3): playoff teams = bracket-anchored UNION
+ * teams that played a Round-1 game. Eliminated R1 teams stay in the
+ * filter — their players are still legitimate postseason leaders.
+ * Play-in only teams are excluded.
  */
 async function buildPostseasonLeadersData({ preferFresh: _preferFresh = false, keys }) {
   // 1. Build the canonical playoff team set + window games.
@@ -395,23 +480,56 @@ async function buildPostseasonLeadersData({ preferFresh: _preferFresh = false, k
   const haveTeamSet = !!(validPlayoffTeamSlugs && validPlayoffTeamSlugs.size > 0);
   const haveGames   = !!(psWindowGames && psWindowGames.length > 0);
 
-  // 2. FORCE-REFRESH box-score aggregation when we have games. This is the
-  //    audit Part 1 fix: cache reads are no longer the primary path, since
-  //    a single poisoned write (empty payload, missing categories) would
-  //    otherwise lock Slide 2 into "Postseason feed updating" for the
-  //    full TTL. Aggregation is cheap relative to the user-visible cost
-  //    of a stale empty board.
+  // 2. PRIMARY — ESPN /types/3 leaders endpoint (per-game averages).
+  //    Filter to playoff teams (alive OR eliminated, play-in excluded).
+  try {
+    const espnFresh = await fetchLeadersFresh('postseason', validPlayoffTeamSlugs);
+    if (hasAnyValidLeaderCategory(espnFresh)) {
+      const espnPayload = { ...espnFresh, _source: 'espn_postseason', statType: 'averages' };
+      const isFull = hasValidPostseasonTotalsPayload(espnPayload, null, { allowMissingTeamSet: true });
+      if (isFull) {
+        setJson(keys.latest, espnPayload, { exSeconds: LATEST_TTL_SEC }).catch(() => {});
+        setJson(keys.lastknown, espnPayload, { exSeconds: LASTKNOWN_TTL_SEC }).catch(() => {});
+      } else {
+        console.warn(`[nbaLeadersBuilder] ESPN postseason partial (categories=${categoryCount(espnPayload)}) — shipping without cache write`);
+      }
+      console.log('[NBA_POSTSEASON_LEADERS_FINAL]', JSON.stringify({
+        source: 'espn_postseason',
+        statType: 'averages',
+        categories: Object.fromEntries(
+          Object.entries(espnPayload.categories || {}).map(([k, v]) => [
+            k,
+            (v?.leaders || []).map(p => ({
+              name: p.name, team: p.teamAbbrev, value: p.value, display: p.display,
+            })),
+          ])
+        ),
+      }));
+      return {
+        data: espnPayload,
+        source: isFull ? 'espn_postseason' : 'espn_postseason_partial',
+        counts: getCounts(espnPayload),
+      };
+    }
+    console.warn('[NBA_POSTSEASON_LEADERS_FALLBACK_USED]', JSON.stringify({
+      reason: 'espn_returned_zero_valid_categories',
+    }));
+  } catch (err) {
+    console.warn('[NBA_POSTSEASON_LEADERS_FALLBACK_USED]', JSON.stringify({
+      reason: 'espn_fetch_threw',
+      error: err?.message || String(err),
+    }));
+  }
+
+  // 3. FALLBACK — box-score aggregation (totals → per-game averages).
   if (haveGames) {
     try {
-      console.log(`[nbaLeadersBuilder] postseason → FORCE box-score aggregation (games=${psWindowGames.length}, bracketTeams=${validPlayoffTeamSlugs?.size ?? 0})`);
+      console.log(`[nbaLeadersBuilder] postseason → box-score fallback (games=${psWindowGames.length}, bracketTeams=${validPlayoffTeamSlugs?.size ?? 0})`);
       const aggregate = await buildNbaPostseasonLeadersFromBoxScores({
         windowGames: psWindowGames,
         validPlayoffTeamSlugs,
       });
       if (hasAnyValidLeaderCategory(aggregate)) {
-        // Only persist to lastknown when ALL 5 categories are populated.
-        // Partial payloads still SHIP to the slide, but we don't pin them
-        // into 24-hour cache (they'd starve a future full-payload run).
         const isFull = hasValidPostseasonTotalsPayload(aggregate, null, { allowMissingTeamSet: true });
         if (isFull) {
           setJson(keys.latest, aggregate, { exSeconds: LATEST_TTL_SEC }).catch(() => {});
@@ -488,7 +606,7 @@ function emptyPostseasonPayload(reason) {
     categories: {},
     fetchedAt: new Date().toISOString(),
     seasonType: 'postseason',
-    statType: 'totals',
+    statType: 'averages',
     _source: 'empty',
     _error: reason,
   };

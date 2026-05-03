@@ -131,6 +131,55 @@ describe('Narrative beats — OT + buzzer-beater', () => {
   });
 });
 
+describe('Narrative beats — PHI knocks out BOS (placeholder resolution)', () => {
+  it('hero detects PHI 4-3 over BOS as a 3-1 comeback even though BOS bracket slot was a play-in placeholder', () => {
+    // r1-east-3 in the static bracket is "BOS vs Play-In Winner".
+    // The placeholder-resolution pass should treat PHI as the resolved
+    // play-in opponent once these games land in the window.
+    // BOS leads 3-1 → PHI wins 3 straight to take series 4-3.
+    const games = [
+      mkFinal({ awaySlug: 'phi', awayScore: 95,  homeSlug: 'bos', homeScore: 110, hoursAgo: 312 }),
+      mkFinal({ awaySlug: 'phi', awayScore: 100, homeSlug: 'bos', homeScore: 115, hoursAgo: 264 }),
+      mkFinal({ awaySlug: 'bos', awayScore: 95,  homeSlug: 'phi', homeScore: 105, hoursAgo: 216 }),
+      mkFinal({ awaySlug: 'bos', awayScore: 110, homeSlug: 'phi', homeScore: 100, hoursAgo: 168 }),
+      mkFinal({ awaySlug: 'phi', awayScore: 102, homeSlug: 'bos', homeScore: 95,  hoursAgo: 120 }),
+      mkFinal({ awaySlug: 'bos', awayScore: 100, homeSlug: 'phi', homeScore: 108, hoursAgo: 72 }),
+      mkFinal({ awaySlug: 'phi', awayScore: 109, homeSlug: 'bos', homeScore: 100, hoursAgo: 8 }),
+    ];
+    const playoffContext = buildNbaPlayoffContext({ liveGames: [], windowGames: games });
+    const hl = buildNbaDailyHeadline({ liveGames: games, playoffContext });
+
+    // Top story should be the PHI clincher with isComebackFrom31 true.
+    expect(hl.topStory?.winSlug).toBe('phi');
+    expect(hl.topStory?.loseSlug).toBe('bos');
+    expect(hl.topStory?.isComebackFrom31).toBe(true);
+    // Hero copy must reference the comeback narrative — not generic
+    // "76ers beat Celtics" copy that the audit screenshot called out.
+    expect(hl.heroTitle.toUpperCase()).toContain('3-1 COMEBACK');
+  });
+
+  it('HOTP lead bullet calls out the bracket-shift on PHI 4-3 BOS', () => {
+    const games = [
+      mkFinal({ awaySlug: 'phi', awayScore: 95,  homeSlug: 'bos', homeScore: 110, hoursAgo: 312 }),
+      mkFinal({ awaySlug: 'phi', awayScore: 100, homeSlug: 'bos', homeScore: 115, hoursAgo: 264 }),
+      mkFinal({ awaySlug: 'bos', awayScore: 95,  homeSlug: 'phi', homeScore: 105, hoursAgo: 216 }),
+      mkFinal({ awaySlug: 'bos', awayScore: 110, homeSlug: 'phi', homeScore: 100, hoursAgo: 168 }),
+      mkFinal({ awaySlug: 'phi', awayScore: 102, homeSlug: 'bos', homeScore: 95,  hoursAgo: 120 }),
+      mkFinal({ awaySlug: 'bos', awayScore: 100, homeSlug: 'phi', homeScore: 108, hoursAgo: 72 }),
+      mkFinal({ awaySlug: 'phi', awayScore: 109, homeSlug: 'bos', homeScore: 100, hoursAgo: 8 }),
+    ];
+    const playoffContext = buildNbaPlayoffContext({ liveGames: [], windowGames: games });
+    const bullets = buildNbaHotPress({ liveGames: games, playoffContext });
+    const lead = (bullets[0]?.text || '').toLowerCase();
+    // Reject generic copy
+    expect(lead).not.toMatch(/^76ers beat celtics/);
+    // Require either 3-1 comeback OR eliminate language anchored on
+    // bracket consequence ("rewrite the bracket" / "advance" / etc.)
+    const isStrong = /(3-1 comeback|complete the 3-1|eliminate|finish|stun|advance|rewrite the bracket|blow up the .*bracket)/.test(lead);
+    expect(isStrong).toBe(true);
+  });
+});
+
 describe('Narrative beats — Slide 3 top-4 cap', () => {
   it('Slide 3 east/west each capped to 4 active teams ranked by odds', async () => {
     const { buildPlayoffOutlook } = await import('./normalizeNbaImagePayload.js');

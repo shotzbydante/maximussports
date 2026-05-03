@@ -95,7 +95,10 @@ export function hasValidPostseasonTotalsPayload(leaders, validPlayoffTeamSlugs =
   const { allowMissingTeamSet = false } = opts;
   if (!leaders) return false;
   if (leaders.seasonType && leaders.seasonType !== 'postseason') return false;
-  if (leaders.statType && leaders.statType !== 'totals') return false;
+  // Postseason payloads should be PER-GAME AVERAGES. Accept legacy
+  // 'totals' shape too so older cached payloads written before the
+  // average-rollback don't false-fail the validator and force a rebuild.
+  if (leaders.statType && !['averages', 'totals'].includes(leaders.statType)) return false;
 
   const cats = leaders.categories || {};
   const required = ['pts', 'ast', 'reb', 'stl', 'blk'];
@@ -113,12 +116,10 @@ export function hasValidPostseasonTotalsPayload(leaders, validPlayoffTeamSlugs =
     const c = cats[k];
     const list = c?.leaders || [];
     if (list.length === 0) return false;
-    // Reject per-game category shape on the abbrev (PPG/APG/RPG/SPG/BPG).
-    const abbrev = String(c?.abbrev || '').toUpperCase();
-    if (/^[PARSB]PG$/.test(abbrev)) return false;
-    // Team eligibility: every leader's team must be in the active
-    // playoff field. When no set is provided AND the caller explicitly
-    // allowed it (allowMissingTeamSet), skip the team check.
+    // Team eligibility: every leader's team must be in the playoff
+    // field (active OR eliminated). When no set is provided AND the
+    // caller explicitly allowed it (allowMissingTeamSet), skip the
+    // team check.
     if (haveValidSet) {
       for (const ldr of list) {
         const slug = ldr?.teamSlug || null;
@@ -402,19 +403,26 @@ async function fetchOneSummary(gameId) {
 }
 
 /**
- * Pick the top N players by absolute total of `srcKey` after
- * applying:
- *   1. team-eligibility filter (must be in validPlayoffTeamSlugs when
- *      that set is non-empty) — defeats ESPN types/3 leaking
- *      non-playoff stars
+ * Format a per-game average to 1 decimal — mirrors the ESPN editorial
+ * convention (e.g. "33.8" not "33.83"). Returns `'0.0'` for zero/NaN.
+ */
+function formatPerGame(v) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return '0.0';
+  return n.toFixed(1);
+}
+
+/**
+ * Pick the top N players by PER-GAME AVERAGE of `srcKey` after applying:
+ *   1. team-eligibility filter (must be in validTeamSlugs when that
+ *      set is non-empty) — defeats ESPN leaking non-playoff stars
  *   2. adaptive games-played floor
  *   3. adaptive minutes-played floor
  *
  * Returns { leaders, counts } so the caller can build the
- * [NBA_LEADER_FILTER_DEBUG] diagnostic with real before/after
- * numbers including filteredOutInactiveTeam.
+ * [NBA_LEADER_FILTER_DEBUG] diagnostic with real before/after counts.
  */
-function topByTotal(playerMap, srcKey, thresholds, validTeamSlugs, n = 3) {
+function topByPerGame(playerMap, srcKey, thresholds, validTeamSlugs, n = 3) {
   const all = Object.values(playerMap);
   const playersBefore = all.length;
 
@@ -434,11 +442,17 @@ function topByTotal(playerMap, srcKey, thresholds, validTeamSlugs, n = 3) {
   const afterMinutesFilter = afterMinutes.length;
   const filteredOutLowMinutes = afterGamesFilter - afterMinutesFilter;
 
-  const leaders = afterMinutes
-    .filter(p => p[srcKey] > 0)
+  // Compute per-game average from total/GP. Sort by average desc; ties
+  // broken by total volume (more games at same average is stronger
+  // signal than one outlier game).
+  const withAvg = afterMinutes
+    .map(p => ({ ...p, _avg: p.gamesPlayed > 0 ? p[srcKey] / p.gamesPlayed : 0 }))
+    .filter(p => p._avg > 0);
+
+  const leaders = withAvg
     .sort((a, b) => {
-      if (b[srcKey] !== a[srcKey]) return b[srcKey] - a[srcKey];
-      return a.gamesPlayed - b.gamesPlayed; // tiebreaker: fewer games
+      if (b._avg !== a._avg) return b._avg - a._avg;
+      return b.gamesPlayed - a.gamesPlayed;
     })
     .slice(0, n)
     .map(p => ({
@@ -446,8 +460,8 @@ function topByTotal(playerMap, srcKey, thresholds, validTeamSlugs, n = 3) {
       team: '',
       teamAbbrev: p.teamAbbrev,
       teamSlug: p.teamSlug,
-      value: Math.round(p[srcKey]),
-      display: String(Math.round(p[srcKey])),
+      value: Number(p._avg.toFixed(1)),
+      display: formatPerGame(p._avg),
       gamesPlayed: p.gamesPlayed,
     }));
 
@@ -600,7 +614,7 @@ export async function buildNbaPostseasonLeadersFromBoxScores({
 
   for (const [src, catKey] of Object.entries(SRC_TO_KEY)) {
     if (!LEADER_KEYS.includes(catKey)) continue;
-    const primary = topByTotal(playerMap, src, thresholds, expandedTeamSet, 3);
+    const primary = topByPerGame(playerMap, src, thresholds, expandedTeamSet, 3);
     if (!primaryCounts) primaryCounts = primary.counts;
 
     let leaders = primary.leaders;
@@ -608,7 +622,7 @@ export async function buildNbaPostseasonLeadersFromBoxScores({
       // Retry just this category with relaxed thresholds — never show
       // "Postseason feed updating" if box-score data exists. Team
       // eligibility filter STAYS strict on retry.
-      const relaxed = topByTotal(playerMap, src, RELAXED_RETRY, expandedTeamSet, 3);
+      const relaxed = topByPerGame(playerMap, src, RELAXED_RETRY, expandedTeamSet, 3);
       leaders = relaxed.leaders;
       if (leaders.length > 0) retried.push(catKey);
     }
@@ -665,7 +679,10 @@ export async function buildNbaPostseasonLeadersFromBoxScores({
     categories,
     fetchedAt: new Date().toISOString(),
     seasonType: 'postseason',
-    statType: 'totals',
+    // Per-game averages — switched back from absolute totals so the
+    // editorial table matches ESPN's postseason leader convention
+    // (e.g. SGA 33.8 PPG, Maxey 26.3 PPG).
+    statType: 'averages',
     _source: 'boxscore_aggregate',
     _meta: {
       gamesAggregated: parsedGames,
@@ -681,8 +698,8 @@ export async function buildNbaPostseasonLeadersFromBoxScores({
     },
   };
 
-  // Audit Part 3 diagnostic — visible when box-score aggregation runs.
-  console.log('[NBA_BOXSCORE_TOTAL_LEADERS_AGG]', JSON.stringify({
+  // Box-score aggregation summary (per-game averages).
+  console.log('[NBA_BOXSCORE_PERGAME_LEADERS_AGG]', JSON.stringify({
     gamesUsed: parsedGames,
     playersAggregated: playerCount,
     categories: Object.keys(categories || {}),
@@ -693,13 +710,16 @@ export async function buildNbaPostseasonLeadersFromBoxScores({
     minMinutes: thresholds.minMinutes,
     retriedCategories: retried,
     topPts: categories?.pts?.leaders?.[0] || null,
+    statType: 'averages',
   }));
 
-  // Audit Part 4 spec — the validation log the prompt explicitly asked
-  // for. Single line, all 5 categories, with playoff totals visible at
-  // a glance so a "where's LeBron?" question can be answered from the
-  // browser/server console alone (no instrumentation required).
-  console.log('[NBA_POSTSEASON_TOTALS_FINAL]', JSON.stringify({
+  // [NBA_POSTSEASON_LEADERS_FINAL] — single canonical render-path log
+  // the spec requested. All 5 categories visible at a glance with
+  // per-game averages so "where's SGA?" / "where's LeBron?" can be
+  // answered from the console alone, no instrumentation required.
+  console.log('[NBA_POSTSEASON_LEADERS_FINAL]', JSON.stringify({
+    source: 'boxscore_aggregate',
+    statType: 'averages',
     gamesUsed: parsedGames,
     includedTeams: Array.from(expandedTeamSet).sort(),
     categories: Object.fromEntries(
