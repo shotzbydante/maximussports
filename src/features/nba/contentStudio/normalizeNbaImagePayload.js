@@ -655,16 +655,49 @@ function buildTeamPayload({ base, team, standings, liveGames, playoffContext }) 
   if (!team) return { ...base, headline: 'Select a team to generate', section: 'team-intel' };
   const slug = team.slug;
   const st = standings?.[slug] || null;
+  // Look across allSeries (cross-round) — needed for a R1 winner who's
+  // about to start the semis. The previous lookup walked pc.series
+  // (current-round only), which paired with the "in motion" subhead
+  // produced "LAL won 4-2 — first round in motion" — incoherent for a
+  // FINISHED series.
   let series = null;
-  for (const s of (playoffContext?.series || [])) {
-    if (s.topTeam?.slug === slug || s.bottomTeam?.slug === slug) { series = s; break; }
+  const seriesPool = playoffContext?.allSeries || playoffContext?.series || [];
+  // Prefer an active series; fall back to the most-recent completed
+  // one if no active series exists for this team.
+  const teamSeriesAll = seriesPool.filter(s =>
+    s?.topTeam?.slug === slug || s?.bottomTeam?.slug === slug
+  );
+  series = teamSeriesAll.find(s => !s.isComplete) || teamSeriesAll[0] || null;
+  // Subhead is now state-aware: a completed series can't be "in
+  // motion". Wins/sweeps go to "advances to next round" copy; active
+  // series keep "in motion".
+  const roundShort = (round) => {
+    if (round === 2) return team.conference === 'Eastern' ? 'East Semifinals' : 'West Semifinals';
+    if (round === 3) return team.conference === 'Eastern' ? 'East Finals' : 'West Finals';
+    if (round === 4) return 'NBA Finals';
+    return 'first round';
+  };
+  let subhead;
+  if (!series) {
+    subhead = `${team.conference} Conference`;
+  } else if (series.isComplete) {
+    const won = series.seriesStates?.winnerSlug === slug;
+    if (won) {
+      const next = (series.round || 1) === 4
+        ? 'champions'
+        : roundShort((series.round || 1) + 1);
+      subhead = `${series.seriesScore.summary} — advances to the ${next}.`;
+    } else {
+      subhead = `${series.seriesScore.summary} — series ends here.`;
+    }
+  } else {
+    const r = series.round === 1 ? 'first round' : roundShort(series.round);
+    subhead = `${series.seriesScore.summary} — ${r} in motion`;
   }
   return {
     ...base,
     headline: `${team.name} Playoff Intel`,
-    subhead: series
-      ? `${series.seriesScore.summary} — ${series.round === 1 ? 'first round' : 'series'} in motion`
-      : `${team.conference} Conference`,
+    subhead,
     teamA: { name: team.name, slug, abbrev: team.abbrev },
     record: st?.record || null,
     conference: team.conference,
