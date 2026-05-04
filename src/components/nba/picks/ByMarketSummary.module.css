@@ -123,3 +123,48 @@
   color: rgba(232, 237, 246, 0.66);
   max-width: 38ch;
 }
+
+/* v7 footer — counts + CTA to /nba/insights */
+.footer {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.footerCounts {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.74rem;
+  color: rgba(232, 237, 246, 0.78);
+}
+.footerCounts strong {
+  color: #fff;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.footerSep { color: rgba(232, 237, 246, 0.35); }
+
+.footerCta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #c9a24a;
+  background: rgba(201, 162, 74, 0.12);
+  border: 1px solid rgba(201, 162, 74, 0.32);
+  border-radius: 999px;
+  padding: 4px 10px;
+  text-decoration: none;
+  transition: background 160ms ease, transform 160ms ease;
+}
+.footerCta:hover {
+  background: rgba(201, 162, 74, 0.20);
+  transform: translateX(2px);
+}

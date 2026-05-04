@@ -376,8 +376,12 @@ export function buildNbaPicksV2({
   }
 
   function pushDisciplined(pick, gameId) {
-    const d = applyDiscipline(pick, disciplineCtx(gameId), config);
+    // v7 contract: every playoff game produces ML+ATS+Total.
+    // Discipline must NEVER drop a full-slate pick — it caps + flags
+    // tracking instead. Hero status is computed later.
+    const d = applyDiscipline(pick, disciplineCtx(gameId), config, { mode: 'fullSlate' });
     if (!d) {
+      // Defensive guard: fullSlate mode shouldn't return null.
       meta.flags.push(`suppressed:${pick?.id || gameId}`);
       return;
     }
@@ -399,8 +403,10 @@ export function buildNbaPicksV2({
     const implHome = moneylineToImplied(m.moneyline?.home);
 
     // ── Large-spread penalty helper ──
-    const spreadGates = config?.marketGates?.spread || {};
-    const mlGates = config?.marketGates?.moneyline || {};
+    // Pre-v7 the per-market gate config (`spreadGates`, `mlGates`)
+    // gated candidate generation. v7 always generates 3 picks per game
+    // and lets discipline + tier assignment label them honestly, so the
+    // gate vars are no longer referenced here.
     const lsConf = config?.components?.largeSpread || {};
     const penaltyAbove = lsConf.penaltyAbove ?? 10;
     const requiredModelEdge = lsConf.requiredModelEdge ?? 0.06;
@@ -416,80 +422,87 @@ export function buildNbaPicksV2({
       return { ...bs, total: Math.max(0, (bs.total ?? 0) * penaltyFactor) };
     }
 
-    // ── Moneyline ──
-    const mlSides = [
-      { side: 'away', modelProb: score.awayWinProb, implied: implAway, price: m.moneyline?.away },
-      { side: 'home', modelProb: score.homeWinProb, implied: implHome, price: m.moneyline?.home },
-    ];
-    for (const s of mlSides) {
-      if (!isNum(s.modelProb) || !isNum(s.implied)) continue;
-      const rawEdge = s.modelProb - s.implied;
-      if (rawEdge <= 0) continue;
-      // Underdog (+) price requires a higher raw-edge floor. Keeps the model
-      // from chasing +200 dogs on a 0.5% edge.
-      const isUnderdog = isNum(s.price) && s.price > 0;
-      const minDogEdge = mlGates.minUnderdogEdge ?? 0;
-      if (isUnderdog && rawEdge < minDogEdge) continue;
+    // ── v7 contract: every playoff game gets exactly one ML, one ATS,
+    //    one Total pick. We pick the side with the BEST metric per
+    //    market (no edge-sign gate). Discipline + tier assignment label
+    //    conviction honestly. Picks below the hero threshold are
+    //    persisted as "tracking" picks and graded daily. ──
 
-      let bs = computeBetScore({
-        matchup, score, marketType: 'moneyline', side: s.side,
-        rawEdge, totalDelta: null, config,
-      });
-      bs = maybePenalize(bs, rawEdge);
-      if (!Number.isFinite(bs.total) || bs.total <= 0) continue;
-      pushDisciplined(makePick(matchup, score, {
-        marketType: 'moneyline', side: s.side, lineValue: null,
-        priceAmerican: s.price ?? null, rawEdge, modelProb: s.modelProb, impliedProb: s.implied,
-      }, bs), matchup.gameId);
-    }
+    // ── Moneyline (always one per game) ──
+    if (isNum(score.awayWinProb) && isNum(score.homeWinProb)
+        && (isNum(implAway) || isNum(implHome))) {
+      const mlSides = [
+        { side: 'away', modelProb: score.awayWinProb, implied: implAway, price: m.moneyline?.away },
+        { side: 'home', modelProb: score.homeWinProb, implied: implHome, price: m.moneyline?.home },
+      ].filter(s => isNum(s.modelProb) && isNum(s.implied));
 
-    // ── Spread ──
-    if (isNum(m.spread?.homeLine)) {
-      const probSpread = Math.abs(score.awayWinProb - score.homeWinProb);
-      if (probSpread >= (spreadGates.minProbSpread ?? 0.05)) {
-        const minSpreadEdge = spreadGates.minEdge ?? 0;
-        const sides = [
-          { side: 'away', line: m.spread.awayLine, rawEdge: (score.awayWinProb - (implAway ?? 0.5)) * 0.9 },
-          { side: 'home', line: m.spread.homeLine, rawEdge: (score.homeWinProb - (implHome ?? 0.5)) * 0.9 },
-        ];
-        for (const s of sides) {
-          if (!isNum(s.rawEdge) || s.rawEdge <= 0) continue;
-          if (s.rawEdge < minSpreadEdge) continue; // playoff: require real separation
-          let bs = computeBetScore({
-            matchup, score, marketType: 'runline', side: s.side,
-            rawEdge: s.rawEdge, totalDelta: null, config,
-          });
-          bs = maybePenalize(bs, s.rawEdge);
-          if (!Number.isFinite(bs.total) || bs.total <= 0) continue;
+      // Best side = highest rawEdge (modelProb − implied). Always
+      // selected; if both are negative we still pick the LEAST bad side
+      // and let conviction labelling reflect the weak signal.
+      mlSides.sort((a, b) => (b.modelProb - b.implied) - (a.modelProb - a.implied));
+      const best = mlSides[0];
+      if (best) {
+        const rawEdge = best.modelProb - best.implied;
+        let bs = computeBetScore({
+          matchup, score, marketType: 'moneyline', side: best.side,
+          rawEdge, totalDelta: null, config,
+        });
+        bs = maybePenalize(bs, rawEdge);
+        if (Number.isFinite(bs.total) && bs.total > 0) {
           pushDisciplined(makePick(matchup, score, {
-            marketType: 'spread', side: s.side, lineValue: s.line,
-            priceAmerican: null, rawEdge: s.rawEdge,
-            modelProb: s.side === 'away' ? score.awayWinProb : score.homeWinProb,
-            impliedProb: s.side === 'away' ? implAway : implHome,
+            marketType: 'moneyline', side: best.side, lineValue: null,
+            priceAmerican: best.price ?? null,
+            rawEdge, modelProb: best.modelProb, impliedProb: best.implied,
           }, bs), matchup.gameId);
         }
       }
     }
 
-    // ── Total ──
-    if (isNum(m.total?.points) && isNum(score.expectedTotal)) {
-      const delta = score.expectedTotal - m.total.points;
-      const gate = config?.marketGates?.total || {};
-      const passConf = (score.dataQuality ?? 0) * (score.signalAgreement ?? 0.5) >= (gate.minConfidence ?? 0.5);
-      const passDelta = Math.abs(delta) >= (gate.minExpectedDelta ?? 2.0);
-      if (passConf && passDelta) {
-        const side = delta > 0 ? 'over' : 'under';
-        const bs = computeBetScore({
-          matchup, score, marketType: 'total', side,
-          rawEdge: null, totalDelta: delta, config,
+    // ── Spread (always one per game when a line exists) ──
+    if (isNum(m.spread?.homeLine)) {
+      const sides = [
+        { side: 'away', line: m.spread.awayLine, rawEdge: (score.awayWinProb - (implAway ?? 0.5)) * 0.9 },
+        { side: 'home', line: m.spread.homeLine, rawEdge: (score.homeWinProb - (implHome ?? 0.5)) * 0.9 },
+      ];
+      sides.sort((a, b) => b.rawEdge - a.rawEdge);
+      const best = sides[0];
+      if (best && isNum(best.rawEdge)) {
+        let bs = computeBetScore({
+          matchup, score, marketType: 'runline', side: best.side,
+          rawEdge: best.rawEdge, totalDelta: null, config,
         });
+        bs = maybePenalize(bs, best.rawEdge);
         if (Number.isFinite(bs.total) && bs.total > 0) {
           pushDisciplined(makePick(matchup, score, {
-            marketType: 'total', side, lineValue: m.total.points,
-            priceAmerican: null, rawEdge: null, modelProb: null, impliedProb: null,
-            expectedTotal: score.expectedTotal, totalDelta: delta,
+            marketType: 'spread', side: best.side, lineValue: best.line,
+            priceAmerican: null, rawEdge: best.rawEdge,
+            modelProb: best.side === 'away' ? score.awayWinProb : score.homeWinProb,
+            impliedProb: best.side === 'away' ? implAway : implHome,
           }, bs), matchup.gameId);
         }
+      }
+    }
+
+    // ── Total (always one per game when a market line + fair total
+    //    are available; fair total comes from the fallback chain) ──
+    if (isNum(m.total?.points) && isNum(score.expectedTotal)) {
+      const delta = score.expectedTotal - m.total.points;
+      // Direction is best-effort: positive delta → Over, negative → Under,
+      // zero → Under (stable tiebreak; never just mirror the line). The
+      // pick may be a tracking-only "Low Conviction" label when the
+      // fair-total source is `slate_baseline_v1` or below the data-quality
+      // floor — discipline + UI handle that.
+      const side = delta >= 0 ? 'over' : 'under';
+      const bs = computeBetScore({
+        matchup, score, marketType: 'total', side,
+        rawEdge: null, totalDelta: delta, config,
+      });
+      if (Number.isFinite(bs.total) && bs.total > 0) {
+        pushDisciplined(makePick(matchup, score, {
+          marketType: 'total', side, lineValue: m.total.points,
+          priceAmerican: null, rawEdge: null, modelProb: null, impliedProb: null,
+          expectedTotal: score.expectedTotal, totalDelta: delta,
+        }, bs), matchup.gameId);
       }
     }
   }
@@ -533,6 +546,70 @@ export function buildNbaPicksV2({
 
   const legacy = buildLegacyCategories(assigned.published);
 
+  // ── v7 contract: full-slate + hero subset + by-game grouping ──
+  // Every pick that survived the candidate stage gets `pickRole`:
+  //   - 'hero'     → published (tier1/2/3) AND meets the hero conviction floor
+  //   - 'tracking' → everything else (low-conviction or below tier3 floor)
+  // Hero is what NBA Home renders. Full-slate is everything (persisted +
+  // graded). The two are the same ARRAY of pick objects; pickRole is the
+  // discriminator that travels through persistence (rationale.pickRole).
+  const HERO_FLOOR = config?.hero?.scoreFloor ?? 0.50;
+  const heroIds = new Set();
+  for (const p of assigned.published) {
+    if ((p.betScore?.total ?? 0) >= HERO_FLOOR) heroIds.add(p.id);
+  }
+  // Tag every cleaned candidate so persistence knows the pick role.
+  // Tracking picks (below tier3 floor) get tier='tracking' so the row
+  // passes validation in picksHistory and lands in the scorecard the
+  // next morning. Hero picks keep their assigned tier.
+  const fullSlatePicks = clean.map(p => {
+    const isHero = heroIds.has(p.id);
+    const tier = p.tier || 'tracking';
+    return {
+      ...p,
+      tier,
+      pickRole: isHero ? 'hero' : 'tracking',
+      isHeroPick: isHero,
+      isLowConviction: !isHero || p.flags?.tracking === true,
+      // Stash the role inside the existing rationale jsonb so persistence
+      // (`picksHistory.buildPickRow`) writes it without a schema change.
+      rationale: { ...(p.rationale || {}), pickRole: isHero ? 'hero' : 'tracking' },
+    };
+  });
+  const heroPicks = fullSlatePicks.filter(p => p.isHeroPick);
+  const trackingPicks = fullSlatePicks.filter(p => !p.isHeroPick);
+
+  // Group by game so /nba/insights can render the canonical "every
+  // playoff game gets ML/ATS/Total" board without re-deriving it client-side.
+  const byGameMap = new Map();
+  for (const p of fullSlatePicks) {
+    const gid = p.gameId;
+    if (!gid) continue;
+    if (!byGameMap.has(gid)) {
+      byGameMap.set(gid, {
+        gameId: gid,
+        startTime: p.matchup?.startTime || null,
+        awayTeam: p.matchup?.awayTeam || null,
+        homeTeam: p.matchup?.homeTeam || null,
+        picks: { moneyline: null, runline: null, total: null },
+      });
+    }
+    const slot = byGameMap.get(gid);
+    const t = p.market?.type;
+    if (t === 'moneyline') slot.picks.moneyline = p;
+    else if (t === 'runline') slot.picks.runline = p;
+    else if (t === 'total') slot.picks.total = p;
+  }
+  const byGame = Array.from(byGameMap.values())
+    .sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''));
+
+  meta.fullSlatePickCount = fullSlatePicks.length;
+  meta.heroPickCount = heroPicks.length;
+  meta.trackingPickCount = trackingPicks.length;
+  meta.gamesWithFullSlate = byGame.filter(g =>
+    !!g.picks.moneyline && !!g.picks.runline && !!g.picks.total
+  ).length;
+
   return {
     sport: 'nba',
     date: today,
@@ -546,6 +623,11 @@ export function buildNbaPicksV2({
     meta,
     legacy: { categories: legacy },
     categories: legacy,
+    // v7 contract additions:
+    fullSlatePicks,
+    heroPicks,
+    trackingPicks,
+    byGame,
   };
 }
 

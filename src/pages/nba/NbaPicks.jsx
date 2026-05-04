@@ -8,10 +8,15 @@
 
 import MlbMaximusPicksSectionV2 from '../../components/mlb/picks/MlbMaximusPicksSectionV2';
 import NbaScorecardReport from '../../components/nba/picks/NbaScorecardReport';
+import NbaFullSlateBoard from '../../components/nba/picks/NbaFullSlateBoard';
 
 export default function NbaPicks() {
   return (
     <div style={{ maxWidth: 1100, margin: '0 auto', padding: 'var(--space-lg) 16px' }}>
+      {/* v7: full-slate game-by-game breakdown (ML + ATS + Total per
+          playoff game). Lives at the top of Odds Insights as the
+          canonical detailed surface. */}
+      <NbaFullSlateBoard endpoint="/api/nba/picks/built" />
       {/* Unified Model Performance hero — combines yesterday's scorecard,
           per-pick report, category chips, rolling performance, and grading
           explainer. Replaces the duplicate Track Record / Yesterday's

@@ -50,11 +50,21 @@ export default function ByMarketSummary({ picks = [], notes = {} }) {
   const mlCaption  = ml === 0  ? 'No moneyline edges cleared the gate today.'  : null;
   const atsCaption = ats === 0 ? 'No spread edges cleared the gate today.'     : null;
 
+  // v7 framing: NBA Home shows hero picks; the full slate (every game ×
+  // 3 markets) lives on Odds Insights. When the parent supplies hero +
+  // full-slate counts, surface them so users understand what they're
+  // looking at.
+  const heroCount = Number.isFinite(notes.heroCount) ? notes.heroCount : null;
+  const fullSlateCount = Number.isFinite(notes.fullSlateCount) ? notes.fullSlateCount : null;
+  const insightsHref = notes.insightsHref || '/nba/insights';
+
   return (
     <section className={styles.root} aria-label="Today's picks by market">
       <header className={styles.header}>
         <span className={styles.eyebrow}>Picks by Market</span>
-        <span className={styles.sub}>One source of truth across Pick &rsquo;Ems, ATS, and Totals.</span>
+        <span className={styles.sub}>
+          Every playoff game gets a Pick &rsquo;Em, a Spread, and a Total &mdash; graded daily.
+        </span>
       </header>
       <div className={styles.grid}>
         <MarketTile kicker="Pick &rsquo;Ems"  title="Moneyline" count={ml}  caption={mlCaption}  accent="ml" />
@@ -68,6 +78,22 @@ export default function ByMarketSummary({ picks = [], notes = {} }) {
           inactive={notes.totalsInactive}
         />
       </div>
+      {(heroCount != null || fullSlateCount != null) && (
+        <footer className={styles.footer}>
+          <span className={styles.footerCounts}>
+            {heroCount != null && (
+              <span><strong>{heroCount}</strong> hero {heroCount === 1 ? 'pick' : 'picks'} shown</span>
+            )}
+            {heroCount != null && fullSlateCount != null && <span className={styles.footerSep}>&middot;</span>}
+            {fullSlateCount != null && (
+              <span><strong>{fullSlateCount}</strong> full-slate {fullSlateCount === 1 ? 'pick' : 'picks'} tracked</span>
+            )}
+          </span>
+          <a href={insightsHref} className={styles.footerCta}>
+            See every game pick &rarr;
+          </a>
+        </footer>
+      )}
     </section>
   );
 }

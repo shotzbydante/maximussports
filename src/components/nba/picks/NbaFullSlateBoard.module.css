@@ -1,0 +1,294 @@
+/* NbaFullSlateBoard — game-by-game ML / ATS / Total breakdown.
+   Renders cleanly on the light Odds Insights page. */
+
+.root {
+  margin: 0 0 var(--space-xl, 32px);
+  padding: 22px 24px;
+  border-radius: 14px;
+  background: var(--color-bg-elevated, #fff);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.rootHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+.rootKicker {
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #c9a24a;
+}
+.rootTitle {
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--color-text);
+  margin: 0;
+}
+.rootSub {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+  max-width: 70ch;
+}
+.rootEmpty {
+  margin: 12px 0 0;
+  font-size: 0.84rem;
+  color: var(--color-text-secondary);
+}
+
+.statRow {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+}
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.statLabel {
+  font-size: 0.5rem;
+  font-weight: 700;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+.statValue {
+  font-size: 1.25rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+  line-height: 1.0;
+}
+
+/* ── Per-game ── */
+
+.gameStack {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.gameCard {
+  position: relative;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.02);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.gameHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.gameMatchup {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.92rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: var(--color-text);
+}
+.teamLogo {
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.04);
+  padding: 1px;
+  object-fit: contain;
+}
+.teamAbbr { letter-spacing: 0.04em; }
+.atSymbol { color: var(--color-text-muted); font-weight: 500; }
+
+.gameMeta {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.gameDate { color: var(--color-text-muted); }
+.gameTime { color: var(--color-text-secondary); }
+
+/* ── Per-market sub-card ── */
+
+.marketGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+@media (max-width: 720px) {
+  .marketGrid { grid-template-columns: 1fr; }
+}
+
+.marketCard {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 11px 13px;
+  border-radius: 10px;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+.marketCard::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 2px;
+  border-radius: 10px 10px 0 0;
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.marketCardEmpty {
+  background: rgba(0, 0, 0, 0.015);
+  color: var(--color-text-muted);
+  align-items: flex-start;
+}
+.marketCardEmpty::before { background: rgba(0, 0, 0, 0.04); }
+
+.tracking {
+  background: rgba(0, 0, 0, 0.02);
+  opacity: 0.92;
+}
+.tracking::before { background: rgba(0, 0, 0, 0.05); }
+
+/* Tier accents on the top edge */
+.tier_elite::before  { background: linear-gradient(90deg, rgba(201,162,74,0.7), rgba(201,162,74,0.15)); }
+.tier_strong::before { background: linear-gradient(90deg, rgba(80,140,220,0.7), rgba(80,140,220,0.15)); }
+.tier_solid::before  { background: linear-gradient(90deg, rgba(80,140,220,0.4), rgba(80,140,220,0.10)); }
+.tier_lean::before   { background: linear-gradient(90deg, rgba(150,160,180,0.4), rgba(150,160,180,0.10)); }
+
+.marketHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px;
+}
+.marketLabel {
+  font-size: 0.5rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.trackingPill {
+  font-size: 0.5rem;
+  font-weight: 800;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.04);
+  color: var(--color-text-muted);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.empty {
+  font-size: 0.74rem;
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+.pickLabel {
+  font-size: 1.08rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--color-text);
+  line-height: 1.15;
+}
+
+.convictionRow {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-top: 1px;
+}
+.convictionLabel {
+  font-size: 0.5rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+.convictionValue {
+  font-size: 0.95rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+  letter-spacing: -0.01em;
+}
+.convictionTier {
+  font-size: 0.52rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.convictionTier_elite  { color: #c9a24a; }
+.convictionTier_strong { color: #5074b8; }
+.convictionTier_solid  { color: #6a7d9b; }
+.convictionTier_lean   { color: var(--color-text-muted); }
+
+.metricsRow {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.metric {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.025);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+.metricLabel {
+  font-size: 0.46rem;
+  font-weight: 700;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+.metricValue {
+  font-size: 0.78rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+}
+
+.rationale {
+  margin: 2px 0 0;
+  font-size: 0.7rem;
+  line-height: 1.4;
+  color: var(--color-text-secondary);
+  font-style: italic;
+}
+
+/* Skeleton */
+.skel { display: flex; flex-direction: column; gap: 10px; }
+.skelBlock {
+  height: 140px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.04);
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+@keyframes shimmer { 0%, 100% { opacity: 0.45; } 50% { opacity: 0.75; } }

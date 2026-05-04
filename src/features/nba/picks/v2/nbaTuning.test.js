@@ -78,18 +78,24 @@ describe('NBA_DEFAULT_CONFIG — playoff-aware values', () => {
   });
 });
 
-describe('buildNbaPicksV2 — underdog moneyline floor', () => {
-  it('rejects an underdog ML whose raw edge is below minUnderdogEdge', () => {
+describe('buildNbaPicksV2 — underdog moneyline floor (v7 contract)', () => {
+  it('keeps a low-edge underdog ML as a TRACKING pick instead of dropping it', () => {
     // +110 line → implied ≈ 47.6%. Model neutral (edge=0) → away model prob ≈ 50% →
-    // raw edge ≈ 2.4% which is below the 4% underdog floor.
+    // raw edge ≈ 2.4% which would have been below the legacy 4% dog floor.
+    // Under the v7 full-slate contract, every game must produce a pick per
+    // market — low-edge picks become "tracking" (not "hero") rather than
+    // being dropped, so they can be persisted and graded daily.
     const games = [mkGame(0, {
       market: { moneyline: { away: 110, home: -130 }, pregameSpread: -1, pregameTotal: 220 },
       model: { pregameEdge: 0.0, confidence: 0.6, fairTotal: 220 },
     })];
     const r = buildNbaPicksV2({ games, config: NBA_DEFAULT_CONFIG });
-    const all = [...r.tiers.tier1, ...r.tiers.tier2, ...r.tiers.tier3, ...r.coverage];
-    const awayMoneyline = all.find(p => p.market.type === 'moneyline' && p.selection.side === 'away');
-    expect(awayMoneyline).toBeUndefined();
+    expect(Array.isArray(r.fullSlatePicks)).toBe(true);
+    const ml = r.fullSlatePicks.find(p => p.market.type === 'moneyline');
+    expect(ml, 'fullSlatePicks must contain a moneyline pick').toBeDefined();
+    // The low-edge ML should NOT be elevated to a hero tier.
+    expect(ml.isHeroPick).toBe(false);
+    expect(ml.pickRole).toBe('tracking');
   });
 });
 

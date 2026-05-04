@@ -86,6 +86,7 @@ export default function MlbMaximusPicksSectionV2({
     payload, loading,
     scorecardSummary, topPick: rawTopPick, tiers, coverage,
     modelVersion, configVersion,
+    fullSlatePicks, heroPicks, // v7 contract
   } = useCanonicalPicks({ endpoint });
 
   const meta = SPORT_META[sport] || SPORT_META.mlb;
@@ -206,12 +207,19 @@ export default function MlbMaximusPicksSectionV2({
             already groups by market in its tier subgroups). */}
         {sport === 'nba' && (
           <ByMarketSummary
-            picks={allSurviving}
+            // v7: count across the full slate so all three market
+            // counts reflect the "every game gets ML/ATS/Total"
+            // contract, not just the hero subset on Home.
+            picks={fullSlatePicks?.length > 0 ? fullSlatePicks : allSurviving}
             notes={{
-              // Today the NBA odds enricher has no fair-total model. The
-              // builder honestly can't publish totals — surface that
-              // truth in the strip rather than hiding it.
-              totalsInactive: true,
+              // The fair-total chain (series-pace → team-recent → slate-
+              // baseline) means totals can publish honestly when any
+              // signal is available. The "inactive" caption now only
+              // fires when the engine has zero fair-total signal.
+              totalsInactive: false,
+              heroCount: heroPicks?.length ?? null,
+              fullSlateCount: fullSlatePicks?.length ?? null,
+              insightsHref: meta.insightsHref,
             }}
           />
         )}

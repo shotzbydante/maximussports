@@ -66,6 +66,11 @@ export function useCanonicalPicks({ endpoint = '/api/mlb/picks/built' } = {}) {
     configVersion: payload?.configVersion || null,
     sport: payload?.sport || 'mlb',
     reload,
+    // v7 contract surfaces:
+    fullSlatePicks: Array.isArray(payload?.fullSlatePicks) ? payload.fullSlatePicks : [],
+    heroPicks:      Array.isArray(payload?.heroPicks)      ? payload.heroPicks      : [],
+    trackingPicks:  Array.isArray(payload?.trackingPicks)  ? payload.trackingPicks  : [],
+    byGame:         Array.isArray(payload?.byGame)         ? payload.byGame         : [],
   };
 }
 

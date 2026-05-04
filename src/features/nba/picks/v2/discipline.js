@@ -79,10 +79,17 @@ export function isFavoriteSide(pick) {
  * @param {boolean} [ctx.isElimination=false]
  * @param {boolean} [ctx.isGameSeven=false]
  * @param {object}  [config] — NBA tuning config; reads `discipline` block
- * @returns {object|null} the updated pick, or `null` when discipline says
- *   the pick should not be published at all.
+ * @param {object}  [opts]
+ * @param {'publish'|'fullSlate'} [opts.mode='publish']
+ *   `publish` (default, legacy): may return null to suppress entirely.
+ *   `fullSlate` (v7 contract): NEVER returns null. Suppression instead
+ *   caps the conviction to "Low Conviction", flags `tracking: true`, and
+ *   keeps the pick so it can be persisted + graded as a tracking pick.
+ * @returns {object|null} the updated pick, or `null` when mode='publish'
+ *   and discipline decided to suppress.
  */
-export function applyDiscipline(pick, ctx = {}, config = {}) {
+export function applyDiscipline(pick, ctx = {}, config = {}, opts = {}) {
+  const mode = opts.mode === 'fullSlate' ? 'fullSlate' : 'publish';
   if (!pick || !pick.betScore) return pick;
 
   const disc = config.discipline || {};
@@ -178,7 +185,20 @@ export function applyDiscipline(pick, ctx = {}, config = {}) {
     }
   }
 
-  if (suppress) return null;
+  // Suppression behavior depends on mode:
+  //   - publish (legacy): return null so the caller drops the pick.
+  //   - fullSlate (v7):   keep the pick, cap to "Lean", flag tracking.
+  //                       Picks always reach persistence + grading.
+  if (suppress) {
+    if (mode === 'publish') return null;
+    flags.tracking = true;
+    flags.suppressedReason = (
+      flags.eliminationSuppressed ? 'elimination' :
+      flags.largeSpreadSuppressed ? 'large_spread' :
+      'discipline'
+    );
+    labelCap = mostRestrictive(labelCap, 'Lean');
+  }
 
   // Apply label cap by clamping the score to the label's ceiling — score and
   // label always agree downstream.

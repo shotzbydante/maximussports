@@ -77,7 +77,9 @@ const REQUIRED_PICK_FIELDS = Object.freeze([
   'bet_score', 'model_version', 'config_version',
 ]);
 
-const VALID_TIER = new Set(['tier1', 'tier2', 'tier3']);
+// v7: 'tracking' lets full-slate picks below the tier3 floor persist
+// alongside hero picks. 'coverage' keeps the existing coverage-pool tier.
+const VALID_TIER = new Set(['tier1', 'tier2', 'tier3', 'coverage', 'tracking']);
 const VALID_MARKET = new Set(['moneyline', 'runline', 'total']);
 
 /**
@@ -196,12 +198,19 @@ export async function writePicksRun(payload) {
     };
   }
 
-  // ── 2. Collect published picks from every tier ─────────────────────────────
-  const published = [
-    ...(payload.tiers?.tier1 || []),
-    ...(payload.tiers?.tier2 || []),
-    ...(payload.tiers?.tier3 || []),
-  ];
+  // ── 2. Collect picks to persist ─────────────────────────────
+  // v7 contract: when the builder produces `fullSlatePicks` (every
+  // playoff game × ML/ATS/Total), persist the FULL slate so prior-day
+  // tracking picks land in the scorecard the next morning. Legacy
+  // payloads without `fullSlatePicks` (MLB or pre-v7 NBA caches) fall
+  // back to the tier1+tier2+tier3 union the engine has always written.
+  const published = Array.isArray(payload.fullSlatePicks) && payload.fullSlatePicks.length > 0
+    ? payload.fullSlatePicks
+    : [
+        ...(payload.tiers?.tier1 || []),
+        ...(payload.tiers?.tier2 || []),
+        ...(payload.tiers?.tier3 || []),
+      ];
 
   if (published.length === 0) {
     console.log(`[picksHistory] persisted run=${runId} picks=0 (empty tiers)`);

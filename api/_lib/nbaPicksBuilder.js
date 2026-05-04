@@ -29,7 +29,7 @@ import { buildNbaPlayoffContext, findSeriesForGame } from '../../src/data/nba/pl
 import { getJson, setJson } from '../_globalCache.js';
 import { writePicksRun, getActiveConfig, getScorecard, getLatestGradedScorecard } from './picksHistory.js';
 import { yesterdayET } from './dateWindows.js';
-import { seriesPaceFairTotal } from './seriesPaceFairTotal.js';
+import { resolveFairTotalForGame } from './seriesPaceFairTotal.js';
 
 const KV_LATEST = 'nba:picks:built:latest';
 const KV_LASTKNOWN = 'nba:picks:built:lastknown';
@@ -179,35 +179,39 @@ export async function buildNbaPicksBoard(opts = {}) {
       console.warn(`[nbaPicksBuilder] odds enrichment failed: ${err.message}`);
     }
 
-    // ── Series-pace fair-total MVP (v5) ──
-    // The odds enricher leaves `model.fairTotal === null` (no built-in
-    // model). For each upcoming game with ≥2 prior finals between the
-    // same teams in the 7-day window, derive a series-pace average and
-    // inject it as the fair total. Below sample → leave null so the
-    // totals gate fails honestly.
-    let totalsCandidatesEnabled = 0;
+    // ── Fair-total signal (v7 chain) ──
+    // The odds enricher leaves `model.fairTotal === null`. Run the fall-
+    // back chain so EVERY game has a fair total (even if low-signal):
+    //   1. seriesPaceFairTotal (≥ 2 same-pair priors)
+    //   2. teamRecentTotalAverage (each team's last finals)
+    //   3. slatePaceBaseline (last-resort directional prior)
+    // The resolver tags `source` + `confidence` + `lowSignal`. Builder +
+    // discipline use those to label conviction honestly. v6 mirrored
+    // market_total when no signal — that's gone; we always show a real
+    // signal with honest data quality.
+    const totalsSourceCounts = { series_pace_v1: 0, team_recent_v1: 0, slate_baseline_v1: 0, none: 0 };
     enriched = enriched.map(g => {
       const a = g?.teams?.away?.slug;
       const h = g?.teams?.home?.slug;
-      const sig = seriesPaceFairTotal({ awaySlug: a, homeSlug: h, windowGames });
+      const sig = resolveFairTotalForGame({ awaySlug: a, homeSlug: h, windowGames });
+      const key = sig.source || 'none';
+      totalsSourceCounts[key] = (totalsSourceCounts[key] || 0) + 1;
       if (sig.fairTotal == null) return g;
-      totalsCandidatesEnabled += 1;
       return {
         ...g,
         model: {
           ...g.model,
           fairTotal: sig.fairTotal,
-          fairTotalSample: sig.priorGamesUsed,
+          fairTotalSample: sig.sample,
           fairTotalConfidence: sig.confidence,
-          fairTotalSource: 'series_pace_v1',
+          fairTotalSource: sig.source,
+          fairTotalLowSignal: sig.lowSignal,
         },
       };
     });
-    if (totalsCandidatesEnabled > 0) {
-      console.log(
-        `[nbaPicksBuilder] series-pace fair-total signal active for ${totalsCandidatesEnabled}/${enriched.length} game(s)`
-      );
-    }
+    console.log(
+      `[nbaPicksBuilder] fair-total chain: series=${totalsSourceCounts.series_pace_v1}, team-recent=${totalsSourceCounts.team_recent_v1}, slate-baseline=${totalsSourceCounts.slate_baseline_v1}, none=${totalsSourceCounts.none}`
+    );
 
     // Resolve active NBA tuning config (DB > default)
     let activeConfig = NBA_DEFAULT_CONFIG;
