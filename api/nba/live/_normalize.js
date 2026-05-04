@@ -105,6 +105,9 @@ export function normalizeEvent(ev) {
 
   let pregameSpread = null;
   let pregameTotal = null;
+  // v8: moneyline is `{ away, home }`. Pre-v8 we wrote a single number
+  // (just the home ML), which broke the builder's per-side implied
+  // probability calc and silently dropped every Pick 'Em pick.
   let moneyline = null;
 
   if (hasEspnOdds) {
@@ -116,8 +119,10 @@ export function normalizeEvent(ev) {
       pregameTotal = parseFloat(espnOdds.overUnder);
       if (Number.isNaN(pregameTotal)) pregameTotal = null;
     }
-    if (espnOdds.homeTeamOdds?.moneyLine != null) {
-      moneyline = espnOdds.homeTeamOdds.moneyLine;
+    const homeMl = espnOdds.homeTeamOdds?.moneyLine ?? null;
+    const awayMl = espnOdds.awayTeamOdds?.moneyLine ?? null;
+    if (homeMl != null || awayMl != null) {
+      moneyline = { home: homeMl, away: awayMl };
     }
   }
 

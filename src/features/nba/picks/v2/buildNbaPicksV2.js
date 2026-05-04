@@ -295,6 +295,7 @@ function makePick(matchup, score, info, bs) {
     rationale,
     modelProb: round3(info.modelProb),
     impliedProb: round3(info.impliedProb),
+    impliedSource: info.impliedSource ?? null,    // 'odds' | 'spread' | null
     rawEdge: round3(info.rawEdge),
     expectedTotal: round3(info.expectedTotal),
     result: null,
@@ -429,11 +430,38 @@ export function buildNbaPicksV2({
     //    persisted as "tracking" picks and graded daily. ──
 
     // ── Moneyline (always one per game) ──
-    if (isNum(score.awayWinProb) && isNum(score.homeWinProb)
-        && (isNum(implAway) || isNum(implHome))) {
+    // v8: never gate on odds availability. When implied probabilities
+    // are absent (delayed odds, off-day pre-line, no Odds API book), we
+    // fall back to the spread-derived implied — same arbitrage signal
+    // the rest of the engine uses — so every game produces a tracking
+    // ML pick. Without that fallback, the v8 root cause was that the
+    // builder silently dropped EVERY Pick 'Em.
+    if (isNum(score.awayWinProb) && isNum(score.homeWinProb)) {
+      // Spread-derived implied: the home line in points roughly
+      // corresponds to a probability delta from 0.5 via −line/16.67.
+      const homeLine = isNum(m.spread?.homeLine) ? m.spread.homeLine : null;
+      const spreadImpliedHome = homeLine != null
+        ? clamp01(0.5 + (-homeLine / 16.67) * 0.5)   // 0.5 base + delta
+        : null;
+      const spreadImpliedAway = spreadImpliedHome != null
+        ? 1 - spreadImpliedHome
+        : null;
+
       const mlSides = [
-        { side: 'away', modelProb: score.awayWinProb, implied: implAway, price: m.moneyline?.away },
-        { side: 'home', modelProb: score.homeWinProb, implied: implHome, price: m.moneyline?.home },
+        {
+          side: 'away',
+          modelProb: score.awayWinProb,
+          implied: isNum(implAway) ? implAway : spreadImpliedAway,
+          impliedSource: isNum(implAway) ? 'odds' : (spreadImpliedAway != null ? 'spread' : null),
+          price: m.moneyline?.away,
+        },
+        {
+          side: 'home',
+          modelProb: score.homeWinProb,
+          implied: isNum(implHome) ? implHome : spreadImpliedHome,
+          impliedSource: isNum(implHome) ? 'odds' : (spreadImpliedHome != null ? 'spread' : null),
+          price: m.moneyline?.home,
+        },
       ].filter(s => isNum(s.modelProb) && isNum(s.implied));
 
       // Best side = highest rawEdge (modelProb − implied). Always
@@ -453,6 +481,9 @@ export function buildNbaPicksV2({
             marketType: 'moneyline', side: best.side, lineValue: null,
             priceAmerican: best.price ?? null,
             rawEdge, modelProb: best.modelProb, impliedProb: best.implied,
+            // Tag where the implied probability came from so the UI can
+            // surface "Odds unavailable" for spread-derived ML picks.
+            impliedSource: best.impliedSource,
           }, bs), matchup.gameId);
         }
       }

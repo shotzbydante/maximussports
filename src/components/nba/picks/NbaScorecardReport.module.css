@@ -169,6 +169,36 @@
 }
 .sectionEmbedded .matchupAt { color: rgba(232, 237, 246, 0.45); }
 
+/* v8: pending strip on dark hero */
+.sectionEmbedded .pendingStrip {
+  background: rgba(80, 140, 220, 0.10);
+  border-color: rgba(80, 140, 220, 0.32);
+  border-left-color: #9bc1ff;
+}
+.sectionEmbedded .pendingKicker { color: #9bc1ff; }
+.sectionEmbedded .pendingTitle  { color: #fff; }
+.sectionEmbedded .pendingDate   { color: rgba(232, 237, 246, 0.72); }
+.sectionEmbedded .pendingSubhead { color: rgba(232, 237, 246, 0.55); }
+.sectionEmbedded .pendingGame {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+.sectionEmbedded .pendingMatchup { color: #fff; }
+.sectionEmbedded .pendingTime { color: rgba(232, 237, 246, 0.55); }
+.sectionEmbedded .pendingMarket {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.10);
+}
+.sectionEmbedded .pendingMarketEmpty {
+  background: transparent;
+  border-color: rgba(255, 255, 255, 0.10);
+  color: rgba(232, 237, 246, 0.45);
+}
+.sectionEmbedded .pendingMarketLabel { color: rgba(232, 237, 246, 0.55); }
+.sectionEmbedded .pendingMarketPick { color: rgba(232, 237, 246, 0.92); }
+.sectionEmbedded .pendingCta { color: #9bc1ff; }
+.sectionEmbedded .pendingDisclaimer { color: rgba(232, 237, 246, 0.45); }
+
 /* Row separators + win/loss/push tints — the original gradient stops are
    tuned for a white card; on glass they vanish. Bump them. */
 .sectionEmbedded .picksList { border-top-color: rgba(255, 255, 255, 0.08); }
@@ -304,6 +334,146 @@
 .chipPending {
   font-size: 0.56rem; font-weight: 600; color: var(--color-text-muted);
   margin-top: 2px;
+}
+
+/* ── v8: Today's Pending Full-Slate Picks strip ── */
+.pendingStrip {
+  margin: 12px 0 16px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(80, 140, 220, 0.05);
+  border: 1px solid rgba(80, 140, 220, 0.20);
+  border-left: 3px solid #5074b8;
+  position: relative;
+}
+
+.pendingHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.pendingHeaderLeft { display: flex; flex-direction: column; gap: 2px; }
+.pendingKicker {
+  font-size: 0.5rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #5074b8;
+}
+.pendingTitle {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 800;
+  letter-spacing: -0.005em;
+  color: var(--color-text);
+}
+.pendingDate {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+.pendingSubhead {
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+  letter-spacing: 0.02em;
+}
+
+.pendingGameList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pendingGame {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 9px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  flex-wrap: wrap;
+}
+.pendingMatchup {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--color-text);
+  flex-wrap: wrap;
+}
+.pendingTime {
+  margin-left: 6px;
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.pendingMarkets {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.pendingMarket {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.04);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.pendingMarketEmpty {
+  color: var(--color-text-muted);
+  background: transparent;
+  border-style: dashed;
+  border-color: rgba(0, 0, 0, 0.10);
+}
+.pendingMarketLabel {
+  font-size: 0.5rem;
+  font-weight: 800;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+.pendingMarketPick {
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.pendingCta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 10px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #5074b8;
+  text-decoration: none;
+}
+.pendingCta:hover { text-decoration: underline; }
+.pendingDisclaimer {
+  margin: 6px 0 0;
+  font-size: 0.6rem;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+  font-style: italic;
 }
 
 /* ── Picks list ── */

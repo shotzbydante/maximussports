@@ -88,7 +88,7 @@ function parseOddsEvent(ev) {
   if (!homeSlug || !awaySlug) return null;
 
   const bookmakers = ev.bookmakers || [];
-  const spreads = [], totals = [], moneylines = [];
+  const spreads = [], totals = [], homeMls = [], awayMls = [];
 
   for (const bm of bookmakers) {
     for (const mkt of bm.markets || []) {
@@ -101,8 +101,15 @@ function parseOddsEvent(ev) {
         if (over?.point != null) totals.push(over.point);
       }
       if (mkt.key === 'h2h' && mkt.outcomes?.length >= 2) {
+        // v8: capture BOTH home and away moneylines so the builder can
+        // compute per-side implied probabilities. Pre-v8 we only kept
+        // the home price and wrote `moneyline: <number>`, which broke
+        // toMatchup (which expects `{ away, home }`) and silently
+        // dropped every Pick 'Em pick.
         const homeOut = mkt.outcomes.find((o) => resolveSlug(o.name) === homeSlug);
-        if (homeOut?.price != null) moneylines.push(homeOut.price);
+        const awayOut = mkt.outcomes.find((o) => resolveSlug(o.name) === awaySlug);
+        if (homeOut?.price != null) homeMls.push(homeOut.price);
+        if (awayOut?.price != null) awayMls.push(awayOut.price);
       }
     }
   }
@@ -116,7 +123,8 @@ function parseOddsEvent(ev) {
 
   return {
     homeSlug, awaySlug, commenceTime: ev.commence_time,
-    spread: median(spreads), total: median(totals), moneyline: median(moneylines),
+    spread: median(spreads), total: median(totals),
+    moneyline: { home: median(homeMls), away: median(awayMls) },
     booksCount: bookmakers.length,
   };
 }
@@ -155,11 +163,31 @@ export async function enrichGamesWithOdds(games) {
     const reversed = match.homeSlug !== homeSlug;
     const spread = match.spread != null ? (reversed ? -match.spread : match.spread) : game.market?.pregameSpread;
     const total = match.total ?? game.market?.pregameTotal;
-    const moneyline = match.moneyline ?? game.market?.moneyline;
+    // v8: moneyline is now an `{ away, home }` object. When the matchup
+    // pair is flipped (Odds API ordered teams differently), swap sides.
+    let mlAway = null, mlHome = null;
+    if (match.moneyline) {
+      if (reversed) {
+        mlAway = match.moneyline.home ?? null;
+        mlHome = match.moneyline.away ?? null;
+      } else {
+        mlAway = match.moneyline.away ?? null;
+        mlHome = match.moneyline.home ?? null;
+      }
+    }
+    // Preserve any pre-existing structured shape; otherwise build one.
+    const existingMl = game.market?.moneyline;
+    const moneyline = (mlAway != null || mlHome != null)
+      ? { away: mlAway, home: mlHome }
+      : (existingMl && typeof existingMl === 'object' && !Array.isArray(existingMl))
+        ? existingMl
+        : null;
 
+    // pregameEdge derivation uses the home moneyline (legacy single-
+    // number form expected by the arbitrage formula).
     let fairSpread = null, pregameEdge = null, confidence = null;
-    if (moneyline != null && spread != null) {
-      const impliedProb = moneyline < 0 ? Math.abs(moneyline) / (Math.abs(moneyline) + 100) : 100 / (moneyline + 100);
+    if (mlHome != null && spread != null) {
+      const impliedProb = mlHome < 0 ? Math.abs(mlHome) / (Math.abs(mlHome) + 100) : 100 / (mlHome + 100);
       const probDelta = impliedProb - 0.5;
       fairSpread = -(probDelta * 16.67);
       fairSpread = Math.round(fairSpread * 10) / 10;

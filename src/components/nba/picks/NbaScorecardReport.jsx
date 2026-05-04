@@ -120,6 +120,91 @@ function buildTakeaway({ totals, scorecardSummary, selectedReason }) {
   return { text: `Split day — finished ${overall}.`, tone: 'neutral' };
 }
 
+/**
+ * v8 — Today's Pending Full-Slate Picks strip.
+ *
+ * Renders below the takeaway + category chips and ABOVE the graded
+ * pick-by-pick list. Surfaces today's (or the most recent ungraded)
+ * full-slate picks so the scorecard never feels stale on a Game 7 day.
+ * Pending picks are kept out of the graded record by the endpoint.
+ */
+function PendingSlateStrip({ pendingSlate, insightsHref }) {
+  const dateLabel = (() => {
+    if (!pendingSlate.slateDate) return null;
+    try {
+      const d = new Date(`${pendingSlate.slateDate}T12:00:00`);
+      return d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+    } catch { return pendingSlate.slateDate; }
+  })();
+  const headerLabel = pendingSlate.isToday ? "Today's Pending Full-Slate Picks" : 'Pending Full-Slate Picks';
+  const subhead = `${pendingSlate.pickCount} pick${pendingSlate.pickCount === 1 ? '' : 's'} across ${pendingSlate.games.length} game${pendingSlate.games.length === 1 ? '' : 's'} · awaiting results`;
+  return (
+    <section className={styles.pendingStrip} aria-label="Today's pending full-slate picks">
+      <header className={styles.pendingHeader}>
+        <div className={styles.pendingHeaderLeft}>
+          <span className={styles.pendingKicker}>Live · Pending</span>
+          <h3 className={styles.pendingTitle}>{headerLabel}</h3>
+          {dateLabel && <span className={styles.pendingDate}>{dateLabel}</span>}
+        </div>
+        <span className={styles.pendingSubhead}>{subhead}</span>
+      </header>
+      <ul className={styles.pendingGameList}>
+        {pendingSlate.games.map(g => <PendingGameRow key={g.gameId} game={g} />)}
+      </ul>
+      {insightsHref && (
+        <a href={insightsHref} className={styles.pendingCta}>
+          See every pending pick &rarr;
+        </a>
+      )}
+      <p className={styles.pendingDisclaimer}>
+        Pending picks are tracked but excluded from the graded record below.
+      </p>
+    </section>
+  );
+}
+
+function PendingGameRow({ game }) {
+  const awayLogo = resolveTeamLogo({ sport: 'nba', slug: game.awayTeam });
+  const homeLogo = resolveTeamLogo({ sport: 'nba', slug: game.homeTeam });
+  const awayAbbr = (game.awayTeam || '').toUpperCase();
+  const homeAbbr = (game.homeTeam || '').toUpperCase();
+  const time = (() => {
+    if (!game.startTime) return '';
+    try { return new Date(game.startTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }); }
+    catch { return ''; }
+  })();
+  return (
+    <li className={styles.pendingGame}>
+      <div className={styles.pendingMatchup}>
+        {awayLogo && <img src={awayLogo} alt="" width={16} height={16} className={styles.teamLogo} loading="lazy" />}
+        <span className={styles.teamSlug}>{awayAbbr}</span>
+        <span className={styles.matchupAt}>@</span>
+        {homeLogo && <img src={homeLogo} alt="" width={16} height={16} className={styles.teamLogo} loading="lazy" />}
+        <span className={styles.teamSlug}>{homeAbbr}</span>
+        {time && <span className={styles.pendingTime}>{time}</span>}
+      </div>
+      <div className={styles.pendingMarkets}>
+        <PendingMarketChip pick={game.picks?.moneyline} label="ML" />
+        <PendingMarketChip pick={game.picks?.runline}   label="ATS" />
+        <PendingMarketChip pick={game.picks?.total}     label="TOT" />
+      </div>
+    </li>
+  );
+}
+
+function PendingMarketChip({ pick, label }) {
+  if (!pick) {
+    return <span className={`${styles.pendingMarket} ${styles.pendingMarketEmpty}`}>{label} —</span>;
+  }
+  const text = pick.pickLabel || pick.selection?.label || label;
+  return (
+    <span className={styles.pendingMarket} title={pick.resultReason || pick.rationale?.headline || ''}>
+      <span className={styles.pendingMarketLabel}>{label}</span>
+      <span className={styles.pendingMarketPick}>{text}</span>
+    </span>
+  );
+}
+
 function ResultBadge({ status }) {
   const cls = status === 'won' ? styles.badgeWon
             : status === 'lost' ? styles.badgeLost
@@ -362,7 +447,7 @@ export default function NbaScorecardReport({ dateOverride, variant = 'full', ins
     );
   }
 
-  const { scorecard, picks, totals, slateDate, usedFallback, selectedReason, diagnostics } = data;
+  const { scorecard, picks, totals, slateDate, usedFallback, selectedReason, diagnostics, pendingSlate } = data;
   const takeaway = buildTakeaway({ totals, scorecardSummary: scorecard, selectedReason });
   const targetPrior = diagnostics?.targetPrior;
 
@@ -472,6 +557,14 @@ export default function NbaScorecardReport({ dateOverride, variant = 'full', ins
           <CategoryChip label="ATS" rec={totals.byMarket.spread} accent="ats" />
           <CategoryChip label="Totals" rec={totals.byMarket.total} accent="tot" />
         </div>
+      )}
+
+      {/* v8: today's pending full-slate picks. Rendered only when the
+          endpoint exposes a non-null pendingSlate AND the slate isn't
+          the same as the graded one already on display. Counts shown
+          here are NOT folded into the graded record. */}
+      {pendingSlate && pendingSlate.games?.length > 0 && (
+        <PendingSlateStrip pendingSlate={pendingSlate} insightsHref={insightsHref} />
       )}
 
       {/* Per-pick report — every row, every status. Single canonical

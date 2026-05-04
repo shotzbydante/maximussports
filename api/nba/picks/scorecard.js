@@ -19,7 +19,7 @@ import {
   getPicksForSlate,
   findLatestGradedSlate,
 } from '../../_lib/picksHistory.js';
-import { yesterdayET } from '../../_lib/dateWindows.js';
+import { yesterdayET, todayET } from '../../_lib/dateWindows.js';
 import { fetchYesterdayFinals } from '../live/_normalize.js';
 import { autoHealSlate } from '../../_lib/autoHealSlate.js';
 import { annotatePick } from '../../_lib/annotatePick.js';
@@ -529,6 +529,84 @@ export default async function handler(req, res) {
       } catch { /* non-fatal */ }
     }
 
+    // ── v8: pendingSlate block ─────────────────────────────────────────
+    // Surface today's (or yesterday's, when picks generated but games
+    // haven't gone final yet) full-slate picks separately from graded
+    // results. The UI renders this as a "Today's Pending Full-Slate
+    // Picks" strip alongside the graded scorecard. Pending picks are
+    // EXCLUDED from win-rate math — that's `record.pending`.
+    const pendingSlateDateCandidates = [todayET(), requestedSlate, diagnostics.todayPendingSlate].filter(Boolean);
+    let pendingSlate = null;
+    let pendingSlateDebug = null;
+    for (const candidateDate of [...new Set(pendingSlateDateCandidates)]) {
+      if (candidateDate === selectedSlate) continue; // already rendered as graded
+      try {
+        const { picks: pendingRows } = await getPicksForSlate({ sport: 'nba', slateDate: candidateDate });
+        if (!pendingRows || pendingRows.length === 0) continue;
+        const pendingPicks = pendingRows.map(p => {
+          // Reuse same enrichment shape as the graded picks list — no
+          // playoff context here (this is a lightweight strip), so just
+          // pass the raw row through annotatePick without seriesContext.
+          return annotatePick(p);
+        });
+        // Group into byGame for the UI's pending strip.
+        const byGameMap = new Map();
+        for (const p of pendingPicks) {
+          const gid = p.gameId;
+          if (!gid) continue;
+          if (!byGameMap.has(gid)) {
+            byGameMap.set(gid, {
+              gameId: gid,
+              awayTeam: p.awayTeam,
+              homeTeam: p.homeTeam,
+              startTime: p.startTime,
+              picks: { moneyline: null, runline: null, total: null },
+            });
+          }
+          const slot = byGameMap.get(gid);
+          if (p.marketType === 'moneyline')   slot.picks.moneyline = p;
+          else if (p.marketType === 'runline') slot.picks.runline   = p;
+          else if (p.marketType === 'total')   slot.picks.total     = p;
+        }
+        const pendingByGame = Array.from(byGameMap.values())
+          .sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''));
+        const expectedPickCount = pendingByGame.length * 3;
+        const missingMarketsByGame = pendingByGame
+          .map(g => ({
+            gameId: g.gameId,
+            missing: ['moneyline', 'runline', 'total'].filter(k => !g.picks[k]),
+          }))
+          .filter(x => x.missing.length > 0);
+
+        const ungraded = pendingPicks.filter(p => p.status === 'pending').length;
+
+        pendingSlate = {
+          slateDate: candidateDate,
+          isToday: candidateDate === todayET(),
+          games: pendingByGame,
+          pickCount: pendingPicks.length,
+          expectedPickCount,
+          missingMarketsByGame,
+          ungradedPickCount: ungraded,
+          gradedPickCount: pendingPicks.length - ungraded,
+        };
+        pendingSlateDebug = pendingSlate;
+        break;     // first non-graded slate that has picks — that's the pending one
+      } catch { /* non-fatal */ }
+    }
+
+    // ── v8: extra debug fields ────────────────────────────────────────
+    // Always populated (regardless of ?debug=1) — small payload, helps
+    // operators see exactly why a slate is or isn't rendering.
+    diagnostics.todayET = todayET();
+    diagnostics.latestPendingSlate = pendingSlate?.slateDate || null;
+    if (pendingSlate) {
+      diagnostics.currentSlateGameCount = pendingSlate.games.length;
+      diagnostics.currentSlateExpectedPickCount = pendingSlate.expectedPickCount;
+      diagnostics.currentSlatePersistedPickCount = pendingSlate.pickCount;
+      diagnostics.currentSlateMissingMarketsByGame = pendingSlate.missingMarketsByGame;
+    }
+
     return res.status(200).json({
       slateDate: card?.slate_date || selectedSlate || requestedSlate,
       requestedSlate,
@@ -542,6 +620,7 @@ export default async function handler(req, res) {
         gradedCount: totals?.graded ?? 0,
         pendingCount: totals?.pending ?? 0,
         publishedCount: totals?.published ?? 0,
+        pendingSlate: debugRequested ? pendingSlateDebug : undefined,
       },
       scorecard: card ? {
         date: card.slate_date,
@@ -556,6 +635,9 @@ export default async function handler(req, res) {
       } : null,
       picks,
       totals,
+      // v8: pending slate is always exposed (off when null), so the UI
+      // can render the "Today's Pending" strip without a debug flag.
+      pendingSlate,
     });
   } catch (e) {
     return res.status(200).json({
