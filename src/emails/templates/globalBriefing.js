@@ -323,19 +323,59 @@ function renderChampOddsCompact(odds, teamInfo, logoFn, max = 5) {
   }).join('');
 }
 
-/** Picks scorecard (yesterday's record) */
+/** Format a YYYY-MM-DD slate date as "May 2" — compact for the scorecard. */
+function fmtSlateDate(d) {
+  if (!d || typeof d !== 'string') return '';
+  const m = d.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return '';
+  const monthIdx = parseInt(m[2], 10) - 1;
+  const day = parseInt(m[3], 10);
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  if (monthIdx < 0 || monthIdx > 11) return '';
+  return `${months[monthIdx]} ${day}`;
+}
+
+/**
+ * Picks scorecard renderer — accepts both the canonical shape produced by
+ * picksHistory (overall/byMarket/topPickResult) AND the legacy shape
+ * (wins/losses/pushes/summary). Adapter normalizes both.
+ */
 function renderScorecard(scorecard) {
   if (!scorecard) {
     return `<p style="margin:0;font-size:12px;color:${DIM};font-style:italic;font-family:${F};">Scorecard updates when yesterday’s picks settle.</p>`;
   }
-  const w = scorecard.wins ?? 0;
-  const l = scorecard.losses ?? 0;
-  const p = scorecard.pushes ?? 0;
+  // Resolve W/L/P from either shape
+  const w = scorecard.wins ?? scorecard.overall?.won ?? 0;
+  const l = scorecard.losses ?? scorecard.overall?.lost ?? 0;
+  const p = scorecard.pushes ?? scorecard.overall?.push ?? 0;
+  const dateLabel = scorecard.date ? fmtSlateDate(scorecard.date) : '';
+
+  // Build the right-side caption: prefer top-play result, then explicit
+  // summary string, then fall back to a compact market mix.
+  const tp = scorecard.topPickResult;
+  let caption = '';
+  if (tp && tp.status && tp.status !== 'pending') {
+    const status = tp.status === 'won' ? 'Cashed' : tp.status === 'push' ? 'Pushed' : 'Lost';
+    caption = `Top Play: ${status}`;
+  } else if (scorecard.summary) {
+    caption = scorecard.summary;
+  } else if (scorecard.byMarket) {
+    const ml = scorecard.byMarket.moneyline || {};
+    const sp = scorecard.byMarket.spread || scorecard.byMarket.runline || {};
+    const tot = scorecard.byMarket.total || {};
+    const fmt = (m) => `${m.won ?? 0}-${m.lost ?? 0}${m.push ? `-${m.push}` : ''}`;
+    caption = `ML ${fmt(ml)} • ATS ${fmt(sp)} • O/U ${fmt(tot)}`;
+  }
+
+  const dateBadge = dateLabel
+    ? `<span style="display:inline-block;font-size:10px;font-weight:600;color:${MUTED};margin-left:8px;letter-spacing:0.04em;text-transform:uppercase;font-family:${F};">${dateLabel}${scorecard.isFallback ? ' • last graded' : ''}</span>`
+    : '';
+
   return `
   <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">
     <tr>
-      <td style="font-size:18px;font-weight:800;color:${NAVY};font-family:${F};">${w}-${l}${p > 0 ? `-${p}` : ''}</td>
-      <td align="right" style="font-size:11px;color:${DIM};font-family:${F};">${scorecard.summary || ''}</td>
+      <td style="font-size:18px;font-weight:800;color:${NAVY};font-family:${F};">${w}-${l}${p > 0 ? `-${p}` : ''}${dateBadge}</td>
+      <td align="right" style="font-size:11px;color:${DIM};font-family:${F};">${caption}</td>
     </tr>
   </table>`;
 }
@@ -388,7 +428,10 @@ ${sectionPill('\u{1F3C0} NBA DAILY INTELLIGENCE', RED)}
     }));
   }
 
-  // 3. NBA Picks Scorecard (compact placeholder until backend ships)
+  // 3. NBA Picks Scorecard — populated from canonical picksHistory
+  // (picks_daily_scorecards Supabase table). Same row the
+  // /api/nba/picks/scorecard endpoint serves. Falls back to the compact
+  // pre-grading placeholder only when no graded slate exists yet.
   sections.push(sectionCard({
     label: 'NBA PICKS SCORECARD',
     body: scorecard
@@ -397,7 +440,10 @@ ${sectionPill('\u{1F3C0} NBA DAILY INTELLIGENCE', RED)}
     accent: RED,
   }));
 
-  // 4. Today's NBA Picks OR NBA Model Watch (deterministic from existing data)
+  // 4. Today's NBA Picks OR NBA Model Watch
+  // Picks come from buildNbaPicksBoard() — same canonical source NBA Home
+  // and the IG slide pipeline consume. Model Watch is the strict fallback
+  // when no picks exist (slate empty / KV cold).
   const picksHtml = renderTodaysPicks(picksBoard, 3);
   if (picksHtml) {
     sections.push(sectionCard({
@@ -580,13 +626,38 @@ export function renderHTML(data = {}) {
     nbaChampOdds: data.nbaChampOdds, nbaStandings: data.nbaStandings,
     nbaYesterdayResults: data.nbaYesterdayResults, nbaNarrative: nbaData?.narrativeParagraph,
   }) : [];
+  // Whether the email is rendering the official NBA picks board OR the
+  // deterministic Model Watch fallback. When picks render, modelWatchUsed
+  // must be false — the parity test asserts both states exactly.
+  const nbaPicksRendered = !!(data.nbaPicksBoard
+    && data.nbaPicksBoard.categories
+    && (
+      (data.nbaPicksBoard.categories.pickEms?.length || 0)
+      + (data.nbaPicksBoard.categories.ats?.length || 0)
+      + (data.nbaPicksBoard.categories.totals?.length || 0)
+      + (data.nbaPicksBoard.categories.leans?.length || 0)
+    ) > 0);
+  const modelWatchUsed = !nbaPicksRendered && nbaWatch.length > 0;
+  const modelWatchReason = !nbaPicksRendered
+    ? `picksSource=${data.nbaPicksSource || 'unknown'}`
+    : 'not_used';
   console.log('[globalBriefing] sections:', {
     nba: nba.hasContent,
     mlb: mlb.hasContent,
     crossSportHook: !!crossSportHook,
     nbaResults: (data.nbaYesterdayResults || []).length,
-    nbaPicks: !!data.nbaPicksBoard,
+    nbaPicks: nbaPicksRendered,
+    nbaPicksSource: data.nbaPicksSource || 'not_requested',
+    nbaPicksCount: data.nbaPicksCounts?.total ?? 0,
+    nbaPicksCategories: data.nbaPicksCounts || null,
+    nbaScorecardPresent: !!data.nbaPicksScorecard,
+    nbaScorecardSource: data.nbaScorecardSource || 'not_requested',
+    nbaScorecardRecord: data.nbaPicksScorecard
+      ? `${data.nbaPicksScorecard.wins ?? 0}-${data.nbaPicksScorecard.losses ?? 0}${data.nbaPicksScorecard.pushes ? `-${data.nbaPicksScorecard.pushes}` : ''}`
+      : null,
     nbaModelWatch: nbaWatch.length,
+    modelWatchUsed,
+    modelWatchReason,
     nbaOddsMarketRead: Object.keys(data.nbaChampOdds || {}).length > 0,
     nbaOdds: Object.keys(data.nbaChampOdds || {}).length,
     nbaNarrative: !!(data.nbaData?.narrativeParagraph),

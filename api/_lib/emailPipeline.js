@@ -36,7 +36,7 @@ export const EMAIL_REGISTRY = {
     sport: 'global',
     dataNeeds: ['ncaam', 'mlb', 'nba'],
     mlbFlags: { includeSummary: true, includePicks: true },
-    nbaFlags: { includeSummary: true },
+    nbaFlags: { includeSummary: true, includePicks: true },
     includePennantRace: true,
     includeWorldSeriesOutlook: true,
   },
@@ -385,6 +385,11 @@ export function buildEmailData(type, assembledData, recipientContext = {}) {
     nbaYesterdayResults: assembledData.nbaData?.yesterdayResults || [],
     nbaPicksBoard: assembledData.nbaData?.picksBoard || null,
     nbaPicksScorecard: assembledData.nbaData?.picksScorecard || null,
+    // NBA picks/scorecard diagnostics — surface which source the email is
+    // rendering from so missing sections never go unexplained.
+    nbaPicksSource: assembledData.nbaData?.picksSource || 'not_requested',
+    nbaPicksCounts: assembledData.nbaData?.picksCounts || null,
+    nbaScorecardSource: assembledData.nbaData?.scorecardSource || 'not_requested',
     // Compact MLB fields for new Global Briefing structure
     mlbYesterdayResults: assembledData.mlbData?.yesterdayResults || [],
     mlbPicksScorecard: assembledData.mlbData?.picksScorecard || null,

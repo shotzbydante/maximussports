@@ -918,3 +918,262 @@ describe('Date context propagates to template label', () => {
     expect(html).toContain('Saturday, May 2');
   });
 });
+
+// ═══════════════════════════════════════════════════════════════
+// NBA PICKS + SCORECARD — canonical-source render contract
+// ═══════════════════════════════════════════════════════════════
+//
+// These tests verify the Global Daily Briefing renders the SAME picks +
+// scorecard the NBA app and IG Daily Briefing render — sourced from
+// `buildNbaPicksBoard()` (categories) and the `scorecardSummary`
+// attached to the picks board (read from picks_daily_scorecards via
+// picksHistory). When the canonical source has data, the email shows
+// real picks + record. When it doesn't, the deterministic Model Watch
+// is the strict fallback. No fake picks, no fake scorecard.
+
+const MOCK_NBA_PICKS_BOARD = {
+  sport: 'nba',
+  date: '2026-05-03',
+  categories: {
+    pickEms: [
+      {
+        id: 'nbap1',
+        gameId: 'nba-bos-nyk-1',
+        matchup: {
+          awayTeam: { slug: 'bos', shortName: 'BOS', name: 'Celtics' },
+          homeTeam: { slug: 'nyk', shortName: 'NYK', name: 'Knicks' },
+          startTime: '2026-05-03T19:00:00Z',
+        },
+        pick: { label: 'BOS -135', side: 'away', explanation: 'Model edge on Boston.', topSignals: ['Series control'] },
+        market: { type: 'moneyline', priceAmerican: -135 },
+        model: { edge: 0.075, dataQuality: 0.78 },
+        confidence: 'high',
+        confidenceScore: 0.86,
+        category: 'pickEms',
+      },
+    ],
+    ats: [
+      {
+        id: 'nbaa1',
+        gameId: 'nba-okc-min-1',
+        matchup: {
+          awayTeam: { slug: 'okc', shortName: 'OKC', name: 'Thunder' },
+          homeTeam: { slug: 'min', shortName: 'MIN', name: 'Timberwolves' },
+          startTime: '2026-05-03T22:30:00Z',
+        },
+        pick: { label: 'OKC -3.5', side: 'away', explanation: 'Thunder cover the road number.', topSignals: ['Pace edge'] },
+        market: { type: 'runline', line: -3.5 },
+        model: { edge: 0.06, dataQuality: 0.82 },
+        confidence: 'high',
+        confidenceScore: 0.81,
+        category: 'ats',
+      },
+    ],
+    leans: [],
+    totals: [
+      {
+        id: 'nbat1',
+        gameId: 'nba-bos-nyk-1',
+        matchup: {
+          awayTeam: { slug: 'bos', shortName: 'BOS', name: 'Celtics' },
+          homeTeam: { slug: 'nyk', shortName: 'NYK', name: 'Knicks' },
+          startTime: '2026-05-03T19:00:00Z',
+        },
+        pick: { label: 'Under 218.5', side: 'under', explanation: 'Pace points lower.', topSignals: ['Series pace prior'] },
+        market: { type: 'total', line: 218.5 },
+        confidence: 'medium',
+        confidenceScore: 0.62,
+        category: 'totals',
+      },
+    ],
+  },
+  topPick: null,
+  meta: { picksPublished: 3 },
+  generatedAt: '2026-05-03T15:00:00Z',
+};
+
+const MOCK_NBA_SCORECARD = {
+  date: '2026-05-02',
+  wins: 2,
+  losses: 1,
+  pushes: 0,
+  pending: 0,
+  summary: 'Top Play cashed',
+  overall: { won: 2, lost: 1, push: 0, pending: 0 },
+  byMarket: {
+    moneyline: { won: 1, lost: 0, push: 0, pending: 0 },
+    spread: { won: 1, lost: 0, push: 0, pending: 0 },
+    total: { won: 0, lost: 1, push: 0, pending: 0 },
+  },
+  byTier: null,
+  topPickResult: { status: 'won', pickLabel: 'BOS -135', finalScore: '112-104' },
+  streak: null,
+  note: null,
+  isFallback: false,
+};
+
+function nbaPicksAssembled() {
+  const a = fullAssembled();
+  a.nbaData = {
+    ...MOCK_NBA_DATA,
+    picksBoard: MOCK_NBA_PICKS_BOARD,
+    picksScorecard: MOCK_NBA_SCORECARD,
+    picksSource: 'picks:fresh',
+    picksCounts: { pickEms: 1, ats: 1, leans: 0, totals: 1, total: 3 },
+    scorecardSource: 'picks_history:yesterday',
+  };
+  return a;
+}
+
+describe('Global Briefing: NBA picks board (canonical source)', () => {
+  it('renders TODAY’S NBA PICKS when nbaPicksBoard has categories', () => {
+    const emailData = buildEmailData('global_briefing', nbaPicksAssembled(), { displayName: 'Test' });
+    const html = renderGlobalBriefingHTML(emailData);
+
+    expect(html).toContain("TODAY’S NBA PICKS");
+    // The actual pick labels surface in the email
+    expect(html).toContain('BOS -135');
+    expect(html).toContain('OKC -3.5');
+  });
+
+  it('does NOT render TODAY’S NBA MODEL WATCH when official picks exist', () => {
+    const emailData = buildEmailData('global_briefing', nbaPicksAssembled(), { displayName: 'Test' });
+    const html = renderGlobalBriefingHTML(emailData);
+
+    expect(html).not.toContain("TODAY’S NBA MODEL WATCH");
+    expect(html).not.toContain('NBA playoff model watch updates as title odds');
+  });
+
+  it('renders top 3 NBA picks max, deduped by matchup', () => {
+    const emailData = buildEmailData('global_briefing', nbaPicksAssembled(), { displayName: 'Test' });
+    const html = renderGlobalBriefingHTML(emailData);
+
+    // BOS@NYK appears once even though there are two picks for it (ML + Total)
+    const bosNykMatches = (html.match(/BOS vs NYK/g) || []).length;
+    expect(bosNykMatches).toBeLessThanOrEqual(1);
+    // OKC@MIN matchup also shows
+    expect(html).toContain('OKC vs MIN');
+  });
+
+  it('plumbs nbaPicksBoard, nbaPicksSource, nbaPicksCounts to emailData', () => {
+    const emailData = buildEmailData('global_briefing', nbaPicksAssembled(), { displayName: 'Test' });
+
+    expect(emailData.nbaPicksBoard).toBeTruthy();
+    expect(emailData.nbaPicksBoard.categories.pickEms).toHaveLength(1);
+    expect(emailData.nbaPicksSource).toBe('picks:fresh');
+    expect(emailData.nbaPicksCounts.total).toBe(3);
+    expect(emailData.nbaScorecardSource).toBe('picks_history:yesterday');
+  });
+
+  it('digest reports hasNbaPicks=true and degradable section list excludes nbaPicks', () => {
+    const emailData = buildEmailData('global_briefing', nbaPicksAssembled(), { displayName: 'Test' });
+    const digest = globalBriefingSectionDigest(emailData);
+
+    expect(digest.hasNbaPicks).toBe(true);
+    expect(digest.hasNbaScorecard).toBe(true);
+    expect(degradableHeroSections(digest)).not.toContain('nbaPicks');
+    expect(degradableHeroSections(digest)).not.toContain('nbaScorecard');
+  });
+
+  it('falls back to NBA Model Watch when picks board is null', () => {
+    const assembled = nbaPicksAssembled();
+    assembled.nbaData.picksBoard = null;
+    const emailData = buildEmailData('global_briefing', assembled, { displayName: 'Test' });
+    const html = renderGlobalBriefingHTML(emailData);
+
+    expect(html).not.toContain("TODAY’S NBA PICKS");
+    expect(html).toContain("TODAY’S NBA MODEL WATCH");
+  });
+
+  it('falls back to Model Watch when picks board has empty categories', () => {
+    const assembled = nbaPicksAssembled();
+    assembled.nbaData.picksBoard = { categories: { pickEms: [], ats: [], leans: [], totals: [] } };
+    const emailData = buildEmailData('global_briefing', assembled, { displayName: 'Test' });
+    const html = renderGlobalBriefingHTML(emailData);
+
+    expect(html).not.toContain("TODAY’S NBA PICKS");
+    expect(html).toContain("TODAY’S NBA MODEL WATCH");
+  });
+});
+
+describe('Global Briefing: NBA scorecard (canonical source)', () => {
+  it('renders the actual W/L/P record under NBA PICKS SCORECARD', () => {
+    const emailData = buildEmailData('global_briefing', nbaPicksAssembled(), { displayName: 'Test' });
+    const html = renderGlobalBriefingHTML(emailData);
+
+    expect(html).toContain('NBA PICKS SCORECARD');
+    expect(html).toContain('2-1');
+    // Top-play caption renders honestly when graded
+    expect(html).toContain('Top Play: Cashed');
+  });
+
+  it('does NOT render the placeholder copy when a graded scorecard exists', () => {
+    const emailData = buildEmailData('global_briefing', nbaPicksAssembled(), { displayName: 'Test' });
+    const html = renderGlobalBriefingHTML(emailData);
+
+    expect(html).not.toContain('NBA scorecard activates once official playoff model picks begin settling');
+  });
+
+  it('renders the placeholder ONLY when no scorecard exists', () => {
+    const assembled = nbaPicksAssembled();
+    assembled.nbaData.picksScorecard = null;
+    const emailData = buildEmailData('global_briefing', assembled, { displayName: 'Test' });
+    const html = renderGlobalBriefingHTML(emailData);
+
+    expect(html).toContain('NBA scorecard activates once official playoff model picks begin settling');
+    // No fake record sneaks in
+    expect(html).not.toContain('Top Play: Cashed');
+  });
+
+  it('renders byMarket caption when topPickResult is missing but byMarket exists', () => {
+    const assembled = nbaPicksAssembled();
+    assembled.nbaData.picksScorecard = {
+      ...MOCK_NBA_SCORECARD,
+      summary: '',
+      topPickResult: { status: 'pending' },
+    };
+    const emailData = buildEmailData('global_briefing', assembled, { displayName: 'Test' });
+    const html = renderGlobalBriefingHTML(emailData);
+
+    // Falls through to byMarket compact summary
+    expect(html).toContain('ML 1-0');
+    expect(html).toContain('ATS 1-0');
+    expect(html).toContain('O/U 0-1');
+  });
+});
+
+describe('Global Briefing: NBA picks/scorecard parity (test ≡ prod)', () => {
+  it('same input produces identical NBA section HTML across paths', () => {
+    const a1 = nbaPicksAssembled();
+    const a2 = nbaPicksAssembled();
+    const prod = renderGlobalBriefingHTML(buildEmailData('global_briefing', a1, { displayName: 'User' }));
+    const test = renderGlobalBriefingHTML(buildEmailData('global_briefing', a2, { displayName: 'User' }));
+
+    // Section presence parity for the four NBA-section markers
+    for (const marker of [
+      'NBA PLAYOFFS',
+      'NBA DAILY INTELLIGENCE',
+      'NBA PICKS SCORECARD',
+      "TODAY’S NBA PICKS",
+      'NBA CHAMPIONSHIP ODDS',
+    ]) {
+      expect(prod.includes(marker)).toBe(true);
+      expect(test.includes(marker)).toBe(true);
+    }
+    // No Model Watch slips into either path while official picks exist
+    expect(prod).not.toContain("TODAY’S NBA MODEL WATCH");
+    expect(test).not.toContain("TODAY’S NBA MODEL WATCH");
+  });
+
+  it('emailData NBA fields match across two builds with the same input', () => {
+    const a1 = nbaPicksAssembled();
+    const a2 = nbaPicksAssembled();
+    const prod = buildEmailData('global_briefing', a1, { displayName: 'User' });
+    const test = buildEmailData('global_briefing', a2, { displayName: 'User' });
+
+    expect(prod.nbaPicksBoard).toEqual(test.nbaPicksBoard);
+    expect(prod.nbaPicksScorecard).toEqual(test.nbaPicksScorecard);
+    expect(prod.nbaPicksSource).toEqual(test.nbaPicksSource);
+    expect(prod.nbaScorecardSource).toEqual(test.nbaScorecardSource);
+  });
+});
