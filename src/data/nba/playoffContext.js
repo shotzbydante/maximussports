@@ -136,6 +136,117 @@ function countSeriesWins(matchup, finalGames) {
   return { top, bottom, games };
 }
 
+/**
+ * Replay the chronological games for a matchup and compute path-verified
+ * series-state flags. Used to fix the comeback-narrative integrity bug:
+ * the previous heuristic inferred "3-1 comeback" from the FINAL 4-3 score
+ * alone — but a 4-3 series can also come from {2-0 → 2-2 → 3-2 → 3-3 →
+ * 4-3} (no comeback) or {3-2 → 3-3 → 4-3} (no comeback). Game-by-game
+ * replay is the only correct source.
+ *
+ * @param {Array} games  ordered chronological games (see countSeriesWins);
+ *                       each entry has winnerSlug + loserSlug.
+ * @param {string} topSlug
+ * @param {string} btmSlug
+ * @returns {{
+ *   path: Array<{
+ *     gameNumber, winnerSlug, loserSlug, winScore, loseScore,
+ *     seriesAfter: { [topSlug]: number, [btmSlug]: number },
+ *   }>,
+ *   states: {
+ *     winnerWasDown30: boolean,    // eventual winner trailed 0-3 at any point
+ *     winnerWasDown31: boolean,    // eventual winner trailed 1-3 (after G4)
+ *     winnerWasDown32: boolean,    // eventual winner trailed 2-3 (after G5/G6)
+ *     winnerLed20: boolean,        // eventual winner led 2-0 at any point
+ *     winnerLed30: boolean,        // eventual winner led 3-0 at any point
+ *     winnerLed31: boolean,        // eventual winner led 3-1 at any point
+ *     winnerLed32: boolean,        // eventual winner led 3-2 at any point
+ *     wentGame7: boolean,          // series reached Game 7
+ *     clinchedInGame7: boolean,    // winner clinched in Game 7
+ *     pushedToGame7: boolean,      // series went to Game 7 from any state
+ *     finalSeriesScore: { winner: number, loser: number } | null,
+ *     winnerSlug: string | null,
+ *     loserSlug: string | null,
+ *   },
+ * }}
+ */
+function computeSeriesPath(games, topSlug, btmSlug) {
+  const path = [];
+  const states = {
+    winnerWasDown30: false,
+    winnerWasDown31: false,
+    winnerWasDown32: false,
+    winnerLed20: false,
+    winnerLed30: false,
+    winnerLed31: false,
+    winnerLed32: false,
+    wentGame7: false,
+    clinchedInGame7: false,
+    pushedToGame7: false,
+    finalSeriesScore: null,
+    winnerSlug: null,
+    loserSlug: null,
+  };
+  if (!Array.isArray(games) || games.length === 0) {
+    return { path, states };
+  }
+
+  // Final series counts — used to identify the eventual winner/loser.
+  let finalTop = 0, finalBtm = 0;
+  for (const g of games) {
+    if (g.winnerSlug === topSlug) finalTop += 1;
+    else if (g.winnerSlug === btmSlug) finalBtm += 1;
+  }
+  const seriesIsComplete = finalTop >= 4 || finalBtm >= 4;
+  const eventualWinnerSlug = finalTop > finalBtm ? topSlug : btmSlug;
+  const eventualLoserSlug  = finalTop > finalBtm ? btmSlug : topSlug;
+
+  // Replay chronologically, tracking cumulative wins for each side and
+  // checking states from the EVENTUAL WINNER's perspective.
+  let topWins = 0, btmWins = 0;
+  for (let i = 0; i < games.length; i++) {
+    const g = games[i];
+    if (g.winnerSlug === topSlug) topWins += 1;
+    else if (g.winnerSlug === btmSlug) btmWins += 1;
+
+    const winnerCumulative = eventualWinnerSlug === topSlug ? topWins : btmWins;
+    const loserCumulative  = eventualWinnerSlug === topSlug ? btmWins : topWins;
+
+    // Path-verified flags: every state below requires the eventual winner
+    // to actually have been at that exact (winnerCumulative, loserCumulative)
+    // point in time. No inference from final score.
+    if (winnerCumulative === 0 && loserCumulative === 3) states.winnerWasDown30 = true;
+    if (winnerCumulative === 1 && loserCumulative === 3) states.winnerWasDown31 = true;
+    if (winnerCumulative === 2 && loserCumulative === 3) states.winnerWasDown32 = true;
+    if (winnerCumulative === 2 && loserCumulative === 0) states.winnerLed20 = true;
+    if (winnerCumulative === 3 && loserCumulative === 0) states.winnerLed30 = true;
+    if (winnerCumulative === 3 && loserCumulative === 1) states.winnerLed31 = true;
+    if (winnerCumulative === 3 && loserCumulative === 2) states.winnerLed32 = true;
+    if ((topWins + btmWins) === 7) states.wentGame7 = true;
+
+    path.push({
+      gameNumber: i + 1,
+      winnerSlug: g.winnerSlug,
+      loserSlug: g.loserSlug,
+      winScore: g.winScore,
+      loseScore: g.loseScore,
+      seriesAfter: { [topSlug]: topWins, [btmSlug]: btmWins },
+    });
+  }
+
+  states.pushedToGame7 = states.wentGame7;
+  if (seriesIsComplete) {
+    states.winnerSlug = eventualWinnerSlug;
+    states.loserSlug = eventualLoserSlug;
+    states.finalSeriesScore = {
+      winner: Math.max(finalTop, finalBtm),
+      loser: Math.min(finalTop, finalBtm),
+    };
+    states.clinchedInGame7 = states.wentGame7 && (finalTop + finalBtm) === 7;
+  }
+  return { path, states };
+}
+
 function seriesSummary(matchup, top, bottom) {
   const topAbbr = matchup.topTeam?.shortName || matchup.topTeam?.abbrev || matchup.topTeam?.slug?.toUpperCase() || 'TOP';
   const btmAbbr = matchup.bottomTeam?.shortName || matchup.bottomTeam?.abbrev || matchup.bottomTeam?.slug?.toUpperCase() || 'BTM';
@@ -212,6 +323,15 @@ function enrichMatchup(matchup, finalGames, allGames = []) {
   const { top, bottom, games } = countSeriesWins(matchup, finalGames);
   const { isElimination, eliminationFor, eliminationLabel } = computeElimination(top, bottom);
   const gamesPlayed = top + bottom;
+
+  // Path-verified series-state flags. Replays the chronological games
+  // and answers questions the final-score heuristic cannot:
+  //   - Was the winner ever down 3-1?
+  //   - Did they lead 2-0 / 3-2 first?
+  //   - Did the series go the distance?
+  // Used by the narrative layer to decide between "complete the 3-1
+  // comeback" (verified) and "survive in Game 7" (any other 4-3 path).
+  const seriesPath = computeSeriesPath(games, matchup.topTeam?.slug, matchup.bottomTeam?.slug);
 
   const topSeed = matchup.topTeam?.seed ?? null;
   const btmSeed = matchup.bottomTeam?.seed ?? null;
@@ -341,6 +461,21 @@ function enrichMatchup(matchup, finalGames, allGames = []) {
       isGameSeven,
       isSwingGame,
     }));
+    // Series-path integrity log (audit Part 6). Always emit when both
+    // teams resolved — gives a single line of game-by-game truth +
+    // states for every series, so a future "where did the comeback
+    // claim come from?" question can be answered from logs alone.
+    console.log('[NBA_SERIES_PATH_RESOLVED]', JSON.stringify({
+      matchup: `${aAbbr} vs ${bAbbr}`,
+      gameCount: seriesPath.path.length,
+      path: seriesPath.path.map(p => ({
+        g: p.gameNumber,
+        win: p.winnerSlug,
+        score: `${p.winScore}-${p.loseScore}`,
+        state: `${aAbbr} ${p.seriesAfter[matchup.topTeam?.slug] ?? 0}, ${bAbbr} ${p.seriesAfter[matchup.bottomTeam?.slug] ?? 0}`,
+      })),
+      states: seriesPath.states,
+    }));
   }
 
   return {
@@ -374,6 +509,12 @@ function enrichMatchup(matchup, finalGames, allGames = []) {
     nextGame: next,
     nextGameNumber,
     isStalePlaceholder,
+    // Path-verified series state (audit Part 1 fix). Narrative builders
+    // MUST read flags from `seriesStates` instead of inferring from
+    // final-score shape. `seriesPath` is the per-game chronology that
+    // backs the flags.
+    seriesPath: seriesPath.path,
+    seriesStates: seriesPath.states,
   };
 }
 

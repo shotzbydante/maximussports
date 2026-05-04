@@ -81,16 +81,28 @@ function clincherText(s) {
   const conf = s.conference === 'Western' ? 'West' : s.conference === 'Eastern' ? 'East' : null;
   const bracketTag = conf ? `${conf} bracket` : 'bracket';
 
-  // 3-1 comeback (loser had reached 3 wins, winner finished 4-3).
-  // Highest narrative priority — series-defining moment.
-  if (winsW === 4 && winsL === 3) {
-    return `🚨 ${winnerName} complete the 3-1 comeback — ${winnerName} eliminate ${loserName} 4-3 and blow up the ${bracketTag}.`;
+  // PATH-VERIFIED 3-1 COMEBACK. Reads `s.seriesStates` from playoff-
+  // Context — the flag is true ONLY when the eventual winner actually
+  // trailed 1-3 in the series at some point. The previous heuristic
+  // claimed any 4-3 final was a "3-1 comeback", which produced the
+  // false "Cavaliers complete the 3-1 comeback" line for a series CLE
+  // led 2-0 → 2-2 → 3-2 → 3-3 → 4-3. Integrity > hype.
+  const states = s.seriesStates || {};
+  const verifiedComebackFrom31 = !!states.winnerWasDown31
+    && states.winnerSlug === winner.slug;
+  if (verifiedComebackFrom31) {
+    return `🚨 ${winnerName} complete the 3-1 comeback — ${winnerName} eliminate ${loserName} ${winsW}–${winsL} and blow up the ${bracketTag}.`;
   }
   if (s.isUpset) {
     return `🚨 ${winnerName} finish ${loserName} ${winsW}–${winsL} — a major Round 1 upset that reshapes the ${bracketTag}.`;
   }
   if (winsL === 0) {
     return `🚨 ${winnerName} sweep ${loserName} ${winsW}–${winsL} — full week of rest while the rest of the ${bracketTag} keeps grinding.`;
+  }
+  // Game 7 survival — winner clinched in 7 but was NOT down 3-1.
+  // Replaces the old 4-3 comeback branch for CLE/TOR-style paths.
+  if (winsW === 4 && winsL === 3) {
+    return `🚨 ${winnerName} survive ${loserName} in Game 7 — ${winnerName} outlast ${loserName} ${winsW}–${winsL} and keep their ${bracketTag} path alive.`;
   }
   return `🚨 ${winnerName} eliminate ${loserName} ${winsW}–${winsL} — series done, ${winnerName} advance and shift the title path.`;
 }
@@ -259,6 +271,24 @@ function bulletForSeries(s, score, mostRecentNarrative = null) {
   }
 
   if (!text) return null;
+  // [NBA_NARRATIVE_BEAT_FINAL] integrity log — emitted whenever a HOTP
+  // bullet is selected for a series. Lets us trace which beat fired
+  // and whether it relied on path-verified state (winnerWasDown31)
+  // or fell back to non-comeback language.
+  if (_source === 'clincher') {
+    const states = s.seriesStates || {};
+    console.log('[NBA_NARRATIVE_BEAT_FINAL]', JSON.stringify({
+      surface: 'hotp',
+      matchup: `${s.topTeam?.abbrev || s.topTeam?.slug}-${s.bottomTeam?.abbrev || s.bottomTeam?.slug}`,
+      winner: s.winnerSlug,
+      winnerWasDown31: !!states.winnerWasDown31 && states.winnerSlug === s.winnerSlug,
+      clinchedInGame7: !!states.clinchedInGame7,
+      beat: text.includes('3-1 comeback') ? 'comeback_from_3_1'
+          : text.includes('survive') ? 'game7_survival'
+          : text.includes('sweep') ? 'sweep'
+          : 'standard_clincher',
+    }));
+  }
   return {
     text,
     logoSlug: pickLogoSlug(s, _source),
