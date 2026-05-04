@@ -1,30 +1,39 @@
 /**
  * assembleNbaEmailData — canonical NBA data source for email paths.
  *
- * Mirrors mlbEmailData.js architecture: KV-first for cached data, HTTP
- * fallback only when necessary, no fragile self-fetches.
+ * Mirrors mlbEmailData.js architecture: KV-first for cached data, in-process
+ * builder for picks (no HTTP self-fetch), HTTP fallback only when necessary.
  *
- * Data sources (current NBA support in this worktree):
- *   - chat:nba:home:summary:v1 (KV) → AI narrative, fresh 15min
- *   - chat:nba:home:lastKnown:v1 (KV) → narrative fallback, 72hr
- *   - odds:championship:nba:v1 (KV) → championship odds, 1hr
- *   - /api/nba/news/headlines (HTTP) → Google News RSS
- *   - /api/nba/team/board (HTTP) → ESPN standings
- *
- * Gaps (not yet built in this worktree, classified as optional):
- *   - NBA leaders endpoint
- *   - NBA picks board
- *   - NBA playoff bracket / season model
+ * Data sources:
+ *   - buildNbaPicksBoard()       → picks board (fresh ESPN+odds → KV latest →
+ *                                  KV last-known-good → empty). Same builder
+ *                                  /api/nba/picks/built calls — single source
+ *                                  of truth shared with NBA Home and IG slides.
+ *                                  Picks board carries `categories` (the
+ *                                  contract resolveSlidePicks consumes for
+ *                                  IG) AND `scorecardSummary` (read directly
+ *                                  from picks_daily_scorecards Supabase table
+ *                                  via picksHistory — same row the scorecard
+ *                                  endpoint serves).
+ *   - chat:nba:home:summary:v1 (KV)        → AI narrative, fresh 15min
+ *   - chat:nba:home:lastKnown:v1 (KV)      → narrative fallback, 72hr
+ *   - odds:championship:nba:v1 (KV)        → championship odds, 1hr
+ *   - /api/nba/news/headlines (HTTP)       → Google News RSS
+ *   - /api/nba/team/board (HTTP)           → ESPN standings
+ *   - ESPN scoreboard (HTTP, direct)       → yesterday's results
  *
  * @param {string} baseUrl — for HTTP fallbacks
  * @param {object} [opts]
  * @param {boolean} [opts.includeSummary=true]
+ * @param {boolean} [opts.includePicks=false]  — pull canonical NBA picks +
+ *                  scorecard via buildNbaPicksBoard() (mirrors MLB).
  * @returns {Promise<NbaEmailPayload>}
  */
 
 import { getJson } from '../_globalCache.js';
 import { normalizeEvent, ESPN_SCOREBOARD as NBA_ESPN_SCOREBOARD, FETCH_TIMEOUT_MS as NBA_FETCH_TIMEOUT } from '../nba/live/_normalize.js';
 import { resolveEmailDateContext, espnDateString } from './emailDateContext.js';
+import { buildNbaPicksBoard } from './nbaPicksBuilder.js';
 
 function isValidResult(row) {
   return !!(
@@ -148,10 +157,58 @@ async function readSummaryFromKV() {
   return { data: {}, source: 'kv_miss' };
 }
 
-export async function assembleNbaEmailData(baseUrl, opts = {}) {
-  const { includeSummary = true } = opts;
+/**
+ * Normalize the canonical scorecardSummary attached by buildNbaPicksBoard()
+ * (which itself reads picks_daily_scorecards via picksHistory) into the
+ * email-friendly shape the Global Briefing template's renderScorecard()
+ * expects. Carries both the legacy fields (wins/losses/pushes/summary) AND
+ * the canonical fields (overall/byMarket/topPlayResult/streak/note) so
+ * downstream renderers can choose either.
+ */
+function adaptScorecardForEmail(summary) {
+  if (!summary || typeof summary !== 'object') return null;
+  const overall = summary.overall || {};
+  const won = overall.won ?? 0;
+  const lost = overall.lost ?? 0;
+  const push = overall.push ?? 0;
+  const pending = overall.pending ?? 0;
+  const graded = won + lost + push;
+  if (graded === 0 && pending === 0) return null;
 
-  console.log(`[nbaEmailData] Assembling baseUrl=${baseUrl} summary=${includeSummary}`);
+  // Build a one-line summary string for the compact scorecard renderer.
+  // Prefer top-play result when graded; otherwise market mix; fallback to
+  // the persisted note from the scorecard row.
+  const tp = summary.topPlayResult;
+  const tpFragment = tp && tp.status && tp.status !== 'pending'
+    ? `Top Play ${tp.status === 'won' ? 'cashed' : tp.status === 'push' ? 'pushed' : 'lost'}`
+    : null;
+  const summaryText = tpFragment
+    || summary.note
+    || (graded > 0 ? `${graded} pick${graded === 1 ? '' : 's'} graded` : '');
+
+  return {
+    // Legacy contract (consumed by globalBriefing renderScorecard)
+    date: summary.date || null,
+    wins: won,
+    losses: lost,
+    pushes: push,
+    pending,
+    summary: summaryText,
+    // Canonical contract (passes through unchanged for richer renderers)
+    overall: { won, lost, push, pending },
+    byMarket: summary.byMarket || null,
+    byTier: summary.byTier || null,
+    topPickResult: tp || null,
+    streak: summary.streak || null,
+    note: summary.note || null,
+    isFallback: !!summary.isFallback,
+  };
+}
+
+export async function assembleNbaEmailData(baseUrl, opts = {}) {
+  const { includeSummary = true, includePicks = false } = opts;
+
+  console.log(`[nbaEmailData] Assembling baseUrl=${baseUrl} summary=${includeSummary} picks=${includePicks}`);
 
   const fetchPromises = [
     // 0: Headlines (HTTP — Google News RSS, in-memory cache only)
@@ -167,6 +224,27 @@ export async function assembleNbaEmailData(baseUrl, opts = {}) {
     fetchPromises.push(readSummaryFromKV());
   }
 
+  if (includePicks) {
+    // 4: Picks board — DIRECT in-process build (no HTTP self-fetch).
+    // Same builder /api/nba/picks/built calls. Returns:
+    //   { board: { categories, tiers, topPick, scorecardSummary, ... },
+    //     source: 'fresh' | 'kv_latest' | 'kv_lastknown' | 'empty',
+    //     counts: { pickEms, ats, leans, totals, total } }
+    // The scorecardSummary attached to the board is read from
+    // picks_daily_scorecards (Supabase) via picksHistory — same row the
+    // /api/nba/picks/scorecard endpoint serves, so email and app stay
+    // in sync without an extra fetch.
+    fetchPromises.push(
+      buildNbaPicksBoard().then(({ board, source, counts }) => {
+        console.log(`[nbaEmailData] picks board from: ${source} counts:`, JSON.stringify(counts));
+        return { data: board, source: `picks:${source}`, counts };
+      }).catch(err => {
+        console.warn(`[nbaEmailData] picks build failed: ${err.message}`);
+        return { data: null, source: 'picks:error' };
+      })
+    );
+  }
+
   // Yesterday's NBA results — uses canonical date context (product TZ)
   const dateCtx = opts.dateCtx || resolveEmailDateContext();
   console.log(`[nbaEmailData] dateCtx: yesterday=${dateCtx.yesterdayDate} tz=${dateCtx.timezone}`);
@@ -177,6 +255,7 @@ export async function assembleNbaEmailData(baseUrl, opts = {}) {
   const results = await Promise.all(fetchPromises);
   const [headlinesResult, standingsResult, champOddsResult, ...rest] = results;
   const summaryResult = includeSummary ? rest.shift() : null;
+  const picksResult = includePicks ? rest.shift() : null;
   const yesterdayResultsResult = rest.shift();
 
   const sources = {
@@ -185,6 +264,7 @@ export async function assembleNbaEmailData(baseUrl, opts = {}) {
     champOdds: champOddsResult.source,
   };
   if (summaryResult) sources.summary = summaryResult.source;
+  if (picksResult) sources.picks = picksResult.source;
   console.log(`[nbaEmailData] Data sources:`, JSON.stringify(sources));
 
   // Headlines
@@ -239,33 +319,58 @@ export async function assembleNbaEmailData(baseUrl, opts = {}) {
   console.log(`[nbaEmailData] yesterday results: events=${yesterdayResultsData.totalEvents} finals=${yesterdayResultsData.finalsCount} valid=${yesterdayResultsData.validCount} skipped=${yesterdayResultsData.skippedCount}`);
 
   // ═══════════════════════════════════════════════════════════════
-  // BACKEND GAP: NBA picks board + scorecard
+  // NBA PICKS BOARD + SCORECARD (canonical, shared with NBA Home + IG)
   // ═══════════════════════════════════════════════════════════════
-  // As of this commit, this worktree has NO canonical NBA picks engine.
-  // The MLB equivalents (buildMlbPicks + classifyMlbPick + scoreMlbMatchup
-  // in src/features/mlb/picks/) do not have NBA counterparts. NbaHome.jsx
-  // and NbaPicks.jsx both render live games / odds, NOT a categorized
-  // picks board.
+  // Both pulled from buildNbaPicksBoard() above. Same source of truth
+  // /api/nba/picks/built and the IG slide pipeline consume — zero drift.
   //
-  // To wire real NBA picks into the email, the following needs to be built
-  // FIRST in the canonical app pipeline (not in the email layer):
-  //   1. src/features/nba/picks/buildNbaPicks.js (parallel to MLB)
-  //   2. src/features/nba/picks/scoreNbaMatchup.js + classifyNbaPick.js
-  //   3. api/nba/picks/built.js (HTTP handler that writes KV)
-  //   4. api/_lib/nbaPicksBuilder.js (direct in-process builder, like
-  //      mlbPicksBuilder.js — to avoid Vercel self-fetch)
-  //   5. KV keys: nba:picks:built:latest + nba:picks:built:lastknown
-  //   6. Settled-pick tracking for scorecard (yesterday's W/L/P)
-  //
-  // Once that exists, this assembler should call buildNbaPicksBoard()
-  // the same way mlbEmailData uses buildPicksBoard() — and the template
-  // will automatically render TODAY'S NBA PICKS instead of MODEL WATCH.
-  //
-  // Until then, the email gracefully falls back to the deterministic
-  // NBA Model Watch (built from existing championship odds + results).
-  // No fake picks, no fabricated spreads/edges.
-  const picksBoard = null;
-  const picksScorecard = null;
+  // picksBoard.categories  → consumed by globalBriefing renderTodaysPicks
+  //                          (identical contract to MLB picks)
+  // picksBoard.scorecardSummary → adapted into email-friendly shape for
+  //                               renderScorecard
+  let picksBoard = null;
+  let picksScorecard = null;
+  let picksSource = includePicks ? 'missing' : 'not_requested';
+  let picksCounts = null;
+  let scorecardSource = 'missing';
+
+  if (includePicks && picksResult) {
+    const builtData = picksResult.data;
+    if (builtData?.categories) {
+      picksBoard = builtData;
+      picksCounts = picksResult.counts || null;
+      // Picks source: 'picks:fresh' | 'picks:kv_latest' | 'picks:kv_lastknown' | 'picks:empty' | 'picks:error'
+      picksSource = picksResult.source || 'picks:unknown';
+      const totalPicks = picksCounts?.total ?? 0;
+      console.log(
+        `[nbaEmailData] picks: source=${picksSource} total=${totalPicks} ` +
+        `pickEms=${picksCounts?.pickEms ?? 0} ats=${picksCounts?.ats ?? 0} ` +
+        `leans=${picksCounts?.leans ?? 0} totals=${picksCounts?.totals ?? 0}`
+      );
+
+      // Scorecard is attached to the board by the picks builder. Adapt to
+      // the email-friendly shape only when graded data exists; otherwise
+      // leave null so the template renders its compact placeholder.
+      const adapted = adaptScorecardForEmail(builtData.scorecardSummary);
+      if (adapted) {
+        picksScorecard = adapted;
+        scorecardSource = adapted.isFallback
+          ? 'picks_history:fallback_slate'
+          : 'picks_history:yesterday';
+        console.log(
+          `[nbaEmailData] scorecard: source=${scorecardSource} date=${adapted.date} ` +
+          `record=${adapted.wins}-${adapted.losses}${adapted.pushes ? `-${adapted.pushes}` : ''} ` +
+          `topPlay=${adapted.topPickResult?.status || 'n/a'}`
+        );
+      } else {
+        scorecardSource = 'no_graded_history';
+        console.log(`[nbaEmailData] scorecard: no graded history yet`);
+      }
+    } else {
+      console.warn(`[nbaEmailData] picks: no categories in response (source=${picksResult.source})`);
+      picksSource = picksResult.source || 'picks:error';
+    }
+  }
 
   return {
     narrativeParagraph,
@@ -276,5 +381,10 @@ export async function assembleNbaEmailData(baseUrl, opts = {}) {
     yesterdayResults,
     picksBoard,
     picksScorecard,
+    // Diagnostics — surface why a pick or scorecard fell back. The pipeline
+    // and template log these so a missing section never goes unexplained.
+    picksSource,
+    picksCounts,
+    scorecardSource,
   };
 }
