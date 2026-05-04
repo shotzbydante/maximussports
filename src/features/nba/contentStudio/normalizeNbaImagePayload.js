@@ -789,4 +789,27 @@ export function normalizeNbaImagePayload({
 }
 
 export default normalizeNbaImagePayload;
-export { buildPlayoffOutlook, classifyContender };
+export { buildPlayoffOutlook, classifyContender, computeActivePlayoffTeams };
+
+/**
+ * Resolve the set of teams currently alive in the playoffs. Used by
+ * Team Intel to know which 8 (semis), 4 (CF), or 2 (Finals) teams
+ * should generate slides. Logs `[NBA_TEAM_INTEL_ACTIVE_TEAMS]` so the
+ * dynamic active-set is visible from the console.
+ *
+ * @param {object} playoffContext  built via buildNbaPlayoffContext
+ * @param {Array}  rawGames        windowGames + liveGames (optional)
+ * @returns {string[]}             slugs of alive teams (sorted)
+ */
+export function resolveActivePlayoffTeams(playoffContext, rawGames = []) {
+  const { activeSlugs } = computeActivePlayoffTeams(playoffContext, rawGames);
+  const slugs = Array.from(activeSlugs).sort();
+  if (typeof console !== 'undefined') {
+    console.log('[NBA_TEAM_INTEL_ACTIVE_TEAMS]', JSON.stringify({
+      count: slugs.length,
+      teams: slugs,
+      round: playoffContext?.round || null,
+    }));
+  }
+  return slugs;
+}

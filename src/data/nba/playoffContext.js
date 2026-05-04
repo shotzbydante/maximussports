@@ -253,13 +253,18 @@ function seriesSummary(matchup, top, bottom) {
   const played = top + bottom;
   if (played === 0) return 'Series tied 0-0';
   if (top === bottom) return `Series tied ${top}-${bottom}`;
-  const leader = top > bottom ? topAbbr : btmAbbr;
+  const winnerAbbr = top > bottom ? topAbbr : btmAbbr;
   const hi = Math.max(top, bottom);
   const lo = Math.min(top, bottom);
-  // Plural verb form is natural for both abbreviations ("TOR lead 2-1")
-  // and nicknames ("Raptors lead 2-1"), and avoids subject-verb errors
-  // when downstream copy interpolates a team name here.
-  return `${leader} lead ${hi}-${lo}`;
+  // Integrity fix: a series with one side at 4 wins is COMPLETE. Saying
+  // "CLE lead 4-3" after CLE has already won the series is wrong (you
+  // can't lead a series you already finished). Switch verb to "won"
+  // when isComplete, or "swept" for 4-0.
+  if (hi >= 4) {
+    if (lo === 0) return `${winnerAbbr} swept ${hi}-${lo}`;
+    return `${winnerAbbr} won ${hi}-${lo}`;
+  }
+  return `${winnerAbbr} lead ${hi}-${lo}`;
 }
 
 /**
