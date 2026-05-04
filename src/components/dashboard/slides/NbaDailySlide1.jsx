@@ -351,6 +351,9 @@ function buildStoryCard(story, payload) {
     else if (ot) title = `${winName} survive Game 7 ${score} in ${otTag}`;
     else if (buzzer) title = `${winName} win Game 7 ${score} on a last-second shot`;
     else if (comebackDef >= 15) title = `${winName} erase ${comebackDef}-pt Game 7 deficit to advance`;
+    // Path-verified Game 7 survival — winner wasn't down 3-1, so the
+    // story is "outlast / survive" not "stun".
+    else if (story.game7Survival) title = `${winName} survive ${nicknameFor(loseSlug)} in Game 7 ${score}`;
     else title = `${winName} win Game 7 ${score} and advance`;
   }
   else if (story.isClinch) title = `${winName} eliminate ${nicknameFor(loseSlug)} ${score} and advance`;

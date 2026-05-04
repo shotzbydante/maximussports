@@ -134,19 +134,33 @@ function extractGameStories(liveGames, playoffContext) {
     const winSide = awayScore > homeScore ? 'away' : 'home';
     const narrative = g.narrative || null;
 
-    // 3-1 comeback detection: a clincher won by the side that previously
-    // trailed 1-3 in the series. Specifically the post-game score is 4-3
-    // for the winner AND the loser had reached 3 wins (so they led 3-1
-    // at some point). We can't audit the precise game-by-game order
-    // without scanning every game, but if the SERIES ends 4-3 and the
-    // loser owns 3 wins, the only path is a 3-1 comeback or 3-2 comeback
-    // — gate to 4-3 with loserSeriesWins===3 to capture both.
-    const isClincher43 = isClinch && winSeriesWins === 4 && loseSeriesWins === 3;
-    const isComebackFrom31 = isClincher43;
-    // Series-extender: trailing team wins to push the series further.
-    // Two specific flavors used by hero copy:
-    //   - forcesGame7 (loser was 2-3 entering, now tied 3-3)
-    //   - eliminationAvoided (winner was facing elimination, won)
+    // 3-1 COMEBACK — PATH-VERIFIED ONLY. Reads `series.seriesStates`
+    // populated by computeSeriesPath() in playoffContext.js. The flag
+    // is true iff the eventual winner ACTUALLY trailed 1-3 (i.e. at
+    // some point after Game 4, winner had 1 win and opponent had 3).
+    // Final-score inference is no longer accepted — that's the bug
+    // that produced the false "Cavaliers complete the 3-1 comeback"
+    // narrative when CLE actually went 2-0 → 2-2 → 3-2 → 3-3 → 4-3
+    // (never down 3-1). Integrity > hype.
+    const seriesStates = inSeries ? (series?.seriesStates || {}) : {};
+    const winnerWasDown31 = inSeries
+      && !!seriesStates.winnerWasDown31
+      && seriesStates.winnerSlug === winSlug;
+    const winnerWasDown30 = inSeries
+      && !!seriesStates.winnerWasDown30
+      && seriesStates.winnerSlug === winSlug;
+    const isComebackFrom31 = winnerWasDown31 && isClinch;
+    // Game-7 survival — clincher in Game 7 by a winner that was NOT
+    // down 3-1. Drives "survive / outlast / close out" copy instead
+    // of generic "X eliminate Y 4-3".
+    const wentGame7 = inSeries && !!seriesStates.wentGame7;
+    const clinchedInGame7 = inSeries
+      && !!seriesStates.clinchedInGame7
+      && seriesStates.winnerSlug === winSlug;
+    const game7Survival = clinchedInGame7 && !winnerWasDown31;
+    // Series-extender flags (the trailing team wins to keep the
+    // series alive). Unchanged from before — these are post-game
+    // facts, not series-history claims.
     const forcesGame7 = inSeries && winSeriesWins === 3 && loseSeriesWins === 3;
     const eliminationAvoided = inSeries && !isClinch && !isGame7Win
       && (winSeriesWins + loseSeriesWins) >= 4
@@ -160,10 +174,15 @@ function extractGameStories(liveGames, playoffContext) {
       inSeries, series,
       winSeriesWins, loseSeriesWins,
       isClinch, isComeback, isUpset, isElimWin, isGame7Win, isSweep, isStolenRoadWin,
-      // Audit Part 1: richer narrative beats so hero/HOTP/caption all
-      // share the same vocabulary instead of falling back to generic
-      // "X top Y" copy.
+      // Path-verified narrative beats — the hero/HOTP layers must use
+      // these flags directly. Never re-infer comeback from the final
+      // series score; that's the bug we just fixed.
       isComebackFrom31,
+      winnerWasDown31,
+      winnerWasDown30,
+      game7Survival,
+      clinchedInGame7,
+      wentGame7,
       forcesGame7,
       eliminationAvoided,
       closeoutFailed,
@@ -171,6 +190,30 @@ function extractGameStories(liveGames, playoffContext) {
       gameDate: g.startTime || null,
       narrative,
     };
+
+    // [NBA_COMEBACK_BEAT_AUDIT] — integrity log so a false "3-1
+    // comeback" claim is visible from the console alone. Emitted for
+    // every clincher; shows the series-after-game-4 split that gates
+    // the comeback flag.
+    if (isClinch) {
+      const game4 = series?.seriesPath?.[3] || null;
+      const seriesAfter4 = game4
+        ? `${winSlug} ${game4.seriesAfter?.[winSlug] ?? 0}, ${loseSlug} ${game4.seriesAfter?.[loseSlug] ?? 0}`
+        : 'series < 4 games';
+      console.log('[NBA_COMEBACK_BEAT_AUDIT]', JSON.stringify({
+        matchup: `${winSlug.toUpperCase()}-${loseSlug.toUpperCase()}`,
+        winner: winSlug, loser: loseSlug,
+        finalSeries: `${winSeriesWins}-${loseSeriesWins}`,
+        seriesAfterGame4: seriesAfter4,
+        winnerWasDown31,
+        winnerWasDown30,
+        wentGame7,
+        clinchedInGame7,
+        selectedBeat: winnerWasDown31
+          ? 'comeback_from_3_1'
+          : (game7Survival ? 'game7_survival' : 'standard_clincher'),
+      }));
+    }
     story.priority = storyPriority(story);
     // Boost narrative priority for dramatic games (OT / comeback /
     // buzzer-beater) so they outrank generic "team wins" stories.
@@ -287,12 +330,16 @@ function heroForStory(top, second, doy) {
   if (top.isComebackFrom31) {
     return `${w} COMPLETE 3-1 COMEBACK TO STUN ${l} AND ADVANCE.`;
   }
-  // GAME 7 WIN — clinch by Game 7. Layer in OT/buzzer if the data says so.
+  // GAME 7 WIN — clinch by Game 7. Layer in OT/buzzer if the data says
+  // so. When the winner was NOT down 3-1 (path-verified via
+  // game7Survival), prefer "survive / outlast" copy over the more
+  // dramatic "stun" framing.
   if (top.isGame7Win) {
     if (ot && buzzer)  return `${w} SURVIVE ${l} IN GAME 7 OT — LAST-SECOND SHOT BOOKS NEXT ROUND.`;
     if (ot)            return `${w} OUTLAST ${l} IN GAME 7 OT, ADVANCE TO NEXT ROUND.`;
     if (buzzer)        return `${w} WIN GAME 7 ${score} ON A LAST-SECOND SHOT, ADVANCE.`;
     if (comebackDef >= 15) return `${w} ERASE ${comebackDef}-PT GAME 7 DEFICIT TO STUN ${l} AND ADVANCE.`;
+    if (top.game7Survival) return `${w} SURVIVE ${l} IN GAME 7 — OUTLAST ${l} ${score} TO ADVANCE.`;
     return `${w} WIN GAME 7 OVER ${l}, ADVANCE TO NEXT ROUND.`;
   }
   if (top.isSweep) {
@@ -367,6 +414,7 @@ function slide2ForStory(top, second) {
     return `${w} complete the 3-1 comeback to stun ${l} and advance`;
   }
   if (top.isGame7Win) {
+    if (top.game7Survival) return `${w} survive ${l} in Game 7 — outlast ${l} ${score} to advance`;
     return `${w} win Game 7 over ${l} ${score} and advance`;
   }
   if (top.isSweep) {
@@ -407,6 +455,9 @@ function subheadForStory(top, second) {
 
   if (top.isComebackFrom31) {
     return `${w} erase a 3-1 series hole — knock out ${l} ${score} in Game 7 and rewrite the bracket.`;
+  }
+  if (top.game7Survival) {
+    return `${w} survive ${l} ${score} in Game 7 — series ends 4-3 and the ${w}'s path to the next round stays alive.`;
   }
   if (top.isClinch || top.isGame7Win) {
     return `${w} finish the job — ${score} over ${l} to punch their ticket to the next round.`;
