@@ -302,6 +302,18 @@ function buildNbaTeamBriefing({
 // ── Component ────────────────────────────────────────────────────────────
 
 export default function NbaTeamIntelSlide({ data, teamData, asOf: _asOf, slideNumber: _sn, slideTotal: _st, ...rest }) {
+  // [NBA_TEAM_INTEL_RENDER_START] — emitted on every render attempt
+  // with payload key context so the next render error has a precise
+  // breadcrumb instead of a silent error-boundary swallow.
+  if (typeof window !== 'undefined') {
+    // eslint-disable-next-line no-console
+    console.log('[NBA_TEAM_INTEL_RENDER_START]', {
+      hasData: !!data,
+      hasTeamData: !!teamData,
+      teamSlug: teamData?.team?.slug || data?.nbaSelectedTeam?.slug || null,
+      dataKeys: data ? Object.keys(data).slice(0, 20) : [],
+    });
+  }
   // Accept team either from `teamData.team` (Dashboard passes this) or by
   // looking up the selected slug in `data.nbaSelectedTeam`.
   const team = teamData?.team || data?.nbaSelectedTeam || data?.teamA;
@@ -537,7 +549,12 @@ export default function NbaTeamIntelSlide({ data, teamData, asOf: _asOf, slideNu
             {team.conference && <span className={styles.tiChip}>{team.conference}</span>}
             {team.division && <span className={styles.tiChip}>{team.division}</span>}
             {standings?.playoffSeed && <span className={styles.tiChip}>#{standings.playoffSeed} Seed</span>}
-            {liveSeries && <span className={styles.tiChip}>Round {liveSeries.round}</span>}
+            {/* Round chip uses standingsSeries (renamed from liveSeries
+                in the path-verified refactor). The previous reference
+                threw `ReferenceError: liveSeries is not defined` → the
+                SlideErrorBoundary caught it and surfaced the "Preview
+                Error" panel users reported. */}
+            {standingsSeries?.round && <span className={styles.tiChip}>{formatRoundShort(standingsSeries.round, team.conference)}</span>}
           </div>
           {standings?.record && <div className={styles.tiRecord}>Record: {standings.record}{standings.streak ? ` · ${standings.streak}` : ''}</div>}
         </div>

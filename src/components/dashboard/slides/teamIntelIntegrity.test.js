@@ -157,6 +157,80 @@ describe('resolveActivePlayoffTeams — alive teams only', () => {
   });
 });
 
+describe('Team Intel subhead integrity — completed series is not "in motion"', () => {
+  // Reproduces the user-reported caption bug:
+  //   "Lakers won 4-2 — first round in motion"
+  // For a COMPLETE 4-2 series, the subhead must read as advanced /
+  // not in motion. Drives both the slide subhead and the IG caption
+  // (buildNbaCaption.teamCaption pipes payload.subhead straight
+  // through).
+  it('LAL completed 4-2 over HOU → subhead says "advances to the West Semifinals", not "in motion"', async () => {
+    const { default: normalize } = await import('../../../features/nba/contentStudio/normalizeNbaImagePayload.js');
+    const games = [
+      mkFinal({ awaySlug: 'hou', awayScore: 95,  homeSlug: 'lal', homeScore: 110, hoursAgo: 240 }),
+      mkFinal({ awaySlug: 'hou', awayScore: 100, homeSlug: 'lal', homeScore: 115, hoursAgo: 192 }),
+      mkFinal({ awaySlug: 'lal', awayScore: 110, homeSlug: 'hou', homeScore: 95,  hoursAgo: 144 }),
+      mkFinal({ awaySlug: 'lal', awayScore: 102, homeSlug: 'hou', homeScore: 95,  hoursAgo: 96 }),
+      mkFinal({ awaySlug: 'hou', awayScore: 110, homeSlug: 'lal', homeScore: 105, hoursAgo: 48 }),
+      mkFinal({ awaySlug: 'lal', awayScore: 115, homeSlug: 'hou', homeScore: 100, hoursAgo: 8 }),
+    ];
+    const payload = normalize({
+      activeSection: 'nba-team',
+      nbaSelectedTeam: { slug: 'lal', name: 'Los Angeles Lakers', abbrev: 'LAL', conference: 'Western', division: 'Pacific' },
+      nbaLiveGames: [],
+      nbaWindowGames: games,
+    });
+    expect(payload.section).toBe('team-intel');
+    expect(payload.subhead).toBeTruthy();
+    expect(payload.subhead.toLowerCase()).not.toContain('in motion');
+    expect(payload.subhead.toLowerCase()).toContain('advances to the west semifinals');
+  });
+
+  it('LAL active 1-0 in semis → subhead says "in motion"', async () => {
+    const { default: normalize } = await import('../../../features/nba/contentStudio/normalizeNbaImagePayload.js');
+    // Cross-round simulation needs LAL R1 fully complete + a R2 game
+    // that the bracket builder will recognize. With our static bracket
+    // R2 isn't pre-resolved, so this case mainly verifies the active-
+    // series subhead format on R1 1-0 (which is also "in motion").
+    const games = [
+      mkFinal({ awaySlug: 'hou', awayScore: 95, homeSlug: 'lal', homeScore: 110, hoursAgo: 24 }),
+    ];
+    const payload = normalize({
+      activeSection: 'nba-team',
+      nbaSelectedTeam: { slug: 'lal', name: 'Los Angeles Lakers', abbrev: 'LAL', conference: 'Western', division: 'Pacific' },
+      nbaLiveGames: [],
+      nbaWindowGames: games,
+    });
+    expect(payload.subhead.toLowerCase()).toContain('in motion');
+  });
+});
+
+describe('NbaTeamIntelSlide source integrity — no undefined identifiers', () => {
+  // Locks the ReferenceError regression: the previous render referenced
+  // a `liveSeries` variable that had been renamed to `standingsSeries`
+  // during the path-verified refactor — the slide threw at render
+  // time and the SlideErrorBoundary caught it, surfacing the user-
+  // reported "Preview Error" panel. This test reads the JSX source
+  // and fails if any bare `liveSeries` identifier reappears in the
+  // component body.
+  it('NbaTeamIntelSlide.jsx contains no bare `liveSeries` identifier', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const here = path.dirname(new URL(import.meta.url).pathname);
+    const src = fs.readFileSync(path.join(here, 'NbaTeamIntelSlide.jsx'), 'utf8');
+    // Strip JSX comments so the explanation block in the file doesn't
+    // false-positive.
+    const stripped = src.replace(/\{\/\*[\s\S]*?\*\/\}/g, '').replace(/\/\*[\s\S]*?\*\//g, '');
+    // Allow `liveSeries:` (object key) and `// liveSeries` (line
+    // comments). The dangerous shape is a bare identifier reference
+    // like `{liveSeries && ...}` or `liveSeries.x`.
+    const bareRefs = stripped.match(/\bliveSeries\b(?!\s*[:=])/g) || [];
+    if (bareRefs.length > 0) {
+      throw new Error(`NbaTeamIntelSlide.jsx still references bare \`liveSeries\` (${bareRefs.length} occurrence(s)). Use \`standingsSeries\` / \`activeSeries\` instead.`);
+    }
+  });
+});
+
 describe('Team Intel headline integrity — no "lead 4-3" output', () => {
   // Re-import the headline shape via the slide's series-summary.
   // This is the contract that prevents the original screenshot bug
