@@ -37,6 +37,7 @@ import { LEADER_CATEGORIES } from '../../../data/nba/seasonLeaders.js';
 import { buildNbaDailyHeadline } from './buildNbaDailyHeadline.js';
 import { buildNbaHotPress } from './buildNbaHotPress.js';
 import { resolveCanonicalNbaPicks } from './resolveSlidePicks.js';
+import { buildNbaTeamIntelCaption } from './buildNbaTeamIntelCaption.js';
 
 export const NO_SLATE_REASON = 'nba_no_slate';
 const MIN_CAPTION_CHARS = 80;
@@ -438,11 +439,11 @@ function buildDailyHashtags(playoffContext, topStory, picks) {
 // ── Other section stubs (Phase 2+; keep contract consistent with MLB) ────
 
 function teamCaption(payload) {
-  const teamName = payload.teamA?.name || payload.headline || 'Team';
-  const lines = [`🏀 ${teamName} — Playoff Intel`, ''];
-  if (payload.subhead) lines.push(payload.subhead);
-  lines.push('', 'More → maximussports.ai');
-  return { caption: lines.join('\n'), hashtags: ['#NBA', '#NBAPlayoffs', `#${teamName.replace(/\s+/g, '')}`, '#BasketballIntel', '#MaximusSports'] };
+  // Delegate to the editorial Team Intel caption builder. The new
+  // builder reads the SAME canonical payload as the slide (series
+  // path, champ odds, picks, leaders, recent finals) so caption ==
+  // slide. Kept here for the SECTION_BUILDERS registry.
+  return buildNbaTeamIntelCaption(payload);
 }
 
 function genericCaption(payload) {
@@ -465,7 +466,12 @@ export function buildNbaCaption(payload) {
   const builder = SECTION_BUILDERS[payload.section] || genericCaption;
   const result = builder(payload);
 
-  const hasOwnDisclaimer = payload.section === 'daily-briefing' || result._noSlate;
+  // Team Intel + Daily Briefing builders include their own disclaimer
+  // line. Don't double-add for those sections — only the legacy
+  // generic caption builders need the wrapper to append it.
+  const hasOwnDisclaimer = payload.section === 'daily-briefing'
+    || payload.section === 'team-intel'
+    || result._noSlate;
   const fullCaption = hasOwnDisclaimer
     ? result.caption
     : result.caption + '\n\nFor entertainment only. Please bet responsibly. 21+';
