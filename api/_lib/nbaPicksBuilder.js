@@ -24,7 +24,7 @@
 
 import { normalizeEvent, ESPN_SCOREBOARD, FETCH_TIMEOUT_MS } from '../nba/live/_normalize.js';
 import { enrichGamesWithOdds } from '../nba/live/_odds.js';
-import { buildNbaPicksV2, NBA_DEFAULT_CONFIG } from '../../src/features/nba/picks/v2/buildNbaPicksV2.js';
+import { buildNbaPicksV2, NBA_DEFAULT_CONFIG, NBA_MODEL_VERSION } from '../../src/features/nba/picks/v2/buildNbaPicksV2.js';
 import { buildNbaPlayoffContext, findSeriesForGame } from '../../src/data/nba/playoffContext.js';
 import { getJson, setJson } from '../_globalCache.js';
 import { writePicksRun, getActiveConfig, getScorecard, getLatestGradedScorecard } from './picksHistory.js';
@@ -32,10 +32,21 @@ import { yesterdayET } from './dateWindows.js';
 import { resolveFairTotalForGame } from './seriesPaceFairTotal.js';
 import { adjustFairTotal } from './nbaTotalsHistory.js';
 
-const KV_LATEST = 'nba:picks:built:latest';
-const KV_LASTKNOWN = 'nba:picks:built:lastknown';
+// v10: KV cache keys are namespaced by NBA_MODEL_VERSION. A model bump
+// (e.g., v2.0.0 → v2.1.0) automatically invalidates all prior cached
+// payloads — they live under the old key and are simply unread. The
+// "legacy" key (without the version suffix) is still written so older
+// deploys reading old infra continue to function during a rollout.
+const KV_LATEST_LEGACY = 'nba:picks:built:latest';
+const KV_LASTKNOWN_LEGACY = 'nba:picks:built:lastknown';
+const KV_LATEST = `nba:picks:built:latest:${NBA_MODEL_VERSION}`;
+const KV_LASTKNOWN = `nba:picks:built:lastknown:${NBA_MODEL_VERSION}`;
 const LATEST_TTL_SEC = 15 * 60;
 const LASTKNOWN_TTL_SEC = 48 * 60 * 60;
+
+function isVersionMatch(payload) {
+  return payload?.modelVersion === NBA_MODEL_VERSION;
+}
 
 function getDateStrings(days = 2) {
   const dates = [];
@@ -305,6 +316,10 @@ export async function buildNbaPicksBoard(opts = {}) {
     if (freshCount > 0) {
       setJson(KV_LATEST, freshBoard, { exSeconds: LATEST_TTL_SEC }).catch(() => {});
       setJson(KV_LASTKNOWN, freshBoard, { exSeconds: LASTKNOWN_TTL_SEC }).catch(() => {});
+      // Best-effort write to the legacy unversioned keys so any older
+      // worker still reading those gets a fresh payload too.
+      setJson(KV_LATEST_LEGACY, freshBoard, { exSeconds: LATEST_TTL_SEC }).catch(() => {});
+      setJson(KV_LASTKNOWN_LEGACY, freshBoard, { exSeconds: LASTKNOWN_TTL_SEC }).catch(() => {});
 
       // Best-effort DB persistence — non-blocking. Any failure just logs.
       Promise.resolve()
@@ -332,9 +347,14 @@ export async function buildNbaPicksBoard(opts = {}) {
     try {
       const latest = await getJson(KV_LATEST);
       const latestCount = countPicks(latest);
-      if (latestCount > 0) {
+      if (latestCount > 0 && isVersionMatch(latest)) {
         console.log(`[nbaPicksBuilder] using KV latest snapshot: total=${latestCount}`);
         return { board: latest, source: 'kv_latest', counts: getCounts(latest) };
+      }
+      if (latestCount > 0 && !isVersionMatch(latest)) {
+        console.warn(
+          `[nbaPicksBuilder] KV latest version mismatch: cached=${latest?.modelVersion} expected=${NBA_MODEL_VERSION} — bypassing`
+        );
       }
     } catch (err) {
       console.warn(`[nbaPicksBuilder] KV latest read failed: ${err.message}`);
@@ -344,9 +364,14 @@ export async function buildNbaPicksBoard(opts = {}) {
   try {
     const lastknown = await getJson(KV_LASTKNOWN);
     const lastknownCount = countPicks(lastknown);
-    if (lastknownCount > 0) {
+    if (lastknownCount > 0 && isVersionMatch(lastknown)) {
       console.log(`[nbaPicksBuilder] using KV last-known-good: total=${lastknownCount}`);
       return { board: lastknown, source: 'kv_lastknown', counts: getCounts(lastknown) };
+    }
+    if (lastknownCount > 0 && !isVersionMatch(lastknown)) {
+      console.warn(
+        `[nbaPicksBuilder] KV lastknown version mismatch: cached=${lastknown?.modelVersion} expected=${NBA_MODEL_VERSION} — bypassing`
+      );
     }
   } catch (err) {
     console.warn(`[nbaPicksBuilder] KV lastknown read failed: ${err.message}`);

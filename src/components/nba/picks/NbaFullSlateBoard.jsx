@@ -39,6 +39,12 @@ function formatGameDate(iso) {
 
 function sourceLineFor(pick, marketKey) {
   if (!pick) return null;
+  const isTracking = pick.pickRole === 'tracking' || pick.flags?.tracking === true;
+  const isCrossMarket =
+    pick.modelSource === 'spread'
+    || pick.modelSource === 'devigged_ml'
+    || pick.modelSource === 'no_vig_blend';
+
   // Moneyline: ML odds missing → spread fallback
   if (marketKey === 'moneyline') {
     if (pick.impliedSource === 'spread') {
@@ -46,6 +52,9 @@ function sourceLineFor(pick, marketKey) {
     }
     if (pick.lowSignalReason === 'large_spread_guard') {
       return { label: 'Large spread · model blended toward no-vig', warn: true };
+    }
+    if (isCrossMarket && isTracking) {
+      return { label: 'Tracking pick · cross-market signal only', warn: true };
     }
     if (pick.modelSource === 'spread' && pick.impliedSource === 'odds_no_vig') {
       return { label: 'Spread-vs-moneyline edge', warn: false };
@@ -55,6 +64,9 @@ function sourceLineFor(pick, marketKey) {
   if (marketKey === 'runline') {
     if (pick.modelSource === 'spread_self') {
       return { label: 'No moneyline · spread fallback', warn: true };
+    }
+    if (isCrossMarket && isTracking) {
+      return { label: 'Low conviction · market disagreement', warn: true };
     }
     if (pick.modelSource === 'devigged_ml') {
       return { label: 'Projected margin · de-vigged ML', warn: false };

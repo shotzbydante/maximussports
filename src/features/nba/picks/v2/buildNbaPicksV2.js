@@ -31,7 +31,12 @@ import {
 const COVERAGE_MIN_SCORE = 0.30;
 const COVERAGE_MAX_PICKS = 15;
 
-export const NBA_MODEL_VERSION = 'nba-picks-v2.0.0';
+// v10 bump (2026-05-04): the v9 underdog-bias fix introduced new model
+// math but the version string stayed at v2.0.0, which made cache busting
+// impossible — a payload baked under v8 was indistinguishable from a
+// payload baked under v9 by version alone. v10 also adds a hero-curation
+// guardrail so cross-market arb dogs can't leak into NBA Home as heroes.
+export const NBA_MODEL_VERSION = 'nba-picks-v2.1.0';
 
 /**
  * Playoff-aware conservative tuning (2026-04-24).
@@ -633,9 +638,65 @@ export function buildNbaPicksV2({
   // graded). The two are the same ARRAY of pick objects; pickRole is the
   // discriminator that travels through persistence (rationale.pickRole).
   const HERO_FLOOR = config?.hero?.scoreFloor ?? 0.50;
+  // v10: cross-market arbitrage signals (spread vs de-vigged ML) cannot
+  // earn hero status purely off bet score. The v9 audit confirmed the
+  // signal is honest but small — fine for tracking, not for the curated
+  // home view. To enter hero, a cross-market pick must clear a stricter
+  // raw-edge floor AND have multi-factor support.
+  const HERO_CROSS_MARKET_EDGE = config?.hero?.crossMarketEdge ?? 0.10;
+  const HERO_CROSS_MARKET_MULTI_FACTOR = {
+    confFloor: config?.hero?.confFloor ?? 0.50,
+    sitFloor:  config?.hero?.sitFloor  ?? 0.62,
+    mktFloor:  config?.hero?.mktFloor  ?? 0.85,
+  };
+
+  function isCrossMarketOnly(p) {
+    return p.modelSource === 'spread'
+        || p.modelSource === 'devigged_ml'
+        || p.modelSource === 'no_vig_blend';
+  }
+  function multiFactorOk(p) {
+    const c = p.betScore?.components || {};
+    const supports = [
+      (c.modelConfidence ?? 0) >= HERO_CROSS_MARKET_MULTI_FACTOR.confFloor,
+      (c.situationalEdge ?? 0) >= HERO_CROSS_MARKET_MULTI_FACTOR.sitFloor,
+      (c.marketQuality   ?? 0) >= HERO_CROSS_MARKET_MULTI_FACTOR.mktFloor,
+    ];
+    return supports.filter(Boolean).length >= 2;
+  }
+  function isUnderdogPick(p) {
+    if (p.market?.type === 'moneyline') return (p.market?.priceAmerican ?? 0) > 0;
+    if (p.market?.type === 'runline')  return (p.market?.line ?? 0) > 0;
+    return false;
+  }
+
   const heroIds = new Set();
   for (const p of assigned.published) {
-    if ((p.betScore?.total ?? 0) >= HERO_FLOOR) heroIds.add(p.id);
+    const score = p.betScore?.total ?? 0;
+    if (score < HERO_FLOOR) continue;
+    if (isCrossMarketOnly(p)) {
+      // Stricter cross-market gate
+      if (Math.abs(p.rawEdge ?? 0) < HERO_CROSS_MARKET_EDGE) continue;
+      if (!multiFactorOk(p)) continue;
+    }
+    heroIds.add(p.id);
+  }
+
+  // Diversification sanity check: if ≥ 2 cross-market hero candidates
+  // remain AND every one of them is on the underdog side, demote the
+  // entire group to tracking. This prevents the all-home-favorite slate
+  // pathology (every game's small cross-market disagreement biases toward
+  // the dog) from filling NBA Home with dogs. The picks stay full-slate
+  // tracked and graded — they just don't headline the curated view.
+  const xmHeroCandidates = [...heroIds]
+    .map(id => assigned.published.find(p => p.id === id))
+    .filter(p => p && isCrossMarketOnly(p) && (p.market?.type === 'moneyline' || p.market?.type === 'runline'));
+  if (xmHeroCandidates.length >= 2 && xmHeroCandidates.every(isUnderdogPick)) {
+    for (const p of xmHeroCandidates) heroIds.delete(p.id);
+    meta.flags.push('cross_market_underdog_diversification');
+    console.log(
+      `[buildNbaPicksV2] v10 diversification: demoted ${xmHeroCandidates.length} cross-market underdog hero(es) to tracking`
+    );
   }
   // Tag every cleaned candidate so persistence knows the pick role.
   // Tracking picks (below tier3 floor) get tier='tracking' so the row

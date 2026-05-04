@@ -22,20 +22,49 @@
 
 import { createCache } from '../../_cache.js';
 import { buildNbaPicksBoard } from '../../_lib/nbaPicksBuilder.js';
+import { NBA_MODEL_VERSION } from '../../../src/features/nba/picks/v2/buildNbaPicksV2.js';
 
 const cache = createCache(120_000); // 2 min
+const cacheStartedAt = new Map(); // cacheKey -> ms epoch when written
+
+function setCacheWithTimestamp(key, payload) {
+  cache.set(key, payload);
+  cacheStartedAt.set(key, Date.now());
+}
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Cache-Control', 'public, s-maxage=120, stale-while-revalidate=300');
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
-  const cacheKey = 'nba:picks:built';
-  const cached = cache.get(cacheKey);
-  if (cached) return res.status(200).json({ ...cached, _cached: true });
+  const debug = req.query?.debug === '1' || req.query?.debug === 'true';
+  // v10: debug requests bypass HTTP edge caching so the debug fields aren't
+  // erased by Vercel's edge cache hit. Non-debug responses keep the same
+  // 2-min s-maxage that production has used since v6.
+  if (debug) res.setHeader('Cache-Control', 'no-store');
+  else res.setHeader('Cache-Control', 'public, s-maxage=120, stale-while-revalidate=300');
+
+  // v10: cache key includes the model version so a model bump auto-busts
+  // the in-process cache too.
+  const cacheKey = `nba:picks:built:${NBA_MODEL_VERSION}`;
+
+  // v10: debug=1 bypasses the in-process cache entirely. Pre-v10 the cache
+  // hit short-circuited before the debug branch, so /api/nba/picks/built?debug=1
+  // never returned _debugByGame whenever the cache was warm.
+  if (!debug) {
+    const cached = cache.get(cacheKey);
+    if (cached) {
+      const ageSec = Math.round((Date.now() - (cacheStartedAt.get(cacheKey) || Date.now())) / 1000);
+      return res.status(200).json({
+        ...cached,
+        _cached: true,
+        _cacheStatus: { servedFrom: 'in_process', cacheKey, cacheAgeSeconds: ageSec },
+        payloadModelVersion: cached.modelVersion ?? null,
+        builderModelVersion: NBA_MODEL_VERSION,
+      });
+    }
+  }
 
   try {
-    const debug = req.query?.debug === '1' || req.query?.debug === 'true';
     const { board, source, counts } = await buildNbaPicksBoard({ preferFresh: debug });
     const payload = { ...board, _source: source };
 
@@ -97,8 +126,14 @@ export default async function handler(req, res) {
 
     console.log(`[nba/picks/built] source=${source} counts:`, JSON.stringify(counts));
 
-    if (!debug) cache.set(cacheKey, payload);
-    return res.status(200).json(payload);
+    if (!debug) setCacheWithTimestamp(cacheKey, payload);
+    const enriched = {
+      ...payload,
+      _cacheStatus: { servedFrom: source || 'fresh', cacheKey, cacheAgeSeconds: 0 },
+      payloadModelVersion: payload.modelVersion ?? null,
+      builderModelVersion: NBA_MODEL_VERSION,
+    };
+    return res.status(200).json(enriched);
   } catch (err) {
     console.error('[nba/picks/built] FATAL ERROR:', err.message);
     return res.status(200).json({

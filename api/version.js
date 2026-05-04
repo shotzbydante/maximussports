@@ -1,22 +1,33 @@
 /* global process */
 /**
- * Health check. GET /api/health
+ * GET /api/version
  *
- * Returns 200 with deploy metadata for monitoring AND post-deploy
- * verification. Adding `git.sha` and `model.*` here makes it possible
- * to confirm a v9/v10 fix is actually live in production with a single
- * curl, instead of inspecting picks-payload internals.
+ * Returns the deploy fingerprint so any caller (or future audit doc) can
+ * deterministically confirm what is running in production:
  *
- * `/api/version` returns the same shape — keep them in sync.
+ *   {
+ *     ok: true,
+ *     timestamp: ISO,
+ *     git: { sha, shortSha, branch, buildTime },
+ *     model: { nba, mlb }
+ *   }
+ *
+ * Vercel auto-injects `VERCEL_GIT_COMMIT_SHA`, `VERCEL_GIT_COMMIT_REF`, and
+ * `VERCEL_DEPLOYMENT_ID` into the runtime; we read those when present and
+ * fall back to "unknown" locally so the endpoint is non-fatal.
+ *
+ * The model versions come from the actual builder modules — never hand-coded
+ * — so a missed bump here can't make a stale model look fresh.
  */
 
 import { NBA_MODEL_VERSION } from '../src/features/nba/picks/v2/buildNbaPicksV2.js';
 
 let MLB_MODEL_VERSION = 'mlb-picks-unknown';
 try {
+  // Lazy-import so MLB tuning churn never breaks the version endpoint.
   const mod = await import('../src/features/picks/tuning/defaultConfig.js');
   if (mod?.MLB_MODEL_VERSION) MLB_MODEL_VERSION = mod.MLB_MODEL_VERSION;
-} catch { /* fall back */ }
+} catch { /* keep fallback */ }
 
 function readEnv(name) {
   const v = process.env?.[name];
@@ -32,11 +43,18 @@ export default function handler(req, res) {
   const sha = readEnv('VERCEL_GIT_COMMIT_SHA') || readEnv('GIT_COMMIT_SHA') || 'unknown';
   const branch = readEnv('VERCEL_GIT_COMMIT_REF') || readEnv('GIT_BRANCH') || 'unknown';
   const buildTime = readEnv('VERCEL_BUILD_TIME') || readEnv('BUILD_TIME') || null;
+  const deploymentId = readEnv('VERCEL_DEPLOYMENT_ID') || null;
 
-  res.status(200).json({
+  return res.status(200).json({
     ok: true,
     timestamp: new Date().toISOString(),
-    git: { sha, shortSha: sha === 'unknown' ? sha : sha.slice(0, 7), branch, buildTime },
+    git: {
+      sha,
+      shortSha: sha === 'unknown' ? sha : sha.slice(0, 7),
+      branch,
+      buildTime,
+      deploymentId,
+    },
     model: { nba: NBA_MODEL_VERSION, mlb: MLB_MODEL_VERSION },
   });
 }
