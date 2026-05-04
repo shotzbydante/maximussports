@@ -30,6 +30,7 @@ import { getJson, setJson } from '../_globalCache.js';
 import { writePicksRun, getActiveConfig, getScorecard, getLatestGradedScorecard } from './picksHistory.js';
 import { yesterdayET } from './dateWindows.js';
 import { resolveFairTotalForGame } from './seriesPaceFairTotal.js';
+import { adjustFairTotal } from './nbaTotalsHistory.js';
 
 const KV_LATEST = 'nba:picks:built:latest';
 const KV_LASTKNOWN = 'nba:picks:built:lastknown';
@@ -190,6 +191,7 @@ export async function buildNbaPicksBoard(opts = {}) {
     // market_total when no signal — that's gone; we always show a real
     // signal with honest data quality.
     const totalsSourceCounts = { series_pace_v1: 0, team_recent_v1: 0, slate_baseline_v1: 0, none: 0 };
+    let totalsTrendAdjusted = 0;
     enriched = enriched.map(g => {
       const a = g?.teams?.away?.slug;
       const h = g?.teams?.home?.slug;
@@ -197,20 +199,38 @@ export async function buildNbaPicksBoard(opts = {}) {
       const key = sig.source || 'none';
       totalsSourceCounts[key] = (totalsSourceCounts[key] || 0) + 1;
       if (sig.fairTotal == null) return g;
+
+      // v9: layer historical totals trend on top of the baseline. The
+      // closingHistory channel is empty in-process today (no Odds API
+      // historical store wired up), so this collapses to a recent-
+      // scoring-trend adjustment. Effect is capped to ±3.0 points.
+      const trend = adjustFairTotal({
+        baseFairTotal: sig.fairTotal,
+        baseSource: sig.source,
+        baseConfidence: sig.confidence,
+        awaySlug: a,
+        homeSlug: h,
+        windowGames,
+        closingHistory: [],
+      });
+      if (trend.adjustment && Math.abs(trend.adjustment) >= 0.1) totalsTrendAdjusted += 1;
+
       return {
         ...g,
         model: {
           ...g.model,
-          fairTotal: sig.fairTotal,
+          fairTotal: trend.fairTotal ?? sig.fairTotal,
           fairTotalSample: sig.sample,
-          fairTotalConfidence: sig.confidence,
-          fairTotalSource: sig.source,
+          fairTotalConfidence: trend.confidence ?? sig.confidence,
+          fairTotalSource: trend.source ?? sig.source,
           fairTotalLowSignal: sig.lowSignal,
+          fairTotalAdjustment: trend.adjustment ?? 0,
+          fairTotalTrendComponents: trend.components ?? null,
         },
       };
     });
     console.log(
-      `[nbaPicksBuilder] fair-total chain: series=${totalsSourceCounts.series_pace_v1}, team-recent=${totalsSourceCounts.team_recent_v1}, slate-baseline=${totalsSourceCounts.slate_baseline_v1}, none=${totalsSourceCounts.none}`
+      `[nbaPicksBuilder] fair-total chain: series=${totalsSourceCounts.series_pace_v1}, team-recent=${totalsSourceCounts.team_recent_v1}, slate-baseline=${totalsSourceCounts.slate_baseline_v1}, none=${totalsSourceCounts.none}, trend-adjusted=${totalsTrendAdjusted}`
     );
 
     // Resolve active NBA tuning config (DB > default)

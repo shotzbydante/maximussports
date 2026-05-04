@@ -283,6 +283,18 @@
   font-style: italic;
 }
 
+.sourceLine {
+  margin: 1px 0 0;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+.sourceLine_warn {
+  color: #b07a2f;
+}
+
 /* Skeleton */
 .skel { display: flex; flex-direction: column; gap: 10px; }
 .skelBlock {

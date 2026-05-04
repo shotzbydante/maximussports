@@ -35,12 +35,69 @@ export default async function handler(req, res) {
   if (cached) return res.status(200).json({ ...cached, _cached: true });
 
   try {
-    const { board, source, counts } = await buildNbaPicksBoard();
+    const debug = req.query?.debug === '1' || req.query?.debug === 'true';
+    const { board, source, counts } = await buildNbaPicksBoard({ preferFresh: debug });
     const payload = { ...board, _source: source };
+
+    if (debug && Array.isArray(payload.byGame)) {
+      // Project each game into the trimmed shape the audit doc requested
+      // so a human or QA bot can spot-check the model decisions.
+      payload._debugByGame = payload.byGame.map(g => {
+        const ml = g.picks?.moneyline;
+        const sp = g.picks?.runline;
+        const tt = g.picks?.total;
+        return {
+          gameId: g.gameId,
+          matchup: `${g.awayTeam?.shortName || g.awayTeam?.slug} @ ${g.homeTeam?.shortName || g.homeTeam?.slug}`,
+          awayTeam: g.awayTeam?.slug,
+          homeTeam: g.homeTeam?.slug,
+          model: {
+            awayWinProb: ml?.model?.awayWinProb ?? null,
+            homeWinProb: ml?.model?.homeWinProb ?? null,
+          },
+          moneylineDecision: ml ? {
+            ...(ml.mlDebug || {}),
+            selectedSide: ml.selection?.side,
+            selectedTeam: ml.selection?.team,
+            priceAmerican: ml.market?.priceAmerican,
+            rawEdge: ml.rawEdge,
+            modelProb: ml.modelProb,
+            impliedProb: ml.impliedProb,
+            impliedSource: ml.impliedSource,
+            modelSource: ml.modelSource,
+            isLowConviction: ml.isLowConviction,
+            lowSignalReason: ml.lowSignalReason,
+            betScore: ml.betScore?.total,
+            conviction: ml.conviction?.label,
+          } : null,
+          spreadDecision: sp ? {
+            ...(sp.spreadDebug || {}),
+            selectedSide: sp.selection?.side,
+            selectedTeam: sp.selection?.team,
+            lineValue: sp.market?.line,
+            rawEdge: sp.rawEdge,
+            modelSource: sp.modelSource,
+            isLowConviction: sp.isLowConviction,
+            lowSignalReason: sp.lowSignalReason,
+            betScore: sp.betScore?.total,
+            conviction: sp.conviction?.label,
+          } : null,
+          totalDecision: tt ? {
+            ...(tt.totalDebug || {}),
+            selectedDirection: tt.selection?.side,
+            modelSource: tt.modelSource,
+            isLowConviction: tt.isLowConviction,
+            lowSignalReason: tt.lowSignalReason,
+            betScore: tt.betScore?.total,
+            conviction: tt.conviction?.label,
+          } : null,
+        };
+      });
+    }
 
     console.log(`[nba/picks/built] source=${source} counts:`, JSON.stringify(counts));
 
-    cache.set(cacheKey, payload);
+    if (!debug) cache.set(cacheKey, payload);
     return res.status(200).json(payload);
   } catch (err) {
     console.error('[nba/picks/built] FATAL ERROR:', err.message);

@@ -37,6 +37,48 @@ function formatGameDate(iso) {
   } catch { return null; }
 }
 
+function sourceLineFor(pick, marketKey) {
+  if (!pick) return null;
+  // Moneyline: ML odds missing → spread fallback
+  if (marketKey === 'moneyline') {
+    if (pick.impliedSource === 'spread') {
+      return { label: 'ML odds unavailable · spread-derived tracking pick', warn: true };
+    }
+    if (pick.lowSignalReason === 'large_spread_guard') {
+      return { label: 'Large spread · model blended toward no-vig', warn: true };
+    }
+    if (pick.modelSource === 'spread' && pick.impliedSource === 'odds_no_vig') {
+      return { label: 'Spread-vs-moneyline edge', warn: false };
+    }
+  }
+  // Spread: projected margin source
+  if (marketKey === 'runline') {
+    if (pick.modelSource === 'spread_self') {
+      return { label: 'No moneyline · spread fallback', warn: true };
+    }
+    if (pick.modelSource === 'devigged_ml') {
+      return { label: 'Projected margin · de-vigged ML', warn: false };
+    }
+  }
+  // Total: fair-total source
+  if (marketKey === 'total') {
+    const src = pick.modelSource;
+    if (src === 'series_pace_v1' || src?.startsWith?.('series_pace_v1+')) {
+      return { label: 'Series pace prior', warn: false };
+    }
+    if (src === 'team_recent_v1' || src?.startsWith?.('team_recent_v1+')) {
+      return { label: 'Recent totals trend', warn: false };
+    }
+    if (src === 'slate_baseline_v1' || src?.startsWith?.('slate_baseline_v1+')) {
+      return { label: 'Low-signal total · tracking only', warn: true };
+    }
+    if (pick.isLowConviction) {
+      return { label: 'Low-signal total · tracking only', warn: true };
+    }
+  }
+  return null;
+}
+
 function MarketCard({ pick, marketKey }) {
   if (!pick) {
     return (
@@ -50,6 +92,7 @@ function MarketCard({ pick, marketKey }) {
   const tier = score != null ? convictionTier(score) : null;
   const tierVariant = tier?.variant ? styles[`tier_${tier.variant}`] : '';
   const isTracking = pick.pickRole === 'tracking' || pick.flags?.tracking === true;
+  const sourceLine = sourceLineFor(pick, marketKey);
 
   return (
     <div className={`${styles.marketCard} ${tierVariant} ${isTracking ? styles.tracking : ''}`}>
@@ -80,6 +123,11 @@ function MarketCard({ pick, marketKey }) {
       </div>
       {pick.rationale?.headline && (
         <p className={styles.rationale}>{pick.rationale.headline}</p>
+      )}
+      {sourceLine && (
+        <span className={`${styles.sourceLine} ${sourceLine.warn ? styles.sourceLine_warn : ''}`}>
+          {sourceLine.label}
+        </span>
       )}
     </div>
   );

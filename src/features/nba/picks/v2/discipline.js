@@ -152,6 +152,22 @@ export function applyDiscipline(pick, ctx = {}, config = {}, opts = {}) {
     }
   }
 
+  // ── R5b: Cross-market-only signal cap (v9) ──
+  // When the pick's model probability comes from cross-market arbitrage
+  // (spread vs de-vigged moneyline) without a real independent NBA
+  // model, we cannot honestly publish a hero-tier conviction. Cap to
+  // "Solid" so tracking labels collapse appropriately. Independent model
+  // signals (`devigged_ml` for spread, `spread` for ML) are exactly the
+  // cross-market case the v9 audit identified.
+  if (pick.isLowConviction === true) {
+    flags.crossMarketSignalOnly = true;
+    labelCap = mostRestrictive(labelCap, 'Solid');
+  }
+  if (pick.modelSource === 'spread' || pick.modelSource === 'devigged_ml' || pick.modelSource === 'no_vig_blend') {
+    flags.crossMarketSignalOnly = true;
+    labelCap = mostRestrictive(labelCap, 'Solid');
+  }
+
   // ── R6: Injury data unavailable → favorites lose Top Play, haircut ──
   if (ctx.injuryDataAvailable === false) {
     flags.injuryDataAvailable = false;

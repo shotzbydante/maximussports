@@ -7,7 +7,7 @@
  */
 
 import { getPicksForSlate, writeAuditArtifact, getActiveConfig, logTuning } from '../../_lib/picksHistory.js';
-import { analyzePicks } from '../../../src/features/mlb/picks/v2/audit.js';
+import { analyzeNbaPicks } from '../../../src/features/nba/picks/v2/nbaAudit.js';
 import { validateTuningDelta, diffConfig } from '../../../src/features/picks/tuning/validator.js';
 import { NBA_DEFAULT_CONFIG } from '../../../src/features/nba/picks/v2/buildNbaPicksV2.js';
 import { getSupabaseAdmin } from '../../_lib/supabaseAdmin.js';
@@ -55,7 +55,7 @@ export default async function handler(req, res) {
     }
 
     const { summary, signalAttribution, recommendedDeltas } =
-      analyzePicks({ sport: 'nba', slateDate, picks });
+      analyzeNbaPicks({ sport: 'nba', slateDate, picks });
 
     const artifact = await writeAuditArtifact({
       sport: 'nba',

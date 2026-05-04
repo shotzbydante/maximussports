@@ -74,10 +74,13 @@ describe('buildNbaPicksV2 — canonical shape parity with MLB', () => {
 });
 
 describe('buildNbaPicksV2 — non-bias behavior', () => {
-  it('produces zero picks when model has no edge input (no invented confidence)', () => {
-    const games = Array.from({ length: 4 }, (_, i) => mkGame(i, { model: { confidence: 0.7, fairTotal: null } }));
-    // pregameEdge intentionally undefined → deriveWinProbs returns nulls
-    for (const g of games) delete g.model.pregameEdge;
+  it('produces zero picks when both moneyline and spread are missing (no market signal at all)', () => {
+    // v9: deriveWinProbs uses the spread + de-vigged moneyline as the
+    // independent model. With both gone there is no signal, so no picks.
+    const games = Array.from({ length: 4 }, (_, i) => mkGame(i, {
+      model: { confidence: 0.7, fairTotal: null },
+      market: { moneyline: null, pregameSpread: null, pregameTotal: null },
+    }));
     const r = buildNbaPicksV2({ games, config: NBA_DEFAULT_CONFIG });
     const total = r.tiers.tier1.length + r.tiers.tier2.length + r.tiers.tier3.length + (r.coverage?.length || 0);
     expect(total).toBe(0);

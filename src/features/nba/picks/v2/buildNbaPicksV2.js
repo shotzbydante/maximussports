@@ -22,6 +22,11 @@
 import { computeBetScore } from '../../../mlb/picks/v2/betScore.js';
 import { assignTiers } from '../../../mlb/picks/v2/tier.js';
 import { applyDiscipline, NBA_DISCIPLINE_DEFAULTS } from './discipline.js';
+import {
+  pickMoneylineSide,
+  pickSpreadSide,
+  noVigImplied,
+} from './nbaModelEdge.js';
 
 const COVERAGE_MIN_SCORE = 0.30;
 const COVERAGE_MAX_PICKS = 15;
@@ -146,22 +151,35 @@ function gameDateET(iso) {
 }
 
 /**
- * Derive model win probability for each side from the NBA odds enricher.
+ * Derive a baseline pair of win probabilities for the matchup using the
+ * INDEPENDENT signals available to us:
  *
- *   game.model.pregameEdge  = model spread − market spread (positive ⇒ model
- *                              thinks home team should cover more than market)
- *   sigmoid around pregameEdge converts that to a probability delta.
+ *   1. Spread line (preferred) — `winProbFromSpread`
+ *   2. De-vigged moneyline (fallback) — collapses to zero edge but lets
+ *      every game produce a tracking pick.
  *
- * When pregameEdge is absent we return nulls so no pick qualifies. Zero model
- * input => zero picks. Never invent confidence.
+ * v9 stopped reading `game.model.pregameEdge` because it is computed from
+ * the moneyline by `_odds.js` with a wrong NBA points-per-prob constant
+ * (16.67 vs the calibrated ~28). The closed-loop synthesis it created
+ * was the underdog-bias root cause; see
+ * docs/nba-model-underdog-bias-and-auto-tuning-audit-v9.md.
  */
 function deriveWinProbs(game) {
-  const edge = game?.model?.pregameEdge;
-  if (!isNum(edge)) return { away: null, home: null };
-  // 3-point scale: +3 home-side edge ~ 58% home win prob
-  const k = 0.12;
-  const homeProb = clamp01(0.5 + Math.tanh(edge * k) * 0.5);
-  return { away: 1 - homeProb, home: homeProb };
+  const homeLine = isNum(game?.market?.pregameSpread) ? game.market.pregameSpread : null;
+  const awayMl = game?.market?.moneyline?.away;
+  const homeMl = game?.market?.moneyline?.home;
+
+  if (homeLine == null && awayMl == null && homeMl == null) {
+    return { away: null, home: null, source: null };
+  }
+
+  // Prefer the spread (calibrated linear conversion); fall back to the
+  // de-vigged moneyline so games without a posted spread still register.
+  const ml = pickMoneylineSide({ awayMl, homeMl, homeLine });
+  if (ml.side != null && ml.homeModelProb != null) {
+    return { away: ml.awayModelProb, home: ml.homeModelProb, source: ml.modelSource || 'no_vig' };
+  }
+  return { away: null, home: null, source: null };
 }
 
 function toMatchup(game) {
@@ -298,6 +316,32 @@ function makePick(matchup, score, info, bs) {
     impliedSource: info.impliedSource ?? null,    // 'odds' | 'spread' | null
     rawEdge: round3(info.rawEdge),
     expectedTotal: round3(info.expectedTotal),
+    // v9 transparency: source tags for the UI + debug endpoint
+    modelSource: info.modelSource ?? null,
+    lowSignalReason: info.lowSignalReason ?? null,
+    isLowConviction: info.isLowConviction === true,
+    // ML-specific debug fields (null for non-ML picks)
+    mlDebug: info.marketType === 'moneyline' ? {
+      awayModelProb: round3(info.awayModelProb),
+      homeModelProb: round3(info.homeModelProb),
+      awayImplied:   round3(info.awayImplied),
+      homeImplied:   round3(info.homeImplied),
+      vigPct:        round3(info.vigPct),
+      awayEdge:      round3(info.awayEdge),
+      homeEdge:      round3(info.homeEdge),
+    } : null,
+    // Spread-specific debug fields (null for non-spread picks)
+    spreadDebug: info.marketType === 'spread' ? {
+      projectedHomeMargin: round3(info.projectedHomeMargin),
+      awayCoverEdge:       round3(info.awayCoverEdge),
+      homeCoverEdge:       round3(info.homeCoverEdge),
+    } : null,
+    // Total-specific debug fields (null for non-total picks)
+    totalDebug: info.marketType === 'total' ? {
+      marketTotal: matchup.market?.total?.points ?? null,
+      fairTotal:   round3(info.expectedTotal),
+      delta:       round3(info.totalDelta),
+    } : null,
     result: null,
     // Back-compat
     category: legacyCategory,
@@ -402,6 +446,9 @@ export function buildNbaPicksV2({
     const m = matchup.market;
     const implAway = moneylineToImplied(m.moneyline?.away);
     const implHome = moneylineToImplied(m.moneyline?.home);
+    const _nv = noVigImplied({ awayMl: m.moneyline?.away, homeMl: m.moneyline?.home });
+    const noVigAway = _nv.away;
+    const noVigHome = _nv.home;
 
     // ── Large-spread penalty helper ──
     // Pre-v7 the per-market gate config (`spreadGates`, `mlGates`)
@@ -430,85 +477,78 @@ export function buildNbaPicksV2({
     //    persisted as "tracking" picks and graded daily. ──
 
     // ── Moneyline (always one per game) ──
-    // v8: never gate on odds availability. When implied probabilities
-    // are absent (delayed odds, off-day pre-line, no Odds API book), we
-    // fall back to the spread-derived implied — same arbitrage signal
-    // the rest of the engine uses — so every game produces a tracking
-    // ML pick. Without that fallback, the v8 root cause was that the
-    // builder silently dropped EVERY Pick 'Em.
-    if (isNum(score.awayWinProb) && isNum(score.homeWinProb)) {
-      // Spread-derived implied: the home line in points roughly
-      // corresponds to a probability delta from 0.5 via −line/16.67.
+    // v9: pickMoneylineSide() de-vigs the bookmaker odds and compares
+    // them against an INDEPENDENT spread-derived model probability. The
+    // v8 closed-loop synthesis (model derived from the same moneyline
+    // it was being compared against) is gone. When odds or spread are
+    // missing we still produce a tracking pick — `isLowConviction`
+    // flips on and conviction labels collapse to "Lean".
+    {
       const homeLine = isNum(m.spread?.homeLine) ? m.spread.homeLine : null;
-      const spreadImpliedHome = homeLine != null
-        ? clamp01(0.5 + (-homeLine / 16.67) * 0.5)   // 0.5 base + delta
-        : null;
-      const spreadImpliedAway = spreadImpliedHome != null
-        ? 1 - spreadImpliedHome
-        : null;
-
-      const mlSides = [
-        {
-          side: 'away',
-          modelProb: score.awayWinProb,
-          implied: isNum(implAway) ? implAway : spreadImpliedAway,
-          impliedSource: isNum(implAway) ? 'odds' : (spreadImpliedAway != null ? 'spread' : null),
-          price: m.moneyline?.away,
-        },
-        {
-          side: 'home',
-          modelProb: score.homeWinProb,
-          implied: isNum(implHome) ? implHome : spreadImpliedHome,
-          impliedSource: isNum(implHome) ? 'odds' : (spreadImpliedHome != null ? 'spread' : null),
-          price: m.moneyline?.home,
-        },
-      ].filter(s => isNum(s.modelProb) && isNum(s.implied));
-
-      // Best side = highest rawEdge (modelProb − implied). Always
-      // selected; if both are negative we still pick the LEAST bad side
-      // and let conviction labelling reflect the weak signal.
-      mlSides.sort((a, b) => (b.modelProb - b.implied) - (a.modelProb - a.implied));
-      const best = mlSides[0];
-      if (best) {
-        const rawEdge = best.modelProb - best.implied;
+      const ml = pickMoneylineSide({
+        awayMl: m.moneyline?.away,
+        homeMl: m.moneyline?.home,
+        homeLine,
+      });
+      if (ml.side) {
         let bs = computeBetScore({
-          matchup, score, marketType: 'moneyline', side: best.side,
-          rawEdge, totalDelta: null, config,
+          matchup, score, marketType: 'moneyline', side: ml.side,
+          rawEdge: ml.rawEdge ?? 0, totalDelta: null, config,
         });
-        bs = maybePenalize(bs, rawEdge);
+        bs = maybePenalize(bs, ml.rawEdge);
         if (Number.isFinite(bs.total) && bs.total > 0) {
           pushDisciplined(makePick(matchup, score, {
-            marketType: 'moneyline', side: best.side, lineValue: null,
-            priceAmerican: best.price ?? null,
-            rawEdge, modelProb: best.modelProb, impliedProb: best.implied,
-            // Tag where the implied probability came from so the UI can
-            // surface "Odds unavailable" for spread-derived ML picks.
-            impliedSource: best.impliedSource,
+            marketType: 'moneyline', side: ml.side, lineValue: null,
+            priceAmerican: ml.priceAmerican ?? null,
+            rawEdge: ml.rawEdge,
+            modelProb: ml.modelProb,
+            impliedProb: ml.impliedProb,
+            impliedSource: ml.impliedSource,
+            modelSource: ml.modelSource,
+            isLowConviction: ml.isLowConviction,
+            lowSignalReason: ml.lowSignalReason,
+            awayModelProb: ml.awayModelProb,
+            homeModelProb: ml.homeModelProb,
+            awayImplied: ml.awayImplied,
+            homeImplied: ml.homeImplied,
+            vigPct: ml.vigPct,
+            awayEdge: ml.awayEdge,
+            homeEdge: ml.homeEdge,
           }, bs), matchup.gameId);
         }
       }
     }
 
     // ── Spread (always one per game when a line exists) ──
+    // v9: pickSpreadSide() projects a margin from the de-vigged moneyline
+    // (independent of the spread line itself) and computes a per-side
+    // cover-edge in points. Picks the side projected to cover. When the
+    // moneyline is missing the projected margin collapses to the spread
+    // itself → zero cover edge → tracking pick on the favorite.
     if (isNum(m.spread?.homeLine)) {
-      const sides = [
-        { side: 'away', line: m.spread.awayLine, rawEdge: (score.awayWinProb - (implAway ?? 0.5)) * 0.9 },
-        { side: 'home', line: m.spread.homeLine, rawEdge: (score.homeWinProb - (implHome ?? 0.5)) * 0.9 },
-      ];
-      sides.sort((a, b) => b.rawEdge - a.rawEdge);
-      const best = sides[0];
-      if (best && isNum(best.rawEdge)) {
+      const sp = pickSpreadSide({
+        awayMl: m.moneyline?.away,
+        homeMl: m.moneyline?.home,
+        homeLine: m.spread.homeLine,
+      });
+      if (sp.side) {
         let bs = computeBetScore({
-          matchup, score, marketType: 'runline', side: best.side,
-          rawEdge: best.rawEdge, totalDelta: null, config,
+          matchup, score, marketType: 'runline', side: sp.side,
+          rawEdge: sp.rawEdge ?? 0, totalDelta: null, config,
         });
-        bs = maybePenalize(bs, best.rawEdge);
+        bs = maybePenalize(bs, sp.rawEdge);
         if (Number.isFinite(bs.total) && bs.total > 0) {
           pushDisciplined(makePick(matchup, score, {
-            marketType: 'spread', side: best.side, lineValue: best.line,
-            priceAmerican: null, rawEdge: best.rawEdge,
-            modelProb: best.side === 'away' ? score.awayWinProb : score.homeWinProb,
-            impliedProb: best.side === 'away' ? implAway : implHome,
+            marketType: 'spread', side: sp.side, lineValue: sp.lineValue,
+            priceAmerican: null, rawEdge: sp.rawEdge,
+            modelProb: sp.side === 'away' ? score.awayWinProb : score.homeWinProb,
+            impliedProb: sp.side === 'away' ? (noVigAway ?? implAway) : (noVigHome ?? implHome),
+            modelSource: sp.modelSource,
+            isLowConviction: sp.isLowConviction,
+            lowSignalReason: sp.lowSignalReason,
+            projectedHomeMargin: sp.projectedHomeMargin,
+            awayCoverEdge: sp.awayCoverEdge,
+            homeCoverEdge: sp.homeCoverEdge,
           }, bs), matchup.gameId);
         }
       }
@@ -529,10 +569,18 @@ export function buildNbaPicksV2({
         rawEdge: null, totalDelta: delta, config,
       });
       if (Number.isFinite(bs.total) && bs.total > 0) {
+        // Surface the fair-total source attached by `nbaPicksBuilder`
+        // (`series_pace_v1` / `team_recent_v1` / `slate_baseline_v1`)
+        // plus an `isLowConviction` flag so the UI can label honestly.
+        const totalsSource = g?.model?.fairTotalSource ?? null;
+        const isLow = !!g?.model?.fairTotalLowSignal || totalsSource === 'slate_baseline_v1';
         pushDisciplined(makePick(matchup, score, {
           marketType: 'total', side, lineValue: m.total.points,
           priceAmerican: null, rawEdge: null, modelProb: null, impliedProb: null,
           expectedTotal: score.expectedTotal, totalDelta: delta,
+          modelSource: totalsSource,
+          isLowConviction: isLow,
+          lowSignalReason: isLow ? (totalsSource || 'low_signal_total') : null,
         }, bs), matchup.gameId);
       }
     }
