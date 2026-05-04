@@ -984,142 +984,176 @@
 
 .ti {
   composes: artboard;
-  padding: 44px 48px 40px;
+  /* Tighter top + bottom padding gives the briefing room to fill the
+     canvas. Was 44/40. */
+  padding: 36px 48px 30px;
 }
 
 .tiTopBar {
   position: relative; z-index: 10;
   display: flex; align-items: center; justify-content: space-between;
-  margin-bottom: 16px;
+  margin-bottom: 18px;
+  flex-shrink: 0;
 }
 .tiLabel {
   composes: sectionPill;
 }
-.tiTimestamp { font-size: 12px; font-weight: 700; color: #a7a29a; letter-spacing: 1.2px; text-transform: uppercase; }
+.tiTimestamp { font-size: 13px; font-weight: 700; color: #a7a29a; letter-spacing: 1.2px; text-transform: uppercase; }
 
 .tiHero {
   position: relative; z-index: 10;
-  display: grid; grid-template-columns: 180px 1fr; gap: 20px;
-  margin-bottom: 18px;
+  display: grid; grid-template-columns: 220px 1fr; gap: 26px;
+  margin-bottom: 22px;
+  flex-shrink: 0;
 }
 .tiLogoWrap {
-  width: 180px; height: 180px;
+  width: 220px; height: 220px;
   display: flex; align-items: center; justify-content: center;
-  border-radius: 24px;
-  background: radial-gradient(circle, rgba(212,175,55,0.22) 0%, rgba(212,175,55,0.04) 60%, transparent 100%);
-  border: 1.5px solid rgba(212,175,55,0.38);
+  border-radius: 28px;
+  background: radial-gradient(circle, rgba(212,175,55,0.26) 0%, rgba(212,175,55,0.06) 60%, transparent 100%);
+  border: 1.5px solid rgba(212,175,55,0.42);
+  box-shadow: 0 14px 36px rgba(0,0,0,0.45), inset 0 1px 0 rgba(240,207,107,0.32);
 }
-.tiLogo { width: 140px; height: 140px; object-fit: contain; }
+.tiLogo { width: 172px; height: 172px; object-fit: contain; }
 .tiHeroRight {
   display: flex; flex-direction: column; justify-content: center;
   min-width: 0;
 }
 .tiTeamName {
-  font-size: 44px; font-weight: 900; line-height: 1.0;
-  color: #fff; letter-spacing: -0.5px;
+  /* Was 44px. Bumped to 56px for editorial dominance. */
+  font-size: 56px; font-weight: 900; line-height: 0.98;
+  color: #fff; letter-spacing: -0.7px;
+  text-shadow: 0 4px 18px rgba(212,175,55,0.18);
 }
-.tiChips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.tiChips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
 .tiChip {
-  font-size: 11px; font-weight: 800; letter-spacing: 0.9px;
-  padding: 4px 10px; border-radius: 999px;
+  font-size: 12px; font-weight: 800; letter-spacing: 0.9px;
+  padding: 5px 12px; border-radius: 999px;
   background: rgba(212,175,55,0.18);
-  border: 1.5px solid rgba(212,175,55,0.38);
+  border: 1.5px solid rgba(212,175,55,0.42);
   color: var(--nba-gold-bright);
   text-transform: uppercase;
 }
-.tiRecord { font-size: 15px; font-weight: 800; color: #cfc6b3; margin-top: 10px; letter-spacing: 0.3px; }
+.tiRecord { font-size: 17px; font-weight: 800; color: #cfc6b3; margin-top: 12px; letter-spacing: 0.3px; }
 
 .tiHeadline {
   position: relative; z-index: 10;
-  font-size: 34px; font-weight: 900; line-height: 1.06;
+  /* Was 34px. Bumped to 42px so the headline anchors the slide. */
+  font-size: 42px; font-weight: 900; line-height: 1.04;
   color: #fff;
-  margin-top: 4px; margin-bottom: 8px;
-  letter-spacing: -0.4px;
+  margin-top: 4px; margin-bottom: 10px;
+  letter-spacing: -0.5px;
+  flex-shrink: 0;
 }
 .tiSubhead {
   position: relative; z-index: 10;
-  font-size: 18px; font-weight: 600; line-height: 1.4;
+  font-size: 20px; font-weight: 600; line-height: 1.38;
   color: #cfc6b3;
-  margin-bottom: 16px;
+  margin-bottom: 22px;
+  flex-shrink: 0;
 }
 
 .tiStatStrip {
   position: relative; z-index: 10;
-  display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
-  margin-bottom: 16px;
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
+  margin-bottom: 22px;
+  flex-shrink: 0;
 }
 .tiStatTile {
-  padding: 14px 10px;
-  border-radius: 16px;
-  background: rgba(0,0,0,0.32);
-  border: 1.5px solid rgba(212,175,55,0.26);
+  /* Taller tiles + slightly stronger gradient backplate. */
+  padding: 18px 12px 16px;
+  border-radius: 18px;
+  background: linear-gradient(160deg, rgba(40,32,14,0.55) 0%, rgba(0,0,0,0.40) 100%);
+  border: 1.5px solid rgba(212,175,55,0.36);
   display: flex; flex-direction: column; align-items: center;
+  box-shadow: inset 0 1px 0 rgba(240,207,107,0.20);
 }
 .tiStatLabel {
-  font-size: 10px; font-weight: 900; letter-spacing: 1.3px;
+  font-size: 11.5px; font-weight: 900; letter-spacing: 1.3px;
   color: var(--nba-gold-bright);
   text-transform: uppercase;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
 }
 .tiStatValue {
-  font-size: 26px; font-weight: 900; color: #fff;
+  /* Was 26px. Bumped to 32px so values hit at-a-glance. */
+  font-size: 32px; font-weight: 900; color: #fff;
+  line-height: 1.0; letter-spacing: -0.3px;
 }
-.tiStatSub { font-size: 11px; font-weight: 700; color: #a7a29a; margin-top: 2px; }
+.tiStatSub { font-size: 12px; font-weight: 700; color: #a7a29a; margin-top: 4px; text-align: center; }
 
 .tiBriefing {
   position: relative; z-index: 10;
   composes: glassCard;
-  padding: 20px 24px;
-  margin-bottom: 14px;
+  padding: 22px 26px;
+  margin-bottom: 18px;
+  /* Briefing absorbs leftover artboard space — fills the canvas
+     instead of leaving dead black at the bottom. */
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex; flex-direction: column;
 }
 .tiBriefingHeader {
   composes: sectionPill;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
+  flex-shrink: 0;
 }
-.tiBulletList { display: flex; flex-direction: column; gap: 10px; }
+.tiBulletList {
+  display: flex; flex-direction: column;
+  gap: 12px;
+  flex: 1;
+  /* Distribute up to 6 rows evenly across the briefing height so the
+     last bullet doesn't sit alone in dead space. */
+  justify-content: space-between;
+}
 .tiBulletRow {
-  display: flex; align-items: flex-start; gap: 12px;
+  display: flex; align-items: flex-start; gap: 14px;
   padding-bottom: 10px;
-  border-bottom: 1px solid rgba(212,175,55,0.10);
+  border-bottom: 1px solid rgba(212,175,55,0.12);
 }
 .tiBulletRow:last-child { border-bottom: none; padding-bottom: 0; }
 .tiBulletTag {
-  font-size: 10px; font-weight: 900; letter-spacing: 1.1px;
+  font-size: 11px; font-weight: 900; letter-spacing: 1.1px;
   color: var(--nba-gold-bright);
   text-transform: uppercase;
-  flex-shrink: 0; min-width: 90px; padding-top: 2px;
+  flex-shrink: 0;
+  /* Wider tag column accommodates "PLAYOFF STANDING" / "MODEL OUTLOOK"
+     without forcing a wrap. */
+  min-width: 130px;
+  padding-top: 2px;
 }
-.tiBulletText { font-size: 16px; font-weight: 600; line-height: 1.35; color: #f2ecdc; }
+.tiBulletText { font-size: 18px; font-weight: 600; line-height: 1.36; color: #f2ecdc; }
 
 .tiLeaders {
   position: relative; z-index: 10;
   composes: glassCard;
-  padding: 20px 24px;
+  padding: 20px 26px;
   margin-bottom: 14px;
+  flex-shrink: 0;
 }
 .tiLeadersHeader {
   composes: sectionPill;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
 }
 .tiLeadersGrid {
-  display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px;
+  display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px;
 }
 .tiLeaderCat {
   display: flex; flex-direction: column; align-items: center;
-  padding: 10px 6px; border-radius: 12px;
-  background: rgba(0,0,0,0.3);
-  border: 1.5px solid rgba(212,175,55,0.22);
+  padding: 14px 8px; border-radius: 14px;
+  background: rgba(0,0,0,0.34);
+  border: 1.5px solid rgba(212,175,55,0.28);
 }
 .tiLeaderCatLabel {
-  font-size: 10px; font-weight: 900; letter-spacing: 1.1px;
+  font-size: 11.5px; font-weight: 900; letter-spacing: 1.1px;
   color: var(--nba-gold-bright);
   text-transform: uppercase;
-  margin-bottom: 5px;
+  margin-bottom: 7px;
 }
-.tiLeaderName { font-size: 12px; font-weight: 800; color: #fff; text-align: center; line-height: 1.1; }
-.tiLeaderValue { font-size: 20px; font-weight: 900; color: var(--nba-gold); margin-top: 4px; }
+.tiLeaderName { font-size: 14px; font-weight: 800; color: #fff; text-align: center; line-height: 1.1; }
+.tiLeaderValue { font-size: 24px; font-weight: 900; color: var(--nba-gold); margin-top: 6px; }
 
 .tiFooter {
   position: relative; z-index: 10;
   display: flex; justify-content: center; margin-top: 12px;
+  flex-shrink: 0;
 }
