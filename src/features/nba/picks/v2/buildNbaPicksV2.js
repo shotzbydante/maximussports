@@ -27,16 +27,17 @@ import {
   pickSpreadSide,
   noVigImplied,
 } from './nbaModelEdge.js';
+import { selectBriefingPicks } from './selectBriefingPicks.js';
 
 const COVERAGE_MIN_SCORE = 0.30;
 const COVERAGE_MAX_PICKS = 15;
 
-// v10 bump (2026-05-04): the v9 underdog-bias fix introduced new model
-// math but the version string stayed at v2.0.0, which made cache busting
-// impossible — a payload baked under v8 was indistinguishable from a
-// payload baked under v9 by version alone. v10 also adds a hero-curation
-// guardrail so cross-market arb dogs can't leak into NBA Home as heroes.
-export const NBA_MODEL_VERSION = 'nba-picks-v2.1.0';
+// v11 bump (2026-05-04): adds ML/spread divergence anomaly detection
+// and the `briefingPicks` editorial layer. The slide / daily briefing
+// previously read `categories` directly, so cross-market underdogs and
+// the SAS+410 anomaly leaked onto editorial surfaces despite v10's
+// hero-gate. Bumping the version also invalidates the v2.1.0 KV cache.
+export const NBA_MODEL_VERSION = 'nba-picks-v2.2.0';
 
 /**
  * Playoff-aware conservative tuning (2026-04-24).
@@ -743,12 +744,48 @@ export function buildNbaPicksV2({
   const byGame = Array.from(byGameMap.values())
     .sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''));
 
+  // v11: editorial-safe `briefingPicks` (stricter than hero). Slide 1
+  // and any "Maximus's Picks" surface should consume this list instead
+  // of `categories` or raw `heroPicks` so weak cross-market underdogs
+  // and ML/spread anomalies are never promoted as headline picks.
+  const { briefingPicks, rejectedBriefingCandidates } =
+    selectBriefingPicks(fullSlatePicks, config?.briefing || {});
+
+  // v11: per-game odds-mapping diagnostics for /api/nba/picks/built?debug=1.
+  // Captures the inputs that fed `pickMoneylineSide` so a future audit
+  // doesn't have to reverse-engineer the source order.
+  const oddsMappingDiagnostics = {};
+  for (const g of byGame) {
+    const ml = g.picks?.moneyline;
+    if (!ml) continue;
+    oddsMappingDiagnostics[g.gameId] = {
+      awayTeam: g.awayTeam?.slug,
+      homeTeam: g.homeTeam?.slug,
+      awayMl: ml.market?.priceAmerican != null && ml.selection?.side === 'away' ? ml.market.priceAmerican : null,
+      homeMl: ml.market?.priceAmerican != null && ml.selection?.side === 'home' ? ml.market.priceAmerican : null,
+      noVigAway: ml.mlDebug?.awayImplied ?? null,
+      noVigHome: ml.mlDebug?.homeImplied ?? null,
+      vigPct: ml.mlDebug?.vigPct ?? null,
+      modelSource: ml.modelSource ?? null,
+      lowSignalReason: ml.lowSignalReason ?? null,
+    };
+  }
+
   meta.fullSlatePickCount = fullSlatePicks.length;
   meta.heroPickCount = heroPicks.length;
   meta.trackingPickCount = trackingPicks.length;
+  meta.briefingPickCount = briefingPicks.length;
+  meta.briefingRejectedCount = rejectedBriefingCandidates.length;
   meta.gamesWithFullSlate = byGame.filter(g =>
     !!g.picks.moneyline && !!g.picks.runline && !!g.picks.total
   ).length;
+  // Surface anomaly flags (e.g. ml_spread_anomaly:401871153) so the
+  // caller / debug endpoint can show them without re-reading every pick.
+  for (const p of fullSlatePicks) {
+    if (p.modelSource === 'ml_spread_anomaly') {
+      meta.flags.push(`ml_spread_anomaly:${p.gameId}`);
+    }
+  }
 
   return {
     sport: 'nba',
@@ -768,6 +805,10 @@ export function buildNbaPicksV2({
     heroPicks,
     trackingPicks,
     byGame,
+    // v11 editorial layer
+    briefingPicks,
+    rejectedBriefingCandidates,
+    oddsMappingDiagnostics,
   };
 }
 

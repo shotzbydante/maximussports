@@ -35,14 +35,45 @@ function pickScore(p) {
 }
 
 /**
+ * Map a market.type value to the legacy category metadata so a pick
+ * sourced from briefingPicks (which lives outside `categories`) still
+ * tags `_cat` / `_catShort` consistently for slide rendering.
+ */
+function categoryMetaForPick(pick) {
+  const t = pick?.market?.type;
+  if (t === 'runline')   return CATEGORY_ORDER[0];   // Spread
+  if (t === 'moneyline') return CATEGORY_ORDER[1];   // Moneyline
+  if (t === 'total')     return CATEGORY_ORDER[2];   // Total
+  return CATEGORY_ORDER[3];                          // Lean
+}
+
+/**
  * Build the ordered, canonical picks array.
  *
- * @param {object} data — content-studio payload (or anything with
- *                        `nbaPicks.categories` / `canonicalPicks`).
- * @returns {Array} ordered picks, each tagged with `_cat` (long) and
- *                  `_catShort` (compact slide-1 label).
+ * v11: prefer `briefingPicks` when present. The audit
+ * (docs/nba-model-realism-odds-mapping-and-briefing-picks-audit-v11.md)
+ * traced the SAS+410 leak to slides reading `categories` regardless of
+ * pickRole. `briefingPicks` is the editorial-safe subset; falling back
+ * to `categories` keeps legacy callers (and any payload built before
+ * v11) working without crashing.
+ *
+ * @param {object} data — content-studio payload.
+ * @returns {Array} ordered picks tagged with `_cat` / `_catShort`.
  */
 export function resolveCanonicalNbaPicks(data) {
+  // v11 path: editorial briefing layer
+  const briefing = data?.nbaPicks?.briefingPicks
+    || data?.canonicalPicks?.briefingPicks;
+  if (Array.isArray(briefing) && briefing.length > 0) {
+    const all = briefing.map(p => {
+      const meta = categoryMetaForPick(p);
+      return { ...p, _cat: meta.long, _catShort: meta.short };
+    });
+    all.sort((a, b) => pickScore(b) - pickScore(a));
+    return all;
+  }
+
+  // Legacy path: tier1/2/3 published picks. Pre-v11 callers land here.
   const cats = data?.nbaPicks?.categories
     || data?.canonicalPicks?.categories
     || {};
@@ -53,8 +84,6 @@ export function resolveCanonicalNbaPicks(data) {
       all.push({ ...p, _cat: meta.long, _catShort: meta.short });
     }
   }
-  // Stable sort by betScore desc — ties retain CATEGORY_ORDER position
-  // so Spread ranks above Moneyline at the same score.
   all.sort((a, b) => pickScore(b) - pickScore(a));
   return all;
 }

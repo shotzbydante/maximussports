@@ -68,6 +68,29 @@ export default async function handler(req, res) {
     const { board, source, counts } = await buildNbaPicksBoard({ preferFresh: debug });
     const payload = { ...board, _source: source };
 
+    if (debug) {
+      // v11: surface the editorial layer so a single curl can verify
+      // briefing picks + rejection reasons + odds-mapping diagnostics.
+      payload._debugBriefing = {
+        briefingPicks: (payload.briefingPicks || []).map(p => ({
+          id: p.id,
+          market: p.market?.type,
+          label: p.selection?.label,
+          modelSource: p.modelSource,
+          rawEdge: p.rawEdge,
+          betScore: p.betScore?.total,
+          conviction: p.conviction?.label,
+        })),
+        rejectedBriefingCandidates: payload.rejectedBriefingCandidates || [],
+        oddsMappingDiagnostics: payload.oddsMappingDiagnostics || {},
+        editorialFlags: (payload.meta?.flags || []).filter(f =>
+          typeof f === 'string' &&
+          (f.startsWith('ml_spread_anomaly') ||
+           f.startsWith('cross_market_underdog_diversification') ||
+           f.startsWith('all_'))
+        ),
+      };
+    }
     if (debug && Array.isArray(payload.byGame)) {
       // Project each game into the trimmed shape the audit doc requested
       // so a human or QA bot can spot-check the model decisions.

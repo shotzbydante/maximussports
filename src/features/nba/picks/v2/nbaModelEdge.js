@@ -29,6 +29,14 @@
 const POINTS_PER_PROB = 28;             // ~3.6%/point — NBA-calibrated
 const LARGE_SPREAD_GUARD_ABS = 12;      // above this, blend toward no-vig
 const RAW_EDGE_CAP = 0.20;              // never report > ±20% rawEdge
+// v11: ML/spread markets that disagree by more than this absolute
+// probability gap are treated as a data anomaly (stale ML, illiquid book,
+// or one market reflecting a star injury the other hasn't priced in).
+// MIN @ SAS shipped a 27-point gap (ML implied MIN ~81%, spread implied
+// MIN ~54%) — the model has no way to know which side is right, so it
+// must NOT use either side's edge to promote a hero pick.
+const ML_SPREAD_DIVERGENCE_FLAG = 0.15;
+const ANOMALY_RAW_EDGE_CAP = 0.04;       // collapse to noise floor when flagged
 
 function isNum(v) { return v != null && Number.isFinite(v); }
 function clamp01(v) { return Math.max(0, Math.min(1, v)); }
@@ -200,9 +208,23 @@ export function pickMoneylineSide({ awayMl, homeMl, homeLine } = {}) {
     impliedSource = null;
   }
 
-  // 5. Edges per side, capped
-  const awayEdge = clampSym(awayModel - awayImplied, RAW_EDGE_CAP);
-  const homeEdge = clampSym(homeModel - homeImplied, RAW_EDGE_CAP);
+  // v11: detect ML-vs-spread divergence anomaly. When both odds and a
+  // spread are present and the no-vig moneyline disagrees with the
+  // spread-derived probability by more than ML_SPREAD_DIVERGENCE_FLAG,
+  // collapse the rawEdge so neither side can earn a hero promotion.
+  let isAnomaly = false;
+  let divergence = null;
+  if (hasOdds && hasSpread && oddsTwoSided) {
+    divergence = Math.abs(nv.home - sp.home);
+    if (divergence >= ML_SPREAD_DIVERGENCE_FLAG) {
+      isAnomaly = true;
+    }
+  }
+
+  // 5. Edges per side, capped (collapse to noise floor when anomaly detected)
+  const cap = isAnomaly ? ANOMALY_RAW_EDGE_CAP : RAW_EDGE_CAP;
+  const awayEdge = clampSym(awayModel - awayImplied, cap);
+  const homeEdge = clampSym(homeModel - homeImplied, cap);
 
   // 6. Pick the better side. Ties → favorite (lower numeric American odds wins).
   let side;
@@ -221,12 +243,18 @@ export function pickMoneylineSide({ awayMl, homeMl, homeLine } = {}) {
   // 7. Conviction. ML edges from cross-market arbitrage saturate quickly
   // — a 0.04 raw-edge from spread-vs-moneyline disagreement is roughly
   // the noise floor. Anything smaller is tracking by definition.
-  const isLowConviction = !hasOdds || !hasSpread || rawEdge < 0.04 || sp.lowSignal === true;
+  const isLowConviction =
+    !hasOdds || !hasSpread || rawEdge < 0.04 || sp.lowSignal === true || isAnomaly;
   const lowSignalReason = !hasOdds ? 'no_moneyline'
     : !hasSpread ? 'no_spread'
+    : isAnomaly ? 'ml_spread_divergence'
     : sp.lowSignal ? 'large_spread_guard'
     : rawEdge < 0.04 ? 'low_edge'
     : null;
+
+  // v11: re-tag modelSource for anomalies so editorial guardrails can
+  // refuse the pick by source alone.
+  const finalModelSource = isAnomaly ? 'ml_spread_anomaly' : modelSource;
 
   return {
     side,
@@ -238,8 +266,10 @@ export function pickMoneylineSide({ awayMl, homeMl, homeLine } = {}) {
     awayEdge, homeEdge,
     rawEdge, modelProb, impliedProb,
     priceAmerican,
-    impliedSource, modelSource,
+    impliedSource, modelSource: finalModelSource,
     isLowConviction, lowSignalReason,
+    divergence,
+    isAnomaly,
   };
 }
 
@@ -325,4 +355,6 @@ export const NBA_MODEL_CONSTANTS = Object.freeze({
   POINTS_PER_PROB,
   LARGE_SPREAD_GUARD_ABS,
   RAW_EDGE_CAP,
+  ML_SPREAD_DIVERGENCE_FLAG,
+  ANOMALY_RAW_EDGE_CAP,
 });
