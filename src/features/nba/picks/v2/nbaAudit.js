@@ -83,6 +83,12 @@ export function analyzeNbaPicks({ sport = 'nba', slateDate, picks = [] } = {}) {
     byTotalsSource: {},  // populated as we encounter sources
     byTotalsSide: { over: emptyRecord(), under: emptyRecord() },
     byPickRole: { hero: emptyRecord(), tracking: emptyRecord() },
+    // v12 slices
+    byLongShotDog: emptyRecord(),
+    byLongShotDogUnsupported: emptyRecord(),
+    byLargeFavoriteSpread: emptyRecord(),
+    byLargeFavoriteSpreadUnsupported: emptyRecord(),
+    byTotalsTrendAgreement: { agree: emptyRecord(), mixed: emptyRecord(), unknown: emptyRecord() },
     regimeFlags: [],
     topHits: [],
     topMisses: [],
@@ -132,6 +138,29 @@ export function analyzeNbaPicks({ sport = 'nba', slateDate, picks = [] } = {}) {
     if (p.market_type === 'runline') {
       const bk = spreadBucket(p.line_value);
       if (bk) incr(summary.bySpreadBucket[bk], status);
+      // v12: large favorite tracking
+      if ((p.line_value ?? 0) <= -10) {
+        incr(summary.byLargeFavoriteSpread, status);
+        if (p.large_favorite_spread_risk_supported === false) {
+          incr(summary.byLargeFavoriteSpreadUnsupported, status);
+        }
+      }
+    }
+
+    // v12: long-shot ML dog tracking
+    if (p.market_type === 'moneyline' && (p.price_american ?? 0) >= 200) {
+      incr(summary.byLongShotDog, status);
+      if (p.long_shot_dog_risk_supported === false) {
+        incr(summary.byLongShotDogUnsupported, status);
+      }
+    }
+
+    // v12: totals trend agreement
+    if (p.market_type === 'total') {
+      const ag = p.totals_trend_agreement || 'unknown';
+      if (summary.byTotalsTrendAgreement[ag]) {
+        incr(summary.byTotalsTrendAgreement[ag], status);
+      }
     }
 
     // Totals sourcing
@@ -181,6 +210,23 @@ export function analyzeNbaPicks({ sport = 'nba', slateDate, picks = [] } = {}) {
   }
   if (totalPicks >= 3 && slateBaselineCount === totalPicks) {
     summary.regimeFlags.push({ kind: 'totals_slate_baseline_dominant', sampleSize: totalPicks });
+  }
+
+  // v12 regime flags
+  const lsd = summary.byLongShotDog;
+  const lsdN = lsd.won + lsd.lost;
+  if (lsdN >= 2 && lsd.won === 0) {
+    summary.regimeFlags.push({ kind: 'long_shot_dog_miss_streak', sampleSize: lsdN });
+  }
+  const lfs = summary.byLargeFavoriteSpread;
+  const lfsN = lfs.won + lfs.lost;
+  if (lfsN >= 2 && lfs.won === 0) {
+    summary.regimeFlags.push({ kind: 'large_favorite_spread_miss_streak', sampleSize: lfsN });
+  }
+  const ttAgree = summary.byTotalsTrendAgreement.agree;
+  const ttAgreeN = ttAgree.won + ttAgree.lost;
+  if (ttAgreeN >= 3 && hitRate(ttAgree) != null && hitRate(ttAgree) >= 0.65) {
+    summary.regimeFlags.push({ kind: 'totals_trend_agreement_winning', sampleSize: ttAgreeN });
   }
 
   const recommendedDeltas = proposeDeltas(summary);

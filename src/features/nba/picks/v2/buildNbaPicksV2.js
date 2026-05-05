@@ -28,16 +28,22 @@ import {
   noVigImplied,
 } from './nbaModelEdge.js';
 import { selectBriefingPicks } from './selectBriefingPicks.js';
+import {
+  isLongShotDogSupportedByForm,
+  isLargeFavoriteSupportedByMargin,
+  totalsTrendAgreement,
+} from './teamForm.js';
 
 const COVERAGE_MIN_SCORE = 0.30;
 const COVERAGE_MAX_PICKS = 15;
 
-// v11 bump (2026-05-04): adds ML/spread divergence anomaly detection
-// and the `briefingPicks` editorial layer. The slide / daily briefing
-// previously read `categories` directly, so cross-market underdogs and
-// the SAS+410 anomaly leaked onto editorial surfaces despite v10's
-// hero-gate. Bumping the version also invalidates the v2.1.0 KV cache.
-export const NBA_MODEL_VERSION = 'nba-picks-v2.2.0';
+// v12 bump (2026-05-04): adds team-form prior + long-shot ML dog and
+// large-favorite spread risk gates. Picks like PHI ML +236 (lost -39)
+// and SAS -13 (lost outright) on the May 4 slate cleared the v8 hero
+// floor with no recent-form support. v12 demotes these patterns to
+// tracking when the dog/favorite has no ESPN-derived margin backing.
+// Bumping the version also invalidates the v2.2.0 KV cache.
+export const NBA_MODEL_VERSION = 'nba-picks-v2.3.0';
 
 /**
  * Playoff-aware conservative tuning (2026-04-24).
@@ -348,6 +354,12 @@ function makePick(matchup, score, info, bs) {
       fairTotal:   round3(info.expectedTotal),
       delta:       round3(info.totalDelta),
     } : null,
+    // v12 team-form + risk flags
+    awayTeamForm:            info.awayTeamForm ?? null,
+    homeTeamForm:            info.homeTeamForm ?? null,
+    longShotDogRisk:         info.longShotDogRisk ?? null,
+    largeFavoriteSpreadRisk: info.largeFavoriteSpreadRisk ?? null,
+    totalsTrendAgreement:    info.totalsTrendAgreement ?? null,
     result: null,
     // Back-compat
     category: legacyCategory,
@@ -482,6 +494,13 @@ export function buildNbaPicksV2({
     //    conviction honestly. Picks below the hero threshold are
     //    persisted as "tracking" picks and graded daily. ──
 
+    // v12: per-team recent-form context attached upstream by
+    // `nbaPicksBuilder` from the same windowGames the totals chain uses.
+    // Hoisted out of the ML block so spread + total candidates can use
+    // it too. Falls back to nulls when the builder didn't attach.
+    const awayForm = g?.model?.awayTeamForm || null;
+    const homeForm = g?.model?.homeTeamForm || null;
+
     // ── Moneyline (always one per game) ──
     // v9: pickMoneylineSide() de-vigs the bookmaker odds and compares
     // them against an INDEPENDENT spread-derived model probability. The
@@ -503,6 +522,26 @@ export function buildNbaPicksV2({
         });
         bs = maybePenalize(bs, ml.rawEdge);
         if (Number.isFinite(bs.total) && bs.total > 0) {
+          // v12: long-shot ML dog gate. If the dog price is +200 or
+          // longer AND the source is cross-market arbitrage, demote to
+          // tracking unless recent form supports the dog.
+          const isUnderdogSide = ml.priceAmerican != null && ml.priceAmerican > 0;
+          const isCrossMarket = ['spread', 'devigged_ml', 'no_vig_blend'].includes(ml.modelSource);
+          let longShotDogRisk = null;
+          if (isUnderdogSide && isCrossMarket && (ml.priceAmerican >= 200)) {
+            const fav = ml.side === 'away' ? homeForm : awayForm;
+            const dog = ml.side === 'away' ? awayForm : homeForm;
+            const support = isLongShotDogSupportedByForm({
+              favoriteForm: fav, underdogForm: dog,
+              priceAmerican: ml.priceAmerican,
+            });
+            longShotDogRisk = {
+              priceAmerican: ml.priceAmerican,
+              supported: support.supported,
+              reason: support.reason,
+            };
+          }
+
           pushDisciplined(makePick(matchup, score, {
             marketType: 'moneyline', side: ml.side, lineValue: null,
             priceAmerican: ml.priceAmerican ?? null,
@@ -520,6 +559,10 @@ export function buildNbaPicksV2({
             vigPct: ml.vigPct,
             awayEdge: ml.awayEdge,
             homeEdge: ml.homeEdge,
+            // v12 team-form context
+            awayTeamForm: awayForm,
+            homeTeamForm: homeForm,
+            longShotDogRisk,
           }, bs), matchup.gameId);
         }
       }
@@ -544,6 +587,27 @@ export function buildNbaPicksV2({
         });
         bs = maybePenalize(bs, sp.rawEdge);
         if (Number.isFinite(bs.total) && bs.total > 0) {
+          // v12: large-favorite spread risk. When |line| ≥ 10 and the
+          // pick is on the favorite, require recent-margin support
+          // (favorite's recent margin advantage exceeds the spread).
+          const lineAbs = Math.abs(sp.lineValue ?? 0);
+          const isFavoriteSide = (sp.lineValue ?? 0) < 0;
+          let largeFavoriteSpreadRisk = null;
+          if (isFavoriteSide && lineAbs >= 10) {
+            const fav = sp.side === 'away' ? awayForm : homeForm;
+            const dog = sp.side === 'away' ? homeForm : awayForm;
+            const support = isLargeFavoriteSupportedByMargin({
+              favoriteForm: fav, underdogForm: dog, spreadAbs: lineAbs,
+            });
+            largeFavoriteSpreadRisk = {
+              spreadAbs: lineAbs,
+              supported: support.supported,
+              reason: support.reason,
+              supportPoints: support.supportPoints ?? null,
+              requiredPoints: support.requiredPoints ?? null,
+            };
+          }
+
           pushDisciplined(makePick(matchup, score, {
             marketType: 'spread', side: sp.side, lineValue: sp.lineValue,
             priceAmerican: null, rawEdge: sp.rawEdge,
@@ -555,6 +619,10 @@ export function buildNbaPicksV2({
             projectedHomeMargin: sp.projectedHomeMargin,
             awayCoverEdge: sp.awayCoverEdge,
             homeCoverEdge: sp.homeCoverEdge,
+            // v12 team-form context
+            awayTeamForm: awayForm,
+            homeTeamForm: homeForm,
+            largeFavoriteSpreadRisk,
           }, bs), matchup.gameId);
         }
       }
@@ -580,6 +648,13 @@ export function buildNbaPicksV2({
         // plus an `isLowConviction` flag so the UI can label honestly.
         const totalsSource = g?.model?.fairTotalSource ?? null;
         const isLow = !!g?.model?.fairTotalLowSignal || totalsSource === 'slate_baseline_v1';
+        // v12: totals trend agreement — bounded conviction nudge when both
+        // teams' recent total averages point the same direction as the pick.
+        const trendAgreement = totalsTrendAgreement({
+          awayForm, homeForm,
+          marketTotal: m.total.points,
+          fairTotal: score.expectedTotal,
+        });
         pushDisciplined(makePick(matchup, score, {
           marketType: 'total', side, lineValue: m.total.points,
           priceAmerican: null, rawEdge: null, modelProb: null, impliedProb: null,
@@ -587,6 +662,10 @@ export function buildNbaPicksV2({
           modelSource: totalsSource,
           isLowConviction: isLow,
           lowSignalReason: isLow ? (totalsSource || 'low_signal_total') : null,
+          // v12 team-form context for totals
+          awayTeamForm: awayForm,
+          homeTeamForm: homeForm,
+          totalsTrendAgreement: trendAgreement,
         }, bs), matchup.gameId);
       }
     }
@@ -680,6 +759,10 @@ export function buildNbaPicksV2({
       if (Math.abs(p.rawEdge ?? 0) < HERO_CROSS_MARKET_EDGE) continue;
       if (!multiFactorOk(p)) continue;
     }
+    // v12: long-shot ML dog must have recent-form support to enter hero.
+    if (p.longShotDogRisk && p.longShotDogRisk.supported === false) continue;
+    // v12: large-favorite spread must have recent-margin support.
+    if (p.largeFavoriteSpreadRisk && p.largeFavoriteSpreadRisk.supported === false) continue;
     heroIds.add(p.id);
   }
 

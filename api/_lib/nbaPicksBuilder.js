@@ -31,6 +31,7 @@ import { writePicksRun, getActiveConfig, getScorecard, getLatestGradedScorecard 
 import { yesterdayET } from './dateWindows.js';
 import { resolveFairTotalForGame } from './seriesPaceFairTotal.js';
 import { adjustFairTotal } from './nbaTotalsHistory.js';
+import { computeTeamForm } from '../../src/features/nba/picks/v2/teamForm.js';
 
 // v10: KV cache keys are namespaced by NBA_MODEL_VERSION. A model bump
 // (e.g., v2.0.0 → v2.1.0) automatically invalidates all prior cached
@@ -226,6 +227,13 @@ export async function buildNbaPicksBoard(opts = {}) {
       });
       if (trend.adjustment && Math.abs(trend.adjustment) >= 0.1) totalsTrendAdjusted += 1;
 
+      // v12: per-team recent form (margin / scoring trend / volatility)
+      // from the same windowGames. Bounded prior used by the v12 hero +
+      // briefing guardrails to require a real recent-form reason for
+      // long-shot ML dogs and large-favorite spreads.
+      const awayForm = computeTeamForm({ teamSlug: a, windowGames });
+      const homeForm = computeTeamForm({ teamSlug: h, windowGames });
+
       return {
         ...g,
         model: {
@@ -237,6 +245,8 @@ export async function buildNbaPicksBoard(opts = {}) {
           fairTotalLowSignal: sig.lowSignal,
           fairTotalAdjustment: trend.adjustment ?? 0,
           fairTotalTrendComponents: trend.components ?? null,
+          awayTeamForm: awayForm,
+          homeTeamForm: homeForm,
         },
       };
     });

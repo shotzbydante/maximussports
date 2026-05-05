@@ -60,6 +60,16 @@ function classifyPick(pick, thresholds) {
   // Anomalies are auto-rejected regardless of pickRole.
   if (isAnomaly(pick)) return { ok: false, reason: 'ml_spread_divergence' };
 
+  // v12 risk-flag rejections — applied BEFORE the hero gate so the
+  // briefing rejection reason is specific even when the picks builder
+  // already demoted the pick to tracking.
+  if (pick.longShotDogRisk && pick.longShotDogRisk.supported === false) {
+    return { ok: false, reason: 'long_shot_dog_unsupported_by_form' };
+  }
+  if (pick.largeFavoriteSpreadRisk && pick.largeFavoriteSpreadRisk.supported === false) {
+    return { ok: false, reason: 'large_favorite_unsupported_by_margin' };
+  }
+
   // Briefing requires hero status as the entry point.
   if (pick.pickRole !== 'hero') return { ok: false, reason: 'not_hero' };
 
