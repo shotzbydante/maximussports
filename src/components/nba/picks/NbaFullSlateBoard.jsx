@@ -12,6 +12,7 @@
  * `Tracking` flag so they're visually distinct from hero picks.
  */
 
+import { useMemo, useState } from 'react';
 import { useCanonicalPicks } from '../../../features/picks/useCanonicalPicks';
 import { resolveTeamLogo } from '../../../utils/teamLogo';
 import { convictionTier } from '../../../features/mlb/picks/convictionTier';
@@ -154,7 +155,17 @@ function Metric({ label, value }) {
   );
 }
 
-function GameCard({ game }) {
+function GameCard({ game, hideTracking }) {
+  const trackingHiddenSlots = [];
+  if (hideTracking) {
+    for (const key of ['moneyline', 'runline', 'total']) {
+      const p = game.picks?.[key];
+      if (p && (p.pickRole === 'tracking' || p.flags?.tracking === true)) {
+        trackingHiddenSlots.push(key);
+      }
+    }
+  }
+  const hidden = new Set(trackingHiddenSlots);
   const awaySlug = game.awayTeam?.slug;
   const homeSlug = game.homeTeam?.slug;
   const awayLogo = resolveTeamLogo({ sport: 'nba', slug: awaySlug });
@@ -180,10 +191,17 @@ function GameCard({ game }) {
         </div>
       </header>
       <div className={styles.marketGrid}>
-        <MarketCard pick={game.picks?.moneyline} marketKey="moneyline" />
-        <MarketCard pick={game.picks?.runline}   marketKey="runline" />
-        <MarketCard pick={game.picks?.total}     marketKey="total" />
+        {!hidden.has('moneyline') && <MarketCard pick={game.picks?.moneyline} marketKey="moneyline" />}
+        {!hidden.has('runline')   && <MarketCard pick={game.picks?.runline}   marketKey="runline" />}
+        {!hidden.has('total')     && <MarketCard pick={game.picks?.total}     marketKey="total" />}
       </div>
+      {hidden.size > 0 && (
+        <p className={styles.gameHiddenNote}>
+          {hidden.size === 3
+            ? 'All markets tracking-only · hidden by toggle'
+            : `${hidden.size} tracking pick${hidden.size === 1 ? '' : 's'} hidden`}
+        </p>
+      )}
     </article>
   );
 }
@@ -191,6 +209,23 @@ function GameCard({ game }) {
 export default function NbaFullSlateBoard({ endpoint = '/api/nba/picks/built' } = {}) {
   const { byGame, loading, fullSlatePicks, heroPicks, trackingPicks } =
     useCanonicalPicks({ endpoint });
+  const [hideTracking, setHideTracking] = useState(false);
+
+  // v11 UI clarity: detect a slate where no ML/ATS pick is hero. The
+  // model is doing its job — but the page can read as "all underdogs"
+  // without context. Banner explains that the totals are where the
+  // edges live today.
+  const allMlAtsTracking = useMemo(() => {
+    if (!Array.isArray(fullSlatePicks) || fullSlatePicks.length === 0) return false;
+    const mlAts = fullSlatePicks.filter(p =>
+      p.market?.type === 'moneyline' || p.market?.type === 'runline'
+    );
+    if (mlAts.length === 0) return false;
+    const noHero = mlAts.every(p => p.pickRole !== 'hero');
+    if (!noHero) return false;
+    // Anomaly flag is even stronger context — surface it if present.
+    return true;
+  }, [fullSlatePicks]);
 
   if (loading) {
     return (
@@ -240,8 +275,35 @@ export default function NbaFullSlateBoard({ endpoint = '/api/nba/picks/built' } 
         </div>
       </header>
 
+      {allMlAtsTracking && (
+        <aside className={styles.slateBanner} role="note">
+          <span className={styles.slateBannerKicker}>Today&rsquo;s edges</span>
+          <p className={styles.slateBannerText}>
+            <strong>All Pick &rsquo;Em and ATS picks are tracking-only on this slate.</strong>{' '}
+            The model only finds high-conviction edges in <strong>Totals</strong> today. Tracking
+            picks are still graded — they just aren&rsquo;t promoted as headline plays.
+          </p>
+        </aside>
+      )}
+
+      <div className={styles.toggleRow}>
+        <label className={styles.toggle}>
+          <input
+            type="checkbox"
+            checked={hideTracking}
+            onChange={e => setHideTracking(e.target.checked)}
+          />
+          <span>Hide tracking-only picks</span>
+        </label>
+        <span className={styles.toggleHint}>
+          {hideTracking
+            ? 'Showing only hero picks — every game still graded full-slate.'
+            : 'Showing every full-slate pick. Tracking picks render muted.'}
+        </span>
+      </div>
+
       <div className={styles.gameStack}>
-        {byGame.map(g => <GameCard key={g.gameId} game={g} />)}
+        {byGame.map(g => <GameCard key={g.gameId} game={g} hideTracking={hideTracking} />)}
       </div>
     </section>
   );
