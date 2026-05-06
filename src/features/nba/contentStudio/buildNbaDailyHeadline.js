@@ -59,6 +59,33 @@ function dayOfYear() {
 // Every story is anchored to a SERIES when possible. Series membership is
 // determined by playoffContext, not by guessing from opponent slugs.
 
+/**
+ * Round-aware game-number derivation. When the bracket has no series
+ * for this matchup (Round 2+ slots are placeholders in the static
+ * bracket), we count head-to-head games chronologically among the
+ * available finals to recover the Game N label. This is what gives
+ * non-clincher Round-2 bullets ("Game 1 statement win", "Game 3 swing")
+ * even when findSeriesForGame() returns null.
+ */
+function deriveHeadToHeadGameNumber(targetGame, finals) {
+  if (!targetGame) return null;
+  const aSlug = targetGame.teams?.away?.slug;
+  const hSlug = targetGame.teams?.home?.slug;
+  if (!aSlug || !hSlug) return null;
+  // Order ALL finals between these two teams chronologically — the
+  // target's index + 1 is its Game N within the series. Includes the
+  // target so we can find it.
+  const h2h = finals
+    .filter(g => {
+      const a = g?.teams?.away?.slug;
+      const h = g?.teams?.home?.slug;
+      return (a === aSlug && h === hSlug) || (a === hSlug && h === aSlug);
+    })
+    .sort((x, y) => new Date(x.startTime || 0) - new Date(y.startTime || 0));
+  const idx = h2h.findIndex(g => g.gameId === targetGame.gameId);
+  return idx >= 0 ? idx + 1 : null;
+}
+
 function extractGameStories(liveGames, playoffContext) {
   if (!Array.isArray(liveGames) || liveGames.length === 0) return [];
 
@@ -167,6 +194,45 @@ function extractGameStories(liveGames, playoffContext) {
       && winSeriesWins <= loseSeriesWins;
     const closeoutFailed = inSeries && eliminationAvoided && loseSeriesWins === 3;
 
+    // Round-aware game number — falls back to head-to-head count when
+    // the bracket has no series (Round 2+ slots are placeholders in
+    // the static bracket, so findSeriesForGame returns null for early
+    // R2 games like OKC vs LAL). This is what lets the HOTP narrative
+    // builder say "Game 1" / "Game 3" with confidence even outside
+    // the bracket-anchored series.
+    const h2hGameNumber = inSeries
+      ? (winSeriesWins + loseSeriesWins)
+      : deriveHeadToHeadGameNumber(g, finals);
+    // Round label — accurate when the matched series isn't a
+    // misleading placeholder fill. When BOTH teams have a completed
+    // R1 series elsewhere (i.e. they're R1 winners now playing each
+    // other), this game is a R2+ matchup regardless of what
+    // findSeriesForGame returned. The static bracket has placeholder
+    // R2 slots so its round labeling can't be trusted for R2 G1s.
+    let roundNumber = series?.round || playoffContext?.roundNumber || playoffContext?.round || null;
+    {
+      const completedR1ForWinner = (playoffContext?.allSeries || []).some(s =>
+        s.round === 1 && s.isComplete && s.seriesStates?.winnerSlug === winSlug
+      );
+      const completedR1ForLoser = (playoffContext?.allSeries || []).some(s =>
+        s.round === 1 && s.isComplete && s.seriesStates?.winnerSlug === loseSlug
+      );
+      if (completedR1ForWinner && completedR1ForLoser) {
+        // Both teams won R1 separately; this game is at least R2.
+        roundNumber = Math.max(roundNumber || 2, 2);
+      }
+    }
+    // Margin tier — used by the HOTP narrative templates to pick
+    // between blowout / control / tight-game framing.
+    const marginTier = margin >= 25 ? 'historic'
+      : margin >= 15 ? 'blowout'
+      : margin >= 10 ? 'double_digit'
+      : margin <= 3 ? 'tight'
+      : 'standard';
+    // Road-game flag (always derivable from the game data, even
+    // without series context).
+    const isRoadWin = g.teams?.away?.slug === winSlug;
+
     const story = {
       type,
       winSlug, loseSlug, winSide,
@@ -186,6 +252,15 @@ function extractGameStories(liveGames, playoffContext) {
       forcesGame7,
       eliminationAvoided,
       closeoutFailed,
+      // Non-clincher narrative inputs (HOTP-rich-fallback support).
+      // These are SAFE — derived from the game/playoffContext, never
+      // from inference. The HOTP narrative builder uses them to emit
+      // "Game 1 statement" / "first punch" / "series-edge" copy when
+      // no clincher / OT / buzzer flag fires.
+      h2hGameNumber,
+      roundNumber,
+      marginTier,
+      isRoadWin,
       gameId: g.gameId,
       gameDate: g.startTime || null,
       narrative,
@@ -627,4 +702,4 @@ export function buildNbaDailyHeadline({ liveGames = [], playoffContext = null } 
 export default buildNbaDailyHeadline;
 
 // Exported for buildNbaHotPress + tests
-export { extractGameStories, findSecondStory, teamName, teamAbbrev, seriesTagLower };
+export { extractGameStories, findSecondStory, teamName, teamAbbrev, seriesTagLower, deriveHeadToHeadGameNumber };
