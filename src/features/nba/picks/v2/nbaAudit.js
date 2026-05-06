@@ -89,6 +89,13 @@ export function analyzeNbaPicks({ sport = 'nba', slateDate, picks = [] } = {}) {
     byLargeFavoriteSpread: emptyRecord(),
     byLargeFavoriteSpreadUnsupported: emptyRecord(),
     byTotalsTrendAgreement: { agree: emptyRecord(), mixed: emptyRecord(), unknown: emptyRecord() },
+    // v12b slices
+    byAtsShortDog: emptyRecord(),
+    byAtsShortDogUnsupported: emptyRecord(),
+    byHeroVsTracking: { hero: emptyRecord(), tracking: emptyRecord() },
+    positiveEvidence: [],   // small wins to log without auto-tuning
+    shadowFindings: [],     // single-day misses noted for future tuning
+    excludedPending: 0,
     regimeFlags: [],
     topHits: [],
     topMisses: [],
@@ -104,6 +111,14 @@ export function analyzeNbaPicks({ sport = 'nba', slateDate, picks = [] } = {}) {
 
   for (const p of picks) {
     const status = getStatus(p);
+    // v12b: pending picks must NEVER influence record/tuning. Count them
+    // separately so the audit can prove they were excluded.
+    if (status === 'pending') {
+      summary.excludedPending += 1;
+      // still surface in overall.pending so existing UI doesn't lose count
+      incr(summary.overall, status);
+      continue;
+    }
     incr(summary.overall, status);
     if (summary.byMarket[p.market_type]) incr(summary.byMarket[p.market_type], status);
     if (summary.byTier[p.tier]) incr(summary.byTier[p.tier], status);
@@ -152,6 +167,64 @@ export function analyzeNbaPicks({ sport = 'nba', slateDate, picks = [] } = {}) {
       incr(summary.byLongShotDog, status);
       if (p.long_shot_dog_risk_supported === false) {
         incr(summary.byLongShotDogUnsupported, status);
+      }
+    }
+
+    // v12b: ATS short-dog tracking (+0.5 .. +6.5)
+    if (p.market_type === 'runline' && (p.line_value ?? 0) >= 0.5 && (p.line_value ?? 0) <= 6.5) {
+      incr(summary.byAtsShortDog, status);
+      if (p.ats_short_dog_risk_supported === false) {
+        incr(summary.byAtsShortDogUnsupported, status);
+      }
+    }
+
+    // v12b: hero vs tracking record split — proves to scorecard
+    // consumers that the hero subset is not what's losing today.
+    // (Reusing the `role` var declared above; `byHeroVsTracking`
+    // mirrors `byPickRole` but lives at the top level for callers
+    // that don't want to walk the deeper structure.)
+    if (summary.byHeroVsTracking[role]) {
+      incr(summary.byHeroVsTracking[role], status);
+    }
+
+    // v12b: positive evidence — totals win from a real source (series
+    // pace, team recent, or trend layer). Logged but never auto-tuned.
+    if (p.market_type === 'total' && status === 'won') {
+      const src = p.model_source || p.totals_source || 'unknown';
+      if (src.startsWith('series_pace_v1') || src.startsWith('team_recent_v1')) {
+        summary.positiveEvidence.push({
+          type: 'totals_source_win',
+          marketType: 'total',
+          modelSource: src,
+          pickKey: p.pick_key,
+        });
+      }
+    }
+
+    // v12b: shadow findings — losses worth investigating but never
+    // auto-applied from a single-day sample.
+    if (status === 'lost') {
+      if (p.market_type === 'moneyline' && (p.price_american ?? 0) >= 500) {
+        summary.shadowFindings.push({
+          type: 'long_shot_ml_dog_miss',
+          severity: 'low_one_day',
+          pickKey: p.pick_key,
+          priceAmerican: p.price_american,
+          modelSource: p.model_source,
+          recommendation: 'keep tracking-only; v12b hard cap already blocks +500 cross-market hero',
+          safeToAutoApply: false,
+        });
+      }
+      if (p.market_type === 'runline' && (p.line_value ?? 0) >= 0.5 && (p.line_value ?? 0) <= 6.5) {
+        summary.shadowFindings.push({
+          type: 'ats_short_dog_miss',
+          severity: 'low_one_day',
+          pickKey: p.pick_key,
+          lineValue: p.line_value,
+          modelSource: p.model_source,
+          recommendation: 'v12b ATS short-dog gate now requires recent-form support',
+          safeToAutoApply: false,
+        });
       }
     }
 

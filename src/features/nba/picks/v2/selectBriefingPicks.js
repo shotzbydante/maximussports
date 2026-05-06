@@ -64,10 +64,19 @@ function classifyPick(pick, thresholds) {
   // briefing rejection reason is specific even when the picks builder
   // already demoted the pick to tracking.
   if (pick.longShotDogRisk && pick.longShotDogRisk.supported === false) {
-    return { ok: false, reason: 'long_shot_dog_unsupported_by_form' };
+    return {
+      ok: false,
+      reason: pick.longShotDogRisk.hardCapped === true
+        ? 'long_shot_dog_hard_capped'
+        : 'long_shot_dog_unsupported_by_form',
+    };
   }
   if (pick.largeFavoriteSpreadRisk && pick.largeFavoriteSpreadRisk.supported === false) {
     return { ok: false, reason: 'large_favorite_unsupported_by_margin' };
+  }
+  // v12b: ATS short dog without recent-form support.
+  if (pick.atsShortDogRisk && pick.atsShortDogRisk.supported === false) {
+    return { ok: false, reason: 'ats_short_dog_unsupported_by_form' };
   }
 
   // Briefing requires hero status as the entry point.

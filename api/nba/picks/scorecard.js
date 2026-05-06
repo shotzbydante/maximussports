@@ -414,11 +414,20 @@ export default async function handler(req, res) {
         spread:    { won: 0, lost: 0, push: 0, pending: 0 },
         total:     { won: 0, lost: 0, push: 0, pending: 0 },
       };
+      // v12b: split hero record from full-slate tracking record so the
+      // user can see at a glance that hero (the curated subset) is doing
+      // well even when the full-slate tracking sample has losses.
+      const heroBuckets = { won: 0, lost: 0, push: 0, pending: 0 };
+      const trackingBuckets = { won: 0, lost: 0, push: 0, pending: 0 };
       for (const p of picks) {
         const status = p.status || 'pending';
         if (buckets.overall[status] != null) buckets.overall[status] += 1;
         const cat = p.marketType === 'runline' ? 'spread' : p.marketType;
         if (cat && buckets[cat]?.[status] != null) buckets[cat][status] += 1;
+        const role = (p.rationale && p.rationale.pickRole) ||
+                     (p.tier === 'tracking' ? 'tracking' : 'hero');
+        const dest = role === 'hero' ? heroBuckets : trackingBuckets;
+        if (dest[status] != null) dest[status] += 1;
       }
       totals = {
         published: picks.length,
@@ -429,6 +438,11 @@ export default async function handler(req, res) {
           moneyline: buckets.moneyline,
           spread:    buckets.spread,
           total:     buckets.total,
+        },
+        // v12b
+        byPickRole: {
+          hero:     heroBuckets,
+          tracking: trackingBuckets,
         },
       };
     }

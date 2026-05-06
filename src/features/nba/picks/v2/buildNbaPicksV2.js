@@ -31,19 +31,22 @@ import { selectBriefingPicks } from './selectBriefingPicks.js';
 import {
   isLongShotDogSupportedByForm,
   isLargeFavoriteSupportedByMargin,
+  isShortAtsDogSupportedByForm,
+  isLongShotDogHardCapped,
   totalsTrendAgreement,
 } from './teamForm.js';
 
 const COVERAGE_MIN_SCORE = 0.30;
 const COVERAGE_MAX_PICKS = 15;
 
-// v12 bump (2026-05-04): adds team-form prior + long-shot ML dog and
-// large-favorite spread risk gates. Picks like PHI ML +236 (lost -39)
-// and SAS -13 (lost outright) on the May 4 slate cleared the v8 hero
-// floor with no recent-form support. v12 demotes these patterns to
-// tracking when the dog/favorite has no ESPN-derived margin backing.
-// Bumping the version also invalidates the v2.2.0 KV cache.
-export const NBA_MODEL_VERSION = 'nba-picks-v2.3.0';
+// v12b bump (2026-05-05): tightens v12 with a long-shot ML hard cap
+// (≥+500 cross-market always tracking) and an ATS short-dog form gate
+// for +0.5..+6.5 cross-market dogs. May 5 results: LAL +700 ML loss,
+// CLE +3 ATS loss — both already tracking under v12, but the audit
+// surface didn't separate hero from tracking record so they read as
+// "model losses". v12b also stamps modelVersion onto more debug paths
+// so the audit can attribute picks correctly.
+export const NBA_MODEL_VERSION = 'nba-picks-v2.3.1';
 
 /**
  * Playoff-aware conservative tuning (2026-04-24).
@@ -359,6 +362,7 @@ function makePick(matchup, score, info, bs) {
     homeTeamForm:            info.homeTeamForm ?? null,
     longShotDogRisk:         info.longShotDogRisk ?? null,
     largeFavoriteSpreadRisk: info.largeFavoriteSpreadRisk ?? null,
+    atsShortDogRisk:         info.atsShortDogRisk ?? null,    // v12b
     totalsTrendAgreement:    info.totalsTrendAgreement ?? null,
     result: null,
     // Back-compat
@@ -525,20 +529,29 @@ export function buildNbaPicksV2({
           // v12: long-shot ML dog gate. If the dog price is +200 or
           // longer AND the source is cross-market arbitrage, demote to
           // tracking unless recent form supports the dog.
+          // v12b: ≥+500 cross-market is HARD-CAPPED — no form-data
+          // override possible. Independent-model picks (modelSource
+          // outside the cross-market enum) bypass the hard cap.
           const isUnderdogSide = ml.priceAmerican != null && ml.priceAmerican > 0;
           const isCrossMarket = ['spread', 'devigged_ml', 'no_vig_blend'].includes(ml.modelSource);
           let longShotDogRisk = null;
           if (isUnderdogSide && isCrossMarket && (ml.priceAmerican >= 200)) {
             const fav = ml.side === 'away' ? homeForm : awayForm;
             const dog = ml.side === 'away' ? awayForm : homeForm;
-            const support = isLongShotDogSupportedByForm({
-              favoriteForm: fav, underdogForm: dog,
-              priceAmerican: ml.priceAmerican,
+            const hardCap = isLongShotDogHardCapped({
+              priceAmerican: ml.priceAmerican, modelSource: ml.modelSource,
             });
+            const support = hardCap.capped
+              ? { supported: false, reason: hardCap.reason }
+              : isLongShotDogSupportedByForm({
+                  favoriteForm: fav, underdogForm: dog,
+                  priceAmerican: ml.priceAmerican,
+                });
             longShotDogRisk = {
               priceAmerican: ml.priceAmerican,
               supported: support.supported,
               reason: support.reason,
+              hardCapped: hardCap.capped === true,
             };
           }
 
@@ -592,6 +605,8 @@ export function buildNbaPicksV2({
           // (favorite's recent margin advantage exceeds the spread).
           const lineAbs = Math.abs(sp.lineValue ?? 0);
           const isFavoriteSide = (sp.lineValue ?? 0) < 0;
+          const isAtsDogSide = (sp.lineValue ?? 0) > 0;
+          const spreadIsCrossMarket = sp.modelSource === 'devigged_ml' || sp.modelSource === 'spread_self';
           let largeFavoriteSpreadRisk = null;
           if (isFavoriteSide && lineAbs >= 10) {
             const fav = sp.side === 'away' ? awayForm : homeForm;
@@ -605,6 +620,24 @@ export function buildNbaPicksV2({
               reason: support.reason,
               supportPoints: support.supportPoints ?? null,
               requiredPoints: support.requiredPoints ?? null,
+            };
+          }
+
+          // v12b: ATS short-dog gate. CLE +3 (May 5 slate, lost cover
+          // by 7) was a +3 cross-market dog with no recent-form reason
+          // to like CLE. Symmetric to long-shot ML dog gate but for
+          // the spread market.
+          let atsShortDogRisk = null;
+          if (isAtsDogSide && spreadIsCrossMarket && (sp.lineValue >= 0.5 && sp.lineValue <= 6.5)) {
+            const fav = sp.side === 'away' ? homeForm : awayForm;
+            const dog = sp.side === 'away' ? awayForm : homeForm;
+            const support = isShortAtsDogSupportedByForm({
+              favoriteForm: fav, underdogForm: dog, line: sp.lineValue,
+            });
+            atsShortDogRisk = {
+              line: sp.lineValue,
+              supported: support.supported,
+              reason: support.reason,
             };
           }
 
@@ -623,6 +656,8 @@ export function buildNbaPicksV2({
             awayTeamForm: awayForm,
             homeTeamForm: homeForm,
             largeFavoriteSpreadRisk,
+            // v12b ATS short-dog risk
+            atsShortDogRisk,
           }, bs), matchup.gameId);
         }
       }
@@ -763,6 +798,8 @@ export function buildNbaPicksV2({
     if (p.longShotDogRisk && p.longShotDogRisk.supported === false) continue;
     // v12: large-favorite spread must have recent-margin support.
     if (p.largeFavoriteSpreadRisk && p.largeFavoriteSpreadRisk.supported === false) continue;
+    // v12b: ATS short dog must have recent-form support.
+    if (p.atsShortDogRisk && p.atsShortDogRisk.supported === false) continue;
     heroIds.add(p.id);
   }
 

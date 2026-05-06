@@ -8,6 +8,8 @@ import {
   recentMarginSupport,
   isLongShotDogSupportedByForm,
   isLargeFavoriteSupportedByMargin,
+  isShortAtsDogSupportedByForm,
+  isLongShotDogHardCapped,
   totalsTrendAgreement,
 } from './teamForm.js';
 
@@ -174,6 +176,77 @@ describe('isLargeFavoriteSupportedByMargin — v12 SAS -13 case', () => {
     });
     expect(r.supported).toBe(true);
     expect(r.reason).toBe('not_large');
+  });
+});
+
+describe('v12b — isShortAtsDogSupportedByForm (CLE +3 case)', () => {
+  it('rejects ATS short dog with low sample', () => {
+    const r = isShortAtsDogSupportedByForm({
+      favoriteForm: { sample: 1, recentMarginAvg: 5 },
+      underdogForm: { sample: 1, recentMarginAvg: 0 },
+      line: +3,
+    });
+    expect(r.supported).toBe(false);
+  });
+
+  it('rejects ATS short dog when favorite dominates recent', () => {
+    const r = isShortAtsDogSupportedByForm({
+      favoriteForm: { sample: 3, recentMarginAvg: 15, confidence: 0.5 },
+      underdogForm: { sample: 3, recentMarginAvg: -3, confidence: 0.5 },
+      line: +3,
+    });
+    expect(r.supported).toBe(false);
+    expect(r.reason).toBe('favorite_dominates_recent');
+  });
+
+  it('rejects ATS short dog when dog is in losing trend', () => {
+    const r = isShortAtsDogSupportedByForm({
+      favoriteForm: { sample: 3, recentMarginAvg: 4, confidence: 0.5 },
+      underdogForm: { sample: 3, recentMarginAvg: -10, confidence: 0.5 },
+      line: +3,
+    });
+    expect(r.supported).toBe(false);
+    expect(r.reason).toBe('dog_recent_margin_negative');
+  });
+
+  it('accepts ATS short dog with form support', () => {
+    const r = isShortAtsDogSupportedByForm({
+      favoriteForm: { sample: 3, recentMarginAvg: 5, confidence: 0.5 },
+      underdogForm: { sample: 3, recentMarginAvg: 1, confidence: 0.5 },
+      line: +3,
+    });
+    expect(r.supported).toBe(true);
+    expect(r.reason).toBe('form_supports_short_dog');
+  });
+
+  it('non-short-dog line always supported (e.g. +9)', () => {
+    const r = isShortAtsDogSupportedByForm({
+      favoriteForm: { sample: 0 }, underdogForm: { sample: 0 },
+      line: +9,
+    });
+    expect(r.supported).toBe(true);
+    expect(r.reason).toBe('not_short_dog');
+  });
+});
+
+describe('v12b — isLongShotDogHardCapped (LAL +700 case)', () => {
+  it('caps +500 cross-market dog hard', () => {
+    const r = isLongShotDogHardCapped({ priceAmerican: +500, modelSource: 'spread' });
+    expect(r.capped).toBe(true);
+    expect(r.reason).toBe('long_shot_cross_market_hard_cap');
+  });
+  it('caps +700 from no_vig_blend', () => {
+    const r = isLongShotDogHardCapped({ priceAmerican: +700, modelSource: 'no_vig_blend' });
+    expect(r.capped).toBe(true);
+  });
+  it('does NOT cap +700 when source is non-cross-market', () => {
+    const r = isLongShotDogHardCapped({ priceAmerican: +700, modelSource: 'real_independent_model' });
+    expect(r.capped).toBe(false);
+    expect(r.reason).toBe('non_cross_market_source');
+  });
+  it('does NOT cap +400 cross-market (below threshold)', () => {
+    const r = isLongShotDogHardCapped({ priceAmerican: +400, modelSource: 'spread' });
+    expect(r.capped).toBe(false);
   });
 });
 

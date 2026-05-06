@@ -36,8 +36,8 @@ function mkGame({ id, away, home, awayMl, homeMl, line, total, fairTotalSource =
 }
 
 describe('v12 model version', () => {
-  it('NBA_MODEL_VERSION is bumped past v2.2.0', () => {
-    expect(NBA_MODEL_VERSION).toBe('nba-picks-v2.3.0');
+  it('NBA_MODEL_VERSION is bumped past v2.2.0 (v12 line)', () => {
+    expect(NBA_MODEL_VERSION.startsWith('nba-picks-v2.3.')).toBe(true);
   });
 });
 

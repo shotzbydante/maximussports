@@ -209,6 +209,69 @@ export function isLargeFavoriteSupportedByMargin({
 }
 
 /**
+ * v12b — ATS short-dog support gate (+0.5 .. +6.5 inclusive). Mirrors the
+ * v12 long-shot ML dog gate but for the ATS market: a small/moderate
+ * underdog spread can ride cross-market disagreement to a hero/briefing
+ * slot without any independent reason to think the dog will keep it
+ * close. CLE +3 (May 5 slate, lost cover by 7) was the production
+ * example.
+ *
+ * Returns supported=true ONLY when:
+ *   - both teams have ≥ 2 priors
+ *   - the dog's recent margin is non-negative (not in a losing slide)
+ *   - the favorite's recent margin advantage isn't massively larger
+ *     than the spread (the dog isn't being asked to absorb a true
+ *     blowout). Threshold: support ≤ spreadAbs + 6.
+ */
+export function isShortAtsDogSupportedByForm({
+  favoriteForm, underdogForm, line,
+  shortDogMin = 0.5, shortDogMax = 6.5,
+} = {}) {
+  if (!isNum(line)) return { supported: false, reason: 'no_line' };
+  if (line < shortDogMin || line > shortDogMax) {
+    return { supported: true, reason: 'not_short_dog' };
+  }
+  if (!underdogForm || underdogForm.sample < 2) {
+    return { supported: false, reason: 'low_sample_dog' };
+  }
+  if (!favoriteForm || favoriteForm.sample < 2) {
+    return { supported: false, reason: 'low_sample_fav' };
+  }
+  // Dog must not be in a losing trend.
+  if (underdogForm.recentMarginAvg < -8) {
+    return { supported: false, reason: 'dog_recent_margin_negative' };
+  }
+  const ms = recentMarginSupport({ favoriteForm, underdogForm });
+  if (ms.supportPoints != null && ms.supportPoints > line + 6) {
+    // Favorite materially exceeds spread by recent margin → cover risk.
+    return { supported: false, reason: 'favorite_dominates_recent' };
+  }
+  return { supported: true, reason: 'form_supports_short_dog' };
+}
+
+/**
+ * v12b — long-shot ML dog HARD cap. Independent of `isLongShotDogSupportedByForm`.
+ * For prices ≥ +500 and cross-market source, the gate is unconditional:
+ * never hero/briefing. The PHI/SAS lessons + LAL +700 May 5 loss
+ * confirmed that even with form data, +500+ dogs are too noisy on cross-
+ * market signal alone. A real independent model can lift the cap by
+ * setting modelSource away from the cross-market enum.
+ */
+export function isLongShotDogHardCapped({
+  priceAmerican, modelSource,
+  hardCapPriceAbs = 500,
+} = {}) {
+  if (!isNum(priceAmerican) || priceAmerican < hardCapPriceAbs) {
+    return { capped: false, reason: 'below_hard_cap' };
+  }
+  const isCrossMarket = ['spread', 'devigged_ml', 'no_vig_blend'].includes(modelSource);
+  if (!isCrossMarket) {
+    return { capped: false, reason: 'non_cross_market_source' };
+  }
+  return { capped: true, reason: 'long_shot_cross_market_hard_cap' };
+}
+
+/**
  * Totals trend agreement — do both teams' recent total averages point in
  * the same direction as the model's selected over/under?
  *
