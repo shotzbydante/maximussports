@@ -317,8 +317,12 @@ function pickLogoSlug(s, source) {
 
 function bulletForGameStory(story) {
   // Narrative-aware path FIRST: dramatic OT / comeback / buzzer-beater
-  // games surface with stronger language when the game data supports it.
-  // Falls back to the generic templates below if no special signal fires.
+  // / Game-1 statement / series-edge games surface with stronger
+  // language when the game data supports it. The non-clincher
+  // playoff narratives added in section 6 of buildNbaGameNarrative
+  // mean this almost always returns a rich bullet — the legacy
+  // templates below run only when there's literally nothing else
+  // to say (off-bracket exhibition, etc.).
   const dramatic = buildNbaGameNarrative(story);
   if (dramatic) return dramatic;
 
@@ -338,9 +342,13 @@ function bulletForGameStory(story) {
   if (story.isStolenRoadWin && story.winSeriesWins >= story.loseSeriesWins) {
     return `${w} steal one on the road from ${l} ${score}${tag}.`;
   }
-  if (story.type === 'blowout') return `${w} roll past ${l} ${score}${tag}.`;
-  if (story.type === 'close') return `${w} edge ${l} ${score}${tag}.`;
-  return `${w} beat ${l} ${score}${tag}.`;
+  if (story.type === 'blowout') return `${w} roll past ${l} ${score}${tag} — handles business with bracket pressure rising.`;
+  if (story.type === 'close') return `${w} edge ${l} ${score}${tag} — every possession on the line.`;
+  // Final safety net — NEVER ship the bare "Team beat Team SCORE."
+  // copy that the audit screenshot called out. Always anchor on the
+  // implied playoff context: if we got here at all, this is a
+  // playoff-window game, so framing it as a playoff edge is safe.
+  return `${w} handle ${l} ${score}${tag} — playoff edge tightens around the matchup.`;
 }
 
 /**
@@ -487,6 +495,124 @@ export function buildNbaGameNarrative(story) {
     return `🔥 ${w} blow out ${l} ${score}${tag} — series clinched in a statement win.`;
   }
 
+  // ─────────────────────────────────────────────────────────────────
+  // 6. NON-CLINCHER PLAYOFF NARRATIVES (audit Part 2 fix). Fires for
+  //    Round 1+ games that aren't clinching/OT/buzzer/comeback —
+  //    these used to fall through to the bare "Team beat Team SCORE"
+  //    fallback. With game-number + round + margin context we can
+  //    always emit playoff-grade copy.
+  //
+  //    Order: more dramatic / specific beats first.
+  //
+  //    Required signals (all derived in extractGameStories from
+  //    game/playoffContext, never inferred):
+  //      story.h2hGameNumber  — e.g. 1 for Game 1 of any series
+  //      story.roundNumber    — playoff round (1..4)
+  //      story.marginTier     — historic | blowout | double_digit |
+  //                             standard | tight
+  //      story.isRoadWin      — boolean
+  //      story.isUpset        — boolean (when seed comparable)
+  //      story.winSeriesWins  — winner's series wins AFTER game (when
+  //                             series matched)
+  //      story.loseSeriesWins
+  // ─────────────────────────────────────────────────────────────────
+  const gameN = story.h2hGameNumber || (story.inSeries ? (story.winSeriesWins + story.loseSeriesWins) : null);
+  const roundLabel = roundLabelFor(story.roundNumber);
+  const wW = story.winSeriesWins;
+  const wL = story.loseSeriesWins;
+
+  // 6a. SERIES-EDGE / SERIES-LEAD CREATED — only when we know the
+  //     series state from a matched bracket series.
+  if (story.inSeries && wW != null && wL != null) {
+    if (wW === 3 && wL === 1) {
+      return `🔥 ${w} take a 3-1 series lead over ${l} — ${score} win puts ${l} on the brink with their season on the line.`;
+    }
+    if (wW === 3 && wL === 2) {
+      return `🔥 ${w} grab a 3-2 series lead over ${l} — ${score} win moves them one step from closing it out.`;
+    }
+    if (wW === 2 && wL === 0) {
+      return `🔥 ${w} take a 2-0 series lead over ${l} ${score} — control of the ${roundLabel || 'series'} swings their way.`;
+    }
+    if (wW === 2 && wL === 1) {
+      return `📈 ${w} reclaim the series edge ${score} over ${l} — leads ${l} 2-1 with momentum heading into the next game.`;
+    }
+    if (wW === 1 && wL === 1) {
+      return `⚖️ ${w} answer ${l} ${score} to even the series 1-1 — the ${roundLabel || 'series'} resets with home court back in play.`;
+    }
+    if (wW === 2 && wL === 2) {
+      return `⚖️ ${w} respond to even the series 2-2 over ${l} ${score} — best-of-three from here.`;
+    }
+  }
+
+  // 6b. GAME 1 STATEMENT / FIRST PUNCH — fires when we can identify
+  //     this is the first game of the series (h2hGameNumber === 1).
+  //     Branches on margin / road / upset to pick the right framing.
+  //     Never claims comeback; only describes observable game facts.
+  if (gameN === 1) {
+    const r = roundLabel || 'series';
+    // Road winner (any margin) — most distinctive Game-1 outcome.
+    // Outranks the home-court templates so DET stealing Game 1 over
+    // CLE doesn't get tagged with "protect home court".
+    if (story.isRoadWin && story.marginTier !== 'tight') {
+      const verb = (story.marginTier === 'historic' || story.marginTier === 'blowout')
+        ? 'blow out' : 'handle';
+      return `🚨 ${w} land the first punch — ${w} ${verb} ${l} ${score} on the road and steal home-court control to open the ${r}.`;
+    }
+    if (story.marginTier === 'historic' || story.marginTier === 'blowout') {
+      return `🚨 ${w} send a Game 1 statement — ${w} blow out ${l} ${score} and open the ${r} like a contender.`;
+    }
+    if (story.marginTier === 'double_digit') {
+      return `🔥 ${w} send a Game 1 statement — ${w} control ${l} ${score} and protect home court to open the ${r}.`;
+    }
+    if (story.isUpset) {
+      return `👀 ${w} land the first punch — ${w} upset ${l} ${score} and put immediate pressure on the favorite to start the ${r}.`;
+    }
+    if (story.isRoadWin) {
+      return `🚨 ${w} steal Game 1 on the road — ${w} take ${l} ${score} and flip home-court control to open the ${r}.`;
+    }
+    return `🔥 ${w} take Game 1 over ${l} ${score} and grab the early series edge in the ${r}.`;
+  }
+
+  // 6c. GAME 2+ NON-CLINCHER, MARGIN-DRIVEN — leans on margin tier
+  //     when we don't have a full series-state branch above.
+  if (story.marginTier === 'historic' || story.marginTier === 'blowout') {
+    const r = roundLabel || 'series';
+    return `🔥 ${w} blow out ${l} ${score} in the ${r} — a statement win that swings momentum.`;
+  }
+  if (story.marginTier === 'double_digit') {
+    const r = roundLabel || 'series';
+    return `🔥 ${w} control ${l} ${score} in the ${r} — handles business and grabs the next game's edge.`;
+  }
+  if (story.marginTier === 'tight' && story.inSeries) {
+    return `⚡ ${w} edge ${l} ${score}${tag} — every possession swung the series.`;
+  }
+  if (story.isRoadWin && story.inSeries) {
+    return `🚨 ${w} steal one on the road from ${l} ${score}${tag} — flips home-court math.`;
+  }
+
+  // 6d. SAFE PLAYOFF FALLBACK — never returns the bare "Team beat
+  //     Team SCORE." copy from the audit. Always anchors on round
+  //     context if we have it.
+  if (story.roundNumber || gameN) {
+    const r = roundLabel || 'series';
+    if (gameN && story.inSeries) {
+      return `📊 ${w} take Game ${gameN} over ${l} ${score} in the ${r} — bracket pressure rises${tag}.`;
+    }
+    if (gameN) {
+      return `📊 ${w} take Game ${gameN} over ${l} ${score} in the ${r} — playoff pressure builds.`;
+    }
+    return `📊 ${w} handle ${l} ${score} in the ${r} — playoff edge tightens around this matchup.`;
+  }
+
+  return null;
+}
+
+/** Map round number → human-readable label for narrative copy. */
+function roundLabelFor(round) {
+  if (round === 1) return 'first round';
+  if (round === 2) return 'conference semis';
+  if (round === 3) return 'conference finals';
+  if (round === 4) return 'NBA Finals';
   return null;
 }
 
