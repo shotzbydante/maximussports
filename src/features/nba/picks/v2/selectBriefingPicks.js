@@ -86,6 +86,10 @@ function classifyPick(pick, thresholds) {
   if (pick.totalsVolatilityRisk && pick.totalsVolatilityRisk.capped === true) {
     return { ok: false, reason: 'totals_volatility_thin_delta' };
   }
+  // v13b: series-context — trailing collapser is rejected from briefing.
+  if (pick.seriesContextGate && pick.seriesContextGate.supported === false) {
+    return { ok: false, reason: 'series_collapse_risk' };
+  }
 
   // Briefing requires hero status as the entry point.
   if (pick.pickRole !== 'hero') return { ok: false, reason: 'not_hero' };

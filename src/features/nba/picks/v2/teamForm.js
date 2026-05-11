@@ -78,6 +78,9 @@ export function computeTeamForm({ teamSlug, windowGames, sampleCap = SAMPLE_CAP 
       recentScoringAvg: null, recentAllowedAvg: null,
       recentMarginAvg: null, recentTotalAvg: null,
       marginVolatility: null, formScore: 0,
+      weightedRecentMargin: null,        // v13b
+      recentBlowoutRisk: false,          // v13b
+      repeatedLossRisk: false,           // v13b
     };
   }
   const n = finals.length;
@@ -95,6 +98,25 @@ export function computeTeamForm({ teamSlug, windowGames, sampleCap = SAMPLE_CAP 
   // ±15-point average margin is treated as a strong end of the scale.
   const formScore = clamp(recentMarginAvg / 15, -1, 1);
 
+  // v13b: recency-weighted margin. `finals` is sorted newest → oldest by
+  // `pastFinalsFor`. Weight = 1 / (1 + index) → most-recent game gets 1.0,
+  // next 0.5, next 0.33, ... — bounded but materially favors the most
+  // recent result. This is what lets the model catch a team in a fresh
+  // collapse / hot streak even when the older average looks neutral.
+  let wSum = 0, wTotal = 0;
+  finals.forEach((r, i) => {
+    const w = 1 / (1 + i);
+    wSum += r.margin * w;
+    wTotal += w;
+  });
+  const weightedRecentMargin = wTotal > 0 ? wSum / wTotal : null;
+
+  // v13b: simple repeated-blowout flags
+  const blowoutLosses = finals.filter(r => r.margin <= -10).length;
+  const blowoutWins   = finals.filter(r => r.margin >= +10).length;
+  const recentBlowoutRisk = n >= 2 && blowoutLosses >= 2;
+  const repeatedLossRisk  = n >= 2 && finals.filter(r => r.margin < 0).length === n;
+
   return {
     teamSlug,
     sample: n,
@@ -105,6 +127,12 @@ export function computeTeamForm({ teamSlug, windowGames, sampleCap = SAMPLE_CAP 
     recentTotalAvg:   round2(sumTotal / n),
     marginVolatility: round2(marginVolatility),
     formScore: round2(formScore),
+    // v13b additions
+    weightedRecentMargin: round2(weightedRecentMargin),
+    recentBlowoutRisk,
+    repeatedLossRisk,
+    blowoutLossCount: blowoutLosses,
+    blowoutWinCount: blowoutWins,
   };
 }
 

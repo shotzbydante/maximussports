@@ -96,6 +96,12 @@ export function analyzeNbaPicks({ sport = 'nba', slateDate, picks = [] } = {}) {
     // v13 slices
     byTotalsVolatilityRisk: emptyRecord(),
     byAtsDogCushion: { hero: emptyRecord(), lean: emptyRecord(), thin: emptyRecord() },
+    // v13b slices
+    bySeriesContext: {
+      trailingCollapse: emptyRecord(),
+      dominantFavorite: emptyRecord(),
+      neutral: emptyRecord(),
+    },
     positiveEvidence: [],   // small wins to log without auto-tuning
     shadowFindings: [],     // single-day misses noted for future tuning
     excludedPending: 0,
@@ -192,6 +198,15 @@ export function analyzeNbaPicks({ sport = 'nba', slateDate, picks = [] } = {}) {
       incr(summary.byTotalsVolatilityRisk, status);
     }
 
+    // v13b: series-context — three exclusive buckets
+    if (p.series_context_trailing_team_risk === true) {
+      incr(summary.bySeriesContext.trailingCollapse, status);
+    } else if (p.series_context_dominant_favorite_support === true) {
+      incr(summary.bySeriesContext.dominantFavorite, status);
+    } else if (p.series_context_sample > 0) {
+      incr(summary.bySeriesContext.neutral, status);
+    }
+
     // v12b: hero vs tracking record split — proves to scorecard
     // consumers that the hero subset is not what's losing today.
     // (Reusing the `role` var declared above; `byHeroVsTracking`
@@ -258,6 +273,25 @@ export function analyzeNbaPicks({ sport = 'nba', slateDate, picks = [] } = {}) {
           pickKey: p.pick_key,
           recommendation: 'v13 totals volatility gate caps high-variance + thin-delta totals',
           safeToAutoApply: false,
+        });
+      }
+      // v13b series-collapse warning when a trailing team's pick lost.
+      if (p.series_context_trailing_team_risk === true) {
+        summary.shadowFindings.push({
+          type: 'series_collapse_warning',
+          severity: 'low_one_day',
+          pickKey: p.pick_key,
+          recommendation: 'v13b seriesContextPrior already blocks trailing collapsers from hero/briefing',
+          safeToAutoApply: false,
+        });
+      }
+    } else if (status === 'won') {
+      // v13b positive evidence — dominant-favorite support hit
+      if (p.series_context_dominant_favorite_support === true) {
+        summary.positiveEvidence.push({
+          type: 'series_dominant_favorite_hit',
+          pickKey: p.pick_key,
+          marketType: p.market_type,
         });
       }
     }

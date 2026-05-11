@@ -37,16 +37,17 @@ import {
   atsDogMarginCushion,
   totalsTrendAgreement,
 } from './teamForm.js';
+import { seriesContextPrior, isSeriesContextSupportingHero } from './seriesContextPrior.js';
 
 const COVERAGE_MIN_SCORE = 0.30;
 const COVERAGE_MAX_PICKS = 15;
 
-// v13 bump (2026-05-11): adds totalsVolatilityRisk + atsDogMarginCushion
-// gates after DET @ CLE Under 213 hero loss (missed by 12) and DET +5
-// ATS tracking loss (lost cover by 2). Rolling 7d/30d records now
-// surface hero vs tracking record so users can judge recommended
-// picks separately from full-slate calibration tracking.
-export const NBA_MODEL_VERSION = 'nba-picks-v2.4.0';
+// v13b bump (2026-05-11 weekend audit): adds seriesContextPrior — a
+// bounded per-team series-lead / blowout signal derived from the
+// existing playoff context. Caps hero promotion for trailing teams in
+// blowout-pattern series (LAL/PHI swept patterns); offers small
+// support for dominant favorites (OKC/NYK swept patterns).
+export const NBA_MODEL_VERSION = 'nba-picks-v2.4.1';
 
 /**
  * Playoff-aware conservative tuning (2026-04-24).
@@ -366,6 +367,9 @@ function makePick(matchup, score, info, bs) {
     atsDogCushionRisk:       info.atsDogCushionRisk ?? null,  // v13
     totalsVolatilityRisk:    info.totalsVolatilityRisk ?? null, // v13
     totalsTrendAgreement:    info.totalsTrendAgreement ?? null,
+    // v13b series-context prior
+    seriesContextPrior:      info.seriesContextPrior ?? null,
+    seriesContextGate:       info.seriesContextGate ?? null,
     result: null,
     // Back-compat
     category: legacyCategory,
@@ -507,6 +511,15 @@ export function buildNbaPicksV2({
     const awayForm = g?.model?.awayTeamForm || null;
     const homeForm = g?.model?.homeTeamForm || null;
 
+    // v13b: per-side series-context prior. When the builder attaches
+    // `gameContext[gameId].series` (full series object), we derive a
+    // small support/cap signal: trailing-team collapse risk caps the
+    // dog's ML/ATS hero promotion; dominant-favorite support permits
+    // small extra confidence for the lead team.
+    const series = gameContext?.[g.gameId]?.series || null;
+    const awaySeriesPrior = seriesContextPrior({ series, teamSlug: g?.teams?.away?.slug });
+    const homeSeriesPrior = seriesContextPrior({ series, teamSlug: g?.teams?.home?.slug });
+
     // ── Moneyline (always one per game) ──
     // v9: pickMoneylineSide() de-vigs the bookmaker odds and compares
     // them against an INDEPENDENT spread-derived model probability. The
@@ -557,6 +570,9 @@ export function buildNbaPicksV2({
             };
           }
 
+          // v13b: per-pick series-context support/cap
+          const sidePrior = ml.side === 'away' ? awaySeriesPrior : homeSeriesPrior;
+          const seriesGate = isSeriesContextSupportingHero({ prior: sidePrior });
           pushDisciplined(makePick(matchup, score, {
             marketType: 'moneyline', side: ml.side, lineValue: null,
             priceAmerican: ml.priceAmerican ?? null,
@@ -578,6 +594,9 @@ export function buildNbaPicksV2({
             awayTeamForm: awayForm,
             homeTeamForm: homeForm,
             longShotDogRisk,
+            // v13b series-context context
+            seriesContextPrior: sidePrior,
+            seriesContextGate: seriesGate,
           }, bs), matchup.gameId);
         }
       }
@@ -682,6 +701,11 @@ export function buildNbaPicksV2({
             atsShortDogRisk,
             // v13 ATS dog cushion risk
             atsDogCushionRisk,
+            // v13b series-context context (per selected side)
+            seriesContextPrior: sp.side === 'away' ? awaySeriesPrior : homeSeriesPrior,
+            seriesContextGate: isSeriesContextSupportingHero({
+              prior: sp.side === 'away' ? awaySeriesPrior : homeSeriesPrior,
+            }),
           }, bs), matchup.gameId);
         }
       }
@@ -839,6 +863,8 @@ export function buildNbaPicksV2({
     if (p.atsDogCushionRisk && p.atsDogCushionRisk.supported === false) continue;
     // v13: high-volatility totals with thin delta stay tracking.
     if (p.totalsVolatilityRisk && p.totalsVolatilityRisk.capped === true) continue;
+    // v13b: series-context — trailing team in blowout series cannot hero.
+    if (p.seriesContextGate && p.seriesContextGate.supported === false) continue;
     heroIds.add(p.id);
   }
 

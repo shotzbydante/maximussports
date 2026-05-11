@@ -94,14 +94,21 @@ function buildPicksGameContext(upcomingGames, windowGames) {
     const found = findSeriesForGame(g, pc);
     if (!found?.series) continue;
     const s = found.series;
-    if (s.isElimination || s.isGameSeven) {
-      ctx[g.gameId] = {
-        isElimination: !!s.isElimination,
-        isGameSeven:   !!s.isGameSeven,
-        eliminationFor: s.eliminationFor || null,
-        eliminationLabel: s.eliminationLabel || null,
-      };
-    }
+    // v13b: always attach the series + matchup info (not just elimination)
+    // so the builder can compute a per-side seriesContextPrior. Keeps
+    // backward-compat with the v12b elimination/G7 fields above.
+    ctx[g.gameId] = {
+      isElimination: !!s.isElimination,
+      isGameSeven:   !!s.isGameSeven,
+      eliminationFor: s.eliminationFor || null,
+      eliminationLabel: s.eliminationLabel || null,
+      series: {
+        topTeam:    s.topTeam || null,
+        bottomTeam: s.bottomTeam || null,
+        seriesScore: s.seriesScore || null,
+        games: Array.isArray(s.games) ? s.games : [],
+      },
+    };
   }
   return ctx;
 }
