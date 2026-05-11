@@ -78,6 +78,14 @@ function classifyPick(pick, thresholds) {
   if (pick.atsShortDogRisk && pick.atsShortDogRisk.supported === false) {
     return { ok: false, reason: 'ats_short_dog_unsupported_by_form' };
   }
+  // v13: ATS dog cushion below hero threshold (default 3.5 pts).
+  if (pick.atsDogCushionRisk && pick.atsDogCushionRisk.supported === false) {
+    return { ok: false, reason: 'ats_dog_thin_cushion' };
+  }
+  // v13: totals with high volatility + thin delta.
+  if (pick.totalsVolatilityRisk && pick.totalsVolatilityRisk.capped === true) {
+    return { ok: false, reason: 'totals_volatility_thin_delta' };
+  }
 
   // Briefing requires hero status as the entry point.
   if (pick.pickRole !== 'hero') return { ok: false, reason: 'not_hero' };

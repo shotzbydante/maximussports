@@ -33,20 +33,20 @@ import {
   isLargeFavoriteSupportedByMargin,
   isShortAtsDogSupportedByForm,
   isLongShotDogHardCapped,
+  isTotalsTooVolatileForHero,
+  atsDogMarginCushion,
   totalsTrendAgreement,
 } from './teamForm.js';
 
 const COVERAGE_MIN_SCORE = 0.30;
 const COVERAGE_MAX_PICKS = 15;
 
-// v12b bump (2026-05-05): tightens v12 with a long-shot ML hard cap
-// (≥+500 cross-market always tracking) and an ATS short-dog form gate
-// for +0.5..+6.5 cross-market dogs. May 5 results: LAL +700 ML loss,
-// CLE +3 ATS loss — both already tracking under v12, but the audit
-// surface didn't separate hero from tracking record so they read as
-// "model losses". v12b also stamps modelVersion onto more debug paths
-// so the audit can attribute picks correctly.
-export const NBA_MODEL_VERSION = 'nba-picks-v2.3.1';
+// v13 bump (2026-05-11): adds totalsVolatilityRisk + atsDogMarginCushion
+// gates after DET @ CLE Under 213 hero loss (missed by 12) and DET +5
+// ATS tracking loss (lost cover by 2). Rolling 7d/30d records now
+// surface hero vs tracking record so users can judge recommended
+// picks separately from full-slate calibration tracking.
+export const NBA_MODEL_VERSION = 'nba-picks-v2.4.0';
 
 /**
  * Playoff-aware conservative tuning (2026-04-24).
@@ -363,6 +363,8 @@ function makePick(matchup, score, info, bs) {
     longShotDogRisk:         info.longShotDogRisk ?? null,
     largeFavoriteSpreadRisk: info.largeFavoriteSpreadRisk ?? null,
     atsShortDogRisk:         info.atsShortDogRisk ?? null,    // v12b
+    atsDogCushionRisk:       info.atsDogCushionRisk ?? null,  // v13
+    totalsVolatilityRisk:    info.totalsVolatilityRisk ?? null, // v13
     totalsTrendAgreement:    info.totalsTrendAgreement ?? null,
     result: null,
     // Back-compat
@@ -641,6 +643,26 @@ export function buildNbaPicksV2({
             };
           }
 
+          // v13: ATS dog margin cushion gate. Even when form supports
+          // the dog, a thin cushion (model projects loss by close to
+          // the spread) makes hero promotion fragile. DET +5 had a
+          // ~1.2-point cushion (CLE projected by ~3.8) and lost cover
+          // by 2 — exactly the case this gate should catch.
+          let atsDogCushionRisk = null;
+          if (isAtsDogSide && isNum(sp.projectedHomeMargin)) {
+            const cushion = atsDogMarginCushion({
+              projectedHomeMargin: sp.projectedHomeMargin,
+              line: sp.lineValue,
+              selectedSide: sp.side,
+            });
+            atsDogCushionRisk = {
+              cushion: cushion.cushion,
+              bucket: cushion.bucket,
+              supported: cushion.supported,
+              reason: cushion.reason,
+            };
+          }
+
           pushDisciplined(makePick(matchup, score, {
             marketType: 'spread', side: sp.side, lineValue: sp.lineValue,
             priceAmerican: null, rawEdge: sp.rawEdge,
@@ -658,6 +680,8 @@ export function buildNbaPicksV2({
             largeFavoriteSpreadRisk,
             // v12b ATS short-dog risk
             atsShortDogRisk,
+            // v13 ATS dog cushion risk
+            atsDogCushionRisk,
           }, bs), matchup.gameId);
         }
       }
@@ -690,6 +714,15 @@ export function buildNbaPicksV2({
           marketTotal: m.total.points,
           fairTotal: score.expectedTotal,
         });
+        // v13: totals volatility risk. Caps hero promotion when team
+        // recent scoring has wide variance AND the fair-total delta is
+        // thin. DET @ CLE Under 213 (lost by 12) had a small delta and
+        // noisy recent scores — exactly this case.
+        const volatilityRisk = isTotalsTooVolatileForHero({
+          awayForm, homeForm,
+          marketTotal: m.total.points,
+          fairTotal: score.expectedTotal,
+        });
         pushDisciplined(makePick(matchup, score, {
           marketType: 'total', side, lineValue: m.total.points,
           priceAmerican: null, rawEdge: null, modelProb: null, impliedProb: null,
@@ -701,6 +734,8 @@ export function buildNbaPicksV2({
           awayTeamForm: awayForm,
           homeTeamForm: homeForm,
           totalsTrendAgreement: trendAgreement,
+          // v13 totals volatility risk
+          totalsVolatilityRisk: volatilityRisk,
         }, bs), matchup.gameId);
       }
     }
@@ -800,6 +835,10 @@ export function buildNbaPicksV2({
     if (p.largeFavoriteSpreadRisk && p.largeFavoriteSpreadRisk.supported === false) continue;
     // v12b: ATS short dog must have recent-form support.
     if (p.atsShortDogRisk && p.atsShortDogRisk.supported === false) continue;
+    // v13: ATS dog must have a meaningful margin cushion (≥3.5 pts).
+    if (p.atsDogCushionRisk && p.atsDogCushionRisk.supported === false) continue;
+    // v13: high-volatility totals with thin delta stay tracking.
+    if (p.totalsVolatilityRisk && p.totalsVolatilityRisk.capped === true) continue;
     heroIds.add(p.id);
   }
 

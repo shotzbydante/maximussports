@@ -621,9 +621,25 @@ function RollingPerformance({ perf }) {
     );
   }
 
+  // v13: detect whether the byPickRole split has any signal — show
+  // recommended (hero) vs tracking columns when at least one window has
+  // a hero row recorded. Older scorecards (pre-v13 build-scorecard cron)
+  // don't populate byPickRole, so the helper degrades to the legacy
+  // single-record card.
+  const haveRoleSplit =
+    !!(w7?.byPickRole?.hero?.record || w7?.byPickRole?.tracking?.record ||
+       w30?.byPickRole?.hero?.record || w30?.byPickRole?.tracking?.record);
+
   return (
     <div className={styles.rolling}>
       <h3 className={styles.rollingTitle}>Rolling Performance</h3>
+      {haveRoleSplit && (
+        <p className={styles.rollingNote}>
+          <strong>Recommended</strong> picks are promoted to the hero board.{' '}
+          <strong>Tracking</strong> picks exist for full-slate calibration and
+          transparency — graded daily but not editorialized as plays.
+        </p>
+      )}
       <div className={styles.rollingGrid}>
         <RollingCol label="Last 7 days" win={w7} />
         <RollingCol label="Last 30 days" win={w30} />
@@ -664,17 +680,49 @@ function RollingCol({ label, win }) {
       </div>
     );
   }
+  const hero = win.byPickRole?.hero;
+  const tracking = win.byPickRole?.tracking;
+  const showSplit = hero?.record || tracking?.record;
   return (
     <div className={styles.rollingCard}>
       <span className={styles.rollingCardLabel}>{label}</span>
-      <span className={styles.rollingCardValue}>{win.record || '—'}</span>
-      {win.winRate != null && (
-        <span className={styles.rollingCardRate}>{win.winRate}%</span>
+      {showSplit ? (
+        <div className={styles.rollingSplit}>
+          <div className={styles.rollingSplitRow}>
+            <span className={styles.rollingSplitLabel}>Recommended</span>
+            <span className={styles.rollingSplitValue}>
+              {hero?.record || '—'}
+              {hero?.winRate != null && hero?.record ? (
+                <span className={styles.rollingSplitRate}>{hero.winRate}%</span>
+              ) : null}
+            </span>
+          </div>
+          <div className={styles.rollingSplitRow}>
+            <span className={styles.rollingSplitLabel}>Tracking</span>
+            <span className={styles.rollingSplitValueMuted}>
+              {tracking?.record || '—'}
+              {tracking?.winRate != null && tracking?.record ? (
+                <span className={styles.rollingSplitRateMuted}>{tracking.winRate}%</span>
+              ) : null}
+            </span>
+          </div>
+          <span className={styles.rollingCardSample}>
+            Full slate {win.record || '—'}
+            {win.sparse ? ' · small sample' : ''}
+          </span>
+        </div>
+      ) : (
+        <>
+          <span className={styles.rollingCardValue}>{win.record || '—'}</span>
+          {win.winRate != null && (
+            <span className={styles.rollingCardRate}>{win.winRate}%</span>
+          )}
+          <span className={styles.rollingCardSample}>
+            {win.sample ? `${win.sample} graded` : 'tracking'}
+            {win.sparse ? ' · small sample' : ''}
+          </span>
+        </>
       )}
-      <span className={styles.rollingCardSample}>
-        {win.sample ? `${win.sample} graded` : 'tracking'}
-        {win.sparse ? ' · small sample' : ''}
-      </span>
     </div>
   );
 }

@@ -93,6 +93,9 @@ export function analyzeNbaPicks({ sport = 'nba', slateDate, picks = [] } = {}) {
     byAtsShortDog: emptyRecord(),
     byAtsShortDogUnsupported: emptyRecord(),
     byHeroVsTracking: { hero: emptyRecord(), tracking: emptyRecord() },
+    // v13 slices
+    byTotalsVolatilityRisk: emptyRecord(),
+    byAtsDogCushion: { hero: emptyRecord(), lean: emptyRecord(), thin: emptyRecord() },
     positiveEvidence: [],   // small wins to log without auto-tuning
     shadowFindings: [],     // single-day misses noted for future tuning
     excludedPending: 0,
@@ -178,6 +181,17 @@ export function analyzeNbaPicks({ sport = 'nba', slateDate, picks = [] } = {}) {
       }
     }
 
+    // v13: ATS dog cushion bucket
+    if (p.market_type === 'runline' && p.ats_dog_cushion_bucket) {
+      const b = p.ats_dog_cushion_bucket;
+      if (summary.byAtsDogCushion[b]) incr(summary.byAtsDogCushion[b], status);
+    }
+
+    // v13: totals volatility risk
+    if (p.market_type === 'total' && p.totals_volatility_risk_capped === true) {
+      incr(summary.byTotalsVolatilityRisk, status);
+    }
+
     // v12b: hero vs tracking record split — proves to scorecard
     // consumers that the hero subset is not what's losing today.
     // (Reusing the `role` var declared above; `byHeroVsTracking`
@@ -223,6 +237,26 @@ export function analyzeNbaPicks({ sport = 'nba', slateDate, picks = [] } = {}) {
           lineValue: p.line_value,
           modelSource: p.model_source,
           recommendation: 'v12b ATS short-dog gate now requires recent-form support',
+          safeToAutoApply: false,
+        });
+      }
+      // v13 shadow findings
+      if (p.market_type === 'runline' && p.ats_dog_cushion_bucket === 'thin') {
+        summary.shadowFindings.push({
+          type: 'ats_short_dog_thin_cushion_miss',
+          severity: 'low_one_day',
+          pickKey: p.pick_key,
+          lineValue: p.line_value,
+          recommendation: 'v13 cushion gate blocks <2.0pt cushion from hero/briefing',
+          safeToAutoApply: false,
+        });
+      }
+      if (p.market_type === 'total' && p.totals_volatility_risk_capped === true) {
+        summary.shadowFindings.push({
+          type: 'totals_volatility_miss',
+          severity: 'low_one_day',
+          pickKey: p.pick_key,
+          recommendation: 'v13 totals volatility gate caps high-variance + thin-delta totals',
           safeToAutoApply: false,
         });
       }

@@ -65,6 +65,10 @@ export function aggregateScorecards(scorecards = []) {
   const overall = emptyRecord();
   const byMarket = { moneyline: emptyRecord(), runline: emptyRecord(), total: emptyRecord() };
   const byTier = { tier1: emptyRecord(), tier2: emptyRecord(), tier3: emptyRecord() };
+  // v13: rolling hero/tracking record so the UI can show "Recommended"
+  // separate from "Full-slate tracking". Older scorecards without
+  // `by_pick_role` contribute zero to this slice — never inflate.
+  const byPickRole = { hero: emptyRecord(), tracking: emptyRecord() };
   const topPlay = { graded: 0, won: 0, lost: 0, push: 0 };
 
   for (const sc of scorecards) {
@@ -77,6 +81,10 @@ export function aggregateScorecards(scorecards = []) {
     addInto(byTier.tier1, bt.tier1);
     addInto(byTier.tier2, bt.tier2);
     addInto(byTier.tier3, bt.tier3);
+    // v13
+    const bpr = sc?.by_pick_role || sc?.byPickRole || {};
+    addInto(byPickRole.hero,     bpr.hero);
+    addInto(byPickRole.tracking, bpr.tracking);
     const tp = sc?.top_play_result ?? sc?.topPlayResult;
     if (tp === 'won') { topPlay.graded += 1; topPlay.won += 1; }
     else if (tp === 'lost') { topPlay.graded += 1; topPlay.lost += 1; }
@@ -89,6 +97,7 @@ export function aggregateScorecards(scorecards = []) {
     overall,
     byMarket,
     byTier,
+    byPickRole,                    // v13
     topPlay: {
       ...topPlay,
       hitRate: topPlay.graded > 0 ? topPlay.won / topPlay.graded : null,
@@ -208,15 +217,37 @@ export function classifyWindow(agg) {
   return 'none';
 }
 
+function fmtRecord(rec) {
+  const g = (rec?.won ?? 0) + (rec?.lost ?? 0);
+  if (g === 0) return null;
+  return `${rec.won}–${rec.lost}${rec.push ? `–${rec.push}` : ''}`;
+}
+
 export function shapeWindow(scorecards, label = 'Last 7 days') {
   const agg = aggregateScorecards(scorecards);
   const graded = agg.overall.won + agg.overall.lost;
   const pending = agg.overall.pending ?? 0;
-  const record = graded > 0
-    ? `${agg.overall.won}–${agg.overall.lost}${agg.overall.push ? `–${agg.overall.push}` : ''}`
-    : null;
+  const record = fmtRecord(agg.overall);
   const winRate = pct(agg.overall);
   const state = classifyWindow(agg);
+  // v13: surface hero/tracking record splits so the UI can lead with
+  // "Recommended" rather than the merged full-slate number.
+  const heroRec     = agg.byPickRole?.hero     || { won: 0, lost: 0, push: 0, pending: 0 };
+  const trackingRec = agg.byPickRole?.tracking || { won: 0, lost: 0, push: 0, pending: 0 };
+  const byPickRole = {
+    hero: {
+      record:  fmtRecord(heroRec),
+      sample:  heroRec.won + heroRec.lost,
+      winRate: pct(heroRec),
+      pending: heroRec.pending ?? 0,
+    },
+    tracking: {
+      record:  fmtRecord(trackingRec),
+      sample:  trackingRec.won + trackingRec.lost,
+      winRate: pct(trackingRec),
+      pending: trackingRec.pending ?? 0,
+    },
+  };
   return {
     label,
     record,
@@ -226,6 +257,7 @@ export function shapeWindow(scorecards, label = 'Last 7 days') {
     days: agg.sampleDays,
     sparse: agg.sparse || graded < 5,
     state, // 'full' | 'partial' | 'pending' | 'none'
+    byPickRole,                                    // v13
     insights: summarizeInsights(agg),
     agg,
   };

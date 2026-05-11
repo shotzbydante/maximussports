@@ -309,4 +309,126 @@ export function totalsTrendAgreement({
   return { agreement: 'mixed', boost: -0.02, awayDelta: round2(awayDelta), homeDelta: round2(homeDelta) };
 }
 
+/**
+ * v13 — totals volatility risk gate.
+ *
+ * `team_recent_v1+trend_v1` produced the DET @ CLE Under 213 hero pick
+ * that missed by 12 points (final 225). Recent finals for either team
+ * had wide score variance — the model committed too confidently to a
+ * direction the signal couldn't actually support. v13 caps confidence
+ * when:
+ *   - either team's recent combined-score standard deviation is high
+ *     (> totalsVolatilityAbs, default 15 points), AND
+ *   - the model's fair-total delta vs the market is small
+ *     (|fairTotal − marketTotal| < tightDeltaAbs, default 3 points),
+ *
+ * Returns { capped, reason, awayVol, homeVol, delta }.
+ * `capped: true` → builder should demote to tracking + briefing reject.
+ */
+export function isTotalsTooVolatileForHero({
+  awayForm, homeForm, marketTotal, fairTotal,
+  totalsVolatilityAbs = 15,
+  tightDeltaAbs = 3,
+} = {}) {
+  if (!isNum(marketTotal) || !isNum(fairTotal)) {
+    return { capped: false, reason: 'missing_total' };
+  }
+  const delta = Math.abs(fairTotal - marketTotal);
+  const awayVol = awayForm?.marginVolatility ?? null;
+  const homeVol = homeForm?.marginVolatility ?? null;
+  // Use the max of the two — single noisy team is enough to capsize
+  // a totals projection.
+  const maxVol = Math.max(awayVol ?? 0, homeVol ?? 0);
+  if (maxVol >= totalsVolatilityAbs && delta < tightDeltaAbs) {
+    return {
+      capped: true,
+      reason: 'high_volatility_thin_delta',
+      awayVolatility: awayVol, homeVolatility: homeVol,
+      delta: round2(delta),
+    };
+  }
+  if (delta < 2) {
+    // Mirror-the-market totals never qualify as hero regardless of
+    // volatility. The fair-total chain must say something the market
+    // isn't already pricing.
+    return {
+      capped: true,
+      reason: 'thin_delta_mirror_market',
+      awayVolatility: awayVol, homeVolatility: homeVol,
+      delta: round2(delta),
+    };
+  }
+  return {
+    capped: false,
+    reason: null,
+    awayVolatility: awayVol, homeVolatility: homeVol,
+    delta: round2(delta),
+  };
+}
+
+/**
+ * v13 — ATS dog margin cushion.
+ *
+ * For ATS underdog picks the cushion is how many points the spread
+ * gives the dog beyond what the model projects the favorite to win by.
+ * A thin cushion (< 2 points) means a normal-variance game outcome
+ * easily exceeds the spread.
+ *
+ *   line = +5, projectedHomeMargin = -3.8 (home loses by 3.8)
+ *     home-dog cushion = away projected margin vs +5 spread.
+ *     If selected side is HOME dog at +5: cushion = 5 - 3.8 = 1.2 pts.
+ *
+ *   line = +5, projectedHomeMargin = -7.5 (home loses by 7.5)
+ *     If selected side is HOME dog at +5: cushion = 7.5 - 5 = +2.5 pts.
+ *
+ * Returns:
+ *   { cushion, bucket: 'thin'|'lean'|'hero', supported }
+ * where cushion is in points and supported is true iff bucket==='hero'.
+ */
+export function atsDogMarginCushion({
+  projectedHomeMargin, line, selectedSide,
+  heroCushionPts = 3.5,
+  leanCushionPts = 2.0,
+} = {}) {
+  if (!isNum(projectedHomeMargin) || !isNum(line)) {
+    return { cushion: null, bucket: 'thin', supported: false, reason: 'missing_inputs' };
+  }
+  // line is the SELECTED side's line. Positive = dog.
+  if (line <= 0) {
+    return { cushion: null, bucket: 'fav', supported: true, reason: 'not_dog' };
+  }
+  // Compute cushion in points. selectedSide is 'away' or 'home'.
+  // projectedHomeMargin > 0 means home wins by that many points.
+  //
+  //   Away dog at line=+5 covers when final home_margin < 5.
+  //     cushion = 5 - projectedHomeMargin
+  //     (e.g., projHM=3.8 → cushion=1.2 [thin]; projHM=-2 → cushion=7 [hero])
+  //
+  //   Home dog at line=+5 covers when final home_margin > -5
+  //     (home loses by less than 5).
+  //     cushion = projectedHomeMargin - (-line) = projectedHomeMargin + line
+  //     (e.g., projHM=-2.5 → cushion=2.5 [lean])
+  let cushion;
+  if (selectedSide === 'home') {
+    cushion = projectedHomeMargin + line;
+  } else if (selectedSide === 'away') {
+    cushion = line - projectedHomeMargin;
+  } else {
+    return { cushion: null, bucket: 'thin', supported: false, reason: 'unknown_side' };
+  }
+  cushion = round2(cushion);
+  let bucket;
+  if (cushion >= heroCushionPts) bucket = 'hero';
+  else if (cushion >= leanCushionPts) bucket = 'lean';
+  else bucket = 'thin';
+  return {
+    cushion,
+    bucket,
+    supported: bucket === 'hero',
+    reason: bucket === 'thin' ? 'cushion_below_lean' :
+            bucket === 'lean' ? 'cushion_lean_only' :
+            'cushion_supports_hero',
+  };
+}
+
 export const TEAM_FORM_CONSTANTS = Object.freeze({ SAMPLE_CAP });

@@ -36,6 +36,13 @@ export function buildScorecard({ sport, slateDate, picks = [], recentRecords = [
     tier2: { ...ZERO },
     tier3: { ...ZERO },
   };
+  // v13: hero vs tracking record split persisted at the slate level so
+  // rolling 7d/30d windows can show "Recommended" vs "Full-slate tracking"
+  // separately. Pre-v13 scorecards merged these into the same totals.
+  const byPickRole = {
+    hero:     { ...ZERO },
+    tracking: { ...ZERO },
+  };
 
   let topPlay = null;
   let topPlayResult = null;
@@ -46,6 +53,12 @@ export function buildScorecard({ sport, slateDate, picks = [], recentRecords = [
     addResult(overall, status);
     if (byMarket[p.market_type]) addResult(byMarket[p.market_type], status);
     if (byTier[p.tier]) addResult(byTier[p.tier], status);
+
+    // v13: derive pickRole from persisted rationale.pickRole (jsonb).
+    // Fallback: tier='tracking' → tracking; everything else → hero.
+    const pickRole = (p.rationale && p.rationale.pickRole)
+      || (p.tier === 'tracking' ? 'tracking' : 'hero');
+    if (byPickRole[pickRole]) addResult(byPickRole[pickRole], status);
 
     if (p.tier === 'tier1') {
       if (!topPlay || (Number(p.bet_score) > Number(topPlay.bet_score))) {
@@ -84,6 +97,7 @@ export function buildScorecard({ sport, slateDate, picks = [], recentRecords = [
     record: overall,
     by_market: byMarket,
     by_tier: byTier,
+    by_pick_role: byPickRole,    // v13
     top_play_result: topPlayResult,
     streak,
     note,

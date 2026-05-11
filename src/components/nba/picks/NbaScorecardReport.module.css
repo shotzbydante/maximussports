@@ -639,6 +639,52 @@
   margin-top: 2px;
 }
 
+/* v13: hero vs tracking split inside a rolling card */
+.rollingNote {
+  margin: 6px 0 12px;
+  font-size: 0.7rem;
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+  max-width: 70ch;
+}
+.rollingNote strong {
+  color: var(--color-text);
+  font-weight: 700;
+}
+.rollingSplit {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 2px;
+}
+.rollingSplitRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+.rollingSplitLabel {
+  font-size: 0.52rem; font-weight: 700; letter-spacing: 0.10em;
+  text-transform: uppercase; color: var(--color-text-muted);
+}
+.rollingSplitValue {
+  font-size: 0.95rem; font-weight: 800; color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+  display: inline-flex; gap: 6px; align-items: baseline;
+}
+.rollingSplitValueMuted {
+  font-size: 0.84rem; font-weight: 700;
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+  display: inline-flex; gap: 6px; align-items: baseline;
+}
+.rollingSplitRate {
+  font-size: 0.62rem; font-weight: 700; color: var(--color-text-secondary);
+}
+.rollingSplitRateMuted {
+  font-size: 0.58rem; font-weight: 600; color: var(--color-text-muted);
+}
+
 /* ── Grading explainer ── */
 .explainer {
   margin-top: 18px;
