@@ -425,6 +425,61 @@
   text-align: right;
 }
 
+/* v15: tooltip indicator on metric labels */
+.infoIcon {
+  margin-left: 2px;
+  color: var(--color-text-muted);
+  font-size: 0.55rem;
+  cursor: help;
+}
+
+/* v15: signal-quality disclaimer for tracking picks */
+.disclaimer {
+  margin: 6px 0 0;
+  padding: 6px 8px;
+  font-size: 0.62rem;
+  line-height: 1.4;
+  color: var(--color-text-secondary);
+  background: rgba(0, 0, 0, 0.025);
+  border-left: 2px solid rgba(150, 160, 180, 0.4);
+  border-radius: 4px;
+  font-style: italic;
+}
+
+/* v15: "why not the other side?" expandable explainer */
+.oppositeSide {
+  margin-top: 6px;
+}
+.oppositeSideSummary {
+  cursor: pointer;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+  padding: 4px 0;
+  list-style: none;
+}
+.oppositeSideSummary::marker { content: ''; }
+.oppositeSideSummary::-webkit-details-marker { display: none; }
+.oppositeSideSummary::before {
+  content: '▸ ';
+  display: inline-block;
+  transition: transform 0.15s ease;
+  margin-right: 2px;
+  color: var(--color-text-muted);
+}
+details[open] > .oppositeSideSummary::before {
+  content: '▾ ';
+}
+.oppositeSideBody {
+  margin: 4px 0 0;
+  font-size: 0.66rem;
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+  padding: 0 0 0 8px;
+}
+
 /* Skeleton */
 .skel { display: flex; flex-direction: column; gap: 10px; }
 .skelBlock {

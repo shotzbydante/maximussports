@@ -42,16 +42,17 @@ import {
   totalsSupportScore,
 } from './teamForm.js';
 import { seriesContextPrior, isSeriesContextSupportingHero } from './seriesContextPrior.js';
+import { buildDisplayMetrics } from './displayMetrics.js';
 
 const COVERAGE_MIN_SCORE = 0.30;
 const COVERAGE_MAX_PICKS = 15;
 
-// v14 bump (2026-05-11 daily audit): adds ML/ATS dog price+spread
-// buckets, an independent-support counter, and a bounded totals support
-// score that lifts hero-eligibility for real-signal totals (series-pace
-// or team-recent with trend agreement). May 11: ML 0-2, ATS 1-1,
-// Totals 2-0 — pattern motivating v14.
-export const NBA_MODEL_VERSION = 'nba-picks-v2.4.2';
+// v15 bump (2026-05-12 UI clarity): adds `displayMetrics` per pick so
+// the UI has canonical Edge / Signal Quality / Hit Probability / Role
+// labels + descriptions. Fixes the "Confidence: 33%" miscommunication
+// where users read modelConfidence (data/model quality) as hit
+// probability. No selection-logic change.
+export const NBA_MODEL_VERSION = 'nba-picks-v2.5.0';
 
 /**
  * Playoff-aware conservative tuning (2026-04-24).
@@ -945,7 +946,7 @@ export function buildNbaPicksV2({
   const fullSlatePicks = clean.map(p => {
     const isHero = heroIds.has(p.id);
     const tier = p.tier || 'tracking';
-    return {
+    const withRole = {
       ...p,
       tier,
       pickRole: isHero ? 'hero' : 'tracking',
@@ -955,6 +956,12 @@ export function buildNbaPicksV2({
       // (`picksHistory.buildPickRow`) writes it without a schema change.
       rationale: { ...(p.rationale || {}), pickRole: isHero ? 'hero' : 'tracking' },
     };
+    // v15: attach `displayMetrics` so the UI has canonical labels +
+    // descriptions for Edge / Signal Quality / Hit Probability / Bet
+    // Score / Role / Opposite Side. Computed AFTER pickRole is set so
+    // the role description is correct.
+    withRole.displayMetrics = buildDisplayMetrics(withRole);
+    return withRole;
   });
   const heroPicks = fullSlatePicks.filter(p => p.isHeroPick);
   const trackingPicks = fullSlatePicks.filter(p => !p.isHeroPick);

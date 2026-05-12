@@ -595,6 +595,9 @@ export default function NbaScorecardReport({ dateOverride, variant = 'full', ins
           <li><strong>ATS</strong> — graded against the published spread; pushes are exact landings.</li>
           <li><strong>Totals</strong> — graded against the projected line; over/under or push.</li>
           <li>Daily results inform future confidence calibration — performance is tracked, not invented.</li>
+          {/* v15: clarify recommended vs tracking + signal-quality semantics */}
+          <li><strong>Recommended</strong> picks are promoted to the hero board. <strong>Tracking</strong> picks are included for transparency and calibration, and evaluated separately from recommended picks.</li>
+          <li><strong>Signal quality</strong> is data/model confidence — not the probability a pick wins. A low signal quality on one side does <em>not</em> imply the inverse probability for the other side.</li>
         </ul>
       </div>
     </section>

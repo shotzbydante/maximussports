@@ -14,8 +14,9 @@ import { analyzeNbaPicks } from './nbaAudit.js';
 import { buildNbaPicksV2, NBA_DEFAULT_CONFIG, NBA_MODEL_VERSION } from './buildNbaPicksV2.js';
 
 describe('v14 model version', () => {
-  it('bumped to v2.4.2', () => {
-    expect(NBA_MODEL_VERSION).toBe('nba-picks-v2.4.2');
+  it('bumped past v2.4.1 (v14 line or later)', () => {
+    // v14 was v2.4.2; v15 bumped to v2.5.0. Accept any forward bump.
+    expect(NBA_MODEL_VERSION).toMatch(/^nba-picks-v2\.([4-9]|\d{2,})\./);
   });
 });
 

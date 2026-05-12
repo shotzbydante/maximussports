@@ -11,8 +11,10 @@ import {
 import { buildNbaPicksV2, NBA_DEFAULT_CONFIG, NBA_MODEL_VERSION } from './buildNbaPicksV2.js';
 
 describe('v13 model version', () => {
-  it('NBA_MODEL_VERSION bumped to v2.4.x', () => {
-    expect(NBA_MODEL_VERSION.startsWith('nba-picks-v2.4.')).toBe(true);
+  it('NBA_MODEL_VERSION bumped to v2.4.x or later', () => {
+    // v13 line started at v2.4.0; v15 moved to v2.5.0. Accept anything
+    // in the v2.[4-9].x range or higher.
+    expect(NBA_MODEL_VERSION).toMatch(/^nba-picks-v2\.[4-9]\./);
   });
 });
 

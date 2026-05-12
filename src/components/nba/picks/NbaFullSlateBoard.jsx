@@ -107,11 +107,30 @@ function MarketCard({ pick, marketKey }) {
   const isTracking = pick.pickRole === 'tracking' || pick.flags?.tracking === true;
   const sourceLine = sourceLineFor(pick, marketKey);
 
+  // v15: prefer the canonical displayMetrics from the builder. Falls
+  // back to legacy fields for backward-compat with older payloads.
+  const dm = pick.displayMetrics || null;
+  const edgeLabel  = dm?.edgeLabel  || 'Edge';
+  const edgeValue  = dm?.edgeValue
+    || (pick.rawEdge != null ? `${(pick.rawEdge * 100).toFixed(1)}%` : null);
+  const sqValue    = dm?.signalQualityValue
+    || (pick.betScore?.components?.modelConfidence != null
+        ? `${Math.round(pick.betScore.components.modelConfidence * 100)}%`
+        : null);
+  const sqLabel    = dm?.signalQualityLabel || 'Signal Quality';
+  const sqDescription = dm?.signalQualityDescription
+    || 'Signal quality is data/model confidence, not the probability this pick wins.';
+  const bsValue    = dm?.betScoreValue
+    || (pick.betScore?.total != null ? String(Math.round(pick.betScore.total * 100)) : null);
+  const hitProb    = dm?.hitProbabilityValue || null;
+  const oppLabel   = dm?.oppositeSideLabel || null;
+  const oppDesc    = dm?.oppositeSideDescription || null;
+
   return (
     <div className={`${styles.marketCard} ${tierVariant} ${isTracking ? styles.tracking : ''}`}>
       <header className={styles.marketHeader}>
         <span className={styles.marketLabel}>{MARKET_LABEL[marketKey]}</span>
-        {isTracking && <span className={styles.trackingPill}>Tracking</span>}
+        {isTracking && <span className={styles.trackingPill}>Tracking only</span>}
       </header>
       <span className={styles.pickLabel}>{pick.selection?.label || pick.pick?.label || ''}</span>
       <div className={styles.convictionRow}>
@@ -124,15 +143,15 @@ function MarketCard({ pick, marketKey }) {
         )}
       </div>
       <div className={styles.metricsRow}>
-        {pick.rawEdge != null && (
-          <Metric label="Edge"       value={`${(pick.rawEdge * 100).toFixed(1)}%`} />
+        {edgeValue != null && <Metric label={edgeLabel} value={edgeValue} />}
+        {sqValue != null && (
+          <Metric label={sqLabel} value={sqValue} title={sqDescription} />
         )}
-        {pick.betScore?.components?.modelConfidence != null && (
-          <Metric label="Confidence" value={`${Math.round(pick.betScore.components.modelConfidence * 100)}%`} />
+        {hitProb != null && (
+          <Metric label={dm?.hitProbabilityLabel || 'Model %'} value={hitProb}
+                  title={dm?.hitProbabilityDescription} />
         )}
-        {pick.betScore?.total != null && (
-          <Metric label="Bet Score"  value={Math.round(pick.betScore.total * 100)} />
-        )}
+        {bsValue != null && <Metric label={dm?.betScoreLabel || 'Bet Score'} value={bsValue} />}
       </div>
       {pick.rationale?.headline && (
         <p className={styles.rationale}>{pick.rationale.headline}</p>
@@ -142,14 +161,29 @@ function MarketCard({ pick, marketKey }) {
           {sourceLine.label}
         </span>
       )}
+      {/* v15: signal-quality disclaimer + opposite-side explainer for tracking picks */}
+      {isTracking && (
+        <p className={styles.disclaimer}>
+          {sqDescription}
+        </p>
+      )}
+      {isTracking && oppLabel && oppDesc && (
+        <details className={styles.oppositeSide}>
+          <summary className={styles.oppositeSideSummary}>{oppLabel}</summary>
+          <p className={styles.oppositeSideBody}>{oppDesc}</p>
+        </details>
+      )}
     </div>
   );
 }
 
-function Metric({ label, value }) {
+function Metric({ label, value, title }) {
   return (
-    <span className={styles.metric}>
-      <span className={styles.metricLabel}>{label}</span>
+    <span className={styles.metric} title={title || undefined}>
+      <span className={styles.metricLabel}>
+        {label}
+        {title ? <span className={styles.infoIcon} aria-hidden="true"> ⓘ</span> : null}
+      </span>
       <span className={styles.metricValue}>{value}</span>
     </span>
   );
