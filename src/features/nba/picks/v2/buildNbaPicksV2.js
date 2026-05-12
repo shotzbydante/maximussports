@@ -36,18 +36,22 @@ import {
   isTotalsTooVolatileForHero,
   atsDogMarginCushion,
   totalsTrendAgreement,
+  mlDogPriceBucket,
+  atsDogSpreadBucket,
+  countIndependentDogSupport,
+  totalsSupportScore,
 } from './teamForm.js';
 import { seriesContextPrior, isSeriesContextSupportingHero } from './seriesContextPrior.js';
 
 const COVERAGE_MIN_SCORE = 0.30;
 const COVERAGE_MAX_PICKS = 15;
 
-// v13b bump (2026-05-11 weekend audit): adds seriesContextPrior — a
-// bounded per-team series-lead / blowout signal derived from the
-// existing playoff context. Caps hero promotion for trailing teams in
-// blowout-pattern series (LAL/PHI swept patterns); offers small
-// support for dominant favorites (OKC/NYK swept patterns).
-export const NBA_MODEL_VERSION = 'nba-picks-v2.4.1';
+// v14 bump (2026-05-11 daily audit): adds ML/ATS dog price+spread
+// buckets, an independent-support counter, and a bounded totals support
+// score that lifts hero-eligibility for real-signal totals (series-pace
+// or team-recent with trend agreement). May 11: ML 0-2, ATS 1-1,
+// Totals 2-0 — pattern motivating v14.
+export const NBA_MODEL_VERSION = 'nba-picks-v2.4.2';
 
 /**
  * Playoff-aware conservative tuning (2026-04-24).
@@ -370,6 +374,12 @@ function makePick(matchup, score, info, bs) {
     // v13b series-context prior
     seriesContextPrior:      info.seriesContextPrior ?? null,
     seriesContextGate:       info.seriesContextGate ?? null,
+    // v14 buckets + telemetry
+    mlDogPriceBucket:              info.mlDogPriceBucket ?? null,
+    mlDogIndependentSupportCount:  info.mlDogIndependentSupportCount ?? null,
+    atsDogSpreadBucket:            info.atsDogSpreadBucket ?? null,
+    atsDogIndependentSupportCount: info.atsDogIndependentSupportCount ?? null,
+    totalsSupportScore:            info.totalsSupportScore ?? null,
     result: null,
     // Back-compat
     category: legacyCategory,
@@ -573,6 +583,24 @@ export function buildNbaPicksV2({
           // v13b: per-pick series-context support/cap
           const sidePrior = ml.side === 'away' ? awaySeriesPrior : homeSeriesPrior;
           const seriesGate = isSeriesContextSupportingHero({ prior: sidePrior });
+          // v14: ML dog price bucket + independent-support telemetry.
+          // For underdog ML cross-market picks with <2 independent
+          // support signals AND price ≥ +200, cap betScore at 0.40 so
+          // hero floor 0.50 is never reached even if other signals
+          // (situational/market) are elevated.
+          const mlBucket = mlDogPriceBucket(ml.priceAmerican);
+          const mlDogForm = isUnderdogSide ? (ml.side === 'away' ? awayForm : homeForm) : null;
+          const mlFavForm = isUnderdogSide ? (ml.side === 'away' ? homeForm : awayForm) : null;
+          const mlDogPrior = isUnderdogSide ? sidePrior : null;
+          const mlIndependentSupport = isUnderdogSide
+            ? countIndependentDogSupport({ dogForm: mlDogForm, favoriteForm: mlFavForm, dogSeriesPrior: mlDogPrior })
+            : null;
+          if (isUnderdogSide && isCrossMarket && ml.priceAmerican >= 200 && (mlIndependentSupport ?? 0) < 2) {
+            // Hard betScore cap below hero floor.
+            if (Number.isFinite(bs.total) && bs.total > 0.40) {
+              bs = { ...bs, total: 0.40, _v14CappedReason: 'ml_dog_cross_market_no_independent_support' };
+            }
+          }
           pushDisciplined(makePick(matchup, score, {
             marketType: 'moneyline', side: ml.side, lineValue: null,
             priceAmerican: ml.priceAmerican ?? null,
@@ -597,6 +625,9 @@ export function buildNbaPicksV2({
             // v13b series-context context
             seriesContextPrior: sidePrior,
             seriesContextGate: seriesGate,
+            // v14 telemetry
+            mlDogPriceBucket: mlBucket,
+            mlDogIndependentSupportCount: mlIndependentSupport,
           }, bs), matchup.gameId);
         }
       }
@@ -706,6 +737,15 @@ export function buildNbaPicksV2({
             seriesContextGate: isSeriesContextSupportingHero({
               prior: sp.side === 'away' ? awaySeriesPrior : homeSeriesPrior,
             }),
+            // v14 ATS dog spread bucket + independent support count
+            atsDogSpreadBucket: atsDogSpreadBucket(sp.lineValue),
+            atsDogIndependentSupportCount: isAtsDogSide
+              ? countIndependentDogSupport({
+                  dogForm: sp.side === 'away' ? awayForm : homeForm,
+                  favoriteForm: sp.side === 'away' ? homeForm : awayForm,
+                  dogSeriesPrior: sp.side === 'away' ? awaySeriesPrior : homeSeriesPrior,
+                })
+              : null,
           }, bs), matchup.gameId);
         }
       }
@@ -721,7 +761,7 @@ export function buildNbaPicksV2({
       // fair-total source is `slate_baseline_v1` or below the data-quality
       // floor — discipline + UI handle that.
       const side = delta >= 0 ? 'over' : 'under';
-      const bs = computeBetScore({
+      let bs = computeBetScore({
         matchup, score, marketType: 'total', side,
         rawEdge: null, totalDelta: delta, config,
       });
@@ -747,6 +787,18 @@ export function buildNbaPicksV2({
           marketTotal: m.total.points,
           fairTotal: score.expectedTotal,
         });
+        // v14: small bounded support bump for totals where ALL signals
+        // align (real source + trend agreement + sample ≥ 2 + low
+        // volatility). Capped at +0.05 so it can't push weak-source
+        // totals into hero on its own.
+        const support = totalsSupportScore({
+          modelSource: totalsSource,
+          totalsTrendAgreement: trendAgreement,
+          awayForm, homeForm,
+        });
+        if (support > 0 && Number.isFinite(bs.total) && volatilityRisk?.capped !== true) {
+          bs = { ...bs, total: Math.min(1, bs.total + support), _v14SupportApplied: support };
+        }
         pushDisciplined(makePick(matchup, score, {
           marketType: 'total', side, lineValue: m.total.points,
           priceAmerican: null, rawEdge: null, modelProb: null, impliedProb: null,
@@ -760,6 +812,8 @@ export function buildNbaPicksV2({
           totalsTrendAgreement: trendAgreement,
           // v13 totals volatility risk
           totalsVolatilityRisk: volatilityRisk,
+          // v14 totals support score telemetry
+          totalsSupportScore: support,
         }, bs), matchup.gameId);
       }
     }

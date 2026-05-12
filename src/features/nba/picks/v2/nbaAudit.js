@@ -36,6 +36,7 @@ const SPREAD_BUCKETS = [
 ];
 
 function emptyRecord() { return { won: 0, lost: 0, push: 0, pending: 0 }; }
+function isNum(v) { return v != null && Number.isFinite(v); }
 function hitRate(rec) { const n = rec.won + rec.lost; return n > 0 ? rec.won / n : null; }
 function incr(rec, status) { if (rec && status in rec) rec[status] += 1; }
 function getStatus(p) {
@@ -102,6 +103,26 @@ export function analyzeNbaPicks({ sport = 'nba', slateDate, picks = [] } = {}) {
       dominantFavorite: emptyRecord(),
       neutral: emptyRecord(),
     },
+    // v14 slices
+    byMlDogPriceBucket: {
+      favorite:      emptyRecord(),
+      pickem:        emptyRecord(),
+      dog_100_199:   emptyRecord(),
+      dog_200_399:   emptyRecord(),
+      dog_400_plus:  emptyRecord(),
+    },
+    byAtsDogSpreadBucket: {
+      fav:    emptyRecord(),
+      short:  emptyRecord(),
+      medium: emptyRecord(),
+      large:  emptyRecord(),
+    },
+    byTotalsMarginBucket: {
+      narrow: emptyRecord(),    // |margin| ≤ 5
+      medium: emptyRecord(),    // 5 < |margin| ≤ 10
+      strong: emptyRecord(),    // |margin| > 10
+    },
+    negativeEvidence: [],   // v14 — single-day ML dog losses (never auto-applied)
     positiveEvidence: [],   // small wins to log without auto-tuning
     shadowFindings: [],     // single-day misses noted for future tuning
     excludedPending: 0,
@@ -207,6 +228,27 @@ export function analyzeNbaPicks({ sport = 'nba', slateDate, picks = [] } = {}) {
       incr(summary.bySeriesContext.neutral, status);
     }
 
+    // v14: ML dog price bucket
+    if (p.market_type === 'moneyline' && p.ml_dog_price_bucket
+        && summary.byMlDogPriceBucket[p.ml_dog_price_bucket]) {
+      incr(summary.byMlDogPriceBucket[p.ml_dog_price_bucket], status);
+    }
+
+    // v14: ATS dog spread bucket
+    if (p.market_type === 'runline' && p.ats_dog_spread_bucket
+        && summary.byAtsDogSpreadBucket[p.ats_dog_spread_bucket]) {
+      incr(summary.byAtsDogSpreadBucket[p.ats_dog_spread_bucket], status);
+    }
+
+    // v14: totals margin bucket. `p.total_result_margin` is the signed
+    // win margin (positive = correct direction by N pts). For losses we
+    // use absolute miss magnitude; for wins, magnitude of correct margin.
+    if (p.market_type === 'total' && isNum(p.total_result_margin)) {
+      const m = Math.abs(p.total_result_margin);
+      const bucket = m <= 5 ? 'narrow' : m <= 10 ? 'medium' : 'strong';
+      incr(summary.byTotalsMarginBucket[bucket], status);
+    }
+
     // v12b: hero vs tracking record split — proves to scorecard
     // consumers that the hero subset is not what's losing today.
     // (Reusing the `role` var declared above; `byHeroVsTracking`
@@ -221,13 +263,50 @@ export function analyzeNbaPicks({ sport = 'nba', slateDate, picks = [] } = {}) {
     if (p.market_type === 'total' && status === 'won') {
       const src = p.model_source || p.totals_source || 'unknown';
       if (src.startsWith('series_pace_v1') || src.startsWith('team_recent_v1')) {
+        // v14: separate narrow vs strong margin wins
+        const m = isNum(p.total_result_margin) ? Math.abs(p.total_result_margin) : null;
+        const type = m == null ? 'totals_source_win'
+                   : m <= 5    ? 'totals_narrow_positive_evidence'
+                   : m > 10    ? 'totals_strong_positive_evidence'
+                               : 'totals_source_win';
         summary.positiveEvidence.push({
-          type: 'totals_source_win',
+          type,
           marketType: 'total',
           modelSource: src,
           pickKey: p.pick_key,
+          marginPts: m,
         });
       }
+    }
+
+    // v14: large-dog ATS cover (line ≥ +9 and pick won) — log as
+    // positive evidence so the audit can identify whether cushioned
+    // long-dog covers are a recurring edge.
+    if (p.market_type === 'runline' && status === 'won'
+        && (p.line_value ?? 0) >= 9) {
+      summary.positiveEvidence.push({
+        type: 'ats_large_dog_cover_evidence',
+        marketType: 'runline',
+        lineValue: p.line_value,
+        pickKey: p.pick_key,
+      });
+    }
+
+    // v14: ML dog negative evidence — every dog loss is logged so the
+    // audit can compute repeat-failure rates over sample. Never
+    // auto-applied; always safeToAutoApply=false.
+    if (p.market_type === 'moneyline' && status === 'lost'
+        && (p.price_american ?? 0) > 0) {
+      summary.negativeEvidence.push({
+        type: 'ml_dog_loss',
+        marketType: 'moneyline',
+        priceAmerican: p.price_american,
+        priceBucket: p.ml_dog_price_bucket,
+        modelSource: p.model_source,
+        independentSupportCount: p.ml_dog_independent_support_count,
+        pickKey: p.pick_key,
+        safeToAutoApply: false,
+      });
     }
 
     // v12b: shadow findings — losses worth investigating but never

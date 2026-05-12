@@ -459,4 +459,85 @@ export function atsDogMarginCushion({
   };
 }
 
+/**
+ * v14 — ML dog price bucket. Stratifies underdog ML picks into bands
+ * the audit can track separately:
+ *   'favorite'      — priceAmerican < 0 (not a dog)
+ *   'pickem'        — 0 ≤ price ≤ +110 (effectively a coinflip)
+ *   'dog_100_199'   — moderate dogs (+111..+199)
+ *   'dog_200_399'   — long dogs
+ *   'dog_400_plus'  — long-shot dogs (caught by v12b hard cap when cross-market)
+ */
+export function mlDogPriceBucket(priceAmerican) {
+  if (!isNum(priceAmerican)) return null;
+  if (priceAmerican < 0) return 'favorite';
+  if (priceAmerican <= 110) return 'pickem';
+  if (priceAmerican <= 199) return 'dog_100_199';
+  if (priceAmerican <= 399) return 'dog_200_399';
+  return 'dog_400_plus';
+}
+
+/**
+ * v14 — ATS dog spread bucket. Same idea for spread picks:
+ *   'fav'      — line < 0 (selected side is favorite)
+ *   'short'    — +0.5..+6.5
+ *   'medium'   — +7..+8.5
+ *   'large'    — +9+
+ */
+export function atsDogSpreadBucket(line) {
+  if (!isNum(line)) return null;
+  if (line <= 0) return 'fav';
+  if (line <= 6.5) return 'short';
+  if (line <= 8.5) return 'medium';
+  return 'large';
+}
+
+/**
+ * v14 — count independent support signals beyond cross-market arb for
+ * an underdog ML/ATS pick. Returns a non-negative integer.
+ *
+ *   +1 if the dog's recent margin is non-negative
+ *   +1 if the favorite's recent margin advantage is modest (≤ 8)
+ *   +1 if the dog's series prior is leading or supportiveSupport > 0
+ *   +1 if the dog has any blowout WIN in the recent window
+ */
+export function countIndependentDogSupport({
+  dogForm, favoriteForm, dogSeriesPrior,
+} = {}) {
+  let n = 0;
+  if (dogForm && isNum(dogForm.recentMarginAvg) && dogForm.recentMarginAvg >= 0) n += 1;
+  if (favoriteForm && isNum(favoriteForm.recentMarginAvg)
+      && dogForm && isNum(dogForm.recentMarginAvg)) {
+    const advantage = favoriteForm.recentMarginAvg - dogForm.recentMarginAvg;
+    if (advantage <= 8) n += 1;
+  }
+  if (dogSeriesPrior && (dogSeriesPrior.leadState === 'leading' || (isNum(dogSeriesPrior.support) && dogSeriesPrior.support > 0))) n += 1;
+  if (dogForm && (dogForm.blowoutWinCount ?? 0) >= 1) n += 1;
+  return n;
+}
+
+/**
+ * v14 — totals support score. Bounded [0, 0.05] additive bump for
+ * betScore when all signals align. Capped low so a single confluence
+ * can't push a weak-source total into hero on its own.
+ */
+export function totalsSupportScore({
+  modelSource, totalsTrendAgreement, awayForm, homeForm,
+} = {}) {
+  if (!modelSource) return 0;
+  const isReinforced =
+    modelSource.startsWith('series_pace_v1') ||
+    modelSource.startsWith('team_recent_v1');
+  if (!isReinforced) return 0;
+  if (!totalsTrendAgreement || totalsTrendAgreement.agreement !== 'agree') return 0;
+  const awaySample = awayForm?.sample ?? 0;
+  const homeSample = homeForm?.sample ?? 0;
+  if (awaySample < 2 || homeSample < 2) return 0;
+  // Cap any volatility-driven downgrade — totals volatility gate covers
+  // the heavy case; here we just want to avoid double-rewarding noise.
+  const maxVol = Math.max(awayForm?.marginVolatility ?? 0, homeForm?.marginVolatility ?? 0);
+  if (maxVol >= 18) return 0;
+  return 0.05;
+}
+
 export const TEAM_FORM_CONSTANTS = Object.freeze({ SAMPLE_CAP });
