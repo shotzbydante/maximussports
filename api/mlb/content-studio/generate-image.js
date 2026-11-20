@@ -10,6 +10,7 @@
 import { GoogleGenAI } from '@google/genai';
 import { readFileSync } from 'fs';
 import { join } from 'path';
+import { requireAdminOrCron } from '../../_lib/requireAuth.js';
 
 // ── Centralized model config ─────────────────────────────────────────────────
 const GEMINI_MODEL = process.env.GEMINI_IMAGE_MODEL || 'models/gemini-2.5-flash-image';
@@ -348,6 +349,8 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ ok: false, error: 'Method not allowed' });
   }
+
+  if (!(await requireAdminOrCron(req, res))) return;
 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {

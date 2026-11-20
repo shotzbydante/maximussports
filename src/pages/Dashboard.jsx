@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { isAdminUser } from '../config/admin';
+import { getAuthHeaders } from '../lib/authHeaders';
 import { fetchHomeFast, fetchHomeSlow, mergeHomeData } from '../api/home';
 import { fetchTeamPage } from '../api/team';
 import { fetchTeamNextLine } from '../api/teamNextLine';
@@ -1072,7 +1073,7 @@ export default function Dashboard() {
       });
       const res = await fetch('/api/mlb/content-studio/generate-image', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
         body: JSON.stringify(payload),
       });
       const data = await res.json();

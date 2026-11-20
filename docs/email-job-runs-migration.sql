@@ -44,3 +44,14 @@ ALTER TABLE email_job_runs ADD COLUMN IF NOT EXISTS run_mode text DEFAULT 'sched
 ALTER TABLE email_job_runs ENABLE ROW LEVEL SECURITY;
 -- RLS: email_send_log is server-only
 ALTER TABLE email_send_log ENABLE ROW LEVEL SECURITY;
+
+-- ── Repair: add skipped_counts to an existing email_job_runs table ───────────
+-- Production logged "Could not find the 'skipped_counts' column of
+-- 'email_job_runs' in the schema cache" (PGRST204) on every run-daily job,
+-- which means the table predates this column. Safe to run more than once.
+ALTER TABLE email_job_runs
+  ADD COLUMN IF NOT EXISTS skipped_counts jsonb DEFAULT '{}',
+  ADD COLUMN IF NOT EXISTS run_mode       text  DEFAULT 'scheduled';
+
+-- Make PostgREST pick up the new columns immediately.
+NOTIFY pgrst, 'reload schema';

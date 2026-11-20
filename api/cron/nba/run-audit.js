@@ -12,6 +12,7 @@ import { validateTuningDelta, diffConfig } from '../../../src/features/picks/tun
 import { NBA_DEFAULT_CONFIG } from '../../../src/features/nba/picks/v2/buildNbaPicksV2.js';
 import { getSupabaseAdmin } from '../../_lib/supabaseAdmin.js';
 import { yesterdayET } from '../../_lib/dateWindows.js';
+import { requireAdminOrCron } from '../../_lib/requireAuth.js';
 
 function applyDeltasToConfig(current, deltas) {
   const next = JSON.parse(JSON.stringify(current));
@@ -46,6 +47,8 @@ function nextVersion(_prev, slateDate) {
 }
 
 export default async function handler(req, res) {
+  if (!(await requireAdminOrCron(req, res))) return;
+
   const slateDate = req?.query?.date || yesterdayET();
 
   try {

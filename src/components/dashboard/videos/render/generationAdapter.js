@@ -7,6 +7,7 @@
  * engine produced the copy.
  */
 
+import { getAuthHeaders } from '../../../../lib/authHeaders';
 import {
   generateReelText,
   generateVariantText,
@@ -119,7 +120,7 @@ async function callLLM(input) {
   try {
     const res = await fetch('/api/reels/generateCopy', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
       body: JSON.stringify({
         promptContext: input.promptContext,
         featureType: input.featureType,
