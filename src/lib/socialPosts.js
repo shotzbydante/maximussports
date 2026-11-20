@@ -10,6 +10,8 @@
  *   fetchPostHistory(filters?)            → { posts, total }
  */
 
+import { getAuthHeaders } from './authHeaders';
+
 // ── Upload ──────────────────────────────────────────────────────────────────
 
 /**
@@ -94,7 +96,7 @@ async function uploadAssetOnce(base64, filename) {
   try {
     res = await fetch('/api/social/upload-asset', {
       method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
       body:    JSON.stringify({ base64, filename }),
     });
   } catch (fetchErr) {
@@ -274,7 +276,7 @@ export async function publishToInstagram(payload) {
   try {
     res = await fetch('/api/social/instagram/publish', {
       method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
       body:    JSON.stringify({
         imageUrl,
         caption,
@@ -379,7 +381,7 @@ export async function publishCarouselToInstagram(payload) {
   try {
     res = await fetch('/api/social/instagram/publish-carousel', {
       method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
       body:    JSON.stringify({
         imageUrls,
         caption,

@@ -22,6 +22,7 @@
  */
 
 import { getSupabaseAdmin } from '../_lib/supabaseAdmin.js';
+import { requireAdminOrCron } from '../_lib/requireAuth.js';
 
 const BUCKET = 'social-assets';
 const MAX_BYTES = 8 * 1024 * 1024; // 8 MB — Instagram's image size limit
@@ -105,6 +106,8 @@ async function handlerImpl(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ ok: false, error: 'Method not allowed' });
   }
+
+  if (!(await requireAdminOrCron(req, res))) return;
 
   const reqStartMs = Date.now();
   const approxBase64Length = typeof req.body?.base64 === 'string' ? req.body.base64.length : 0;

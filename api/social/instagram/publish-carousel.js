@@ -23,6 +23,7 @@
  */
 
 import { getSupabaseAdmin } from '../../_lib/supabaseAdmin.js';
+import { requireAdminOrCron } from '../../_lib/requireAuth.js';
 import { randomUUID } from 'node:crypto';
 
 const POLL_INTERVAL_MS = 2000;
@@ -107,6 +108,8 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ ok: false, error: 'Method not allowed' });
   }
+
+  if (!(await requireAdminOrCron(req, res))) return;
 
   const requestId = randomUUID();
   const log = createLogger(requestId);

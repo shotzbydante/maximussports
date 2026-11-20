@@ -28,6 +28,7 @@
  */
 
 import { getSupabaseAdmin } from '../../_lib/supabaseAdmin.js';
+import { internalAuthHeader } from '../../_lib/requireAuth.js';
 import { randomUUID } from 'node:crypto';
 
 // Data pipeline (same as client-side slides)
@@ -420,7 +421,7 @@ async function publishCarousel(imageUrls, captionText, metadata, baseUrl, log) {
 
   const res = await fetch(`${baseUrl}/api/social/instagram/publish-carousel`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...internalAuthHeader() },
     body: JSON.stringify({ imageUrls, caption: captionText, metadata }),
   });
 

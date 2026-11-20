@@ -58,15 +58,16 @@ export default async function handler(req, res) {
     await sendEmail({ to: user.email, subject, html, text });
 
     // Log the send for dedup
-    await sb.from('email_send_log').insert({
+    const { error: logError } = await sb.from('email_send_log').insert({
       user_id:  user.id,
       email:    user.email,
       type:     'welcome',
       date_key: `welcome_${user.id}`,
       sent_at:  new Date().toISOString(),
-    }).catch(err => {
-      console.warn('[send-welcome] Failed to log send:', err?.message);
     });
+    if (logError) {
+      console.warn('[send-welcome] Failed to log send:', logError.message);
+    }
 
     console.log(`[send-welcome] Sent welcome email to ${user.email}`);
     return res.status(200).json({ ok: true });

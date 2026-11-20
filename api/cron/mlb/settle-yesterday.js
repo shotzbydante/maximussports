@@ -20,8 +20,11 @@ import { fetchYesterdayFinals } from '../../mlb/live/_normalize.js';
 import { getPicksForSlate, upsertPickResults } from '../../_lib/picksHistory.js';
 import { gradePicks } from '../../../src/features/mlb/picks/v2/settle.js';
 import { yesterdayET } from '../../_lib/dateWindows.js';
+import { requireAdminOrCron } from '../../_lib/requireAuth.js';
 
 export default async function handler(req, res) {
+  if (!(await requireAdminOrCron(req, res))) return;
+
   const t0 = Date.now();
   const slateDate = req?.query?.date || yesterdayET();
 

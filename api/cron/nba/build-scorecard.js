@@ -10,8 +10,11 @@ import { buildScorecard } from '../../../src/features/mlb/picks/v2/scorecard.js'
 import { getPicksForSlate, upsertScorecard as upsertCard } from '../../_lib/picksHistory.js';
 import { getSupabaseAdmin } from '../../_lib/supabaseAdmin.js';
 import { yesterdayET } from '../../_lib/dateWindows.js';
+import { requireAdminOrCron } from '../../_lib/requireAuth.js';
 
 export default async function handler(req, res) {
+  if (!(await requireAdminOrCron(req, res))) return;
+
   const slateDate = req?.query?.date || yesterdayET();
 
   try {

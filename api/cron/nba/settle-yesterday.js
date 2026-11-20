@@ -11,8 +11,11 @@ import { getPicksForSlate, upsertPickResults } from '../../_lib/picksHistory.js'
 import { gradePicks } from '../../../src/features/mlb/picks/v2/settle.js';
 import { yesterdayET } from '../../_lib/dateWindows.js';
 import { buildFinalsIndex, resolveFinalForPick } from '../../_lib/finalsIndex.js';
+import { requireAdminOrCron } from '../../_lib/requireAuth.js';
 
 export default async function handler(req, res) {
+  if (!(await requireAdminOrCron(req, res))) return;
+
   const t0 = Date.now();
   const slateDate = req?.query?.date || yesterdayET();
 
