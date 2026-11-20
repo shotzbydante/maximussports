@@ -19,12 +19,13 @@ describe('usePerformance module — sport-aware', () => {
   it('source of usePerformance constructs a URL containing sport', () => {
     const source = hookModule.usePerformance.toString();
     expect(source).toMatch(/sport=\$\{sport\}/);
-    expect(source).toMatch(/\/api\/mlb\/picks\/performance/);
+    // Base path is resolved per sport via endpointBase(); assert the route suffix.
+    expect(source).toMatch(/endpointBase\(sport\)\}\/performance/);
   });
 
   it('source of useAuditInsights constructs a URL containing sport', () => {
     const source = hookModule.useAuditInsights.toString();
     expect(source).toMatch(/sport=\$\{sport\}/);
-    expect(source).toMatch(/\/api\/mlb\/picks\/insights/);
+    expect(source).toMatch(/endpointBase\(sport\)\}\/insights/);
   });
 });

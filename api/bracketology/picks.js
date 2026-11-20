@@ -27,6 +27,17 @@ async function getAuthUser(req) {
   return user;
 }
 
+// Supabase project ref (subdomain of the project URL), used in diagnostics
+// when the user_brackets table is missing from the schema cache.
+const projectRef = (() => {
+  try {
+    const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+    return url ? new URL(url).hostname.split('.')[0] : 'unknown';
+  } catch {
+    return 'unknown';
+  }
+})();
+
 export default async function handler(req, res) {
   const user = await getAuthUser(req);
   if (!user?.email) {
