@@ -1,4 +1,3 @@
-/* global process */
 /**
  * MLB odds enrichment for live intelligence.
  * Fetches game-level odds from The Odds API (baseball_mlb) and merges into canonical objects.

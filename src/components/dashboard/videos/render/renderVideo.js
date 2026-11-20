@@ -28,9 +28,6 @@ import {
 } from './drawUtils';
 import {
   CaptionLayoutState,
-  buildExclusions,
-  findSafeZone,
-  getCaptionAlpha,
   getCaptionSlideOffset,
   CAPTION_ROLES,
   PREFERRED_CAPTION_GAP,

@@ -37,12 +37,7 @@ import { NBA_TEAMS, NBA_ESPN_IDS } from '../../src/sports/nba/teams.js';
 import { LEADER_CATEGORIES, LEADER_KEYS, ESPN_CATEGORY_MAP } from '../../src/data/nba/seasonLeaders.js';
 import { getJson, setJson } from '../_globalCache.js';
 import { fetchNbaPlayoffScheduleWindow } from './nbaPlayoffSchedule.js';
-import {
-  buildNbaPostseasonLeadersFromBoxScores,
-  hasValidLeaderCategories,
-  hasValidPostseasonTotalsPayload,
-  buildValidPlayoffTeamSlugs,
-} from './nbaBoxScoreLeaders.js';
+import { buildNbaPostseasonLeadersFromBoxScores, hasValidPostseasonTotalsPayload, buildValidPlayoffTeamSlugs } from './nbaBoxScoreLeaders.js';
 import { buildNbaPlayoffContext } from '../../src/data/nba/playoffContext.js';
 
 // KV keys are namespaced by season type so postseason and regular

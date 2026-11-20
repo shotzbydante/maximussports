@@ -1,4 +1,3 @@
-/* global process */
 /**
  * GET /api/email/run-daily?type=<email_type>
  *
@@ -47,13 +46,18 @@ import { getSubject as getGlobalSubject, renderHTML as renderGlobalHTML, renderT
 import { assembleTeamDigestPayload, TEAM_DIGEST_MAX_TEAMS } from '../_lib/teamDigest.js';
 import { getProfileEntitlements } from '../_lib/entitlements.js';
 import { fetchUserTeamsBatch, resolveTeamRows, getPinnedTeamSlugs } from '../_lib/getUserPinnedTeams.js';
-import { assembleMlbEmailData } from '../_lib/mlbEmailData.js';
 import {
-  EMAIL_REGISTRY, VALID_EMAIL_TYPES, resolveTemplate, resolvePrefKey,
-  isSeasonGated, getEmailConfig, getEmailSport,
-  loadTeamLookup, filterSportSlugs, enrichMlbTeamDigests, emailPayloadDigest,
-  assembleEmailData, buildEmailData, prepareEmailPayload,
-  globalBriefingSectionDigest, expectedHeroSections, degradableHeroSections,
+  EMAIL_REGISTRY,
+  VALID_EMAIL_TYPES,
+  resolveTemplate,
+  resolvePrefKey,
+  isSeasonGated,
+  emailPayloadDigest,
+  assembleEmailData,
+  buildEmailData,
+  globalBriefingSectionDigest,
+  expectedHeroSections,
+  degradableHeroSections,
 } from '../_lib/emailPipeline.js';
 
 /**

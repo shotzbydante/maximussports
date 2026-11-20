@@ -17,7 +17,6 @@
  *   ?limit=N        — process at most N users (default: all)
  */
 
-/* global process */
 
 import { verifyUserToken, getSupabaseAdmin } from '../_lib/supabaseAdmin.js';
 import { captureAccountCreated, isTestEmail } from '../_lib/posthogServer.js';

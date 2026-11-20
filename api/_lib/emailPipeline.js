@@ -22,8 +22,7 @@ import { resolveEmailDateContext } from './emailDateContext.js';
 import { dedupeNewsItems } from './newsDedupe.js';
 import { fetchScoresSource, fetchRankingsSource, fetchNewsAggregateSource, fetchOddsSource } from '../_sources.js';
 import { getAtsLeadersPipeline } from '../home/atsPipeline.js';
-import { assembleTeamDigestPayload, TEAM_DIGEST_MAX_TEAMS } from './teamDigest.js';
-import { getProfileEntitlements } from './entitlements.js';
+import { TEAM_DIGEST_MAX_TEAMS } from './teamDigest.js';
 
 /**
  * Email type registry. Every email type is defined here ONCE.

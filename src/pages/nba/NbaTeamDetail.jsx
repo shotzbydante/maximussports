@@ -6,7 +6,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useWorkspace } from '../../workspaces/WorkspaceContext';
-import { getNbaTeamBySlug, getNbaEspnId } from '../../sports/nba/teams';
+import { getNbaTeamBySlug } from '../../sports/nba/teams';
 import { getNbaEspnLogoUrl } from '../../utils/espnNbaLogos';
 import { fetchNbaChampionshipOdds } from '../../api/nbaChampionshipOdds';
 import { fetchNbaHeadlines } from '../../api/nbaNews';

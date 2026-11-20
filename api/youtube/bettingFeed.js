@@ -8,7 +8,7 @@
  * Response: { status, updatedAt, items: [{videoId, title, channelTitle, publishedAt, thumbUrl, score}] }
  */
 
-import { ytSearch, isQuotaExhausted, parseISO8601Duration } from './_yt.js';
+import { ytSearch, isQuotaExhausted } from './_yt.js';
 import { ytRssSearch, safeRssQuery } from './_ytRss.js';
 import { BETTING_ALLOWLIST } from './_allowlist.js';
 import { getJson, setJson } from '../_globalCache.js';

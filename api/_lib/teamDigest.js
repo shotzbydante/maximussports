@@ -11,7 +11,6 @@
  */
 
 import { findTeamGame } from './teamSchedule.js';
-import { dedupeNewsItems } from './newsDedupe.js';
 
 /**
  * Filter and rank news items relevant to a given team.

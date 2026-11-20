@@ -33,16 +33,13 @@ import {
   getUpsetRadarByDay,
   getUpsetRadarSlateOptions,
   getBatchTournamentInsights,
-  getTeamSeed,
   getTeamRegion,
   setOfficialBracketData,
   getTournamentDataMode,
   getTournamentPhase,
-  getRoundLabel,
 } from '../utils/tournamentHelpers';
 import { fetchBracketData } from '../data/bracketData';
 import { REGIONS } from '../config/bracketology';
-import { useWorkspace } from '../workspaces/WorkspaceContext';
 import { WorkspaceId, WORKSPACES } from '../workspaces/config';
 import { getVisibleWorkspaces } from '../workspaces/access';
 import { MLB_TEAMS, MLB_DIVISIONS } from '../sports/mlb/teams';
@@ -52,7 +49,7 @@ import { buildMlbCaption } from '../features/mlb/contentStudio/buildMlbCaption';
 import { normalizeNbaImagePayload } from '../features/nba/contentStudio/normalizeNbaImagePayload';
 import { buildNbaCaption } from '../features/nba/contentStudio/buildNbaCaption';
 import { normalizeStudioCaption, MIN_PUBLISHABLE_CAPTION_CHARS } from '../features/mlb/contentStudio/normalizeStudioCaption';
-import { buildMlbPicks, hasAnyPicks as hasAnyMlbPicks } from '../features/mlb/picks/buildMlbPicks';
+import { buildMlbPicks } from '../features/mlb/picks/buildMlbPicks';
 import { fetchMlbHeadlines } from '../api/mlbNews';
 import { fetchMlbChampionshipOdds } from '../api/mlbChampionshipOdds';
 import styles from './Dashboard.module.css';

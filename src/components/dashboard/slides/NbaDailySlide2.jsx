@@ -100,7 +100,7 @@ export default function NbaDailySlide2({ data, asOf: _a, slideNumber: _s, slideT
     return { key: cat.key, abbrev: cat.abbrev, leaders };
   });
   if (typeof window !== 'undefined') {
-    // eslint-disable-next-line no-console
+     
     console.log('[NBA_HOTP_PAYLOAD]', {
       slide: 2,
       count: payload.bullets?.length || 0,
@@ -110,7 +110,7 @@ export default function NbaDailySlide2({ data, asOf: _a, slideNumber: _s, slideT
     // Per audit Part 2 spec — emit the leaders source classification
     // so "Postseason feed updating" placeholders are traceable. Renamed
     // to NBA_POSTSEASON_LEADERS_RENDER to match the audit's spec name.
-    // eslint-disable-next-line no-console
+     
     console.log('[NBA_POSTSEASON_LEADERS_RENDER]', {
       source: payload.nbaLeaders?._source || payload.nbaLeaders?.seasonType || 'unknown',
       seasonType: payload.nbaLeaders?.seasonType || null,
@@ -122,7 +122,7 @@ export default function NbaDailySlide2({ data, asOf: _a, slideNumber: _s, slideT
     // names + values + teams that will be drawn on Slide 2. Lets a future
     // "Postseason feed updating" leak be traced from the browser console
     // alone, no need to instrument the failing run.
-    // eslint-disable-next-line no-console
+     
     console.log('[NBA_SLIDE2_LEADERS_FINAL]', {
       source: payload.nbaLeaders?._source || null,
       seasonType: payload.nbaLeaders?.seasonType || null,

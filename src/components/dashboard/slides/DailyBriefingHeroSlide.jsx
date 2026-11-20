@@ -17,7 +17,6 @@
  */
 
 import { transformDigestToIG } from '../../../utils/dailyIntelToIG';
-import { getTeamSlug } from '../../../utils/teamSlug';
 import styles from './DailyBriefingHeroSlide.module.css';
 
 function NcaaLogo({ className }) {

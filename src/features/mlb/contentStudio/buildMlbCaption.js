@@ -86,7 +86,6 @@ function resolveLeaders(data, topN = 3) {
       }),
     }));
 }
-import { buildLeagueWhyItMatters } from '../../../data/mlb/whyItMatters.js';
 
 // ── Resolve nickname (handles multi-word names like "White Sox") ────────────
 

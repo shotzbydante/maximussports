@@ -89,7 +89,7 @@ export default function LiveScores({ games = [], loading, error, oddsMessage, co
     if (firedRef.current || games.length === 0 || loading) return;
     firedRef.current = true;
     track('scores_render_ok', { games_count: games.length, source });
-  }, [games.length, loading, source]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [games.length, loading, source]);  
 
   const hasLiveGame = sortedGames.some((g) => isLive(g.gameStatus));
 

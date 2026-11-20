@@ -1,4 +1,3 @@
-/* global process */
 /**
  * POST /api/email/send-test
  * Admin-only endpoint that sends a test email for a given subscription type.
@@ -13,7 +12,7 @@
  * NCAAM/global types use the original NCAAM-based pipeline.
  */
 
-import { verifyUserToken, getEnvStatus, getSupabaseAdmin } from '../_lib/supabaseAdmin.js';
+import { verifyUserToken, getSupabaseAdmin } from '../_lib/supabaseAdmin.js';
 import { isAdminEmail } from '../_lib/admin.js';
 import { sendEmail } from '../_lib/sendEmail.js';
 import { getUserDisplayName } from '../_lib/personalization.js';
@@ -21,9 +20,15 @@ import { getUserPinnedTeams, getPinnedTeamSlugs, fetchUserTeamsBatch } from '../
 import { TEAM_DIGEST_MAX_TEAMS } from '../_lib/teamDigest.js';
 
 import {
-  VALID_EMAIL_TYPES, resolveTemplate, getEmailConfig, getEmailSport,
-  assembleEmailData, buildEmailData, loadTeamLookup, filterSportSlugs,
-  enrichMlbTeamDigests, emailPayloadDigest,
+  VALID_EMAIL_TYPES,
+  resolveTemplate,
+  getEmailConfig,
+  assembleEmailData,
+  buildEmailData,
+  loadTeamLookup,
+  filterSportSlugs,
+  enrichMlbTeamDigests,
+  emailPayloadDigest,
 } from '../_lib/emailPipeline.js';
 
 const DEBUG_MARKER = 'EMAIL_TEST_V5';

@@ -11,7 +11,6 @@ import {
   fetchOddsSource,
   fetchOddsHistorySource,
   fetchTeamIdsSource,
-  fetchScheduleSource,
   fetchNewsAggregateSource,
   fetchTeamNewsSource,
 } from '../_sources.js';

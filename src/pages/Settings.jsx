@@ -7,13 +7,12 @@ import { MLB_TEAMS } from '../sports/mlb/teams';
 import { getMlbEspnLogoUrl } from '../utils/espnMlbLogos';
 import TeamLogo from '../components/shared/TeamLogo';
 import { addPinnedTeam, removePinnedTeam, setPinnedTeams } from '../utils/pinnedTeams';
-import { addPinnedForSport, removePinnedForSport, getPinnedForSport } from '../hooks/usePinnedTeams';
+import { addPinnedForSport, removePinnedForSport } from '../hooks/usePinnedTeams';
 import { notifyPinnedChanged, onPinnedChanged, slugArraysEqual } from '../utils/pinnedSync';
 import { track, identify, setUserProperties, analyticsReset } from '../analytics/index';
 import {
   identifyUser,
   trackOnboardingCompleted,
-  trackFavoriteTeamsUpdated,
   trackSignupViewed,
   trackSignupStarted,
 } from '../lib/analytics/posthog';

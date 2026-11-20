@@ -12,10 +12,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { buildNbaPlayoffContext } from '../../../data/nba/playoffContext.js';
-import {
-  resolveActivePlayoffTeams,
-  computeActivePlayoffTeams,
-} from '../../../features/nba/contentStudio/normalizeNbaImagePayload.js';
+import { resolveActivePlayoffTeams } from '../../../features/nba/contentStudio/normalizeNbaImagePayload.js';
 
 function mkFinal({ awaySlug, awayScore, homeSlug, homeScore, hoursAgo = 24 }) {
   const startTime = new Date(Date.now() - hoursAgo * 3600 * 1000).toISOString();

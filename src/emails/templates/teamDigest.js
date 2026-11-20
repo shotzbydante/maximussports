@@ -12,7 +12,6 @@ import { EmailShell, heroBlock, sectionLabel, teamLogoImg, spacerRow, dividerRow
 import { renderEmailGameCard } from '../../../api/_lib/emailGameCards.js';
 import { renderEmailVideoList } from '../../../api/_lib/videoCards.js';
 import { TEAM_DIGEST_MAX_TEAMS } from '../../../api/_lib/teamDigest.js';
-import { getTeamTodaySummary } from '../../../api/_lib/teamSchedule.js';
 import { teamDigestSubject } from '../helpers/subjectGenerator.js';
 
 export function getSubject(data = {}) {

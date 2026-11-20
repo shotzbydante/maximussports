@@ -1,4 +1,3 @@
-/* global process */
 /**
  * News deduplication for email templates.
  *

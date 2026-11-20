@@ -1,4 +1,3 @@
-/* global process */
 /**
  * Logo URL resolution for emails.
  *
