@@ -9,7 +9,7 @@
  *   fetchChampionshipOdds() → winner odds (existing)
  */
 
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { fetchHomeFast, fetchHomeSlow } from '../api/home';
 import { getPinnedTeams } from '../utils/pinnedTeams';

@@ -8,12 +8,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { cascadeClearDownstream, buildFullBracket } from '../data/bracketData';
-import {
-  simulateEntireBracket,
-  simulateRestOfBracket,
-  regenerateMaximusPicks,
-  getSimulationStats,
-} from '../utils/bracketSimulator';
+import { simulateEntireBracket, simulateRestOfBracket, regenerateMaximusPicks } from '../utils/bracketSimulator';
 
 const AUTOSAVE_DELAY = 1200;
 

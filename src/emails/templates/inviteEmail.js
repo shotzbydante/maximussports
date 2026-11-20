@@ -19,7 +19,7 @@
  * @param {object}  [data.tournamentMeta]  — { topSeeds, upsetMatchups, bracketNarrative }
  */
 
-import { EmailShell, heroBlock, sectionLabel, sectionCard } from '../EmailShell.js';
+import { EmailShell, heroBlock, sectionLabel } from '../EmailShell.js';
 import { signalCard, buildSignalsFromPicks, FALLBACK_SIGNALS } from '../helpers/signalRows.js';
 import { isTournamentWeek, isPreTournament, isTournamentActive } from '../tournamentWindow.js';
 

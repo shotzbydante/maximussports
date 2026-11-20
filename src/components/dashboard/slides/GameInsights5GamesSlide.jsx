@@ -3,7 +3,7 @@ import TeamLogo from '../../shared/TeamLogo';
 import { getTeamSlug } from '../../../utils/teamSlug';
 import { getTeamSeed } from '../../../utils/tournamentHelpers';
 import { getTeamColors } from '../../../utils/teamColors';
-import { getConfidenceTier, TIERS } from '../../../utils/confidenceTier';
+import { TIERS } from '../../../utils/confidenceTier';
 import styles from './GameInsights5GamesSlide.module.css';
 
 function makeTeam(name) {

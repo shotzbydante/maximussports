@@ -213,11 +213,11 @@ describe('NBA Daily Briefing — Phase 1 foundation', () => {
     const ctx = buildNbaPlayoffContext({ liveGames });
     const hl = buildNbaDailyHeadline({ liveGames, playoffContext: ctx });
 
-    // eslint-disable-next-line no-console
+     
     console.log('\n=== NBA HERO TITLE ===\n' + hl.heroTitle);
-    // eslint-disable-next-line no-console
+     
     console.log('=== NBA SLIDE 2 HEADLINE ===\n' + hl.mainHeadline);
-    // eslint-disable-next-line no-console
+     
     console.log('=== NBA SUBHEAD ===\n' + hl.subhead + '\n');
 
     expect(hl.heroTitle).toBeTruthy();
@@ -232,10 +232,10 @@ describe('NBA Daily Briefing — Phase 1 foundation', () => {
     const ctx = buildNbaPlayoffContext({ liveGames });
     const bullets = buildNbaHotPress({ liveGames, playoffContext: ctx });
 
-    // eslint-disable-next-line no-console
+     
     console.log('=== NBA HOT PRESS BULLETS ===');
     bullets.forEach((b, i) => console.log(`  ${i + 1}. ${b.text}`));
-    // eslint-disable-next-line no-console
+     
     console.log('');
 
     expect(bullets.length).toBeGreaterThanOrEqual(3);
@@ -288,17 +288,17 @@ describe('NBA Daily Briefing — Phase 1 foundation', () => {
       expect(card.rationale.toLowerCase()).not.toMatch(/strong offense leads the way|strong defense leads the way/);
     }
 
-    // eslint-disable-next-line no-console
+     
     console.log('=== NBA PLAYOFF OUTLOOK (East Top 3) ===');
     payload.playoffOutlook.east.slice(0, 3).forEach(c => {
       console.log(`  ${c.abbrev} (${c.label}, ${c.odds}) — ${c.rationale}`);
     });
-    // eslint-disable-next-line no-console
+     
     console.log('=== NBA PLAYOFF OUTLOOK (West Top 3) ===');
     payload.playoffOutlook.west.slice(0, 3).forEach(c => {
       console.log(`  ${c.abbrev} (${c.label}, ${c.odds}) — ${c.rationale}`);
     });
-    // eslint-disable-next-line no-console
+     
     console.log('');
   });
 
@@ -314,12 +314,12 @@ describe('NBA Daily Briefing — Phase 1 foundation', () => {
 
     const { shortCaption, hashtags } = buildNbaCaption(payload);
 
-    // eslint-disable-next-line no-console
+     
     console.log('=== NBA CAPTION (first 400 chars) ===');
     console.log(shortCaption.slice(0, 400));
-    // eslint-disable-next-line no-console
+     
     console.log('...\n(total length: ' + shortCaption.length + ' chars, ' + hashtags.length + ' hashtags)');
-    // eslint-disable-next-line no-console
+     
     console.log('Hashtags: ' + hashtags.join(' ') + '\n');
 
     // Length + structure

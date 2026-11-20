@@ -28,7 +28,6 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { getSupabase } from '../lib/supabaseClient';
 import { getPinnedTeams, setPinnedTeams } from '../utils/pinnedTeams';
-import { addPinnedForSport } from './usePinnedTeams';
 import { onPinnedChanged, slugArraysEqual } from '../utils/pinnedSync';
 import { track } from '../analytics/index';
 import { MLB_TEAMS } from '../sports/mlb/teams';

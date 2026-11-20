@@ -12,7 +12,6 @@
  *   - reasonIfEmpty (one-line explanation if scorecard is empty)
  */
 
-import { getSupabaseAdmin } from '../../_lib/supabaseAdmin.js';
 import { getPicksForSlate, getScorecard, getLatestGradedScorecard, findLatestGradedSlate } from '../../_lib/picksHistory.js';
 import { fetchYesterdayFinals } from '../../nba/live/_normalize.js';
 import { yesterdayET } from '../../_lib/dateWindows.js';

@@ -36,9 +36,7 @@ import { assembleTeamDigestPayload, TEAM_DIGEST_MAX_TEAMS } from '../_lib/teamDi
 import { getProfileEntitlements } from '../_lib/entitlements.js';
 import { fetchUserTeamsBatch, resolveTeamRows, getPinnedTeamSlugs } from '../_lib/getUserPinnedTeams.js';
 import { assembleMlbEmailData } from '../_lib/mlbEmailData.js';
-import {
-  VALID_EMAIL_TYPES, resolveTemplate, resolvePrefKey, emailPayloadDigest,
-} from '../_lib/emailPipeline.js';
+import { VALID_EMAIL_TYPES, resolveTemplate, resolvePrefKey } from '../_lib/emailPipeline.js';
 
 // Derive from centralized registry — single source of truth
 const VALID_TYPES = VALID_EMAIL_TYPES;

@@ -306,7 +306,7 @@ export default function NbaTeamIntelSlide({ data, teamData, asOf: _asOf, slideNu
   // with payload key context so the next render error has a precise
   // breadcrumb instead of a silent error-boundary swallow.
   if (typeof window !== 'undefined') {
-    // eslint-disable-next-line no-console
+     
     console.log('[NBA_TEAM_INTEL_RENDER_START]', {
       hasData: !!data,
       hasTeamData: !!teamData,
@@ -439,7 +439,7 @@ export default function NbaTeamIntelSlide({ data, teamData, asOf: _asOf, slideNu
   // when a Team Intel slide ships with the wrong series state or a
   // missing model outlook.
   if (typeof window !== 'undefined') {
-    // eslint-disable-next-line no-console
+     
     console.log('[NBA_TEAM_INTEL_SERIES_STATUS]', {
       team: team?.abbrev || slug,
       activeSeriesRound: activeSeries?.round || null,
@@ -448,7 +448,7 @@ export default function NbaTeamIntelSlide({ data, teamData, asOf: _asOf, slideNu
       seriesScore: standingsSeries?.seriesScore?.summary,
       seriesStates: standingsSeries?.seriesStates || null,
     });
-    // eslint-disable-next-line no-console
+     
     console.log('[NBA_TEAM_INTEL_PAYLOAD_FINAL]', {
       team: team?.abbrev || slug,
       bulletTags: bullets.map(b => b.tag),

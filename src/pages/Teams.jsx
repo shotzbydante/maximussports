@@ -11,7 +11,7 @@ import { fetchHomeFast } from '../api/home';
 import { buildSlugToRankMap } from '../utils/rankingsNormalize';
 import { useAtsLeaders } from '../hooks/useAtsLeaders';
 import SeedBadge from '../components/common/SeedBadge';
-import { getTeamSeed, isBracketOfficial, getTeamRegion, isTournamentActive, isTournamentTeam } from '../utils/tournamentHelpers';
+import { getTeamSeed, isBracketOfficial, getTeamRegion, isTournamentActive } from '../utils/tournamentHelpers';
 import { CURRENT_MATCHUPS } from '../data/currentBracketMatchups';
 import { REGIONS } from '../config/bracketology';
 import styles from './Teams.module.css';

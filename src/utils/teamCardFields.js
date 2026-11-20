@@ -6,7 +6,7 @@
  * duplicating transformation logic.
  */
 
-import { getTeamSeed, getTeamRegion, isBracketOfficial, getTournamentPhase, getRoundLabel, getActiveRound } from './tournamentHelpers.js';
+import { getTeamSeed, getTeamRegion, isBracketOfficial, getRoundLabel } from './tournamentHelpers.js';
 import { getTeamBySlug } from '../data/teams.js';
 import { WORKSPACES, WorkspaceId, SeasonState } from '../workspaces/config.js';
 import { CURRENT_MATCHUPS } from '../data/currentBracketMatchups.js';

@@ -6,7 +6,7 @@
  */
 
 import { coalesce } from '../_cache.js';
-import { getAtsLeaders, setAtsLeaders, getAtsLeadersMaybeStale } from './cache.js';
+import { setAtsLeaders, getAtsLeadersMaybeStale } from './cache.js';
 import {
   getWithMeta,
   setJson,

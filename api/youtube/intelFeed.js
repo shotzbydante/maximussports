@@ -15,7 +15,7 @@
  */
 
 import { TEAMS } from '../../data/teams.js';
-import { ytSearch, ytVideosDetails, scoreItem, classifyBasketballItem, isQuotaExhausted, parseISO8601Duration } from './_yt.js';
+import { ytSearch, ytVideosDetails, scoreItem, classifyBasketballItem, isQuotaExhausted } from './_yt.js';
 import { ytRssSearch, safeRssQuery, fetchChannelRssFeeds } from './_ytRss.js';
 import { getJson, setJson } from '../_globalCache.js';
 import { CONF_NETWORK_MAP } from './_conferenceNetworks.js';

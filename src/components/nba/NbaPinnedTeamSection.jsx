@@ -127,8 +127,6 @@ function PinnedCard({ slug, odds, boardMap, schedule, onRemove, buildPath }) {
       .catch(() => {});
   }, [team]);
 
-  if (!team) return null;
-
   const scheduleEvents = Array.isArray(schedule) ? schedule : schedule?.events ?? [];
   const espnRecord = Array.isArray(schedule) ? null : schedule?.teamRecord;
 
@@ -143,18 +141,21 @@ function PinnedCard({ slug, odds, boardMap, schedule, onRemove, buildPath }) {
     return `${w}-${l}`;
   }, [board, espnRecord, scheduleEvents]);
 
-  const intel = useMemo(() => buildNbaTeamIntelSummary({
+  const intel = useMemo(() => (!team ? null : buildNbaTeamIntelSummary({
     team,
     odds: teamOdds ? { bestChanceAmerican: teamOdds.bestChanceAmerican } : null,
     record: currentRecord,
     standing: board?.standing || null,
     streak: board?.streak || null,
-  }), [team, teamOdds, currentRecord, board]);
+  })), [team, teamOdds, currentRecord, board]);
 
   const nextGame = useMemo(() => {
     if (!scheduleEvents.length) return null;
     return scheduleEvents.filter(e => !e.isFinal).sort((a, b) => new Date(a.date) - new Date(b.date))[0] || null;
   }, [scheduleEvents]);
+
+  // Early return must come after all hooks (rules of hooks).
+  if (!team) return null;
 
   const handleShare = () => {
     const url = `${window.location.origin}/nba/teams/${slug}`;

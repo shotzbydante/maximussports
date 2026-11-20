@@ -10,7 +10,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { getSupabase } from '../../lib/supabaseClient';
 import { useWorkspace } from '../../workspaces/WorkspaceContext';
 import { getMlbEspnLogoUrl } from '../../utils/espnMlbLogos';
 import { getTeamProjection } from '../../data/mlb/seasonModel';
@@ -154,8 +153,6 @@ function PinnedCard({ slug, odds, schedule, onRemove, buildPath }) {
       .catch(() => {});
   }, [team]);
 
-  if (!team) return null;
-
   // Destructure schedule data (may be { events, teamRecord } or legacy array)
   const scheduleEvents = Array.isArray(schedule) ? schedule : schedule?.events ?? [];
   const espnRecord = Array.isArray(schedule) ? null : schedule?.teamRecord;
@@ -175,10 +172,10 @@ function PinnedCard({ slug, odds, schedule, onRemove, buildPath }) {
   }, [espnRecord, scheduleEvents]);
 
   // Generate premium intel writeup
-  const intel = useMemo(() => buildMlbTeamIntelSummary({
+  const intel = useMemo(() => (!team ? null : buildMlbTeamIntelSummary({
     team, projection: proj, meta, odds: odds?.[slug] ? { bestChanceAmerican: odds[slug].bestChanceAmerican } : null,
     currentRecord,
-  }), [team, proj, meta, odds, slug, currentRecord]);
+  })), [team, proj, meta, odds, slug, currentRecord]);
 
   // Find next game from schedule events
   const nextGame = useMemo(() => {
@@ -186,6 +183,9 @@ function PinnedCard({ slug, odds, schedule, onRemove, buildPath }) {
     const upcoming = scheduleEvents.filter(e => !e.isFinal).sort((a, b) => new Date(a.date) - new Date(b.date));
     return upcoming[0] || null;
   }, [scheduleEvents]);
+
+  // Early return must come after all hooks (rules of hooks).
+  if (!team) return null;
 
   const handleShare = () => {
     const url = `${window.location.origin}/mlb/teams/${slug}`;

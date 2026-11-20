@@ -112,11 +112,9 @@ const SLUG_TO_ESPN_ID = {
   'pennsylvania-quakers': '219',
   'tennessee-state-tigers': '2634',
   'wright-state-raiders': '2750',
-  'tcu-horned-frogs': '2628',
   // Slug variants from ESPN displayName slugification
   'long-island-university-sharks': '2344',
   'queens-university-royals': '3101',
-  'prairie-view-am-panthers': '2504',
 };
 
 /**

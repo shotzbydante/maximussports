@@ -22,7 +22,7 @@ import { ESPNGamecastLink } from '../shared/ESPNGamecastLink';
 import { fetchTeamSummary } from '../../api/summary';
 import { getCachedVideos, setCachedVideos, getStaleVideos, setStaleVideos } from '../../utils/ytClientCache';
 import { track } from '../../analytics/index';
-import { trackTeamPinAdded, trackTeamPinRemoved, trackTeamPinBlocked, updateTeamPersonProperties, refreshTeamPersonPropertiesFromBackend } from '../../analytics/teamPinTracking';
+import { trackTeamPinAdded, trackTeamPinBlocked, refreshTeamPersonPropertiesFromBackend } from '../../analytics/teamPinTracking';
 import { useTeamPin } from '../../hooks/useTeamPin';
 import { getPinnedForSport } from '../../hooks/usePinnedTeams';
 import TeamLogo from '../shared/TeamLogo';

@@ -5,7 +5,7 @@ import { TEAMS } from '../data/teams';
 import ConferenceLogo from '../components/shared/ConferenceLogo';
 import YouTubeVideoCard from '../components/shared/YouTubeVideoCard';
 import YouTubeVideoModal from '../components/shared/YouTubeVideoModal';
-import { getCached, setCached, getStaleIntelFeed, setStaleIntelFeed, getStaleIntelFeedAge } from '../utils/ytClientCache';
+import { getCached, setCached, getStaleIntelFeed, setStaleIntelFeed } from '../utils/ytClientCache';
 import { track } from '../analytics/index';
 import { decodeDisplayText } from '../utils/decodeEntities';
 import { getPublicationLogoUrl, getSourceBrandLogo } from '../utils/publicationLogos';

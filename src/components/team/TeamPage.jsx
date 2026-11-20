@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { getTeamBySlug } from '../../data/teams';
 import { fetchTeamPage } from '../../api/team';
@@ -24,8 +24,8 @@ import { getPinnedTeams, togglePinnedTeam } from '../../utils/pinnedTeams';
 import { notifyPinnedChanged } from '../../utils/pinnedSync';
 import { trackTeamPinAdded, trackTeamPinRemoved } from '../../analytics/teamPinTracking';
 import SeedBadge from '../common/SeedBadge';
-import { getTeamSeed, getTeamRegion, isBracketOfficial, isTournamentActive, getTournamentTeam } from '../../utils/tournamentHelpers';
-import { normalizeTeamCardFields, fmtRecord, fmtAts, fmtAtsLast10 } from '../../utils/teamCardFields';
+import { getTeamSeed, getTeamRegion, isBracketOfficial, isTournamentActive } from '../../utils/tournamentHelpers';
+import { normalizeTeamCardFields, fmtAts, fmtAtsLast10 } from '../../utils/teamCardFields';
 import SEOHead, { buildOgImageUrl } from '../seo/SEOHead';
 import styles from './TeamPage.module.css';
 
@@ -310,6 +310,12 @@ export default function TeamPage() {
     }
   };
 
+  // Must be declared before the early return below (rules of hooks).
+  const cardFields = useMemo(() => {
+    if (!batch) return null;
+    return normalizeTeamCardFields(slug, batch, atsForSummary?.season ?? null);
+  }, [slug, batch, atsForSummary]);
+
   if (!team) {
     return (
       <div className={styles.page}>
@@ -320,11 +326,6 @@ export default function TeamPage() {
       </div>
     );
   }
-
-  const cardFields = useMemo(() => {
-    if (!batch) return null;
-    return normalizeTeamCardFields(slug, batch, atsForSummary?.season ?? null);
-  }, [slug, batch, atsForSummary]);
 
   const currentYear = new Date().getFullYear();
   const teamSeoTitle = `${team.name} Team Intel`;

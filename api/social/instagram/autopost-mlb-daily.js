@@ -39,7 +39,7 @@ import { buildMlbCaption } from '../../../src/features/mlb/contentStudio/buildMl
 // before calling buildMlbCaption(). Using this guarantees zero drift between
 // the autopost and manual paths.
 import { normalizeMlbImagePayload } from '../../../src/features/mlb/contentStudio/normalizeMlbImagePayload.js';
-import { stripEmojis, fmtOdds } from '../../../src/components/dashboard/slides/mlbDailyHelpers.js';
+import { fmtOdds } from '../../../src/components/dashboard/slides/mlbDailyHelpers.js';
 // In-process picks builder — avoids HTTP self-fetch to /api/mlb/picks/built
 // which is unreliable on Vercel serverless (cold starts, circular invocations).
 // Falls back through fresh build → KV latest → KV last-known-good → empty.

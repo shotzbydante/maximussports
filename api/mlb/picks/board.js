@@ -8,8 +8,8 @@
  * This is the canonical data source for MLB Maximus's Picks.
  */
 
-import { createCache, coalesce } from '../../_cache.js';
-import { normalizeEvent, resolveTeam, ESPN_SCOREBOARD, FETCH_TIMEOUT_MS } from '../live/_normalize.js';
+import { createCache } from '../../_cache.js';
+import { normalizeEvent, ESPN_SCOREBOARD, FETCH_TIMEOUT_MS } from '../live/_normalize.js';
 import { enrichGamesWithOdds } from '../live/_odds.js';
 
 const cache = createCache(120_000); // 2 min cache

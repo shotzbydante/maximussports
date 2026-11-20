@@ -10,7 +10,7 @@
 import { getMlbEspnLogoUrl } from '../../../utils/espnMlbLogos';
 import { MLB_TEAMS } from '../../../sports/mlb/teams';
 import { getTeamProjection } from '../../../data/mlb/seasonModel';
-import { fmtOdds, fmtDelta } from './mlbDailyHelpers';
+import { fmtOdds } from './mlbDailyHelpers';
 import styles from './MlbSlides.module.css';
 
 function TeamLogo({ slug, size = 26 }) {

@@ -28,7 +28,7 @@
  *   - 0-0 placeholder bullets unless Game 1 is genuinely upcoming
  */
 
-import { extractGameStories, teamName, seriesTagLower, findSecondStory } from './buildNbaDailyHeadline.js';
+import { extractGameStories, teamName, seriesTagLower } from './buildNbaDailyHeadline.js';
 import { NBA_TEAMS } from '../../../sports/nba/teams.js';
 
 const MAX_BULLETS = 4;

@@ -1,4 +1,3 @@
-/* global process */
 /**
  * GET /api/email/preview?type=<email_type>&secret=<PREVIEW_SECRET>
  *

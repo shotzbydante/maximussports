@@ -9,7 +9,6 @@
  *   POSTHOG_HOST     or  VITE_POSTHOG_HOST   — ingest endpoint
  */
 
-/* global process, fetch */
 
 const PH_KEY  = process.env.POSTHOG_API_KEY || process.env.VITE_POSTHOG_KEY || '';
 const PH_HOST = process.env.POSTHOG_HOST || process.env.VITE_POSTHOG_HOST || 'https://app.posthog.com';

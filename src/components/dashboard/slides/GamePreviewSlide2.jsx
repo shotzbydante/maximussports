@@ -1,7 +1,6 @@
 import SlideShell from './SlideShell';
 import InsightBullets from '../ui/InsightBullets';
 import styles from './GamePreviewSlide2.module.css';
-import { confidenceLabel } from '../../../utils/maximusPicksModel';
 import { getTeamSlug } from '../../../utils/teamSlug';
 import { TIERS } from '../../../utils/confidenceTier';
 

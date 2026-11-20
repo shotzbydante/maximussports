@@ -402,19 +402,19 @@ export default function NbaScorecardReport({ dateOverride, variant = 'full', ins
   // Strict invariant: if backend reports graded totals but UI got no rows,
   // surface the inconsistency in the console for ops visibility.
   if (apiGraded > 0 && !hasRowData) {
-    // eslint-disable-next-line no-console
+     
     console.warn('[NbaScorecardReport] data inconsistency: totals.graded=%d but picks.length=0 — falling back to aggregate display', apiGraded);
   }
-  // eslint-disable-next-line no-console
+   
   if (typeof window !== 'undefined' && import.meta?.env?.DEV) {
-    // eslint-disable-next-line no-console
+     
     console.log('NBA SCORECARD PICKS:', data?.picks, { dataMode, hasRowData, apiGraded, apiPending, selectedSlateDate: data?.selectedSlateDate });
   }
 
   if (noGradedSlate) {
     if (apiGraded === 0 && aggregateGraded === 0 && data?.selectedReason
         && data.selectedReason !== 'no_graded_slate') {
-      // eslint-disable-next-line no-console
+       
       console.warn('[NbaScorecardReport] invariant: server returned %s with no graded data — rendering awaiting state',
         data.selectedReason);
     }

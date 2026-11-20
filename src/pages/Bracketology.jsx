@@ -14,7 +14,6 @@ import { useAuth } from '../context/AuthContext';
 import { useBracketData } from '../hooks/useBracketData';
 import { useBracketPicks } from '../hooks/useBracketPicks';
 import { buildFullBracket } from '../data/bracketData';
-import { generateProjectedBracket } from '../data/projectedField';
 import { resolveBracketMatchup, resolveFullBracket } from '../utils/bracketMatchupResolver';
 import { fetchChampionshipOdds } from '../api/championshipOdds';
 import { getSimulationStats } from '../utils/bracketSimulator';

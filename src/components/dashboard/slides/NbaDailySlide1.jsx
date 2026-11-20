@@ -123,7 +123,7 @@ export default function NbaDailySlide1({ data, asOf: _a, slideNumber: _s, slideT
   // also emit [NBA_PLAYOFF_WINDOW_FETCH] per date so any "missing
   // games" situation is traceable end-to-end.
   if (typeof window !== 'undefined') {
-    // eslint-disable-next-line no-console
+     
     console.log('[NBA_HOTP_PAYLOAD]', {
       slide: 1,
       count: payload.bullets?.length || 0,

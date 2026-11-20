@@ -142,30 +142,24 @@ const ALIASES = {
   // Odds API abbreviations — "School St" and "School St Mascot" variants
   "michigan st": "Michigan State Spartans",
   "michigan st spartans": "Michigan State Spartans",
-  "michigan state": "Michigan State Spartans",
   "arizona st": "Arizona State Sun Devils",
   "arizona st sun devils": "Arizona State Sun Devils",
   "oklahoma st": "Oklahoma State Cowboys",
   "oklahoma st cowboys": "Oklahoma State Cowboys",
   "iowa st": "Iowa State Cyclones",
   "iowa st cyclones": "Iowa State Cyclones",
-  "iowa state": "Iowa State Cyclones",
   "illinois st": "Illinois State Redbirds",
   "illinois st redbirds": "Illinois State Redbirds",
   "illinois state": "Illinois State Redbirds",
   "illinois state redbirds": "Illinois State Redbirds",
   // Saint / St naming variants
-  "saint john's": "St. John's Red Storm",
   "saint johns": "St. John's Red Storm",
   "saint john's red storm": "St. John's Red Storm",
-  "st john's": "St. John's Red Storm",
   "st johns": "St. John's Red Storm",
   "st johns red storm": "St. John's Red Storm",
   "st. johns red storm": "St. John's Red Storm",
   // UConn / Connecticut variants
-  "connecticut": "UConn Huskies",
   "connecticut huskies": "UConn Huskies",
-  "uconn": "UConn Huskies",
   // Mid-major / MVC teams that appear in ESPN scores
   "loyola chicago": "Loyola Chicago Ramblers",
   "loyola chicago ramblers": "Loyola Chicago Ramblers",
@@ -343,7 +337,6 @@ const ALIASES = {
   "oregon state": "Oregon State Beavers",
   "oregon st": "Oregon State Beavers",
   "oregon state beavers": "Oregon State Beavers",
-  "boise st": "Boise State Broncos",
   "boise state broncos": "Boise State Broncos",
   "fresno state": "Fresno State Bulldogs",
   "fresno st": "Fresno State Bulldogs",
@@ -377,7 +370,6 @@ const ALIASES = {
   "portland st": "Portland State Vikings",
   "wyoming": "Wyoming Cowboys",
   "wyoming cowboys": "Wyoming Cowboys",
-  "utah state aggies": "Utah State Aggies",
   "florida atlantic": "Florida Atlantic Owls",
   "fau": "Florida Atlantic Owls",
   "florida atlantic owls": "Florida Atlantic Owls",
@@ -440,7 +432,6 @@ const ALIASES = {
   "saint marys gaels": "Saint Mary's Gaels",
   "dayton flyers": "Dayton Flyers",
   "san diego state aztecs": "San Diego State Aztecs",
-  "boise state broncos": "Boise State Broncos",
   "drake bulldogs": "Drake Bulldogs",
   "creighton bluejays": "Creighton Bluejays",
   "purdue boilermakers": "Purdue Boilermakers",
@@ -491,7 +482,6 @@ const ALIASES = {
   "furman paladins": "Furman Paladins",
   "hofstra": "Hofstra Pride",
   "hofstra pride": "Hofstra Pride",
-  "northern iowa": "Northern Iowa Panthers",
 };
 
 const FEED_SLUGS = {

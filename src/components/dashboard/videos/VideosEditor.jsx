@@ -17,12 +17,12 @@ import {
   COLOR_PRESETS,
   FONT_PRESETS,
 } from './templates/featureSpotlight';
-import { isRenderSupported, checkH264Support, renderVideo } from './render/renderVideo';
+import { checkH264Support, renderVideo } from './render/renderVideo';
 import { analyzeTrim, beatPeaksToTimings } from './render/analyzeTrim';
 import { generate as generateCopy, GENERATION_MODES } from './render/generationAdapter';
-import { generateVariantText, detectFeatureType } from './render/generateText';
-import { generateCoverImage, generateCoverSet, downloadBlob } from './render/coverExport';
-import { saveProject, loadLastProject, listProjects, deleteProject } from './render/projectStore';
+import { generateVariantText } from './render/generateText';
+import { generateCoverSet, downloadBlob } from './render/coverExport';
+import { saveProject, listProjects, deleteProject } from './render/projectStore';
 import { scoreVariants, buildPostingPackage } from './render/scoreVariant';
 import { buildEditPlan, editPlanBeatTimings } from './render/editPlan';
 import { exportBundle } from './render/bundleExport';

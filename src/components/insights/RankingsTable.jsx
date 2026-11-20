@@ -6,7 +6,7 @@ import { getSlugFromRankingsName } from '../../utils/rankingsNormalize';
 import TeamLogo from '../shared/TeamLogo';
 import ChampionshipBadge from '../shared/ChampionshipBadge';
 import SeedBadge from '../common/SeedBadge';
-import { getTeamSeed, getTeamRegion, isBracketOfficial, groupTeamsByRegion } from '../../utils/tournamentHelpers';
+import { getTeamSeed, getTeamRegion, isBracketOfficial } from '../../utils/tournamentHelpers';
 import { REGIONS } from '../../config/bracketology';
 import styles from './RankingsTable.module.css';
 

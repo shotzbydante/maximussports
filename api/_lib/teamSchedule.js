@@ -1,4 +1,3 @@
-/* global process */
 /**
  * Team schedule utilities shared by email templates and Home API responses.
  *
