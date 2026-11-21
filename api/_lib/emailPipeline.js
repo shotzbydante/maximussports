@@ -22,6 +22,7 @@ import { resolveEmailDateContext } from './emailDateContext.js';
 import { dedupeNewsItems } from './newsDedupe.js';
 import { fetchScoresSource, fetchRankingsSource, fetchNewsAggregateSource, fetchOddsSource } from '../_sources.js';
 import { getAtsLeadersPipeline } from '../home/atsPipeline.js';
+import { WORKSPACES, SeasonState } from '../../src/workspaces/config.js';
 import { TEAM_DIGEST_MAX_TEAMS } from './teamDigest.js';
 
 /**
@@ -43,6 +44,7 @@ export const EMAIL_REGISTRY = {
     template: 'mlbBriefing',
     prefKey: 'mlb_briefing',
     sport: 'mlb',
+    seasonGated: true,
     dataNeeds: ['mlb'],
     mlbFlags: { includeSummary: true, includePicks: false },
   },
@@ -50,6 +52,7 @@ export const EMAIL_REGISTRY = {
     template: 'mlbTeamDigest',
     prefKey: 'mlb_team_digest',
     sport: 'mlb',
+    seasonGated: true,
     dataNeeds: ['mlb'],
     mlbFlags: { includeSummary: false, includePicks: false },
     isTeamDigest: true,
@@ -59,6 +62,7 @@ export const EMAIL_REGISTRY = {
     template: 'mlbPicks',
     prefKey: 'mlb_picks',
     sport: 'mlb',
+    seasonGated: true,
     dataNeeds: ['mlb'],
     mlbFlags: { includeSummary: false, includePicks: true },
   },
@@ -112,10 +116,54 @@ export function resolvePrefKey(type) {
 }
 
 /**
- * Check if an email type is season-gated (NCAAM offseason).
+ * Check if an email type is season-gated: a sport-specific email that only
+ * makes sense while that sport is in season. Cross-sport emails are not.
  */
 export function isSeasonGated(type) {
   return EMAIL_REGISTRY[type]?.seasonGated === true;
+}
+
+/** Email sport key → workspace id in src/workspaces/config.js */
+const SPORT_TO_WORKSPACE = { mlb: 'mlb', ncaam: 'cbb', nba: 'nba' };
+
+/**
+ * Is this sport's season over? Reads the canonical season state from the
+ * workspace config, so emails follow the same switch as the app.
+ */
+export function isSportSeasonCompleted(sport, workspaces = WORKSPACES) {
+  return workspaces[SPORT_TO_WORKSPACE[sport]]?.seasonState === SeasonState.COMPLETED;
+}
+
+/**
+ * Should today's run of this email type be skipped for seasonal reasons?
+ *
+ *   - `<sport>_season_completed` — the sport is in its offseason, so there is
+ *     no slate, no picks and no daily narrative to send.
+ *   - `<sport>_emails_paused` — the season is live but the workspace has
+ *     `emails.paused` set (sends are held until someone turns them back on).
+ *
+ * @returns {{ reason: string, message: string } | null} null when the run should proceed
+ */
+export function getSeasonGate(type, workspaces = WORKSPACES) {
+  const config = EMAIL_REGISTRY[type];
+  if (!config?.seasonGated) return null;
+  const ws = workspaces[SPORT_TO_WORKSPACE[config.sport]];
+  if (!ws) return null;
+  const label = ws.shortLabel || config.sport.toUpperCase();
+
+  if (ws.seasonState === SeasonState.COMPLETED) {
+    return {
+      reason: `${config.sport}_season_completed`,
+      message: `${label} season is complete. ${label} email sends are suspended until next season.`,
+    };
+  }
+  if (ws.emails?.paused) {
+    return {
+      reason: `${config.sport}_emails_paused`,
+      message: `${label} email sends are paused in the workspace config (emails.paused).`,
+    };
+  }
+  return null;
 }
 
 /**
@@ -191,7 +239,13 @@ export async function assembleEmailData(type, baseUrl, opts = {}) {
     dateCtx,  // canonical date context — template uses for date label
   };
 
-  const needs = config.dataNeeds || [];
+  // A cross-sport email drops a sport that is in its offseason: there is no
+  // slate, scorecard or daily narrative to report, and the template already
+  // omits a sport block that has no data. Sport-specific emails are gated
+  // upstream (see getSeasonGate) and keep their full data needs here.
+  const needs = (config.dataNeeds || []).filter(
+    (sport) => !(config.sport === 'global' && isSportSeasonCompleted(sport)),
+  );
 
   // Fetch NCAAM data if needed
   if (needs.includes('ncaam')) {

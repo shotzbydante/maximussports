@@ -42,8 +42,8 @@ const MLB_MODULES = [
 ];
 
 const NBA_MODULES = [
-  { title: 'Daily Briefing', desc: 'AI-powered playoff briefings covering series, injuries, and market edges.', to: '/nba' },
-  { title: 'Team Intel', desc: 'Playoff seeds, records, championship odds, and team outlooks.', to: '/nba/teams' },
+  { title: 'Daily Briefing', desc: 'AI-powered daily briefings covering games, injuries, and market edges.', to: '/nba' },
+  { title: 'Team Intel', desc: 'Records, standings, championship odds, and team outlooks.', to: '/nba/teams' },
   { title: "Maximus's Picks", desc: 'Model-driven picks across moneyline, spread, and totals.', to: '/nba/insights' },
   { title: 'Bracketology', desc: 'Interactive playoff bracket with series simulation and title probabilities.', to: '/nba/bracketology' },
 ];
@@ -250,25 +250,25 @@ function MemberLanding() {
             </div>
           </Link>
 
-          {/* NBA — Playoffs Live */}
+          {/* NBA */}
           <Link to="/nba" className={`${styles.tile} ${styles.tileNba}`}>
             <div className={styles.tileGlow} />
             <div className={styles.tileHeader}>
               <img src="/nba-logo.png" alt="NBA" className={styles.tileLogo} width={42} height={42} />
               <div>
                 <h2 className={styles.tileTitle}>National Basketball Association</h2>
-                <span className={`${styles.tileStatus} ${styles.statusPlayoffs}`}>
-                  <span className={`${styles.statusDot} ${styles.statusDotGold}`} /> Playoffs Live
+                <span className={styles.tileStatus}>
+                  <span className={styles.statusDot} /> Regular Season Underway
                 </span>
               </div>
             </div>
             <p className={styles.tileDesc}>
-              Interactive playoff bracketology, daily postseason briefings, team intel,
-              Maximus&rsquo;s Picks, series simulations, and championship odds across every round.
+              Daily briefings, team intel, championship odds, and Maximus&rsquo;s Picks
+              across moneyline, spread, and totals for every game on the slate.
             </p>
             <div className={styles.tileCta}>
               <span className={styles.ctaBtn}>Enter NBA Intelligence &rarr;</span>
-              <span className={styles.ctaMicro}>Bracketology &middot; Team Intel &middot; Daily Briefing &rarr;</span>
+              <span className={styles.ctaMicro}>Daily Briefing &middot; Team Intel &middot; Picks &rarr;</span>
             </div>
           </Link>
 

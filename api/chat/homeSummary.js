@@ -19,6 +19,7 @@ const FORCE_LOCK_KEY = 'chat:home:forceLock';
 const FRESH_TTL_SEC      = 15 * 60;       // 15 min
 const LASTKNOWN_TTL_SEC  = 72 * 3600;     // 72 h
 const GEN_LOCK_TTL_SEC   = 90;
+const INLINE_REGEN_AFTER_SEC = 3 * 3600;  // older than this → regenerate inline instead of serving it
 const FORCE_LOCK_TTL_SEC = 45;
 
 const OPENAI_MODEL    = 'gpt-4o-mini';
@@ -441,9 +442,32 @@ export default async function handler(req, res) {
   }
 
   const lastKnown = await getJson(LASTKNOWN_KEY).catch(() => null);
+  const lastKnownAgeMs = lastKnown?.generatedAt
+    ? Date.now() - new Date(lastKnown.generatedAt).getTime()
+    : Infinity;
+  const hasUsableLastKnown = !!lastKnown?.summary && lastKnownAgeMs < INLINE_REGEN_AFTER_SEC * 1000;
 
-  // Kick background generation (guard with genLock to prevent stampede)
-  if (!bg) {
+  // Nothing cached, or the last briefing is too old to pass off as today's:
+  // generate inline. Work kicked off after the response is not guaranteed to
+  // run on serverless, so a cold cache would otherwise stay "missing" forever.
+  // The client fetches this in the background, so the wait is not user-blocking.
+  if (!hasUsableLastKnown && !bg) {
+    const acquired = await tryAcquireLock(GEN_LOCK_KEY, GEN_LOCK_TTL_SEC).catch(() => false);
+    if (acquired) {
+      if (isDev) console.log('[chat/homeSummary] cold or expired cache, generating inline');
+      let summary = null;
+      try {
+        summary = await generateAndCache();
+      } catch (err) {
+        console.error('[chat/homeSummary] inline generate error', err?.message);
+      }
+      if (summary) return res.status(200).json({ summary, status: 'fresh', generatedAt: new Date().toISOString() });
+    }
+    // Lock held by another request, or generation failed: fall through to
+    // whatever we have (an old briefing beats none).
+  } else if (!bg) {
+    // Recent enough to show: serve it now and try a background refresh
+    // (guard with genLock to prevent stampede).
     tryAcquireLock(GEN_LOCK_KEY, GEN_LOCK_TTL_SEC).then((acquired) => {
       if (!acquired) {
         if (isDev) console.log('[chat/homeSummary] bg already running (genLock held)');
@@ -455,10 +479,10 @@ export default async function handler(req, res) {
   }
 
   if (lastKnown?.summary) {
-    if (isDev) console.log('[chat/homeSummary] lastKnown hit, kicked bg');
+    if (isDev) console.log('[chat/homeSummary] lastKnown hit');
     return res.status(200).json({ summary: lastKnown.summary, status: 'stale', generatedAt: lastKnown.generatedAt });
   }
 
-  if (isDev) console.log('[chat/homeSummary] missing, kicked bg');
+  if (isDev) console.log('[chat/homeSummary] missing');
   return res.status(200).json({ summary: null, status: 'missing' });
 }
