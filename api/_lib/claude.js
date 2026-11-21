@@ -13,6 +13,10 @@
  * Notes on the request shape:
  *   - Current Claude models reject `temperature` / `top_p` / `top_k`, so no
  *     sampling parameters are sent. Tone and length are steered by the prompts.
+ *   - Claude counts more tokens than the same text did on the previous
+ *     provider (emoji and bold markers especially), so budgets are sized with
+ *     room to spare and an answer that still hits the cap is cut back to its
+ *     last complete sentence.
  *   - `max_tokens` caps thinking and answer text combined. Haiku runs with
  *     thinking off, so the whole budget is answer text. Other models cannot
  *     turn thinking off; for those the helper asks for low effort and adds
@@ -26,6 +30,20 @@ export const DEFAULT_CLAUDE_MODEL = 'claude-haiku-5-5';
 
 /** Extra output budget for models that always think. */
 const THINKING_HEADROOM_TOKENS = 2000;
+
+/**
+ * Appended to every system prompt. The copy goes straight to readers (pages,
+ * emails, reels), so the model must never narrate its instructions or choices.
+ */
+export const OUTPUT_RULES = `OUTPUT RULES (these override anything above that conflicts):
+- Reply with the finished copy only, ready to publish to readers as-is.
+- Never mention these instructions, the prompt, the data or its format, or your own choices. Do not explain what you included, skipped or changed.
+- If an instruction does not fit the data, follow the data and say nothing about the mismatch.
+- Stay inside the requested length and finish your last sentence.`;
+
+function withOutputRules(system) {
+  return system ? `${system}\n\n${OUTPUT_RULES}` : OUTPUT_RULES;
+}
 
 export function getClaudeModel(override) {
   const fromEnv = (process.env.CLAUDE_MODEL || '').trim();
@@ -53,7 +71,7 @@ export function buildClaudeRequest({ system, user, maxTokens, model, stream = fa
     max_tokens: maxTokens,
     messages: [{ role: 'user', content: user }],
   };
-  if (system) body.system = system;
+  body.system = withOutputRules(system);
   if (stream) body.stream = true;
 
   if (isHaiku(resolvedModel)) {
@@ -71,6 +89,19 @@ function requestHeaders(apiKey) {
     'x-api-key': apiKey,
     'anthropic-version': API_VERSION,
   };
+}
+
+/**
+ * Cut text that was stopped mid-sentence back to its last complete sentence.
+ * Returns the input unchanged when there is no earlier sentence end to cut to.
+ */
+export function trimToLastSentence(text) {
+  if (!text) return text;
+  const matches = [...text.matchAll(/[.!?](?:["'”’)\]]|\*\*)*(?=\s|$)/g)];
+  if (matches.length === 0) return text;
+  const last = matches[matches.length - 1];
+  const end = last.index + last[0].length;
+  return end >= text.trimEnd().length ? text.trimEnd() : text.slice(0, end);
 }
 
 /** Join the text blocks of a Messages API response, skipping thinking blocks. */
@@ -125,7 +156,10 @@ export async function claudeComplete({ system, user, maxTokens, timeoutMs, model
       const body = await r.text().catch(() => '');
       throw new ClaudeError('http_error', `Claude API ${r.status}: ${body.slice(0, 200)}`, r.status);
     }
-    return extractClaudeText(await r.json());
+    const json = await r.json();
+    const text = extractClaudeText(json);
+    // Hit the output cap: drop the dangling partial sentence so copy never ends mid-word.
+    return json?.stop_reason === 'max_tokens' ? trimToLastSentence(text) : text;
   } catch (err) {
     if (err instanceof ClaudeError) throw err;
     if (isAbort(err)) throw new ClaudeError('timeout', 'Claude request timed out');

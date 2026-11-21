@@ -288,7 +288,7 @@ Write a conversational daily recap using only the data above. If any section is 
 
   try {
     let fullContent = '';
-    for await (const delta of claudeStream({ system: systemPrompt, user: userPrompt, maxTokens: 700 })) {
+    for await (const delta of claudeStream({ system: systemPrompt, user: userPrompt, maxTokens: 1000 })) {
       fullContent += delta;
       send(res, { text: delta, done: false });
     }

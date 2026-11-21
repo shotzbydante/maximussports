@@ -20,7 +20,7 @@ const LASTKNOWN_TTL_SEC  = 72 * 3600;
 const GEN_LOCK_TTL_SEC   = 90;
 const FORCE_LOCK_TTL_SEC = 45;
 
-const MAX_TOKENS      = 1200;
+const MAX_TOKENS      = 1800;
 const LLM_TIMEOUT  = 18000;
 const NEWS_FETCH_TIMEOUT_MS = 5000;
 
@@ -163,6 +163,33 @@ function buildPrompt(data) {
     .map(([slug, emoji]) => `${slugToName[slug]}: ${emoji}`)
     .join(', ');
 
+  const isPlayoffs = payload.seasonPhase === 'playoffs';
+  const phaseLabel = String(payload.seasonPhase || 'regular_season').replace(/_/g, ' ');
+
+  const sections = isPlayoffs
+    ? `P1 PLAYOFF SCENE: Open with 3-4 top headlines from headlines[] with team emojis. Set the scene — we are in the NBA playoffs / play-in tournament. Reference specific playoff matchups, series, or play-in results.
+
+P2 CHAMPIONSHIP ODDS PULSE: Reference 4-5 teams from champOdds with exact odds (positive odds MUST include "+") and team emojis. Frame as title race market reads — who are the favorites to win the championship?
+
+P3 BRACKET WATCH: Discuss 2-3 compelling playoff matchups or series. Use champOdds context and team emojis. Frame as bracket paths — which conference has the tougher road to the Finals?
+
+P4 DARK HORSES & VALUE: Call out 1-2 teams from champSleepers with upset potential in the playoffs, plus any major injury/roster news. Use team emojis. Frame as series value plays.
+
+P5 CLOSER: 2-3 remaining headlines. Surface buzzy playoff storylines — eliminations, closeout games, buzzer-beaters. End with a sharp, punchy closer that captures playoff intensity.`
+    : `P1 SCENE: Open with 3-4 top headlines from headlines[] with team emojis. Set the scene for the ${phaseLabel} — results, streaks and standout performances the headlines mention.
+
+P2 CHAMPIONSHIP ODDS PULSE: Reference 4-5 teams from champOdds with exact odds (positive odds MUST include "+") and team emojis. Frame as title race market reads — who are the favorites to win the championship?
+
+P3 CONTENDER WATCH: Discuss 2-3 contenders or conference races. Use champOdds context and team emojis. Which conference looks deeper at the top?
+
+P4 DARK HORSES & VALUE: Call out 1-2 teams from champSleepers whose title price looks interesting, plus any major injury/roster news from the headlines. Use team emojis. Frame as futures value.
+
+P5 CLOSER: 2-3 remaining headlines. Surface the buzziest storylines. End with a sharp, punchy closer.`;
+
+  const languageRule = isPlayoffs
+    ? '- Use playoff basketball language: "series", "elimination", "closeout", "game 7", "home court", "bracket", "conference finals", "NBA Finals", "sweep", "gentlemen\'s sweep", "upset", "first round exit".'
+    : `- It is the ${phaseLabel}, not the playoffs. Use language that fits: "standings", "streak", "title race", "futures", "contender". Do NOT describe playoff series, brackets, eliminations or play-in games unless a headline does.`;
+
   const systemPrompt = `You are a sharp, energetic NBA basketball intelligence host for Maximus Sports — think Inside the NBA meets sharp bettor insight meets premium editorial sports journalism.
 
 Write a home-page daily briefing using ONLY the JSON data provided. DO NOT invent any scores, teams, odds, players, or facts not present in the data.
@@ -172,15 +199,7 @@ ${emojiMap}
 
 FORMAT — exactly 5 substantive paragraphs (no headers, no bullet lists, no numbered sections):
 
-P1 PLAYOFF SCENE: Open with 3-4 top headlines from headlines[] with team emojis. Set the scene — we are in the NBA playoffs / play-in tournament. Reference specific playoff matchups, series, or play-in results.
-
-P2 CHAMPIONSHIP ODDS PULSE: Reference 4-5 teams from champOdds with exact odds (positive odds MUST include "+") and team emojis. Frame as title race market reads — who are the favorites to win the championship?
-
-P3 BRACKET WATCH: Discuss 2-3 compelling playoff matchups or series. Use champOdds context and team emojis. Frame as bracket paths — which conference has the tougher road to the Finals?
-
-P4 DARK HORSES & VALUE: Call out 1-2 teams from champSleepers with upset potential in the playoffs, plus any major injury/roster news. Use team emojis. Frame as series value plays.
-
-P5 CLOSER: 2-3 remaining headlines. Surface buzzy playoff storylines — eliminations, closeout games, buzzer-beaters. End with a sharp, punchy closer that captures playoff intensity.
+${sections}
 
 STYLE RULES:
 - Target 350-450 words total (hard limit: 500 words).
@@ -188,7 +207,7 @@ STYLE RULES:
 - Use the team emoji AFTER the bolded team name when first mentioned.
 - Max 1 additional decorative emoji per paragraph from: 🔥 😬 👀 🚨 🏆 🏀
 - Zero profanity. Clean humor only.
-- Use playoff basketball language: "series", "elimination", "closeout", "game 7", "home court", "bracket", "conference finals", "NBA Finals", "sweep", "gentlemen's sweep", "upset", "first round exit".
+${languageRule}
 - Do NOT use baseball terminology.
 - Each paragraph should have narrative flow and editorial opinion.
 - Write like a premium sports intelligence product.`;

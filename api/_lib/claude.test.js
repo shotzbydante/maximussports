@@ -14,7 +14,9 @@ import {
   claudeStream,
   isClaudeConfigured,
   getClaudeModel,
+  trimToLastSentence,
   DEFAULT_CLAUDE_MODEL,
+  OUTPUT_RULES,
 } from './claude.js';
 
 const ENV_KEYS = ['ANTHROPIC_API_KEY', 'CLAUDE_MODEL'];
@@ -80,7 +82,7 @@ describe('configuration', () => {
 describe('buildClaudeRequest', () => {
   it('puts the system prompt at the top level and never sends sampling parameters', () => {
     const body = buildClaudeRequest({ system: 'sys', user: 'hi', maxTokens: 600 });
-    expect(body.system).toBe('sys');
+    expect(body.system.startsWith('sys')).toBe(true);
     expect(body.messages).toEqual([{ role: 'user', content: 'hi' }]);
     expect(body).not.toHaveProperty('temperature');
     expect(body).not.toHaveProperty('top_p');
@@ -100,6 +102,12 @@ describe('buildClaudeRequest', () => {
     expect(body).not.toHaveProperty('thinking');
     expect(body.output_config).toEqual({ effort: 'low' });
     expect(body.max_tokens).toBeGreaterThan(600);
+  });
+
+  it('appends the reader-facing output rules to every system prompt', () => {
+    expect(buildClaudeRequest({ system: 'sys', user: 'hi', maxTokens: 10 }).system).toBe(`sys\n\n${OUTPUT_RULES}`);
+    expect(buildClaudeRequest({ user: 'hi', maxTokens: 10 }).system).toBe(OUTPUT_RULES);
+    expect(OUTPUT_RULES).toMatch(/Never mention these instructions/);
   });
 
   it('sets stream only when asked', () => {
@@ -126,7 +134,45 @@ describe('extractClaudeText', () => {
   });
 });
 
+describe('trimToLastSentence', () => {
+  it('drops a dangling partial sentence', () => {
+    expect(trimToLastSentence('Spurs lead the board. The market is telling us the title'))
+      .toBe('Spurs lead the board.');
+  });
+
+  it('keeps closing quotes, brackets and bold markers attached to the sentence end', () => {
+    expect(trimToLastSentence('He said "go." Then the')).toBe('He said "go."');
+    expect(trimToLastSentence('Watch **Houston.** After that the')).toBe('Watch **Houston.**');
+  });
+
+  it('does not cut at decimals or odds inside a sentence', () => {
+    expect(trimToLastSentence('Duke sits at 11.8% implied and')).toBe('Duke sits at 11.8% implied and');
+  });
+
+  it('leaves complete text and empty input alone', () => {
+    expect(trimToLastSentence('All done here.')).toBe('All done here.');
+    expect(trimToLastSentence('No sentence end at all')).toBe('No sentence end at all');
+    expect(trimToLastSentence(null)).toBeNull();
+  });
+});
+
 describe('claudeComplete', () => {
+  it('cuts back to the last full sentence when the output cap was hit', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({
+      stop_reason: 'max_tokens',
+      content: [{ type: 'text', text: 'First point. Second point. And the third is that the' }],
+    })));
+    expect(await claudeComplete({ user: 'x', maxTokens: 10 })).toBe('First point. Second point.');
+  });
+
+  it('returns the text untouched on a normal stop', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({
+      stop_reason: 'end_turn',
+      content: [{ type: 'text', text: 'No trailing period' }],
+    })));
+    expect(await claudeComplete({ user: 'x', maxTokens: 10 })).toBe('No trailing period');
+  });
+
   it('posts to the Messages API with the key and version headers', async () => {
     const fetchMock = vi.fn(async () => jsonResponse({ content: [{ type: 'text', text: ' Briefing. ' }] }));
     vi.stubGlobal('fetch', fetchMock);
@@ -142,7 +188,7 @@ describe('claudeComplete', () => {
     expect(init.headers).not.toHaveProperty('Authorization');
     const body = JSON.parse(init.body);
     expect(body.max_tokens).toBe(850);
-    expect(body.system).toBe('sys');
+    expect(body.system).toContain('sys');
   });
 
   it('throws not_configured without calling the API when the key is missing', async () => {
