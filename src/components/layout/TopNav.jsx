@@ -4,6 +4,8 @@ import { useAuth } from '../../context/AuthContext';
 import { usePlan } from '../../hooks/usePlan';
 import { useUserProfile } from '../../hooks/useUserProfile';
 import { useWorkspace } from '../../workspaces/WorkspaceContext';
+import { WorkspaceId } from '../../workspaces/config';
+import { isAdminUser } from '../../config/admin';
 import HeaderProfileChip from '../profile/HeaderProfileChip';
 import WorkspaceLogo from './WorkspaceLogo';
 import styles from './TopNav.module.css';
@@ -126,32 +128,44 @@ export default function TopNav() {
   const { user } = useAuth();
   const { planTier, isLoading, isSyncing } = usePlan();
   const { profile } = useUserProfile();
-  const { workspace, workspaceId, visibleWorkspaces, switchWorkspace, buildPath, hasCapability } = useWorkspace();
+  const { workspace, workspaceId, hasSportContext, visibleWorkspaces, switchWorkspace, buildPath, hasCapability } = useWorkspace();
+  const isAdmin = isAdminUser(user?.email);
 
   const showWorkspaceSwitcher = visibleWorkspaces.length > 1;
 
   const NAV_LINKS = useMemo(() => {
     const links = [
       { to: '/', end: true, label: 'Home', iconKey: 'home', isAppHome: true },
-      { to: buildPath('/'), end: true, label: `${workspace.shortLabel} Briefing`, iconKey: 'briefing', isWorkspaceHome: true },
-      { to: buildPath('/games'), end: false, label: workspace.labels.games, iconKey: 'games' },
-      { to: buildPath('/teams'), end: false, label: workspace.labels.teamIntel, iconKey: 'teams' },
-      { to: buildPath('/insights'), end: false, label: workspace.labels.picks, iconKey: 'insights' },
-      { to: buildPath('/news'), end: false, label: workspace.labels.news, iconKey: 'news' },
     ];
-    if (hasCapability('seasonIntel')) {
-      links.push({ to: buildPath('/season-model'), end: false, label: 'Season Intelligence', iconKey: 'insights' });
-    }
-    if (hasCapability('bracketology')) {
-      links.push({ to: '/bracketology', end: false, label: 'Bracketology', isBracketology: true, iconKey: 'bracketology' });
+    if (hasSportContext) {
+      links.push(
+        { to: buildPath('/'), end: true, label: `${workspace.shortLabel} Briefing`, iconKey: 'briefing', isWorkspaceHome: true },
+        { to: buildPath('/games'), end: false, label: workspace.labels.games, iconKey: 'games' },
+        { to: buildPath('/teams'), end: false, label: workspace.labels.teamIntel, iconKey: 'teams' },
+        { to: buildPath('/insights'), end: false, label: workspace.labels.picks, iconKey: 'insights' },
+        { to: buildPath('/news'), end: false, label: workspace.labels.news, iconKey: 'news' },
+      );
+      if (hasCapability('seasonIntel')) {
+        links.push({ to: buildPath('/season-model'), end: false, label: 'Season Intelligence', iconKey: 'insights' });
+      }
+      if (hasCapability('bracketology')) {
+        // NCAAM keeps its legacy root path; every other sport is scoped.
+        const bracketPath = workspaceId === WorkspaceId.CBB ? '/bracketology' : buildPath('/bracketology');
+        links.push({ to: bracketPath, end: false, label: 'Bracketology', isBracketology: true, iconKey: 'bracketology' });
+      }
+    } else {
+      // Cross-sport pages (home, settings, dashboard): one link per sport.
+      for (const ws of visibleWorkspaces) {
+        links.push({ to: ws.routeBase, end: false, label: ws.shortLabel, iconKey: 'briefing', isSport: true });
+      }
     }
     // Account-section items rendered after the workspace group.
-    links.push(
-      { to: '/dashboard', end: false, label: 'Dashboard', isDashboard: true, iconKey: 'dashboard', isAccount: true },
-    );
+    if (isAdmin) {
+      links.push({ to: '/dashboard', end: false, label: 'Dashboard', isDashboard: true, iconKey: 'dashboard', isAccount: true });
+    }
     links.push({ to: '/settings', end: false, label: 'Settings', testId: 'nav-settings', iconKey: 'settings', isAccount: true });
     return links;
-  }, [workspace, buildPath, hasCapability]);
+  }, [workspace, workspaceId, hasSportContext, visibleWorkspaces, isAdmin, buildPath, hasCapability]);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -185,7 +199,7 @@ export default function TopNav() {
         <div className={styles.brandTaglineCluster}>
           <span className={styles.brandTagline}>Maximum Sports. Maximum Intelligence.</span>
           <PlanBadge tier={planTier} isLoading={isLoading} isSyncing={isSyncing} />
-          {showWorkspaceSwitcher && (
+          {showWorkspaceSwitcher && hasSportContext && (
             <span className={styles.workspaceBadge} aria-label={`Workspace: ${workspace.shortLabel}`}>
               <WorkspaceLogo workspace={workspace} size={14} /> {workspace.shortLabel}
             </span>
@@ -256,7 +270,7 @@ export default function TopNav() {
               })}
             </div>
             {/* ─── Workspace layer ─── */}
-            {showWorkspaceSwitcher && (
+            {showWorkspaceSwitcher && hasSportContext && (
               <div className={styles.mobileWsSwitcher}>
                 <span className={styles.mobileGroupHeader}>Workspace</span>
                 <div className={styles.mobileWsOptions}>
@@ -279,6 +293,7 @@ export default function TopNav() {
                 </div>
               </div>
             )}
+            {!hasSportContext && <span className={styles.mobileGroupHeader}>Sports</span>}
             {/* Workspace-scoped pages: Briefing (workspace home, primary state), Games, Team Intel, etc. */}
             {workspaceLinks.map(({ to, end, label, testId, isBracketology, isWorkspaceHome, iconKey }) => {
               const IconComp = ICON_COMPONENTS[iconKey] || null;

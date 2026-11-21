@@ -445,6 +445,8 @@
 .sectionAside { max-width: 21rem; font-size: 0.9375rem; color: var(--gl-text-2); }
 
 .grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+/* League links: two by two, so four sports keep the same card width. */
+.gridLeagues { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 .card {
   display: flex;
   flex-direction: column;
@@ -587,6 +589,7 @@
   .hero { grid-template-columns: 1fr; gap: 36px; padding: 40px var(--gl-pad) 56px; }
   .panel { grid-template-columns: 1fr; gap: 28px; padding: 32px; }
   .grid3 { grid-template-columns: 1fr; }
+  .gridLeagues { grid-template-columns: 1fr; }
   .sectionHead { flex-direction: column; align-items: flex-start; gap: 12px; margin-bottom: 24px; }
   .sectionAside { max-width: 34rem; }
   .card { flex-direction: row; gap: 18px; }

@@ -10,6 +10,7 @@
  */
 
 import { NBA_MODEL_VERSION } from '../src/features/nba/picks/v2/buildNbaPicksV2.js';
+import { NFL_MODEL_VERSION } from '../src/features/nfl/picks/buildNflPicksV2.js';
 
 let MLB_MODEL_VERSION = 'mlb-picks-unknown';
 try {
@@ -36,6 +37,6 @@ export default function handler(req, res) {
     ok: true,
     timestamp: new Date().toISOString(),
     git: { sha, shortSha: sha === 'unknown' ? sha : sha.slice(0, 7), branch, buildTime },
-    model: { nba: NBA_MODEL_VERSION, mlb: MLB_MODEL_VERSION },
+    model: { nba: NBA_MODEL_VERSION, mlb: MLB_MODEL_VERSION, nfl: NFL_MODEL_VERSION },
   });
 }

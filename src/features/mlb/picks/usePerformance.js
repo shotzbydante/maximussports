@@ -37,6 +37,7 @@ function useJson(url) {
 const SPORT_ENDPOINTS = {
   mlb: '/api/mlb/picks',
   nba: '/api/nba/picks',
+  nfl: '/api/nfl/picks',
 };
 
 function endpointBase(sport) {

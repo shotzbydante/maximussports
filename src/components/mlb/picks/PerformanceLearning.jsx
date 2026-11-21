@@ -85,6 +85,7 @@ function InsightLine({ text, tone }) {
 const EMPTY_COPY_BY_SPORT = {
   mlb: 'Real results accumulate daily. The first window will surface after the next slate grades.',
   nba: 'Early playoff sample — the model is still building its NBA track record. Results are graded daily.',
+  nfl: 'The NFL record starts with the first graded slate. Results post the morning after each game day.',
 };
 
 export default function PerformanceLearning({ compact = false, sport = 'mlb' }) {

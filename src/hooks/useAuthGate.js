@@ -15,6 +15,7 @@ const OPEN_ROUTES = new Set([
   '/mlb',
   '/ncaam',
   '/nba',
+  '/nfl',
   '/settings',
   '/privacy',
   '/terms',
@@ -24,9 +25,9 @@ const OPEN_ROUTES = new Set([
 
 /**
  * Any sport sub-route (e.g. /mlb/games, /nba/teams/bos) is preview-gated.
- * The home page itself (/mlb, /nba, /ncaam) stays open.
+ * The home page itself (/mlb, /nba, /nfl, /ncaam) stays open.
  */
-const PREVIEW_PREFIXES = ['/mlb/', '/ncaam/', '/nba/'];
+const PREVIEW_PREFIXES = ['/mlb/', '/ncaam/', '/nba/', '/nfl/'];
 
 const GATED_ROUTES = new Set([
   '/dashboard',
@@ -36,6 +37,7 @@ const GATED_ROUTES = new Set([
 export function getSportFromPath(path) {
   if (path.startsWith('/mlb')) return 'mlb';
   if (path.startsWith('/nba')) return 'nba';
+  if (path.startsWith('/nfl')) return 'nfl';
   if (path.startsWith('/ncaam')) return 'ncaam';
   return 'mlb';
 }

@@ -27,8 +27,9 @@
 
 import { getMlbEspnLogoUrl } from './espnMlbLogos.js';
 import { NBA_ESPN_IDS } from '../sports/nba/teams.js';
+import { getNflLogoUrl } from '../sports/nfl/teams.js';
 
-const SUPPORTED_SPORTS = new Set(['mlb', 'nba']);
+const SUPPORTED_SPORTS = new Set(['mlb', 'nba', 'nfl']);
 
 /** ESPN CDN URL for an NBA logo — 500px PNG. Returns null for unknown slugs. */
 export function getNbaEspnLogoUrl(slug) {
@@ -42,7 +43,7 @@ export function getNbaEspnLogoUrl(slug) {
  * The one resolver every UI surface should use.
  *
  * @param {object} args
- * @param {'mlb'|'nba'|null|undefined} args.sport — required context
+ * @param {'mlb'|'nba'|'nfl'|null|undefined} args.sport — required context
  * @param {string|null} args.slug
  * @param {object} [args.team]  — convenience: team object with sport/slug/logo
  * @param {object} [args.pick]  — convenience: pick object with sport
@@ -83,6 +84,14 @@ export function resolveTeamLogo({ sport, slug, team, pick, fallbackUrl } = {}) {
     if (url) return url;
     // Only accept team.logo fallback if it looks like an NBA asset
     if (teamLogo && /teamlogos\/nba\/|\/nba\//i.test(teamLogo)) return teamLogo;
+    return fallbackUrl || null;
+  }
+
+  if (resolvedSport === 'nfl') {
+    const url = getNflLogoUrl(resolvedSlug);
+    if (url) return url;
+    // Only accept team.logo fallback if it looks like an NFL asset
+    if (teamLogo && /teamlogos\/nfl\/|\/nfl\//i.test(teamLogo)) return teamLogo;
     return fallbackUrl || null;
   }
 

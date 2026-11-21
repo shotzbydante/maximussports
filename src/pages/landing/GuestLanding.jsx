@@ -24,7 +24,7 @@ const SIGNUP_ROUTE = '/settings';
 const META = {
   title: 'Maximus Sports — Sports Intelligence for Prediction Markets and Betting',
   description:
-    'Model-driven probabilities, market context, and clear analysis to help you read sports markets and make more informed decisions across MLB, NBA, and college basketball.',
+    'Model-driven probabilities, market context, and clear analysis to help you read sports markets and make more informed decisions across the NFL, NBA, MLB, and college basketball.',
   url: 'https://maximussports.ai',
   image: 'https://maximussports.ai/og.png',
 };
@@ -80,6 +80,7 @@ const STEPS = [
 ];
 
 const LEAGUES = [
+  { badge: 'NFL', title: 'Football intelligence', meta: 'Spreads · totals · playoff odds', to: '/nfl' },
   { badge: 'MLB', title: 'Baseball intelligence', meta: 'Matchups · projections · odds', to: '/mlb' },
   { badge: 'NBA', title: 'Basketball intelligence', meta: 'Games · picks · markets', to: '/nba' },
   { badge: 'NCAA', title: 'College basketball', meta: 'Teams · brackets · outlooks', to: '/ncaam' },
@@ -338,7 +339,7 @@ export default function GuestLanding() {
               <p className={styles.heroMeta}>
                 No credit card required
                 <span className={styles.metaDot} aria-hidden="true" />
-                MLB · NBA · NCAAM
+                NFL · NBA · MLB · NCAAM
               </p>
             </div>
 
@@ -525,7 +526,7 @@ export default function GuestLanding() {
                 Access dedicated models, coverage, briefings, and markets by league.
               </p>
             </div>
-            <div className={styles.grid3}>
+            <div className={styles.gridLeagues}>
               {LEAGUES.map((l) => (
                 <Link
                   key={l.to}

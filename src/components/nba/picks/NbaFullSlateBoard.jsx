@@ -40,6 +40,13 @@ function formatGameDate(iso) {
 
 function sourceLineFor(pick, marketKey) {
   if (!pick) return null;
+  // Sport-agnostic guard reasons (NFL): shown regardless of market.
+  if (pick.lowSignalReason === 'information_gap') {
+    return { label: 'Model far from market \u00b7 likely news the ratings miss', warn: true };
+  }
+  if (pick.lowSignalReason === 'price_guard') {
+    return { label: 'Price outside the promoted range \u00b7 tracking only', warn: true };
+  }
   const isTracking = pick.pickRole === 'tracking' || pick.flags?.tracking === true;
   const isCrossMarket =
     pick.modelSource === 'spread'
@@ -189,7 +196,7 @@ function Metric({ label, value, title }) {
   );
 }
 
-function GameCard({ game, hideTracking }) {
+function GameCard({ game, hideTracking, sport }) {
   const trackingHiddenSlots = [];
   if (hideTracking) {
     for (const key of ['moneyline', 'runline', 'total']) {
@@ -202,8 +209,8 @@ function GameCard({ game, hideTracking }) {
   const hidden = new Set(trackingHiddenSlots);
   const awaySlug = game.awayTeam?.slug;
   const homeSlug = game.homeTeam?.slug;
-  const awayLogo = resolveTeamLogo({ sport: 'nba', slug: awaySlug });
-  const homeLogo = resolveTeamLogo({ sport: 'nba', slug: homeSlug });
+  const awayLogo = resolveTeamLogo({ sport, slug: awaySlug });
+  const homeLogo = resolveTeamLogo({ sport, slug: homeSlug });
   const awayAbbr = game.awayTeam?.shortName || game.awayTeam?.abbrev || (awaySlug || '').toUpperCase();
   const homeAbbr = game.homeTeam?.shortName || game.homeTeam?.abbrev || (homeSlug || '').toUpperCase();
   const dateLabel = formatGameDate(game.startTime);
@@ -240,7 +247,21 @@ function GameCard({ game, hideTracking }) {
   );
 }
 
-export default function NbaFullSlateBoard({ endpoint = '/api/nba/picks/built' } = {}) {
+/**
+ * Default copy is the NBA playoff wording. Other sports pass `sport` (for
+ * logo resolution) and `copy` to reword the header without forking the
+ * component.
+ */
+const DEFAULT_COPY = {
+  title: 'Every Playoff Game \u00b7 Every Market',
+  empty: 'No playoff games on the slate yet. Pick \u2019Em, ATS, and Total predictions populate for every game once the schedule firms up.',
+  sub: 'One Pick \u2019Em, one ATS, and one Total pick on every NBA playoff game \u2014 graded daily. Hero picks are the highest-conviction edges on the slate; tracking picks are recorded and graded so the model\u2019s full-slate performance stays transparent.',
+  bannerKicker: 'Today\u2019s edges',
+  bannerScope: 'today',
+};
+
+export default function NbaFullSlateBoard({ endpoint = '/api/nba/picks/built', sport = 'nba', copy: copyOverride = null } = {}) {
+  const copy = { ...DEFAULT_COPY, ...(copyOverride || {}) };
   const { byGame, loading, fullSlatePicks, heroPicks, trackingPicks } =
     useCanonicalPicks({ endpoint });
   const [hideTracking, setHideTracking] = useState(false);
@@ -266,7 +287,7 @@ export default function NbaFullSlateBoard({ endpoint = '/api/nba/picks/built' } 
       <section className={styles.root} aria-busy="true">
         <header className={styles.rootHeader}>
           <span className={styles.rootKicker}>Full Slate Coverage</span>
-          <h2 className={styles.rootTitle}>Every Playoff Game &middot; Every Market</h2>
+          <h2 className={styles.rootTitle}>{copy.title}</h2>
         </header>
         <div className={styles.skel}>
           <div className={styles.skelBlock} />
@@ -281,12 +302,9 @@ export default function NbaFullSlateBoard({ endpoint = '/api/nba/picks/built' } 
       <section className={styles.root}>
         <header className={styles.rootHeader}>
           <span className={styles.rootKicker}>Full Slate Coverage</span>
-          <h2 className={styles.rootTitle}>Every Playoff Game &middot; Every Market</h2>
+          <h2 className={styles.rootTitle}>{copy.title}</h2>
         </header>
-        <p className={styles.rootEmpty}>
-          No playoff games on the slate yet. Pick &rsquo;Em, ATS, and Total predictions populate
-          for every game once the schedule firms up.
-        </p>
+        <p className={styles.rootEmpty}>{copy.empty}</p>
       </section>
     );
   }
@@ -295,12 +313,8 @@ export default function NbaFullSlateBoard({ endpoint = '/api/nba/picks/built' } 
     <section className={styles.root} aria-label="Full-slate game-by-game breakdown">
       <header className={styles.rootHeader}>
         <span className={styles.rootKicker}>Full Slate Coverage</span>
-        <h2 className={styles.rootTitle}>Every Playoff Game &middot; Every Market</h2>
-        <p className={styles.rootSub}>
-          One Pick &rsquo;Em, one ATS, and one Total pick on every NBA playoff game &mdash; graded
-          daily. Hero picks are the highest-conviction edges on the slate; tracking picks are
-          recorded and graded so the model&rsquo;s full-slate performance stays transparent.
-        </p>
+        <h2 className={styles.rootTitle}>{copy.title}</h2>
+        <p className={styles.rootSub}>{copy.sub}</p>
         <div className={styles.statRow}>
           <Stat label="Full-slate picks" value={fullSlatePicks?.length ?? 0} />
           <Stat label="Hero picks"       value={heroPicks?.length ?? 0} />
@@ -311,10 +325,10 @@ export default function NbaFullSlateBoard({ endpoint = '/api/nba/picks/built' } 
 
       {allMlAtsTracking && (
         <aside className={styles.slateBanner} role="note">
-          <span className={styles.slateBannerKicker}>Today&rsquo;s edges</span>
+          <span className={styles.slateBannerKicker}>{copy.bannerKicker}</span>
           <p className={styles.slateBannerText}>
             <strong>All Pick &rsquo;Em and ATS picks are tracking-only on this slate.</strong>{' '}
-            The model only finds high-conviction edges in <strong>Totals</strong> today. Tracking
+            The model only finds high-conviction edges in <strong>Totals</strong> {copy.bannerScope}. Tracking
             picks are still graded — they just aren&rsquo;t promoted as headline plays.
           </p>
         </aside>
@@ -337,7 +351,7 @@ export default function NbaFullSlateBoard({ endpoint = '/api/nba/picks/built' } 
       </div>
 
       <div className={styles.gameStack}>
-        {byGame.map(g => <GameCard key={g.gameId} game={g} hideTracking={hideTracking} />)}
+        {byGame.map(g => <GameCard key={g.gameId} game={g} hideTracking={hideTracking} sport={sport} />)}
       </div>
     </section>
   );

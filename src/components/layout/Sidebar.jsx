@@ -7,6 +7,7 @@ import { useUserProfile } from '../../hooks/useUserProfile';
 import { useWorkspace } from '../../workspaces/WorkspaceContext';
 import { WorkspaceId } from '../../workspaces/config';
 import WorkspaceSwitcher from './WorkspaceSwitcher';
+import WorkspaceLogo from './WorkspaceLogo';
 import SidebarProfileBlock from '../profile/SidebarProfileBlock';
 import styles from './Sidebar.module.css';
 
@@ -75,7 +76,7 @@ const BracketIcon = () => (
 export default function Sidebar() {
   const { user } = useAuth();
   const { profile } = useUserProfile();
-  const { workspace, workspaceId, buildPath, hasCapability } = useWorkspace();
+  const { workspace, workspaceId, hasSportContext, visibleWorkspaces, buildPath, hasCapability } = useWorkspace();
   const isAdmin = isAdminUser(user?.email);
   const [teamsOpen, setTeamsOpen] = useState(false);
   const [expandedConfs, setExpandedConfs] = useState({});
@@ -91,7 +92,7 @@ export default function Sidebar() {
   return (
     <aside className={styles.sidebar}>
       <div className={styles.navArea}>
-        <WorkspaceSwitcher />
+        {hasSportContext && <WorkspaceSwitcher />}
         {/* ─── App layer ─── */}
         <div className={styles.section}>
           <span className={styles.sectionTitle}>Maximus</span>
@@ -106,7 +107,27 @@ export default function Sidebar() {
             </NavLink>
           </nav>
         </div>
-        {/* ─── Workspace layer ─── */}
+        {/* ─── Workspace layer ───
+            On cross-sport pages (home, settings, dashboard) there is no
+            sport in the URL, so list every sport instead of one sport's
+            pages. */}
+        {!hasSportContext ? (
+          <div className={styles.section}>
+            <span className={styles.sectionTitle}>Sports</span>
+            <nav className={styles.nav}>
+              {visibleWorkspaces.map((ws) => (
+                <NavLink
+                  key={ws.id}
+                  to={ws.routeBase}
+                  className={({ isActive }) => (isActive ? `${styles.link} ${styles.active}` : styles.link)}
+                >
+                  <span className={styles.icon}><WorkspaceLogo workspace={ws} size={16} /></span>
+                  <span>{ws.shortLabel}</span>
+                </NavLink>
+              ))}
+            </nav>
+          </div>
+        ) : (
         <div className={styles.section}>
           <span className={styles.sectionTitle}>{workspace.shortLabel}</span>
           <nav className={styles.nav}>
@@ -217,12 +238,13 @@ export default function Sidebar() {
                 }
               >
                 <span className={styles.icon}><BracketIcon /></span>
-                <span>{isCbb ? 'Bracketology' : 'NBA Bracketology'}</span>
+                <span>{isCbb ? 'Bracketology' : `${workspace.shortLabel} Bracketology`}</span>
                 <span className={styles.bracketBadge}>NEW</span>
               </NavLink>
             )}
           </nav>
         </div>
+        )}
         {/* ─── Account layer ─── */}
         <div className={styles.section}>
           <span className={styles.sectionTitle}>Account</span>

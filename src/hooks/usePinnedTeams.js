@@ -33,6 +33,7 @@ function readUnified() {
         mlb: Array.isArray(parsed?.mlb) ? parsed.mlb.filter(s => typeof s === 'string') : [],
         ncaam: Array.isArray(parsed?.ncaam) ? parsed.ncaam.filter(s => typeof s === 'string') : [],
         nba: Array.isArray(parsed?.nba) ? parsed.nba.filter(s => typeof s === 'string') : [],
+        nfl: Array.isArray(parsed?.nfl) ? parsed.nfl.filter(s => typeof s === 'string') : [],
       };
     }
   } catch { /* fall through */ }
@@ -72,20 +73,20 @@ function ensureMigrated() {
   const legacyMlb = readLegacyArray(LEGACY_MLB_KEY);
   const legacyNcaam = readLegacyArray(LEGACY_NCAAM_KEY);
 
-  const unified = { mlb: legacyMlb, ncaam: legacyNcaam, nba: [] };
+  const unified = { mlb: legacyMlb, ncaam: legacyNcaam, nba: [], nfl: [] };
   // Use raw localStorage.setItem (not writeUnified) to avoid premature event
   try { localStorage.setItem(UNIFIED_KEY, JSON.stringify(unified)); } catch {}
 }
 
 function getForSport(sport) {
   ensureMigrated();
-  const data = readUnified() || { mlb: [], ncaam: [], nba: [] };
+  const data = readUnified() || { mlb: [], ncaam: [], nba: [], nfl: [] };
   return data[sport] || [];
 }
 
 function setForSport(sport, slugs) {
   ensureMigrated();
-  const data = readUnified() || { mlb: [], ncaam: [], nba: [] };
+  const data = readUnified() || { mlb: [], ncaam: [], nba: [], nfl: [] };
   data[sport] = slugs;
   writeUnified(data);
 
@@ -100,6 +101,13 @@ function setForSport(sport, slugs) {
 // ─── Also export raw helpers for non-hook usage ────────────────────────────
 
 export function getPinnedForSport(sport) { return getForSport(sport); }
+
+/** Every pinned slug across all sports — the free-plan cap is cross-sport. */
+export function getAllPinnedSlugs() {
+  ensureMigrated();
+  const data = readUnified() || {};
+  return Object.values(data).flatMap((list) => (Array.isArray(list) ? list : []));
+}
 export function addPinnedForSport(sport, slug) {
   const current = getForSport(sport);
   if (current.includes(slug)) return current;
