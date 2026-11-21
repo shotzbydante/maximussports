@@ -39,6 +39,7 @@ import styles from './Home.module.css';
 import SEOHead, { buildOgImageUrl } from '../components/seo/SEOHead';
 import { BRACKETOLOGY_ROUTE } from '../config/bracketology';
 import { WORKSPACES, WorkspaceId, SeasonState } from '../workspaces/config';
+import LastSeasonCard from '../components/season/LastSeasonCard';
 
 // ── Deferred below-the-fold imports ──────────────────────────────────────────
 const MaximusPicks     = lazy(() => import('../components/home/MaximusPicks'));
@@ -1136,7 +1137,7 @@ export default function Home() {
           <div className={styles.heroBriefingHeader}>
             <span className={styles.heroBriefingEyebrow}>
               {WORKSPACES[WorkspaceId.CBB]?.seasonState === SeasonState.COMPLETED
-                ? '2026 Season Recap'
+                ? `${WORKSPACES[WorkspaceId.CBB].championship?.seasonLabel ?? ''} Season Recap`.trim()
                 : 'Today\u2019s Intelligence Briefing'}
             </span>
           </div>
@@ -1147,15 +1148,11 @@ export default function Home() {
             className={`${styles.insightBody} ${isBannerCollapsed ? styles.insightBodyCollapsed : ''}`}
           >
             {WORKSPACES[WorkspaceId.CBB]?.seasonState === SeasonState.COMPLETED ? (
-              <p className={styles.bannerText}>
-                The 2026 college basketball season is complete. Michigan defeated UConn 69-63 to claim the national championship,
-                capping a dominant March Madness run. The Wolverines cut through the bracket with methodical precision,
-                dispatching every challenger en route to the program&apos;s third title. UConn, the two-time defending champion,
-                fell short in a hard-fought final that lived up to the billing. The Final Four in San Antonio featured
-                some of the tournament&apos;s most compelling storylines, from bracket-busting upsets to blue-blood resurgence.
-                As the offseason begins, the landscape shifts to the transfer portal, recruiting, and early projections for 2027.
-                Maximus will return with full intelligence when the next season tips off.
-              </p>
+              // Recap copy lives in the workspace config so the facts are
+              // maintained in one place (see src/workspaces/config.js).
+              (WORKSPACES[WorkspaceId.CBB].recap?.paragraphs || []).map((text) => (
+                <p key={text.slice(0, 32)} className={styles.bannerText}>{text}</p>
+              ))
             ) : (llmSummary || summaryText) ? (
               <FormattedSummary text={llmSummary || summaryText} className={styles.bannerText} />
             ) : (
@@ -1179,6 +1176,11 @@ export default function Home() {
           </button>
         </div>
       </div>
+
+      {/* ── Last season recap (in season): defending champion ──────── */}
+      {WORKSPACES[WorkspaceId.CBB]?.seasonState === SeasonState.ACTIVE && (
+        <LastSeasonCard workspace={WORKSPACES[WorkspaceId.CBB]} />
+      )}
 
       {/* ── 2b. Bracketology Promo ──────────────────────────────────── */}
       <section className={styles.bracketPromo}>
