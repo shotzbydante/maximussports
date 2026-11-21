@@ -12,6 +12,8 @@ import { WORKSPACES, WorkspaceId, SeasonState } from '../workspaces/config';
 import { fetchMlbHeadlines } from '../api/mlbNews';
 import { getFlag, setFlag } from '../utils/localFlags';
 import { trackAccountCreateSkipped } from '../lib/analytics/posthog';
+import { useAuth } from '../context/AuthContext';
+import GuestLanding from './landing/GuestLanding';
 import styles from './Landing.module.css';
 
 const WelcomeModal = lazy(() => import('../components/marketing/WelcomeModal'));
@@ -78,7 +80,18 @@ function formatTimeAgo(dateStr) {
   } catch { return ''; }
 }
 
+/**
+ * Root route switch: guests get the marketing landing page; signed-in
+ * users keep the existing sport hub.
+ */
 export default function Landing() {
+  const { user, loading } = useAuth();
+  if (loading) return <div style={{ minHeight: '100vh', width: '100%', background: '#040a1a' }} />;
+  if (!user) return <GuestLanding />;
+  return <MemberLanding />;
+}
+
+function MemberLanding() {
   const ncaam = WORKSPACES[WorkspaceId.CBB];
   const ncaamComplete = ncaam.seasonState === SeasonState.COMPLETED;
   const ch = ncaam.championship;
