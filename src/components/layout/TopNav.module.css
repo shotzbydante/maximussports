@@ -1,6 +1,6 @@
 .topnav {
   height: var(--topnav-height);
-  background: linear-gradient(135deg, #0a1628 0%, #0e1e38 50%, #0a1628 100%);
+  background: linear-gradient(135deg, #050c1d 0%, #0a1830 50%, #050c1d 100%);
   border-bottom: 1px solid rgba(255, 255, 255, 0.03);
   display: flex;
   align-items: center;
@@ -37,20 +37,8 @@
   flex-shrink: 0;
 }
 .brandWordmark {
-  display: flex; flex-direction: column; line-height: 1;
-}
-.brandWordmarkMain {
-  font-size: 0.92rem; font-weight: 900; letter-spacing: 0.04em;
-  background: linear-gradient(180deg, #e8f0ff 0%, #6ba3d6 100%);
-  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-.brandWordmarkSub {
-  font-size: 0.52rem; font-weight: 800; letter-spacing: 0.14em;
-  background: linear-gradient(180deg, #80d4ff 0%, #40a0e0 100%);
-  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-  background-clip: text;
-  margin-top: -1px;
+  display: block; height: 46px; width: auto; flex-shrink: 0;
+  margin-left: 2px;
 }
 
 /* Tagline + plan badge cluster */
@@ -113,9 +101,9 @@
   text-transform: uppercase;
   padding: 2px 8px;
   border-radius: 999px;
-  background: linear-gradient(135deg, var(--color-primary, #3c79b4) 0%, #1a6fcc 100%);
+  background: linear-gradient(135deg, var(--color-primary, #1668e3) 0%, #1a6fcc 100%);
   color: #fff;
-  box-shadow: 0 1px 6px rgba(60, 121, 180, 0.28);
+  box-shadow: 0 1px 6px rgba(22, 104, 227, 0.28);
   flex-shrink: 0;
   line-height: 1.2;
 }
@@ -226,7 +214,7 @@
   display: flex;
   flex-direction: column;
   gap: 0;
-  background: linear-gradient(180deg, #0e1e38 0%, #0a1628 100%);
+  background: linear-gradient(180deg, #0a1830 0%, #050c1d 100%);
   border-bottom: 1px solid rgba(255, 255, 255, 0.04);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.30);
   padding: var(--space-sm);
@@ -362,11 +350,8 @@
   .topnav {
     padding: 0 var(--space-md);
   }
-  .brandWordmarkMain {
-    font-size: 0.82rem;
-  }
-  .brandWordmarkSub {
-    font-size: 0.46rem;
+  .brandWordmark {
+    height: 40px;
   }
   .brandMascot {
     width: 32px;

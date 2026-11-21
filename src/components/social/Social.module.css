@@ -26,7 +26,7 @@
   width: 56px;
   height: 56px;
   border-radius: 50%;
-  background: rgba(60, 121, 180, 0.08);
+  background: rgba(22, 104, 227, 0.08);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -70,7 +70,7 @@
 
 .syncCard:hover {
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(60, 121, 180, 0.08), var(--shadow-sm);
+  box-shadow: 0 0 0 3px rgba(22, 104, 227, 0.08), var(--shadow-sm);
   background: var(--color-bg-muted);
 }
 
@@ -85,7 +85,7 @@
   width: 44px;
   height: 44px;
   border-radius: 12px;
-  background: rgba(60, 121, 180, 0.08);
+  background: rgba(22, 104, 227, 0.08);
   flex-shrink: 0;
 }
 
@@ -140,7 +140,7 @@
   letter-spacing: 0.05em;
   padding: 3px 10px;
   border-radius: var(--pill-radius);
-  background: rgba(60, 121, 180, 0.08);
+  background: rgba(22, 104, 227, 0.08);
   color: var(--color-text-muted);
 }
 
@@ -190,8 +190,8 @@
   align-items: center;
   gap: 8px;
   padding: var(--space-sm) var(--space-md);
-  background: rgba(60, 121, 180, 0.06);
-  border: 1px solid rgba(60, 121, 180, 0.12);
+  background: rgba(22, 104, 227, 0.06);
+  border: 1px solid rgba(22, 104, 227, 0.12);
   border-radius: var(--radius-md);
   color: var(--color-primary);
   font-family: var(--font-sans);
@@ -203,7 +203,7 @@
 }
 
 .syncFallbackBtn:hover {
-  background: rgba(60, 121, 180, 0.1);
+  background: rgba(22, 104, 227, 0.1);
   border-color: var(--color-primary);
 }
 
@@ -275,7 +275,7 @@
 
 .searchWrap:focus-within {
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(60, 121, 180, 0.1);
+  box-shadow: 0 0 0 3px rgba(22, 104, 227, 0.1);
 }
 
 .searchInput {
@@ -431,7 +431,7 @@
   width: 44px;
   height: 44px;
   border-radius: 12px;
-  background: rgba(60, 121, 180, 0.08);
+  background: rgba(22, 104, 227, 0.08);
   color: var(--color-primary);
   flex-shrink: 0;
 }
@@ -462,8 +462,8 @@
   align-items: center;
   gap: 8px;
   padding: 10px var(--space-md);
-  background: rgba(60, 121, 180, 0.05);
-  border: 1px solid rgba(60, 121, 180, 0.1);
+  background: rgba(22, 104, 227, 0.05);
+  border: 1px solid rgba(22, 104, 227, 0.1);
   border-radius: var(--radius-md);
   color: var(--color-primary);
   font-family: var(--font-sans);
@@ -475,7 +475,7 @@
 }
 
 .findFriendBtn:hover {
-  background: rgba(60, 121, 180, 0.1);
+  background: rgba(22, 104, 227, 0.1);
   border-color: var(--color-primary);
 }
 
@@ -563,14 +563,14 @@
   font-family: var(--font-sans);
   font-size: 0.85rem;
   font-weight: 600;
-  border: 1px solid rgba(60, 121, 180, 0.2);
+  border: 1px solid rgba(22, 104, 227, 0.2);
   border-radius: var(--radius-card);
   cursor: pointer;
   transition: all var(--transition-fast);
 }
 
 .btnCopyLink:hover {
-  background: rgba(60, 121, 180, 0.05);
+  background: rgba(22, 104, 227, 0.05);
   border-color: var(--color-primary);
 }
 
@@ -670,7 +670,7 @@
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  background: linear-gradient(135deg, rgba(60, 121, 180, 0.15), rgba(60, 121, 180, 0.08));
+  background: linear-gradient(135deg, rgba(22, 104, 227, 0.15), rgba(22, 104, 227, 0.08));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -756,9 +756,9 @@
 }
 
 .btnFollowing {
-  background: rgba(60, 121, 180, 0.1);
+  background: rgba(22, 104, 227, 0.1);
   color: var(--color-primary);
-  border: 1px solid rgba(60, 121, 180, 0.2);
+  border: 1px solid rgba(22, 104, 227, 0.2);
 }
 
 .btnFollowing:hover {
@@ -907,7 +907,7 @@
   letter-spacing: 0.08em;
   padding: 2px 8px;
   border-radius: var(--pill-radius);
-  background: rgba(60, 121, 180, 0.1);
+  background: rgba(22, 104, 227, 0.1);
   color: var(--color-primary);
 }
 
@@ -944,7 +944,7 @@
   align-items: center;
   justify-content: space-between;
   padding: var(--space-sm) var(--space-md);
-  background: rgba(60, 121, 180, 0.04);
+  background: rgba(22, 104, 227, 0.04);
   border-radius: var(--radius-md);
   border-left: 3px solid var(--color-primary);
 }
@@ -1075,13 +1075,13 @@
 }
 
 .shareActionCopy {
-  background: rgba(60, 121, 180, 0.08);
+  background: rgba(22, 104, 227, 0.08);
   color: var(--color-primary);
-  border: 1px solid rgba(60, 121, 180, 0.15);
+  border: 1px solid rgba(22, 104, 227, 0.15);
 }
 
 .shareActionCopy:hover {
-  background: rgba(60, 121, 180, 0.12);
+  background: rgba(22, 104, 227, 0.12);
 }
 
 /* ─── Friend Activity Feed ─────────────────────────────────────────────── */
@@ -1148,7 +1148,7 @@
   letter-spacing: 0.05em;
   padding: 1px 6px;
   border-radius: var(--pill-radius);
-  background: rgba(60, 121, 180, 0.08);
+  background: rgba(22, 104, 227, 0.08);
   color: var(--color-primary);
 }
 
@@ -1205,11 +1205,11 @@
 }
 
 .leaderboardRow:hover {
-  background: rgba(60, 121, 180, 0.03);
+  background: rgba(22, 104, 227, 0.03);
 }
 
 .leaderboardRowCurrent {
-  background: rgba(60, 121, 180, 0.05);
+  background: rgba(22, 104, 227, 0.05);
 }
 
 .leaderboardRank {

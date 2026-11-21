@@ -7,7 +7,7 @@
 
 .shell {
   background: var(--color-bg-elevated);
-  border: 1px solid rgba(60, 121, 180, 0.10);
+  border: 1px solid rgba(22, 104, 227, 0.10);
   border-radius: var(--radius-card);
   box-shadow: var(--shadow-card);
   overflow: hidden;
@@ -39,8 +39,8 @@
   justify-content: space-between;
   gap: var(--space-sm);
   padding: 11px var(--space-md) 9px;
-  border-bottom: 1px solid rgba(60, 121, 180, 0.08);
-  background: rgba(60, 121, 180, 0.015);
+  border-bottom: 1px solid rgba(22, 104, 227, 0.08);
+  background: rgba(22, 104, 227, 0.015);
 }
 
 .shellTitleRow {
@@ -66,8 +66,8 @@
   text-transform: uppercase;
   letter-spacing: 0.07em;
   color: var(--color-primary);
-  background: rgba(60, 121, 180, 0.08);
-  border: 1px solid rgba(60, 121, 180, 0.18);
+  background: rgba(22, 104, 227, 0.08);
+  border: 1px solid rgba(22, 104, 227, 0.18);
   border-radius: 999px;
   padding: 2px 7px;
   flex-shrink: 0;
@@ -90,11 +90,11 @@
 
 .shellFooter {
   padding: 9px var(--space-md);
-  border-top: 1px solid rgba(60, 121, 180, 0.08);
+  border-top: 1px solid rgba(22, 104, 227, 0.08);
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  background: rgba(60, 121, 180, 0.012);
+  background: rgba(22, 104, 227, 0.012);
 }
 
 /* ─── Skeleton ───────────────────────────────────────────────────── */

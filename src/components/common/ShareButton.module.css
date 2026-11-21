@@ -7,14 +7,14 @@
   min-height: 32px;
   border: 1px solid #2d6192;
   border-radius: 6px;
-  background: #3c79b4;
+  background: #1668e3;
   color: #fff;
   font-size: 12px;
   font-weight: 600;
   line-height: 1;
   letter-spacing: 0.02em;
   cursor: pointer;
-  box-shadow: 0 1px 4px rgba(60, 121, 180, 0.28);
+  box-shadow: 0 1px 4px rgba(22, 104, 227, 0.28);
   transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
   white-space: nowrap;
   flex-shrink: 0;
@@ -23,7 +23,7 @@
 .btn:hover:not(:disabled) {
   background: #2d6192;
   border-color: #225080;
-  box-shadow: 0 2px 8px rgba(60, 121, 180, 0.4);
+  box-shadow: 0 2px 8px rgba(22, 104, 227, 0.4);
 }
 
 .btn:active:not(:disabled) {
@@ -37,23 +37,23 @@
 }
 
 .btn:focus-visible {
-  outline: 2px solid #3c79b4;
+  outline: 2px solid #1668e3;
   outline-offset: 2px;
 }
 
 /* ── Primary variant: same as default (backward-compat alias) ────────── */
 .btnPrimary {
-  background: #3c79b4;
+  background: #1668e3;
   border-color: #2d6192;
   color: #fff;
-  box-shadow: 0 1px 4px rgba(60, 121, 180, 0.28);
+  box-shadow: 0 1px 4px rgba(22, 104, 227, 0.28);
 }
 
 .btnPrimary:hover:not(:disabled) {
   background: #2d6192;
   border-color: #225080;
   color: #fff;
-  box-shadow: 0 2px 8px rgba(60, 121, 180, 0.4);
+  box-shadow: 0 2px 8px rgba(22, 104, 227, 0.4);
 }
 
 .btnPrimary:active:not(:disabled) {
@@ -63,20 +63,20 @@
 
 /* ── Subtle variant: ghost/outline for low-prominence placements ─────── */
 .btnSubtle {
-  background: rgba(60, 121, 180, 0.07);
-  border-color: rgba(60, 121, 180, 0.32);
-  color: var(--color-primary, #3c79b4);
+  background: rgba(22, 104, 227, 0.07);
+  border-color: rgba(22, 104, 227, 0.32);
+  color: var(--color-primary, #1668e3);
   box-shadow: none;
 }
 
 .btnSubtle:hover:not(:disabled) {
-  background: rgba(60, 121, 180, 0.13);
-  border-color: rgba(60, 121, 180, 0.5);
+  background: rgba(22, 104, 227, 0.13);
+  border-color: rgba(22, 104, 227, 0.5);
   box-shadow: none;
 }
 
 .btnSubtle:active:not(:disabled) {
-  background: rgba(60, 121, 180, 0.2);
+  background: rgba(22, 104, 227, 0.2);
 }
 
 /* ── Icon-only compact variant — badge-sized ghost button ────────────── */
@@ -94,14 +94,14 @@
 }
 
 .btnIconOnly:hover:not(:disabled) {
-  background: rgba(60, 121, 180, 0.1);
+  background: rgba(22, 104, 227, 0.1);
   border-color: transparent;
-  color: var(--color-primary, #3c79b4);
+  color: var(--color-primary, #1668e3);
   box-shadow: none;
 }
 
 .btnIconOnly:active:not(:disabled) {
-  background: rgba(60, 121, 180, 0.18);
+  background: rgba(22, 104, 227, 0.18);
   box-shadow: none;
 }
 

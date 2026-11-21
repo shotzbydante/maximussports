@@ -6,7 +6,7 @@
 
 .header {
   padding: var(--space-lg, 24px) 0 var(--space-md, 16px);
-  border-bottom: 1px solid var(--color-border-light, rgba(60,121,180,0.12));
+  border-bottom: 1px solid var(--color-border-light, rgba(22, 104, 227,0.12));
   margin-bottom: var(--space-lg, 24px);
 }
 
@@ -78,7 +78,7 @@
   align-items: center;
   gap: var(--space-sm, 8px);
   background: rgba(255, 255, 255, 0.03);
-  border: 1px solid var(--color-border-light, rgba(60,121,180,0.12));
+  border: 1px solid var(--color-border-light, rgba(22, 104, 227,0.12));
   border-radius: var(--radius-md, 8px);
   padding: 10px 14px;
   text-decoration: none;
@@ -86,8 +86,8 @@
 }
 
 .contenderCard:hover {
-  background: rgba(60, 121, 180, 0.08);
-  border-color: rgba(60, 121, 180, 0.25);
+  background: rgba(22, 104, 227, 0.08);
+  border-color: rgba(22, 104, 227, 0.25);
   text-decoration: none;
 }
 
@@ -152,8 +152,8 @@
 }
 
 .confTeamLink:hover {
-  background: rgba(60, 121, 180, 0.08);
-  border-color: rgba(60, 121, 180, 0.2);
+  background: rgba(22, 104, 227, 0.08);
+  border-color: rgba(22, 104, 227, 0.2);
   color: var(--color-text-primary, #fff);
   text-decoration: none;
 }
@@ -168,7 +168,7 @@
 .linkCard {
   display: block;
   background: rgba(255, 255, 255, 0.03);
-  border: 1px solid var(--color-border-light, rgba(60,121,180,0.12));
+  border: 1px solid var(--color-border-light, rgba(22, 104, 227,0.12));
   border-radius: var(--radius-md, 8px);
   padding: var(--space-md, 16px);
   text-decoration: none;
@@ -176,8 +176,8 @@
 }
 
 .linkCard:hover {
-  background: rgba(60, 121, 180, 0.08);
-  border-color: rgba(60, 121, 180, 0.25);
+  background: rgba(22, 104, 227, 0.08);
+  border-color: rgba(22, 104, 227, 0.25);
   text-decoration: none;
 }
 
@@ -210,11 +210,11 @@
   text-decoration: none;
   padding: 5px 12px;
   background: rgba(255, 255, 255, 0.03);
-  border: 1px solid var(--color-border-light, rgba(60,121,180,0.12));
+  border: 1px solid var(--color-border-light, rgba(22, 104, 227,0.12));
   border-radius: 6px;
   transition: background 0.15s, border-color 0.15s;
 }
 .matchupLinkPill:hover {
-  background: rgba(60, 121, 180, 0.08);
-  border-color: rgba(60, 121, 180, 0.25);
+  background: rgba(22, 104, 227, 0.08);
+  border-color: rgba(22, 104, 227, 0.25);
 }

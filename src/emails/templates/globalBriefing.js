@@ -670,6 +670,15 @@ export function renderHTML(data = {}) {
 
   const hasAnyContent = nba.hasContent || mlb.hasContent;
 
+  // Lead line follows what the email actually carries: a sport in its
+  // offseason has no block (see assembleEmailData), so it is not promised here.
+  const leadLine = mlb.hasContent
+    ? 'NBA Playoffs lead today’s board, with MLB right behind.'
+    : 'The NBA leads today’s board.';
+  const previewLine = mlb.hasContent
+    ? '\u{1F4E1} NBA Playoffs lead today’s board — plus MLB intel.'
+    : '\u{1F4E1} The NBA leads today’s board.';
+
   const emptyState = !hasAnyContent ? `
 <tr><td style="padding:14px 24px 6px;">
   <span style="font-size:11px;font-weight:700;color:${RED};letter-spacing:0.08em;text-transform:uppercase;font-family:${F};">DAILY BRIEFING</span>
@@ -697,7 +706,7 @@ export function renderHTML(data = {}) {
   const content = `
 ${heroBlock({ line: 'Your daily cross-sport intelligence briefing.', sublabel: today })}
 <tr><td style="padding:8px 24px 14px;">
-  <p style="margin:0;font-size:14px;color:#4b5563;line-height:1.55;font-family:${F};">Good ${partOfDay}, ${greetingName}. NBA Playoffs lead today’s board, with MLB right behind.</p>
+  <p style="margin:0;font-size:14px;color:#4b5563;line-height:1.55;font-family:${F};">Good ${partOfDay}, ${greetingName}. ${leadLine}</p>
 </td></tr>
 ${hookBlock}
 ${compactDivider()}
@@ -707,7 +716,7 @@ ${hasAnyContent ? renderPartnerModule({ padding: '8px 24px 16px' }) : ''}`;
 
   return EmailShell({
     content,
-    previewText: '\u{1F4E1} NBA Playoffs lead today’s board — plus MLB intel.',
+    previewText: previewLine,
     ctaUrl: 'https://maximussports.ai',
     ctaLabel: 'Open Maximus Sports &rarr;',
   });
@@ -718,10 +727,17 @@ export function renderText(data = {}) {
   const name = (displayName ? displayName.split(' ')[0] : null) || 'there';
   const today = dateCtx?.briefingDateLabel
     || new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'America/Los_Angeles' });
+  // MLB section only when there is something to report (offseason sends none).
+  const mN = mlbData?.narrativeParagraph || '';
+  const mlbResults = data.mlbYesterdayResults || [];
+  const picks = mlbData?.picksBoard?.categories;
+  const mlbOddsKeys = Object.entries(data.champOdds || {}).slice(0, 5);
+  const hasMlb = !!(mN || mlbResults.length > 0 || picks || mlbOddsKeys.length > 0);
+
   const lines = [
     '\u{1F4E1} MAXIMUS SPORTS — Daily Global Intel Briefing',
     today, '',
-    `Good ${new Date().getHours() < 12 ? 'morning' : 'afternoon'}, ${name}. NBA Playoffs lead today, MLB second.`, '',
+    `Good ${new Date().getHours() < 12 ? 'morning' : 'afternoon'}, ${name}. ${hasMlb ? 'NBA Playoffs lead today, MLB second.' : 'The NBA leads today.'}`, '',
   ];
 
   // ─── NBA PLAYOFFS ───
@@ -746,20 +762,18 @@ export function renderText(data = {}) {
   }
 
   // ─── MLB ───
+  if (hasMlb) {
   lines.push('⚾ MLB');
   lines.push('─────────────');
-  const mN = mlbData?.narrativeParagraph || '';
   if (mN) {
     mN.replace(/\*\*/g, '').split(/(?<=[.!?])\s+(?=[A-Z])/).filter(s => s.length > 15).slice(0, 4).forEach(s => lines.push(`• ${s}`));
     lines.push('');
   }
-  const mlbResults = data.mlbYesterdayResults || [];
   if (mlbResults.length > 0) {
     lines.push("YESTERDAY'S MLB RESULTS:");
     mlbResults.slice(0, 5).forEach(g => lines.push(`  ${g.away?.abbrev} ${g.away?.score} @ ${g.home?.abbrev} ${g.home?.score}`));
     lines.push('');
   }
-  const picks = mlbData?.picksBoard?.categories;
   if (picks) {
     const all = [...(picks.pickEms || []), ...(picks.ats || []), ...(picks.totals || [])];
     const top = all.sort((a, b) => (b.confidenceScore || 0) - (a.confidenceScore || 0)).slice(0, 4);
@@ -773,11 +787,11 @@ export function renderText(data = {}) {
       lines.push('');
     }
   }
-  const mlbOddsKeys = Object.entries(data.champOdds || {}).slice(0, 5);
   if (mlbOddsKeys.length > 0) {
     lines.push('WORLD SERIES ODDS:');
     mlbOddsKeys.forEach(([slug, o]) => lines.push(`  ${slug.toUpperCase()}: ${fmtOdds(o.bestChanceAmerican ?? o.american)}`));
     lines.push('');
+  }
   }
 
   lines.push('Open Maximus Sports -> https://maximussports.ai', '');

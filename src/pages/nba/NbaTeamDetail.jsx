@@ -330,7 +330,7 @@ export default function NbaTeamDetail() {
         {/* Intel Briefing */}
         <section id="intel" className={styles.briefingCard}>
           <div className={styles.briefingHeader}>
-            <img src="/mascot.png" alt="" className={styles.briefingMascot} aria-hidden />
+            <img src="/mascot-basketball.png" alt="" className={styles.briefingMascot} aria-hidden />
             <h2 className={styles.briefingTitle}>Intel Briefing</h2>
           </div>
           <div className={styles.briefingBody}>

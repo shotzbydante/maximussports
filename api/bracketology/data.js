@@ -13,6 +13,19 @@
 import { createCache, coalesce } from '../_cache.js';
 
 const ESPN_TOURNAMENT_URL = 'https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard?groups=100&dates=20260301-20260410&limit=100';
+// Last day covered by ESPN_TOURNAMENT_URL. Once the app is well past it the
+// tournament is history: ESPN has been answering this query with HTTP 400, and
+// loading last season's official bracket would switch the app into
+// post-selection mode during the next regular season. Roll the URL and this
+// date forward together for the next bracket.
+const TOURNAMENT_WINDOW_END = '2026-04-10';
+const WINDOW_GRACE_DAYS = 60;
+
+export function isTournamentWindowClosed(now = new Date()) {
+  const end = Date.parse(`${TOURNAMENT_WINDOW_END}T23:59:59Z`);
+  return now.getTime() > end + WINDOW_GRACE_DAYS * 24 * 60 * 60 * 1000;
+}
+
 const CACHE_MS = 5 * 60 * 1000;
 const cache = createCache(CACHE_MS);
 
@@ -612,6 +625,13 @@ function validateBracket(bracket) {
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  if (isTournamentWindowClosed()) {
+    return res.status(200).json({
+      bracket: generateBlankBracket(),
+      _meta: { source: 'blank', reason: 'tournament_window_closed' },
+    });
   }
 
   try {

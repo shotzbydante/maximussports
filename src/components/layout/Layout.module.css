@@ -16,7 +16,7 @@
      looks visually continuous at any scroll position.
      `.main` has its own --color-bg, so the dark only ever shows in the
      sidebar column or behind the sidebar at scroll-end. */
-  background: #0a1628;
+  background: #050c1d;
 }
 
 .main {
@@ -45,4 +45,18 @@
   .main {
     padding: var(--space-sm);
   }
+}
+
+/* Brand sign-off at the end of every light app page */
+.endMark {
+  display: block;
+  width: 150px;
+  height: auto;
+  margin: 40px auto 4px;
+  opacity: 0.55;
+  pointer-events: none;
+  user-select: none;
+}
+@media (max-width: 768px) {
+  .endMark { width: 120px; margin-top: 28px; }
 }

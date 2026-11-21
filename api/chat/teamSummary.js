@@ -9,16 +9,15 @@
 import { getJson, setJson, tryAcquireLock } from '../_globalCache.js';
 import { getQueryParam } from '../_requestUrl.js';
 import { buildTeamSummaryData } from '../_lib/teamData.js';
+import { claudeComplete, isClaudeConfigured } from '../_lib/claude.js';
 
 const FRESH_TTL_SEC      = 15 * 60;
 const LASTKNOWN_TTL_SEC  = 72 * 3600;
 const GEN_LOCK_TTL_SEC   = 90;
 const FORCE_LOCK_TTL_SEC = 45;
 
-const OPENAI_MODEL   = 'gpt-4o-mini';
 const MAX_TOKENS     = 600;
-const TEMPERATURE    = 0.5;
-const OPENAI_TIMEOUT = 25000;
+const LLM_TIMEOUT    = 25000;
 
 const isDev = process.env.NODE_ENV !== 'production';
 
@@ -171,40 +170,20 @@ STYLE RULES:
   return { systemPrompt, userPrompt };
 }
 
-async function generateWithOpenAI(systemPrompt, userPrompt) {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey?.trim()) {
-    if (isDev) console.warn('[chat/teamSummary] OPENAI_API_KEY not set');
+async function generateWithClaude(systemPrompt, userPrompt) {
+  if (!isClaudeConfigured()) {
+    if (isDev) console.warn('[chat/teamSummary] ANTHROPIC_API_KEY not set');
     return null;
   }
-  const controller = new AbortController();
-  const t = setTimeout(() => controller.abort(), OPENAI_TIMEOUT);
   try {
-    const r = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        model: OPENAI_MODEL,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
-        ],
-        max_tokens: MAX_TOKENS,
-        temperature: TEMPERATURE,
-      }),
-      signal: controller.signal,
+    return await claudeComplete({
+      system: systemPrompt,
+      user: userPrompt,
+      maxTokens: MAX_TOKENS,
+      timeoutMs: LLM_TIMEOUT,
     });
-    clearTimeout(t);
-    if (!r.ok) {
-      const body = await r.text().catch(() => '');
-      console.error('[chat/teamSummary] OpenAI error', r.status, body.slice(0, 200));
-      return null;
-    }
-    const json = await r.json();
-    return json?.choices?.[0]?.message?.content?.trim() || null;
   } catch (err) {
-    clearTimeout(t);
-    console.error('[chat/teamSummary] OpenAI fetch error', err?.message);
+    console.error('[chat/teamSummary] Claude error', err?.message);
     return null;
   }
 }
@@ -225,7 +204,7 @@ async function readCached(slug) {
 async function generateAndCache(slug) {
   const data = await buildTeamSummaryData(slug);
   const { systemPrompt, userPrompt } = buildPrompt(data);
-  const summary = await generateWithOpenAI(systemPrompt, userPrompt);
+  const summary = await generateWithClaude(systemPrompt, userPrompt);
   if (summary) {
     const payload = { summary, generatedAt: new Date().toISOString() };
     await Promise.all([

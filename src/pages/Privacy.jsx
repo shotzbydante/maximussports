@@ -111,9 +111,9 @@ export default function Privacy() {
               processes request logs and performance data.
             </li>
             <li>
-              <strong>OpenAI / Anthropic (Claude)</strong> — AI services used to
+              <strong>Anthropic (Claude)</strong> — AI service used to
               generate sports summaries and analysis. Content you interact with may be
-              processed by these services.
+              processed by this service.
             </li>
           </ul>
         </section>

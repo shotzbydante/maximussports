@@ -18,7 +18,7 @@
 .card:hover,
 .card:focus-visible {
   transform: translateY(-2px);
-  box-shadow: 0 6px 18px rgba(60, 121, 180, 0.14);
+  box-shadow: 0 6px 18px rgba(22, 104, 227, 0.14);
   border-color: var(--color-border);
 }
 
@@ -112,7 +112,7 @@
 .card:focus-visible .playRing {
   transform: scale(1);
   opacity: 1;
-  background: rgba(60, 121, 180, 0.85);
+  background: rgba(22, 104, 227, 0.85);
 }
 
 /* Duration pill — bottom-right corner of thumbnail */

@@ -27,6 +27,8 @@ import { getNflTeamBySlug } from '../../sports/nfl/teams';
 import { getNbaTeamBySlug } from '../../sports/nba/teams';
 import { MLB_TEAMS } from '../../sports/mlb/teams';
 import { getTeamBySlug as getNcaamTeamBySlug } from '../../data/teams';
+import { mascotFor } from '../../brand/mascots';
+import SeasonCountdown from '../../components/season/SeasonCountdown';
 import styles from './MemberHome.module.css';
 
 const META = {
@@ -43,6 +45,9 @@ const QUICK_LINKS = {
   [WorkspaceId.MLB]: [['Games', '/games'], ['Picks', '/insights'], ['Teams', '/teams'], ['Season', '/season-model']],
   [WorkspaceId.CBB]: [['Games', '/games'], ['Insights', '/insights'], ['Teams', '/teams'], ['Bracket', '/bracketology']],
 };
+
+/** A completed season has no slate or new picks; link to what is still useful. */
+const OFFSEASON_LINKS = [['Recap', ''], ['Teams', '/teams'], ['News', '/news'], ['Season', '/season-model']];
 
 const PICKS_ENDPOINT = {
   [WorkspaceId.NFL]: '/api/nfl/picks/built',
@@ -112,14 +117,36 @@ function weeklyStatus(slate) {
   };
 }
 
+/** Slate status for NCAAM, whose scores come from the legacy home feed. */
+function ncaamStatus(scores) {
+  const games = Array.isArray(scores) ? scores : [];
+  if (games.length === 0) return { tone: 'idle', pill: 'No games today', line: 'Nothing on the schedule today.', live: 0, count: 0 };
+  const state = (g) => String(g.gameStatus || g.status || '').toLowerCase();
+  const final = games.filter((g) => g.isFinal || state(g).includes('final')).length;
+  // In-progress games read "1st 8:32", "2nd 0:41", "Q3 4:10" or "Halftime".
+  const live = games.filter((g) => !g.isFinal && /^(1st|2nd|q\d)\b|halftime|in progress|end of/.test(state(g))).length;
+  const upcoming = Math.max(0, games.length - final - live);
+  const bits = [];
+  if (upcoming) bits.push(`${upcoming} to play`);
+  if (final) bits.push(`${final} final`);
+  return {
+    tone: live ? 'live' : 'active',
+    pill: live ? `${live} live` : plural(games.length, 'game') + ' today',
+    line: live ? [`${plural(live, 'game')} in progress`, ...bits].join(' · ') : bits.join(' · '),
+    live,
+    count: games.length,
+  };
+}
+
 function completedStatus(ws) {
   const ch = ws.championship;
   return {
     tone: 'idle',
-    pill: 'Season complete',
-    line: ch ? `${ch.champion} beat ${ch.runnerUp} ${ch.score} for the title.` : 'Recap, team intel and picks history.',
+    pill: 'Offseason',
+    line: ch ? `${ch.champion} won the ${ch.eventName || 'title'}, ${ch.score} over the ${ch.runnerUp}.` : 'Recap, team intel and picks history.',
     live: 0,
     count: 0,
+    completed: true,
   };
 }
 
@@ -149,7 +176,8 @@ function pinnedTeamInfo(sport, slug) {
 }
 
 function SportCard({ ws, status }) {
-  const links = QUICK_LINKS[ws.id] || [];
+  const completed = ws.seasonState === SeasonState.COMPLETED;
+  const links = completed ? OFFSEASON_LINKS : (QUICK_LINKS[ws.id] || []);
   const bracketPath = ws.id === WorkspaceId.CBB ? '/bracketology' : `${ws.routeBase}/bracketology`;
   return (
     <article className={styles.sportCard} style={{ '--accent': ws.theme?.accent }}>
@@ -168,11 +196,22 @@ function SportCard({ ws, status }) {
         </span>
         <span className={styles.sportLabel}>{ws.label}</span>
         <span className={styles.sportLine}>{status ? status.line : ' '}</span>
-        <span className={styles.sportCta}>Open briefing <span aria-hidden>→</span></span>
+        {completed && ws.nextSeason && (
+          <SeasonCountdown nextSeason={ws.nextSeason} variant="inline" className={styles.sportCountdown} />
+        )}
+        <span className={styles.sportCta}>{completed ? 'Open recap' : 'Open briefing'} <span aria-hidden>→</span></span>
+        <img
+          src={mascotFor(ws.id).render}
+          alt=""
+          aria-hidden="true"
+          className={styles.sportMascot}
+          loading="lazy"
+          decoding="async"
+        />
       </Link>
       <nav className={styles.sportLinks} aria-label={`${ws.shortLabel} pages`}>
         {links.map(([label, path]) => (
-          <Link key={path} to={path === '/bracketology' ? bracketPath : `${ws.routeBase}${path}`}>{label}</Link>
+          <Link key={label} to={path === '/bracketology' ? bracketPath : `${ws.routeBase}${path}`}>{label}</Link>
         ))}
       </nav>
     </article>
@@ -232,7 +271,11 @@ export default function MemberHome() {
       if (ws.id === WorkspaceId.NFL) fetchNflGames().then((d) => put(ws.id, weeklyStatus(d)));
       else if (ws.id === WorkspaceId.NBA || ws.id === WorkspaceId.MLB) {
         getJson(`/api/${ws.id}/live/games?status=all`).then((d) => put(ws.id, dailyStatus(d?.games)));
-      } else put(ws.id, { tone: 'active', pill: 'In season', line: 'Briefing, games and picks.', live: 0, count: 0 });
+      } else {
+        getJson('/api/home/fast').then((d) => put(ws.id, d
+          ? ncaamStatus(d.scoresToday)
+          : { tone: 'active', pill: 'In season', line: 'Briefing, games and picks.', live: 0, count: 0 }));
+      }
     }
 
     const active = sports.filter((ws) => ws.seasonState === SeasonState.ACTIVE && PICKS_ENDPOINT[ws.id]);
@@ -299,6 +342,15 @@ export default function MemberHome() {
 
       <div className={styles.page}>
         <header className={styles.header}>
+          <img
+            src={mascotFor('football').render}
+            alt=""
+            aria-hidden="true"
+            className={styles.headerMascot}
+            width={487}
+            height={900}
+            decoding="async"
+          />
           <span className={styles.date}>
             {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
           </span>

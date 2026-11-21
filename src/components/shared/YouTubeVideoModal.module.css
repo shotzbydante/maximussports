@@ -79,7 +79,7 @@
 }
 
 .closeBtn:hover {
-  background: rgba(60, 121, 180, 0.08);
+  background: rgba(22, 104, 227, 0.08);
   color: var(--color-text);
 }
 

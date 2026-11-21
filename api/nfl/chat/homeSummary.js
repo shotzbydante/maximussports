@@ -11,6 +11,7 @@
 
 import { getJson, setJson, tryAcquireLock } from '../../_globalCache.js';
 import { getQueryParam } from '../../_requestUrl.js';
+import { claudeComplete, isClaudeConfigured } from '../../_lib/claude.js';
 import { NFL_TEAMS } from '../../../src/sports/nfl/teams.js';
 import { getNflSlate } from '../../_lib/nflSlate.js';
 import { getNflStandings } from '../../_lib/nflStandings.js';
@@ -27,10 +28,8 @@ const LASTKNOWN_TTL_SEC  = 72 * 3600;
 const GEN_LOCK_TTL_SEC   = 90;
 const FORCE_LOCK_TTL_SEC = 45;
 
-const OPENAI_MODEL   = 'gpt-4o-mini';
-const MAX_TOKENS     = 1200;
-const TEMPERATURE    = 0.5;
-const OPENAI_TIMEOUT = 18000;
+const MAX_TOKENS  = 1200;
+const LLM_TIMEOUT = 18000;
 
 const SEASON_PHASE = { 1: 'preseason', 2: 'regular_season', 3: 'playoffs', 4: 'offseason' };
 
@@ -157,41 +156,21 @@ function fixPositiveOdds(text) {
     .replace(/\((\d{3,4})\)/g, (m, n) => (+n >= 100 && +n <= 9999 ? `(+${n})` : m));
 }
 
-async function generateWithOpenAI(systemPrompt, userPrompt) {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey?.trim()) return null;
-
+async function generateWithClaude(systemPrompt, userPrompt) {
+  if (!isClaudeConfigured()) return null;
   for (let attempt = 1; attempt <= 2; attempt++) {
-    const controller = new AbortController();
-    const t = setTimeout(() => controller.abort(), OPENAI_TIMEOUT);
     try {
-      const r = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-        body: JSON.stringify({
-          model: OPENAI_MODEL,
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userPrompt },
-          ],
-          max_tokens: MAX_TOKENS,
-          temperature: TEMPERATURE,
-        }),
-        signal: controller.signal,
+      const raw = await claudeComplete({
+        system: systemPrompt,
+        user: userPrompt,
+        maxTokens: MAX_TOKENS,
+        timeoutMs: LLM_TIMEOUT,
       });
-      clearTimeout(t);
-      if (!r.ok) {
-        const body = await r.text().catch(() => '');
-        console.error('[nfl/chat/homeSummary] OpenAI error', r.status, body.slice(0, 200));
-        return null;
-      }
-      const json = await r.json();
-      const raw = json?.choices?.[0]?.message?.content?.trim() || null;
       return raw ? fixPositiveOdds(raw) : null;
     } catch (err) {
-      clearTimeout(t);
-      if (err?.name === 'AbortError' && attempt < 2) continue;
-      console[err?.name === 'AbortError' ? 'warn' : 'error']('[nfl/chat/homeSummary]', err?.message);
+      const timedOut = err?.code === 'timeout';
+      if (timedOut && attempt < 2) continue;
+      console[timedOut ? 'warn' : 'error']('[nfl/chat/homeSummary] Claude', err?.message);
       return null;
     }
   }
@@ -214,7 +193,7 @@ async function generateAndCache() {
   // Nothing to write about: do not ask the model to fill an empty page.
   if (payload.games.length === 0 && payload.headlines.length === 0) return null;
   const { systemPrompt, userPrompt } = buildPrompt(payload);
-  const summary = await generateWithOpenAI(systemPrompt, userPrompt);
+  const summary = await generateWithClaude(systemPrompt, userPrompt);
   if (summary) {
     const record = { summary, generatedAt: new Date().toISOString(), week: payload.week };
     await Promise.all([

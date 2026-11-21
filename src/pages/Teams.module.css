@@ -134,8 +134,8 @@
 
 .hero {
   background: var(--color-bg-elevated);
-  background-image: linear-gradient(135deg, rgba(60, 121, 180, 0.035) 0%, transparent 60%);
-  border: 1px solid rgba(60, 121, 180, 0.13);
+  background-image: linear-gradient(135deg, rgba(22, 104, 227, 0.035) 0%, transparent 60%);
+  border: 1px solid rgba(22, 104, 227, 0.13);
   border-left: 4px solid var(--color-primary);
   border-radius: var(--radius-card);
   box-shadow: var(--shadow-hero);
@@ -152,7 +152,7 @@
   right: 0;
   width: 200px;
   height: 100%;
-  background: linear-gradient(to left, rgba(60, 121, 180, 0.02) 0%, transparent 100%);
+  background: linear-gradient(to left, rgba(22, 104, 227, 0.02) 0%, transparent 100%);
   pointer-events: none;
 }
 
@@ -172,11 +172,11 @@
   letter-spacing: 0.12em;
   color: var(--color-primary);
   font-family: var(--font-mono);
-  background: linear-gradient(135deg, rgba(28, 80, 165, 0.09) 0%, rgba(60, 121, 180, 0.06) 100%);
-  border: 1px solid rgba(60, 121, 180, 0.22);
+  background: linear-gradient(135deg, rgba(28, 80, 165, 0.09) 0%, rgba(22, 104, 227, 0.06) 100%);
+  border: 1px solid rgba(22, 104, 227, 0.22);
   border-radius: 4px;
   padding: 4px 10px;
-  box-shadow: 0 1px 3px rgba(60, 121, 180, 0.08);
+  box-shadow: 0 1px 3px rgba(22, 104, 227, 0.08);
   margin-bottom: 14px;
 }
 
@@ -248,7 +248,7 @@
   font-weight: 600;
   color: var(--color-primary);
   background: transparent;
-  border: 1px solid rgba(60, 121, 180, 0.25);
+  border: 1px solid rgba(22, 104, 227, 0.25);
   border-radius: var(--pill-radius);
   padding: 8px 20px;
   cursor: pointer;
@@ -258,8 +258,8 @@
 }
 
 .heroCtaSecondary:hover {
-  background: rgba(60, 121, 180, 0.06);
-  border-color: rgba(60, 121, 180, 0.35);
+  background: rgba(22, 104, 227, 0.06);
+  border-color: rgba(22, 104, 227, 0.35);
   color: var(--color-primary);
 }
 
@@ -295,7 +295,7 @@
 
 .featuredStrip::-webkit-scrollbar { height: 3px; }
 .featuredStrip::-webkit-scrollbar-track { background: transparent; }
-.featuredStrip::-webkit-scrollbar-thumb { background: rgba(60, 121, 180, 0.18); border-radius: 2px; }
+.featuredStrip::-webkit-scrollbar-thumb { background: rgba(22, 104, 227, 0.18); border-radius: 2px; }
 
 .featuredCard {
   flex: 0 0 auto;
@@ -355,7 +355,7 @@
 }
 
 .featuredTagRanked {
-  background: rgba(60, 121, 180, 0.13);
+  background: rgba(22, 104, 227, 0.13);
   color: var(--color-metro-blue);
 }
 
@@ -379,7 +379,7 @@
 .exploreAllCard:hover {
   border-color: var(--color-primary);
   color: var(--color-primary);
-  background: rgba(60, 121, 180, 0.03);
+  background: rgba(22, 104, 227, 0.03);
   box-shadow: none;
   transform: none;
 }
@@ -511,7 +511,7 @@
   width: 40px;
   height: 40px;
   flex-shrink: 0;
-  background: rgba(60, 121, 180, 0.05);
+  background: rgba(22, 104, 227, 0.05);
   border-radius: 8px;
 }
 
@@ -556,13 +556,13 @@
   color: var(--color-text);
   text-decoration: none;
   padding: 3px 8px 3px 4px;
-  background: rgba(60, 121, 180, 0.04);
+  background: rgba(22, 104, 227, 0.04);
   border-radius: 4px;
   transition: background var(--transition-fast);
 }
 
 .confFeaturedTeam:hover {
-  background: rgba(60, 121, 180, 0.1);
+  background: rgba(22, 104, 227, 0.1);
   color: var(--color-text);
 }
 
@@ -608,10 +608,10 @@
   font-size: 0.72rem;
   line-height: 1.5;
   color: var(--color-text-secondary);
-  background: rgba(60, 121, 180, 0.04);
+  background: rgba(22, 104, 227, 0.04);
   border-radius: var(--radius-sm);
   padding: 8px 12px;
-  border-left: 3px solid rgba(60, 121, 180, 0.2);
+  border-left: 3px solid rgba(22, 104, 227, 0.2);
 }
 
 .confCardWatchLabel {
@@ -663,7 +663,7 @@
 .discoverySection {
   margin-bottom: var(--section-gap);
   padding-top: var(--space-xl);
-  border-top: 1px solid rgba(60, 121, 180, 0.07);
+  border-top: 1px solid rgba(22, 104, 227, 0.07);
 }
 
 .filters {
@@ -707,7 +707,7 @@
 .searchInput:focus {
   outline: none;
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(60, 121, 180, 0.1);
+  box-shadow: 0 0 0 3px rgba(22, 104, 227, 0.1);
 }
 
 .select {
@@ -771,7 +771,7 @@
 }
 
 .rankFilterBtnActive {
-  background: rgba(60, 121, 180, 0.1);
+  background: rgba(22, 104, 227, 0.1);
   border-color: var(--color-primary);
   color: var(--color-primary);
   font-weight: 600;
@@ -807,7 +807,7 @@
   text-transform: uppercase;
   letter-spacing: var(--header-letter-spacing);
   color: var(--color-text);
-  background: rgba(60, 121, 180, 0.05);
+  background: rgba(22, 104, 227, 0.05);
   border: none;
   border-bottom: 1px solid var(--divider-color);
   cursor: pointer;
@@ -817,7 +817,7 @@
 }
 
 .conferenceHeader:hover {
-  background: rgba(60, 121, 180, 0.09);
+  background: rgba(22, 104, 227, 0.09);
 }
 
 .conferenceLogoWrap {
@@ -859,7 +859,7 @@
   color: var(--color-text-muted);
   display: block;
   padding: var(--space-xs) var(--space-md);
-  background: rgba(60, 121, 180, 0.035);
+  background: rgba(22, 104, 227, 0.035);
   font-family: var(--font-mono);
 }
 
@@ -889,7 +889,7 @@
 }
 
 .teamRow:hover {
-  background: rgba(60, 121, 180, 0.04);
+  background: rgba(22, 104, 227, 0.04);
   color: inherit;
 }
 
@@ -902,7 +902,7 @@
   font-size: 0.58rem;
   font-weight: 700;
   font-family: var(--font-mono);
-  background: rgba(60, 121, 180, 0.12);
+  background: rgba(22, 104, 227, 0.12);
   color: var(--color-metro-blue);
   padding: 1px 5px;
   border-radius: 3px;
@@ -948,7 +948,7 @@
 }
 
 .tierShould {
-  background: rgba(60, 121, 180, 0.13);
+  background: rgba(22, 104, 227, 0.13);
   color: var(--color-metro-blue);
 }
 
@@ -1011,7 +1011,7 @@
 
 .pinSection {
   background: var(--color-bg-elevated);
-  background-image: linear-gradient(135deg, rgba(60, 121, 180, 0.03) 0%, transparent 70%);
+  background-image: linear-gradient(135deg, rgba(22, 104, 227, 0.03) 0%, transparent 70%);
   border: var(--card-border);
   border-radius: var(--radius-card);
   box-shadow: var(--shadow-card);
@@ -1050,7 +1050,7 @@
   font-weight: 600;
   color: var(--color-primary);
   background: transparent;
-  border: 1px solid rgba(60, 121, 180, 0.25);
+  border: 1px solid rgba(22, 104, 227, 0.25);
   border-radius: var(--pill-radius);
   padding: 8px 20px;
   text-decoration: none;
@@ -1058,8 +1058,8 @@
 }
 
 .pinCta:hover {
-  background: rgba(60, 121, 180, 0.06);
-  border-color: rgba(60, 121, 180, 0.35);
+  background: rgba(22, 104, 227, 0.06);
+  border-color: rgba(22, 104, 227, 0.35);
   color: var(--color-primary);
 }
 

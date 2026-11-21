@@ -265,7 +265,7 @@ export default function UpsetRadarSlide({ data, asOf, slideNumber, slideTotal, o
             <div className={styles.titleSup}>{subtitleText}</div>
           </div>
           <img
-            src="/mascot.png"
+            src="/mascot-basketball.png"
             alt=""
             className={styles.heroMascot}
             crossOrigin="anonymous"

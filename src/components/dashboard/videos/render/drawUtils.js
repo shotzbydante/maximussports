@@ -45,6 +45,19 @@ export function loadLogo(src = '/logo.png') {
   });
 }
 
+let _watermarkCache = null;
+/** Corner watermark (translucent wordmark). Resolves null if it can't load so callers can fall back to the logo. */
+export function loadWatermark(src = '/brand/watermark-corner.png') {
+  if (_watermarkCache) return Promise.resolve(_watermarkCache);
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => { _watermarkCache = img; resolve(img); };
+    img.onerror = () => resolve(null);
+    img.src = src;
+  });
+}
+
 const ROBOT_FALLBACK_PATHS = ['/mascot.png', '/assets/robot/maximus-hero.png'];
 let _robotCacheSrc = null; // track which src is cached
 
@@ -1262,7 +1275,14 @@ export function drawTextOverlay(ctx, text, yCenter, fontSize, lineHeight, alpha 
 }
 
 // ─── watermark (small logo in bottom-safe area) ──────────────────
-export function drawWatermark(ctx, logo, alpha = 0.35) {
+export function drawWatermark(ctx, logo, alpha = 0.35, watermark = null) {
+  if (watermark) {
+    // watermark-corner.png carries its own transparency; crop its padding and pin it bottom-right
+    const sx = 130, sy = 14, sw = 420, sh = 202;
+    const dw = 176, dh = (sh / sw) * dw;
+    ctx.drawImage(watermark, sx, sy, sw, sh, W - dw - 28, H * 0.74, dw, dh);
+    return;
+  }
   if (!logo) return;
   ctx.save();
   ctx.globalAlpha = alpha;

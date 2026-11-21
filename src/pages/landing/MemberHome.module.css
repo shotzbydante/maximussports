@@ -15,7 +15,9 @@
 }
 
 /* ── Header ────────────────────────────────────────────────────────────── */
-.header { display: flex; flex-direction: column; gap: 4px; }
+.header { position: relative; display: flex; flex-direction: column; gap: 4px; min-height: 84px; padding-left: 60px; justify-content: center; }
+/* Brand rule: the 3D mascot belongs on the home pages. */
+.headerMascot { position: absolute; left: 0; top: 50%; transform: translateY(-50%); width: auto; height: 84px; pointer-events: none; }
 .date { font-size: 0.8125rem; color: var(--color-text-muted); }
 .title {
   margin: 0;
@@ -47,6 +49,7 @@
 }
 .sportCard:hover { box-shadow: var(--shadow-card-hover); transform: translateY(-2px); }
 .sportMain {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -66,6 +69,17 @@
 .sportName { font-family: var(--font-display); font-size: 1.25rem; font-weight: 700; line-height: 1; letter-spacing: 0.01em; }
 .sportLabel { font-size: 0.8125rem; color: var(--color-text-muted); }
 .sportLine { font-size: 0.875rem; line-height: 1.45; color: var(--color-text-secondary); min-height: 2.9em; }
+.sportCountdown { font-size: 0.8125rem; color: var(--color-text-secondary); font-variant-numeric: tabular-nums; }
+.sportMascot {
+  position: absolute;
+  right: 10px;
+  bottom: 8px;
+  height: 78px;
+  width: auto;
+  pointer-events: none;
+  filter: drop-shadow(0 6px 10px rgba(15, 23, 42, 0.14));
+}
+.sportLine, .sportCountdown { padding-right: 58px; }
 .sportCta { margin-top: 4px; font-size: 0.875rem; font-weight: 600; color: var(--color-primary); }
 .sportMain:hover .sportCta { color: var(--color-primary-hover); }
 

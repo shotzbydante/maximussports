@@ -139,7 +139,7 @@ export default function TopNav() {
     ];
     if (hasSportContext) {
       links.push(
-        { to: buildPath('/'), end: true, label: `${workspace.shortLabel} Briefing`, iconKey: 'briefing', isWorkspaceHome: true },
+        { to: buildPath('/'), end: true, label: `${workspace.shortLabel} ${workspace.seasonState === 'completed' ? 'Recap' : 'Briefing'}`, iconKey: 'briefing', isWorkspaceHome: true },
         { to: buildPath('/games'), end: false, label: workspace.labels.games, iconKey: 'games' },
         { to: buildPath('/teams'), end: false, label: workspace.labels.teamIntel, iconKey: 'teams' },
         { to: buildPath('/insights'), end: false, label: workspace.labels.picks, iconKey: 'insights' },
@@ -191,10 +191,7 @@ export default function TopNav() {
       <div className={styles.brand}>
         <Link to="/" className={styles.brandLink} aria-label="Maximus Sports Home">
           <img src="/mascot.png" alt="" className={styles.brandMascot} width={36} height={36} />
-          <span className={styles.brandWordmark}>
-            <span className={styles.brandWordmarkMain}>MAXIMUS</span>
-            <span className={styles.brandWordmarkSub}>SPORTS</span>
-          </span>
+          <img src="/logo-wordmark.png" alt="Maximus Sports" className={styles.brandWordmark} width={95} height={46} />
         </Link>
         <div className={styles.brandTaglineCluster}>
           <span className={styles.brandTagline}>Maximum Sports. Maximum Intelligence.</span>

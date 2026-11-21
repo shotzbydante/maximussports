@@ -137,7 +137,7 @@ export default function Sidebar() {
               className={({ isActive }) => `${styles.link} ${styles.workspaceHomeLink}${isActive ? ` ${styles.active}` : ''}`}
             >
               <span className={styles.icon}><BriefingIcon /></span>
-              <span>{`${workspace.shortLabel} Briefing`}</span>
+              <span>{`${workspace.shortLabel} ${workspace.seasonState === 'completed' ? 'Recap' : 'Briefing'}`}</span>
             </NavLink>
             <NavLink
               to={buildPath('/games')}
