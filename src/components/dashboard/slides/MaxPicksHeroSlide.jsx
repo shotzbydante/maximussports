@@ -307,7 +307,7 @@ export default function MaxPicksHeroSlide({ data, asOf, slideNumber, slideTotal,
       {/* ── Title row with mascot icon ── */}
       <div className={styles.heroHeader}>
         <img
-          src="/mascot.png"
+          src="/mascot-basketball.png"
           alt=""
           className={styles.heroMascot}
           crossOrigin="anonymous"

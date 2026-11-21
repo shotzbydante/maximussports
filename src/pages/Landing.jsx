@@ -14,6 +14,8 @@ import { getFlag, setFlag } from '../utils/localFlags';
 import { trackAccountCreateSkipped } from '../lib/analytics/posthog';
 import { useAuth } from '../context/AuthContext';
 import GuestLanding from './landing/GuestLanding';
+import { mascotFor } from '../brand/mascots';
+import SeasonCountdown from '../components/season/SeasonCountdown';
 import styles from './Landing.module.css';
 
 const WelcomeModal = lazy(() => import('../components/marketing/WelcomeModal'));
@@ -41,8 +43,8 @@ const MLB_MODULES = [
 ];
 
 const NBA_MODULES = [
-  { title: 'Daily Briefing', desc: 'AI-powered playoff briefings covering series, injuries, and market edges.', to: '/nba' },
-  { title: 'Team Intel', desc: 'Playoff seeds, records, championship odds, and team outlooks.', to: '/nba/teams' },
+  { title: 'Daily Briefing', desc: 'AI-powered daily briefings covering games, injuries, and market edges.', to: '/nba' },
+  { title: 'Team Intel', desc: 'Records, standings, championship odds, and team outlooks.', to: '/nba/teams' },
   { title: "Maximus's Picks", desc: 'Model-driven picks across moneyline, spread, and totals.', to: '/nba/insights' },
   { title: 'Bracketology', desc: 'Interactive playoff bracket with series simulation and title probabilities.', to: '/nba/bracketology' },
 ];
@@ -95,6 +97,21 @@ function MemberLanding() {
   const ncaam = WORKSPACES[WorkspaceId.CBB];
   const ncaamComplete = ncaam.seasonState === SeasonState.COMPLETED;
   const ch = ncaam.championship;
+  const mlb = WORKSPACES[WorkspaceId.MLB];
+  const mlbComplete = mlb.seasonState === SeasonState.COMPLETED;
+  const mlbCh = mlb.championship;
+  // Offseason: the MLB home is the season recap, not a daily briefing.
+  const mlbModules = mlbComplete && mlbCh
+    ? [
+        {
+          title: 'Season Recap',
+          desc: `The ${mlbCh.seasonLabel} champion, the season in brief, and a countdown to ${mlb.nextSeason?.shortLabel || 'next season'}.`,
+          to: '/mlb',
+        },
+        ...MLB_MODULES.filter((m) => m.to !== '/mlb' && m.to !== '/mlb/insights'),
+        { title: 'News Feed', desc: 'Free agency, trades, and the rest of the offseason.', to: '/mlb/news' },
+      ]
+    : MLB_MODULES;
 
   const navigate = useNavigate();
   const [mlbNews, setMlbNews] = useState([]);
@@ -171,10 +188,9 @@ function MemberLanding() {
         <header className={styles.hero}>
           <div className={styles.heroGlow} />
           <div className={styles.heroContent}>
-            <img src="/mascot.png" alt="" className={styles.heroMascot} width={120} height={120} />
+            <img src="/brand/mascots/football-3d.webp" alt="" className={styles.heroMascot} width={487} height={900} />
             <h1 className={styles.heroTitle}>
-              <span className={styles.heroTitleMain}>MAXIMUS</span>
-              <span className={styles.heroTitleSub}>SPORTS</span>
+              <img src="/logo-wordmark.png" alt="Maximus Sports" className={styles.heroLogo} width={720} height={347} />
             </h1>
             <p className={styles.heroTagline}>
               AI-powered sports intelligence, built for fans who want an edge.
@@ -200,63 +216,87 @@ function MemberLanding() {
           {/* MLB */}
           <Link to="/mlb" className={`${styles.tile} ${styles.tileMlb}`}>
             <div className={styles.tileGlow} />
+            <img src={mascotFor('mlb').render} alt="" aria-hidden="true" className={styles.tileMascot} loading="lazy" decoding="async" />
             <div className={styles.tileHeader}>
               <img src="/mlb-logo.png" alt="MLB" className={styles.tileLogo} width={42} height={42} />
               <div>
                 <h2 className={styles.tileTitle}>Major League Baseball</h2>
+                {mlbComplete ? (
+                  <span className={`${styles.tileStatus} ${styles.statusComplete}`}>
+                    {mlbCh?.seasonLabel} Season Complete
+                  </span>
+                ) : (
+                  <span className={styles.tileStatus}>
+                    <span className={styles.statusDot} /> Regular Season Underway
+                  </span>
+                )}
+              </div>
+            </div>
+            <p className={styles.tileDesc}>
+              {mlbComplete && mlbCh
+                ? `The ${mlbCh.champion} won the ${mlbCh.scoreLabel}, ${mlbCh.score} over the ${mlbCh.runnerUp}. Season recap, team intel, and offseason news.`
+                : 'Daily intel briefings, team projections, championship odds, run line picks, value leans, and game-by-game analysis across the full MLB slate.'}
+            </p>
+            <div className={styles.tileCta}>
+              <span className={styles.ctaBtn}>
+                {mlbComplete ? 'View Season Recap →' : 'Enter MLB Intelligence →'}
+              </span>
+              <span className={styles.ctaMicro}>
+                {mlbComplete && mlb.nextSeason ? (
+                  <SeasonCountdown nextSeason={mlb.nextSeason} variant="inline" className={styles.tileCountdown} />
+                ) : (
+                  'Live now →'
+                )}
+              </span>
+            </div>
+          </Link>
+
+          {/* NBA */}
+          <Link to="/nba" className={`${styles.tile} ${styles.tileNba}`}>
+            <div className={styles.tileGlow} />
+            <img src={mascotFor('nba').render} alt="" aria-hidden="true" className={styles.tileMascot} loading="lazy" decoding="async" />
+            <div className={styles.tileHeader}>
+              <img src="/nba-logo.png" alt="NBA" className={styles.tileLogo} width={42} height={42} />
+              <div>
+                <h2 className={styles.tileTitle}>National Basketball Association</h2>
                 <span className={styles.tileStatus}>
                   <span className={styles.statusDot} /> Regular Season Underway
                 </span>
               </div>
             </div>
             <p className={styles.tileDesc}>
-              Daily intel briefings, team projections, championship odds, run line picks,
-              value leans, and game-by-game analysis across the full MLB slate.
-            </p>
-            <div className={styles.tileCta}>
-              <span className={styles.ctaBtn}>Enter MLB Intelligence →</span>
-              <span className={styles.ctaMicro}>Live now →</span>
-            </div>
-          </Link>
-
-          {/* NBA — Playoffs Live */}
-          <Link to="/nba" className={`${styles.tile} ${styles.tileNba}`}>
-            <div className={styles.tileGlow} />
-            <div className={styles.tileHeader}>
-              <img src="/nba-logo.png" alt="NBA" className={styles.tileLogo} width={42} height={42} />
-              <div>
-                <h2 className={styles.tileTitle}>National Basketball Association</h2>
-                <span className={`${styles.tileStatus} ${styles.statusPlayoffs}`}>
-                  <span className={`${styles.statusDot} ${styles.statusDotGold}`} /> Playoffs Live
-                </span>
-              </div>
-            </div>
-            <p className={styles.tileDesc}>
-              Interactive playoff bracketology, daily postseason briefings, team intel,
-              Maximus&rsquo;s Picks, series simulations, and championship odds across every round.
+              Daily briefings, team intel, championship odds, and Maximus&rsquo;s Picks
+              across moneyline, spread, and totals for every game on the slate.
             </p>
             <div className={styles.tileCta}>
               <span className={styles.ctaBtn}>Enter NBA Intelligence &rarr;</span>
-              <span className={styles.ctaMicro}>Bracketology &middot; Team Intel &middot; Daily Briefing &rarr;</span>
+              <span className={styles.ctaMicro}>Daily Briefing &middot; Team Intel &middot; Picks &rarr;</span>
             </div>
           </Link>
 
           {/* NCAAM */}
           <Link to="/ncaam" className={`${styles.tile} ${styles.tileNcaam}`}>
             <div className={styles.tileGlow} />
+            <img src={mascotFor('ncaam').render} alt="" aria-hidden="true" className={styles.tileMascot} loading="lazy" decoding="async" />
             <div className={styles.tileHeader}>
               <img src="/ncaa-logo.png" alt="NCAAM" className={styles.tileLogo} width={42} height={42} />
               <div>
                 <h2 className={styles.tileTitle}>College Basketball</h2>
-                <span className={`${styles.tileStatus} ${styles.statusComplete}`}>
-                  {ncaamComplete ? '2026 Season Complete' : 'Season Active'}
-                </span>
+                {ncaamComplete ? (
+                  <span className={`${styles.tileStatus} ${styles.statusComplete}`}>
+                    {ch?.seasonLabel ?? ''} Season Complete
+                  </span>
+                ) : (
+                  <span className={styles.tileStatus}>
+                    <span className={styles.statusDot} /> Season Underway
+                  </span>
+                )}
               </div>
             </div>
             <p className={styles.tileDesc}>
               {ncaamComplete && ch
                 ? `March Madness 2026 is complete. ${ch.champion.split(' ').pop()} defeated ${ch.runnerUp.split(' ').pop()} ${ch.score} on April 6. Explore bracket insights, tournament recap, team intel, and picks history.`
-                : 'Bracket intelligence, team intel, odds insights, ATS analytics, and tournament analysis.'}
+                : `Daily briefings, team intel, odds insights, and ATS analytics${ch ? `. ${ch.champion.split(' ')[0]} is the defending national champion.` : '.'}`}
             </p>
             <div className={styles.tileCta}>
               <span className={styles.ctaBtn}>
@@ -276,7 +316,7 @@ function MemberLanding() {
               <img src="/mlb-logo.png" alt="" width={18} height={18} /> MLB Intelligence
             </h3>
             <div className={styles.moduleCards}>
-              {MLB_MODULES.map((m, i) => (
+              {mlbModules.map((m, i) => (
                 <Link key={i} to={m.to} className={styles.moduleCard}>
                   <span className={styles.moduleTitle}>{m.title} <span className={styles.moduleArrow}>→</span></span>
                   <span className={styles.moduleDesc}>{m.desc}</span>

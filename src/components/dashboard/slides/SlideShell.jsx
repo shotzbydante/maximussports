@@ -68,7 +68,7 @@ export default function SlideShell({
           style={{ opacity: themeKey === 'single_game' ? 0.85 : isRobot ? 0.60 : 0.50 }}
         >
           <img
-            src="/mascot.png"
+            src="/mascot-basketball.png"
             alt=""
             className={styles.mascot}
             style={theme ? { filter: theme.mascotFilter } : undefined}

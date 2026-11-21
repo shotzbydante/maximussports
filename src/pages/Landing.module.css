@@ -31,10 +31,11 @@
   pointer-events: none;
 }
 .heroMascot {
-  width: 120px; height: 120px; object-fit: contain;
-  margin-bottom: 16px;
-  filter: drop-shadow(0 6px 24px rgba(56,133,224,0.35));
+  height: 220px; width: auto;
+  margin-bottom: 6px;
+  filter: drop-shadow(0 14px 22px rgba(0,8,30,0.5)) drop-shadow(0 6px 30px rgba(56,133,224,0.32));
 }
+.heroLogo { display: block; width: min(460px, 82vw); height: auto; }
 .heroTitle {
   display: flex; flex-direction: column; align-items: center;
   margin: 0 0 18px; line-height: 1;
@@ -103,6 +104,12 @@
 }
 .tile:hover { transform: translateY(-5px); }
 
+.tileMascot {
+  position: absolute; bottom: 18px; right: 18px; z-index: 1;
+  height: 92px; width: auto; pointer-events: none;
+  filter: drop-shadow(0 8px 14px rgba(0,8,30,0.55));
+}
+.tileCta { padding-right: 70px; }
 .tileGlow {
   position: absolute; inset: 0; border-radius: 20px;
   pointer-events: none; z-index: 0;
@@ -222,6 +229,9 @@
   font-size: 0.60rem; font-weight: 500; color: rgba(255,255,255,0.30);
   letter-spacing: 0.02em;
 }
+/* Offseason countdown inside a tile: inherit the tile's light-on-dark text */
+.tileCountdown { font-size: 0.75rem; color: rgba(255,255,255,0.62); }
+.tileCountdown span { color: inherit; }
 
 /* ── Module Grid ── */
 .modulesRow {
@@ -431,7 +441,8 @@
   .page { margin: calc(-1 * var(--space-md, 16px)); padding-top: var(--space-md, 16px); }
   .heroTitleMain { font-size: 2.8rem; }
   .heroTitleSub { font-size: 1.6rem; }
-  .heroMascot { width: 90px; height: 90px; }
+  .heroMascot { height: 172px; }
+  .heroLogo { width: min(340px, 84vw); }
   .heroTagline { font-size: 1rem; }
   .tilesRow { grid-template-columns: 1fr; }
   .modulesRow { grid-template-columns: 1fr; }

@@ -9,7 +9,7 @@
  */
 
 import { getTemplate } from '../templates/featureSpotlight';
-import { loadLogo, drawIntroCard, drawVideoFrame, drawHeadlineOverlay, drawWatermark } from './drawUtils';
+import { loadLogo, loadWatermark, drawIntroCard, drawVideoFrame, drawHeadlineOverlay, drawWatermark } from './drawUtils';
 
 /**
  * Generate a cover from the branded intro card.
@@ -58,8 +58,8 @@ export async function generateFrameCover({
     drawHeadlineOverlay(ctx, headline, height * headlineYPct, 52, 1.25, 0.95, accentColor);
   }
 
-  const logo = await loadLogo(brand.logo);
-  drawWatermark(ctx, logo, 0.5);
+  const [logo, watermarkImg] = await Promise.all([loadLogo(brand.logo), loadWatermark()]);
+  drawWatermark(ctx, logo, 0.5, watermarkImg);
 
   return new Promise((resolve) => {
     canvas.toBlob((blob) => resolve(blob), 'image/png');

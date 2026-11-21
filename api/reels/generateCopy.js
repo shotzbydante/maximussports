@@ -1,7 +1,7 @@
 /**
  * POST /api/reels/generateCopy
  *
- * Server-side OpenAI reel copy generation. Returns structured JSON
+ * Server-side Claude reel copy generation. Returns structured JSON
  * with headline, subhead, overlay beats, CTA, caption, and 3 variants.
  *
  * Uses config/aiModels.js for model selection and timeout.
@@ -9,10 +9,10 @@
  */
 
 import { requireAdminOrCron } from '../_lib/requireAuth.js';
+import { claudeComplete, isClaudeConfigured } from '../_lib/claude.js';
 import {
   REEL_COPY_MODEL,
   REEL_COPY_MAX_TOKENS,
-  REEL_COPY_TEMPERATURE,
   REEL_COPY_TIMEOUT_MS,
 } from '../../config/aiModels.js';
 
@@ -28,9 +28,8 @@ export default async function handler(req, res) {
 
   if (!(await requireAdminOrCron(req, res))) return;
 
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    return res.status(500).json({ error: 'openai_not_configured' });
+  if (!isClaudeConfigured()) {
+    return res.status(500).json({ error: 'llm_not_configured' });
   }
 
   try {
@@ -122,65 +121,53 @@ Rules:
 - betting variant: edge/data-forward
 - curiosity variant: scroll-stopping/contrarian`;
 
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), REEL_COPY_TIMEOUT_MS);
-
-    const openaiRes = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: REEL_COPY_MODEL,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
-        ],
-        max_tokens: REEL_COPY_MAX_TOKENS,
-        temperature: REEL_COPY_TEMPERATURE,
-      }),
-      signal: controller.signal,
+    const text = await claudeComplete({
+      system: systemPrompt,
+      user: userPrompt,
+      maxTokens: REEL_COPY_MAX_TOKENS,
+      timeoutMs: REEL_COPY_TIMEOUT_MS,
+      model: REEL_COPY_MODEL,
     });
 
-    clearTimeout(timeout);
-
-    if (!openaiRes.ok) {
-      const errBody = await openaiRes.text();
-      console.error('OpenAI reel gen error:', openaiRes.status, errBody);
-      return res.status(502).json({ error: 'openai_request_failed' });
-    }
-
-    const data = await openaiRes.json();
-    const text = data.choices?.[0]?.message?.content;
-
     if (!text) {
-      return res.status(502).json({ error: 'openai_empty_response' });
+      return res.status(502).json({ error: 'llm_empty_response' });
     }
 
-    const cleaned = text.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+    const cleaned = extractJsonObject(text);
     let parsed;
     try {
       parsed = JSON.parse(cleaned);
     } catch {
-      console.error('OpenAI reel gen: invalid JSON', cleaned.slice(0, 200));
-      return res.status(502).json({ error: 'openai_invalid_json' });
+      console.error('Claude reel gen: invalid JSON', cleaned.slice(0, 200));
+      return res.status(502).json({ error: 'llm_invalid_json' });
     }
 
     if (!validateOutput(parsed)) {
-      console.error('OpenAI reel gen: invalid shape', JSON.stringify(parsed).slice(0, 200));
-      return res.status(502).json({ error: 'openai_invalid_shape' });
+      console.error('Claude reel gen: invalid shape', JSON.stringify(parsed).slice(0, 200));
+      return res.status(502).json({ error: 'llm_invalid_shape' });
     }
 
     return res.status(200).json(parsed);
   } catch (err) {
-    if (err.name === 'AbortError') {
-      console.error('OpenAI reel gen timeout');
-      return res.status(504).json({ error: 'openai_timeout' });
+    if (err?.code === 'timeout') {
+      console.error('Claude reel gen timeout');
+      return res.status(504).json({ error: 'llm_timeout' });
     }
-    console.error('OpenAI reel gen error:', err.message || err);
+    if (err?.code === 'http_error' || err?.code === 'network_error') {
+      console.error('Claude reel gen error:', err.message);
+      return res.status(502).json({ error: 'llm_request_failed' });
+    }
+    console.error('Claude reel gen error:', err.message || err);
     return res.status(500).json({ error: 'generation_failed' });
   }
+}
+
+/** Strip code fences and any prose around the JSON object the model returned. */
+function extractJsonObject(text) {
+  const unfenced = text.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+  const start = unfenced.indexOf('{');
+  const end = unfenced.lastIndexOf('}');
+  return start !== -1 && end > start ? unfenced.slice(start, end + 1) : unfenced;
 }
 
 function validateOutput(obj) {

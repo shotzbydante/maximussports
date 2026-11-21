@@ -7,6 +7,8 @@
 import { useState, useEffect } from 'react';
 import { useWorkspace } from '../../workspaces/WorkspaceContext';
 import LiveGameCard from '../../components/mlb/LiveGameCard';
+import OffseasonPanel from '../../components/season/OffseasonPanel';
+import { SeasonState } from '../../workspaces/config';
 import styles from './MlbGames.module.css';
 
 const REFRESH_MS = 60_000;
@@ -26,6 +28,30 @@ const SORT_OPTIONS = [
 ];
 
 export default function MlbGames() {
+  const { workspace } = useWorkspace();
+  if (workspace.seasonState === SeasonState.COMPLETED) return <MlbGamesOffseason />;
+  return <MlbGamesSlate />;
+}
+
+/** Offseason: no slate to rank and nothing to poll. */
+function MlbGamesOffseason() {
+  const { workspace, buildPath } = useWorkspace();
+  return (
+    <div className={styles.page}>
+      <header className={styles.header}>
+        <h1 className={styles.pageTitle}>{workspace.emoji} MLB Games</h1>
+        <p className={styles.subtitle}>No games on the schedule until the new season</p>
+      </header>
+      <OffseasonPanel
+        workspace={workspace}
+        returns="The daily slate returns"
+        links={[{ to: buildPath('/teams'), label: 'Team Intel' }, { to: buildPath('/news'), label: 'News Feed' }]}
+      />
+    </div>
+  );
+}
+
+function MlbGamesSlate() {
   const { workspace } = useWorkspace();
   const [games, setGames] = useState([]);
   const [loading, setLoading] = useState(true);

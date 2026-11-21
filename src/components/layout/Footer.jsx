@@ -5,12 +5,6 @@ import styles from './Footer.module.css';
 
 /* ─── Stack tech logos as inline SVG / wordmark badges ─────────────────── */
 
-const OpenAILogo = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-    <path d="M22.282 9.821a5.985 5.985 0 00-.516-4.91 6.046 6.046 0 00-6.51-2.9A6.065 6.065 0 004.981 4.18a5.985 5.985 0 00-3.998 2.9 6.046 6.046 0 00.743 7.097 5.98 5.98 0 00.51 4.911 6.051 6.051 0 006.515 2.9A5.985 5.985 0 0013.26 24a6.056 6.056 0 005.772-4.206 5.99 5.99 0 003.997-2.9 6.056 6.056 0 00-.747-7.073zM13.26 22.43a4.476 4.476 0 01-2.876-1.04l.141-.081 4.779-2.758a.795.795 0 00.392-.681v-6.737l2.02 1.168a.071.071 0 01.038.052v5.583a4.504 4.504 0 01-4.494 4.494zM3.6 18.304a4.47 4.47 0 01-.535-3.014l.142.085 4.783 2.759a.771.771 0 00.78 0l5.843-3.369v2.332a.08.08 0 01-.033.062L9.74 19.95a4.5 4.5 0 01-6.14-1.646zM2.34 7.896a4.485 4.485 0 012.366-1.973V11.6a.766.766 0 00.388.676l5.815 3.355-2.02 1.168a.076.076 0 01-.071 0L4.01 13.95a4.5 4.5 0 01-1.671-6.055zm16.55 3.867l-5.843-3.369 2.02-1.164a.076.076 0 01.071 0l4.816 2.779a4.5 4.5 0 01-.676 8.105v-5.677a.79.79 0 00-.389-.674zm2.01-3.023l-.141-.085-4.774-2.782a.776.776 0 00-.785 0L9.37 9.218V6.886a.071.071 0 01.028-.065l4.816-2.773a4.5 4.5 0 016.547 4.666zm-12.64 4.135l-2.02-1.164a.08.08 0 01-.038-.057V6.075a4.5 4.5 0 017.375-3.453l-.142.08-4.778 2.758a.795.795 0 00-.393.681zm1.097-2.365l2.602-1.5 2.607 1.5v2.999l-2.597 1.5-2.607-1.5z"/>
-  </svg>
-);
-
 const AnthropicLogo = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
     <path d="M13.827 3.52h3.603L24 20h-3.603l-6.57-16.48zm-7.258 0h3.767L16.906 20h-3.674L9.019 8.682 6.8 14.586h3.525l1.097 2.966H5.025L3.603 20H0L6.57 3.52z"/>
@@ -42,7 +36,6 @@ const GoogleCloudLogo = () => (
 );
 
 const STACK = [
-  { name: 'OpenAI',       Icon: OpenAILogo,      href: 'https://openai.com',    repoLabel: false },
   { name: 'Claude',       Icon: AnthropicLogo,   href: 'https://anthropic.com', repoLabel: false },
   { name: 'Vercel',       Icon: VercelLogo,      href: 'https://vercel.com',    repoLabel: false },
   { name: 'GitHub',       Icon: GitHubLogo,      href: REPO_URL,                repoLabel: true  },
@@ -59,11 +52,11 @@ export default function Footer() {
         <div className={styles.brandCluster}>
           <img
             src={mascot2d}
-            alt="Maximus Sports college basketball intelligence mascot"
+            alt="Maximus, the Maximus Sports mascot"
             className={styles.mascot}
           />
           <div className={styles.brandText}>
-            <span className={styles.brandName}>Maximus Sports</span>
+            <img src="/brand/logo-white.png" alt="Maximus Sports" className={styles.brandLogo} width={720} height={347} loading="lazy" decoding="async" />
             <span className={styles.brandTagline}>Maximum Sports. Maximum Intelligence.</span>
           </div>
         </div>

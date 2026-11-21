@@ -194,7 +194,7 @@ export default function BracketShareSummary({
         <button type="button" className={styles.closeBtn} data-close-btn onClick={onClose} aria-label="Close">×</button>
 
         <img
-          src="/mascot.png"
+          src="/mascot-basketball.png"
           alt=""
           className={styles.mascot}
           crossOrigin="anonymous"

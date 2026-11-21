@@ -46,3 +46,17 @@
     padding: var(--space-sm);
   }
 }
+
+/* Brand sign-off at the end of every light app page */
+.endMark {
+  display: block;
+  width: 150px;
+  height: auto;
+  margin: 40px auto 4px;
+  opacity: 0.55;
+  pointer-events: none;
+  user-select: none;
+}
+@media (max-width: 768px) {
+  .endMark { width: 120px; margin-top: 28px; }
+}

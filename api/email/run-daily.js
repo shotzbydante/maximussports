@@ -18,8 +18,10 @@
  *   ncaam_team_digest    → Daily NCAAM Team Digest
  *   ncaam_picks          → Daily NCAAM Maximus's Picks
  *
- * Season gating: NCAAM emails are suppressed when season is completed.
- * Global and MLB emails continue regardless of NCAAM season state.
+ * Season gating: a sport's own emails are suppressed while that sport's
+ * season is completed, or while its workspace has emails.paused set. The
+ * state comes from src/workspaces/config.js (see getSeasonGate). The global
+ * briefing always runs and drops any sport that is in its offseason.
  *
  * Legacy preference keys (briefing, teamAlerts, oddsIntel, newsDigest,
  * teamDigest) are transparently migrated at read-time via resolvePreferences().
@@ -51,7 +53,7 @@ import {
   VALID_EMAIL_TYPES,
   resolveTemplate,
   resolvePrefKey,
-  isSeasonGated,
+  getSeasonGate,
   emailPayloadDigest,
   assembleEmailData,
   buildEmailData,
@@ -81,7 +83,6 @@ import {
 const VALID_TYPES = VALID_EMAIL_TYPES;
 const TYPE_TO_PREF_KEY = Object.fromEntries(VALID_TYPES.map(t => [t, resolvePrefKey(t)]));
 const TYPE_TO_TEMPLATE = Object.fromEntries(VALID_TYPES.map(t => [t, resolveTemplate(t)]));
-const NCAAM_TYPES = VALID_TYPES.filter(t => isSeasonGated(t));
 
 function makeDateKey(type) {
   const today = new Date().toISOString().slice(0, 10);
@@ -293,17 +294,17 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: `Invalid type. Must be one of: ${VALID_TYPES.join(', ')}` });
   }
 
-  // ── Season state gate: suppress NCAAM emails when season is completed ──
-  // Only NCAAM-specific emails are gated. Global and MLB emails continue.
-  const NCAAM_SEASON_STATE = 'completed'; // matches workspaces/config.js
-  if (NCAAM_TYPES.includes(type) && NCAAM_SEASON_STATE === 'completed') {
-    console.log(`[run-daily] ⏸ NCAAM season completed — skipping ${type} email run.`);
+  // ── Season state gate: skip a sport's emails outside its season ──
+  // Driven by the workspace config so emails follow the same switch as the app.
+  const seasonGate = getSeasonGate(type);
+  if (seasonGate) {
+    console.log(`[run-daily] ⏸ ${seasonGate.reason} — skipping ${type} email run.`);
     return res.status(200).json({
       ok: true,
       type,
       skipped: true,
-      reason: 'ncaam_season_completed',
-      message: 'NCAAM season is complete. NCAAM email sends are suspended until next season.',
+      reason: seasonGate.reason,
+      message: seasonGate.message,
     });
   }
 

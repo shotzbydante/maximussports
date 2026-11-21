@@ -13,6 +13,7 @@ import { Muxer, ArrayBufferTarget } from 'mp4-muxer';
 import { getTemplate } from '../templates/featureSpotlight';
 import {
   loadLogo,
+  loadWatermark,
   loadRobotImage,
   getHookBoostText,
   drawBrandedIntroCard,
@@ -119,9 +120,10 @@ export async function renderVideo(opts) {
   const hookText = getHookBoostText(hookStyle);
 
   // Load sport-specific mascot: MLB uses baseball mascot, NCAAM uses basketball
-  const mascotSrc = sportContext === 'mlb' ? '/mascot-mlb.png' : '/mascot.png';
-  const [logo, video, robotImage] = await Promise.all([
+  const mascotSrc = sportContext === 'mlb' ? '/mascot-mlb.png' : '/mascot-basketball.png';
+  const [logo, watermarkImg, video, robotImage] = await Promise.all([
     loadLogo(brand.logo),
+    loadWatermark(),
     loadSourceVideo(sourceUrl),
     loadRobotImage(mascotSrc),
   ]);
@@ -302,7 +304,7 @@ export async function renderVideo(opts) {
         }
       }
 
-      if (watermark) drawWatermark(ctx, logo);
+      if (watermark) drawWatermark(ctx, logo, 0.35, watermarkImg);
 
     } else {
       // Phase 3: Premium Maximus CTA Card (2.2s)

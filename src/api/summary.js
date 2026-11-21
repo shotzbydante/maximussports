@@ -54,7 +54,7 @@ export async function fetchSummaryStream(payload, options = {}) {
 }
 
 /**
- * Builds the payload for the Team page GPT insight (upcoming, last week, ATS, tier, headlines).
+ * Builds the payload for the Team page AI insight (upcoming, last week, ATS, tier, headlines).
  * @param {{ team: object, schedule: { upcoming?: array, recent?: array }, ats: object, news: array }}
  * @returns {object} Payload for POST /api/summary/team
  */
@@ -123,7 +123,7 @@ export async function fetchTeamSummaryStream({ slug, payload }, options = {}) {
 }
 
 /**
- * Fetches the Team page GPT briefing (non-streaming). Used by pinned team cards.
+ * Fetches the Team page AI briefing (non-streaming). Used by pinned team cards.
  * @param {{ slug: string, payload: object }} params - payload from buildTeamSummaryPayload
  * @returns {Promise<{ summary: string | null, updatedAt: string | null, message?: string }>}
  */
@@ -145,7 +145,7 @@ export async function fetchTeamSummaryFromPayload({ slug, payload }) {
 }
 
 /**
- * Fetches a short GPT summary for a pinned team card (1–2 sentences) from its headlines.
+ * Fetches a short AI summary for a pinned team card (1–2 sentences) from its headlines.
  * @param {{ slug: string, headlines: Array<{ title: string, source?: string }> }} params
  * @returns {Promise<{ summary: string | null, message?: string }>}
  */

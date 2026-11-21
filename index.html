@@ -5,6 +5,10 @@
     <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4074423996228535"
      crossorigin="anonymous"></script>
     <link rel="icon" type="image/png" href="https://maximussports.ai/favicon.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#0a1628" />
+    <link rel="apple-touch-startup-image" href="/brand/splash-story.jpg" />
     <link rel="canonical" href="https://maximussports.ai" />
     <link rel="preconnect" href="https://i.ytimg.com" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -36,8 +40,9 @@
         "url": "https://maximussports.ai",
         "logo": {
           "@type": "ImageObject",
-          "url": "https://maximussports.ai/logo.png"
-        }
+          "url": "https://maximussports.ai/brand/logo-navy.png"
+        },
+        "image": "https://maximussports.ai/brand/thumb-square.jpg"
       },
       "potentialAction": {
         "@type": "SearchAction",
@@ -48,7 +53,17 @@
     </script>
   </head>
   <body>
-    <div id="root"></div>
+    <!-- Phones only: brand splash while the app bundle loads. React replaces it on first render. -->
+    <style>
+      .boot-splash { display: none; }
+      @media (max-width: 600px) and (orientation: portrait) {
+        .boot-splash {
+          display: block; position: fixed; inset: 0;
+          background: #020b24 url(/brand/splash-story.jpg) center / 100% auto no-repeat;
+        }
+      }
+    </style>
+    <div id="root"><div class="boot-splash" aria-hidden="true"></div></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

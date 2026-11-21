@@ -25,6 +25,16 @@ export function renderHTML({ confirmUrl = '#', isWelcome = false } = {}) {
 
     <!-- HERO -->
     <tr>
+      <td style="padding:0 0 4px;font-size:0;line-height:0;">
+        <img
+          src="https://maximussports.ai/brand/header-banner.jpg"
+          alt="Maximus Sports"
+          width="560"
+          style="width:100%;max-width:560px;height:auto;display:block;border:0;outline:none;"
+        />
+      </td>
+    </tr>
+    <tr>
       <td style="padding:28px 24px 22px;text-align:center;" class="hero-td">
         <img
           src="https://maximussports.ai/mascot.png"

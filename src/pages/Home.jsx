@@ -38,7 +38,9 @@ import { fixPositiveOdds } from '../utils/fixPositiveOdds';
 import styles from './Home.module.css';
 import SEOHead, { buildOgImageUrl } from '../components/seo/SEOHead';
 import { BRACKETOLOGY_ROUTE } from '../config/bracketology';
+import { isTournamentOver } from '../utils/tournamentHelpers';
 import { WORKSPACES, WorkspaceId, SeasonState } from '../workspaces/config';
+import LastSeasonCard from '../components/season/LastSeasonCard';
 
 // ── Deferred below-the-fold imports ──────────────────────────────────────────
 const MaximusPicks     = lazy(() => import('../components/home/MaximusPicks'));
@@ -1130,13 +1132,13 @@ export default function Home() {
 
       {/* ── Hero Intelligence Briefing Card ─────────────────────────── */}
       <div className={styles.banner}>
-        <img src="/mascot.png" alt="Maximus Sports college basketball intelligence mascot" className={styles.bannerMascot} width={120} height={120} loading="lazy" decoding="async" onError={(e) => { e.target.style.display = 'none'; }} />
+        <img src="/mascot-basketball.png" alt="Maximus, the Maximus Sports basketball mascot" className={styles.bannerMascot} width={120} height={120} loading="lazy" decoding="async" onError={(e) => { e.target.style.display = 'none'; }} />
         <div className={styles.bannerContent}>
           {/* Editorial briefing header — always visible */}
           <div className={styles.heroBriefingHeader}>
             <span className={styles.heroBriefingEyebrow}>
               {WORKSPACES[WorkspaceId.CBB]?.seasonState === SeasonState.COMPLETED
-                ? '2026 Season Recap'
+                ? `${WORKSPACES[WorkspaceId.CBB].championship?.seasonLabel ?? ''} Season Recap`.trim()
                 : 'Today\u2019s Intelligence Briefing'}
             </span>
           </div>
@@ -1147,15 +1149,11 @@ export default function Home() {
             className={`${styles.insightBody} ${isBannerCollapsed ? styles.insightBodyCollapsed : ''}`}
           >
             {WORKSPACES[WorkspaceId.CBB]?.seasonState === SeasonState.COMPLETED ? (
-              <p className={styles.bannerText}>
-                The 2026 college basketball season is complete. Michigan defeated UConn 69-63 to claim the national championship,
-                capping a dominant March Madness run. The Wolverines cut through the bracket with methodical precision,
-                dispatching every challenger en route to the program&apos;s third title. UConn, the two-time defending champion,
-                fell short in a hard-fought final that lived up to the billing. The Final Four in San Antonio featured
-                some of the tournament&apos;s most compelling storylines, from bracket-busting upsets to blue-blood resurgence.
-                As the offseason begins, the landscape shifts to the transfer portal, recruiting, and early projections for 2027.
-                Maximus will return with full intelligence when the next season tips off.
-              </p>
+              // Recap copy lives in the workspace config so the facts are
+              // maintained in one place (see src/workspaces/config.js).
+              (WORKSPACES[WorkspaceId.CBB].recap?.paragraphs || []).map((text) => (
+                <p key={text.slice(0, 32)} className={styles.bannerText}>{text}</p>
+              ))
             ) : (llmSummary || summaryText) ? (
               <FormattedSummary text={llmSummary || summaryText} className={styles.bannerText} />
             ) : (
@@ -1180,7 +1178,15 @@ export default function Home() {
         </div>
       </div>
 
+      {/* ── Last season recap (in season): defending champion ──────── */}
+      {WORKSPACES[WorkspaceId.CBB]?.seasonState === SeasonState.ACTIVE && (
+        <LastSeasonCard workspace={WORKSPACES[WorkspaceId.CBB]} />
+      )}
+
       {/* ── 2b. Bracketology Promo ──────────────────────────────────── */}
+      {/* Hidden once that tournament is over, until the bracket calendar in
+          tournamentHelpers is rolled forward to the next one. */}
+      {!isTournamentOver() && (
       <section className={styles.bracketPromo}>
         <div className={styles.bracketPromoInner}>
           <div className={styles.bracketPromoContent}>
@@ -1200,6 +1206,7 @@ export default function Home() {
           </div>
         </div>
       </section>
+      )}
 
       {/* ── 3. Pulse / Snapshot Strip ──────────────────────────────────── */}
       <SectionErrorBoundary name="Today's Snapshot" silent>

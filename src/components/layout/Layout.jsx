@@ -27,6 +27,9 @@ export default function Layout() {
     );
   }
 
+  // Guests see the public pages (sign-in, privacy, terms, contact) in the dark theme.
+  const isDarkPage = !user && PUBLIC_DARK_ROUTES.has(pathname.replace(/\/$/, '') || '/');
+
   return (
     <div className={styles.root}>
       <TopNav />
@@ -34,9 +37,21 @@ export default function Layout() {
         <Sidebar />
         <main
           className={styles.main}
-          data-theme={!user && PUBLIC_DARK_ROUTES.has(pathname.replace(/\/$/, '') || '/') ? 'dark' : undefined}
+          data-theme={isDarkPage ? 'dark' : undefined}
         >
           <Outlet />
+          {pathname !== '/' && (
+            <img
+              src={isDarkPage ? '/brand/watermark-white.png' : '/brand/watermark-navy.png'}
+              alt=""
+              aria-hidden="true"
+              className={styles.endMark}
+              width={700}
+              height={325}
+              loading="lazy"
+              decoding="async"
+            />
+          )}
         </main>
       </div>
       <Footer />

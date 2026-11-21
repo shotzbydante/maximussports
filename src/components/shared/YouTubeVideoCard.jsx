@@ -122,9 +122,13 @@ export default function YouTubeVideoCard({ video, onSelect, compact = false, her
             onError={() => setImgError(true)}
           />
         ) : (
-          <div className={styles.thumbFallback} aria-hidden>
-            <span className={styles.thumbFallbackSource}>{channelTitle || 'Video'}</span>
-          </div>
+          <img
+            src="/brand/thumb-video.jpg"
+            alt=""
+            className={styles.thumbImg}
+            loading="lazy"
+            decoding="async"
+          />
         )}
         <div className={styles.playOverlay} aria-hidden>
           <div className={styles.playRing}>

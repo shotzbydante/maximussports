@@ -95,7 +95,7 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 | `vercel.json` | Build config, SPA rewrites, crons: home/slow 5 min, ats/warm 7 min, ats/warmAll 10 min, ats/warmFull 30 min |
 
 ### Pages
-- `Home` — **Dynamic welcome synopsis** (OpenAI) in banner (or static fallback); Pinned Teams, ATS Leaderboard, Top 25 Rankings, Dynamic Alerts, Dynamic Stats, Live Scores, sidebar
+- `Home` — **Dynamic welcome synopsis** (Claude) in banner (or static fallback); Pinned Teams, ATS Leaderboard, Top 25 Rankings, Dynamic Alerts, Dynamic Stats, Live Scores, sidebar
 - `Teams` — Bubble Watch list by conference + odds tier
 - `TeamPage` — Render order: (1) **TeamSummaryBox** (Maximus's Insight chat bubble, top section), (2) **ATS** section (separate card), (3) **News** feed, (4) **Schedule**. Insight section wrapped in `<section aria-label="Maximus's Insight">` so the bubble is always visible and first.
 - `Games` — Key Dates (compact grid); **Today's Scores** (renamed from Live Scores) when there are live/in-progress games — header “Today's Scores — &lt;date&gt; (PST)” with LIVE pill; team **rankings** (#rank) next to each team name (rankMap from fetchRankings, same badge styling as Daily Schedule); Daily Schedule below
@@ -110,7 +110,7 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 - **Shared:** `SourceBadge` (ESPN | Google News | Yahoo Sports | CBS Sports | NCAA.com | Mock | Odds API | team feeds)
 - **Home:** `PinnedTeamsSection`, `Top25Rankings` (collapsible; desktop expanded, mobile collapsed), `DynamicAlerts` (closing spread, ESPN + Odds API badges), `DynamicStats`
 - **Games:** `KeyDatesWidget`, `DailySchedule` (collapsible; zebra striping; mobile-responsive)
-- **Team:** `TeamSummaryBox` (GPT insight, streaming SSE + cursor, Refresh bypasses cache, chat bubble + mascot), `MaximusInsight` (ATS records; `atsOnly` for ATS section), `TeamSchedule` (past: spread + ATS; upcoming: spread + O/U)
+- **Team:** `TeamSummaryBox` (AI insight, streaming SSE + cursor, Refresh bypasses cache, chat bubble + mascot), `MaximusInsight` (ATS records; `atsOnly` for ATS section), `TeamSchedule` (past: spread + ATS; upcoming: spread + O/U)
 - **Insights:** `RankingsTable` (conference + tier filters)
 
 ---
@@ -124,7 +124,7 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 | `/api/home/slow` | GET | Slow path: headlines, odds, oddsHistory, atsLeaders, pinnedTeamNews, upcomingGamesWithSpreads. Cache 20 min. Home page fetches in background and merges. |
 | `/api/team/:slug` | GET | Team page only: team, schedule, oddsHistory, teamNews, rank, teamId, tier. No prefetch for other teams. CDN 120s. |
 | `/api/team/batch` | GET | `?slugs=slug1,slug2,...` (max 5). Schedule + ATS + headlines per slug. Pinned teams only, after Home fast. Cache 7 min. |
-| `/api/summary` | POST | Home synopsis (OpenAI). Body: `{ top25, atsLeaders: { best, worst }, recentGames, upcomingGames, headlines }`. `?stream=true` (required), `?force=true` bypass cache. SSE stream. Cache by payload hash (30 min). Rate limit 1/min per IP. |
+| `/api/summary` | POST | Home synopsis (Claude). Body: `{ top25, atsLeaders: { best, worst }, recentGames, upcomingGames, headlines }`. `?stream=true` (required), `?force=true` bypass cache. SSE stream. Cache by payload hash (30 min). Rate limit 1/min per IP. |
 | `/api/summary/team` | POST | Team page insight. Body: `{ slug?, teamName, tier?, upcomingGames, lastWeek, atsSummary, headlines }`. `?stream=true` → SSE; `?force=true` bypasses cache. Payload-only. Cache 30 min per team. Pinned cards use same endpoint (no stream). |
 | `/api/health` | GET | Optional. Returns `{ ok: true, timestamp }`. No cache. |
 | `/api/ats/warm` | GET | Cron warm-up: computes ATS leaders, writes to shared cache, returns `{ ok, atsLeadersCount }`. Every 7 min. |

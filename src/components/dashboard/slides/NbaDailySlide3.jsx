@@ -67,7 +67,7 @@ export default function NbaDailySlide3({ data, asOf: _a, slideNumber: _s, slideT
 
       {/* Subtle mascot watermark */}
       <img
-        src="/mascot.png" alt=""
+        src="/mascot-basketball.png" alt=""
         className={styles.s3MascotWatermark}
         loading="eager" decoding="sync" crossOrigin="anonymous"
         onError={e => { e.currentTarget.style.display = 'none'; }}

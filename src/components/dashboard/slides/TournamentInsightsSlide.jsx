@@ -301,7 +301,7 @@ export default function TournamentInsightsSlide({ data, asOf, slideNumber, slide
             <div className={styles.titleSup}>{subtitle}</div>
           </div>
           <img
-            src="/mascot.png"
+            src="/mascot-basketball.png"
             alt=""
             className={styles.heroMascot}
             crossOrigin="anonymous"

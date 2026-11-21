@@ -24,7 +24,7 @@ import { getTeamSlug } from './teamSlug.js';
 // ─── Section-label stripper ───────────────────────────────────────────────────
 
 /**
- * GPT sometimes outputs section labels ("YESTERDAY RECAP:", "ODDS PULSE:", etc.)
+ * The model sometimes outputs section labels ("YESTERDAY RECAP:", "ODDS PULSE:", etc.)
  * at the start of paragraphs despite instructions to omit them.
  * Strip these so downstream parsers work on clean prose.
  */
