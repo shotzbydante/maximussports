@@ -133,7 +133,7 @@ export default function TopNav() {
   const NAV_LINKS = useMemo(() => {
     const links = [
       { to: '/', end: true, label: 'Home', iconKey: 'home', isAppHome: true },
-      { to: buildPath('/'), end: true, label: `${workspace.shortLabel} Briefing`, iconKey: 'briefing', isWorkspaceHome: true },
+      { to: buildPath('/'), end: true, label: `${workspace.shortLabel} ${workspace.seasonState === 'completed' ? 'Recap' : 'Briefing'}`, iconKey: 'briefing', isWorkspaceHome: true },
       { to: buildPath('/games'), end: false, label: workspace.labels.games, iconKey: 'games' },
       { to: buildPath('/teams'), end: false, label: workspace.labels.teamIntel, iconKey: 'teams' },
       { to: buildPath('/insights'), end: false, label: workspace.labels.picks, iconKey: 'insights' },

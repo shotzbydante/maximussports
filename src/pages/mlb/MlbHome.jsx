@@ -1,7 +1,13 @@
 /**
  * MLB Home — the primary landing page for the MLB workspace.
- * Shows a premium launch splash on first entry, then the full home view.
+ *
+ * In season: a premium launch splash on first entry, then the full home view.
  * Order: Intelligence Briefing → Pennant Watch → Intel Feed (News & Highlights)
+ *
+ * Offseason (workspace seasonState === 'completed'): the season recap with
+ * the champion and a countdown to the next season, then the Intel Feed. The
+ * live modules (briefing, picks, live rail, pennant watch) are not mounted,
+ * so nothing polls for a slate that does not exist.
  */
 
 import { useState, useEffect, useCallback } from 'react';
@@ -14,7 +20,10 @@ import MlbPinnedTeamSection from '../../components/mlb/MlbPinnedTeamSection';
 import MlbMaximusPicksSectionV2 from '../../components/mlb/picks/MlbMaximusPicksSectionV2';
 import PennantWatch from '../../components/mlb/PennantWatch';
 import MlbIntelFeed from '../../components/mlb/MlbIntelFeed';
+import SeasonRecap from '../../components/season/SeasonRecap';
+import { SeasonState } from '../../workspaces/config';
 import styles from './MlbHome.module.css';
+import offseasonStyles from './MlbOffseason.module.css';
 
 const SPLASH_KEY = '__maximus_mlb_splash_shown';
 
@@ -46,6 +55,60 @@ function fetchWithTimeout(url, opts = {}, timeoutMs = CLIENT_TIMEOUT_MS) {
 }
 
 export default function MlbHome() {
+  const { workspace } = useWorkspace();
+  if (workspace.seasonState === SeasonState.COMPLETED) return <MlbOffseasonHome />;
+  return <MlbSeasonHome />;
+}
+
+function PageIntro({ label }) {
+  return (
+    <header className={styles.pageIntro}>
+      <span className={styles.pageIntroDate}>
+        {new Date().toLocaleDateString('en-US', {
+          weekday: 'long',
+          month: 'long',
+          day: 'numeric',
+          year: 'numeric',
+        })}
+      </span>
+      <span className={styles.pageIntroDivider}>·</span>
+      <span className={styles.pageIntroSub}>{label}</span>
+    </header>
+  );
+}
+
+const OFFSEASON_LINKS = [
+  { path: '/teams', title: 'Team Intel', desc: 'Records, projections and outlooks for all 30 clubs.' },
+  { path: '/season-model', title: 'Season Model', desc: 'The 2026 model: projected wins and division outlooks.' },
+  { path: '/news', title: 'News Feed', desc: 'Free agency, trades and the rest of the hot stove.' },
+];
+
+function MlbOffseasonHome() {
+  const { workspace, buildPath } = useWorkspace();
+  const seasonLabel = workspace.championship?.seasonLabel || '';
+
+  return (
+    <div className={styles.page}>
+      <PageIntro label={`${workspace.shortLabel} offseason`} />
+      <h1 className={offseasonStyles.srOnly}>{seasonLabel} {workspace.shortLabel} season recap</h1>
+
+      <SeasonRecap workspace={workspace} />
+
+      <nav className={offseasonStyles.links} aria-label={`More ${workspace.shortLabel} intelligence`}>
+        {OFFSEASON_LINKS.map((l) => (
+          <Link key={l.path} to={buildPath(l.path)} className={offseasonStyles.linkCard}>
+            <span className={offseasonStyles.linkTitle}>{l.title} <span aria-hidden="true">→</span></span>
+            <span className={offseasonStyles.linkDesc}>{l.desc}</span>
+          </Link>
+        ))}
+      </nav>
+
+      <MlbIntelFeed />
+    </div>
+  );
+}
+
+function MlbSeasonHome() {
   const { workspace, buildPath } = useWorkspace();
 
   const alreadyShown = sessionStorage.getItem(SPLASH_KEY) === '1';
@@ -117,18 +180,7 @@ export default function MlbHome() {
 
   return (
     <div className={styles.page}>
-      <header className={styles.pageIntro}>
-        <span className={styles.pageIntroDate}>
-          {new Date().toLocaleDateString('en-US', {
-            weekday: 'long',
-            month: 'long',
-            day: 'numeric',
-            year: 'numeric',
-          })}
-        </span>
-        <span className={styles.pageIntroDivider}>·</span>
-        <span className={styles.pageIntroSub}>{workspace.labels.intelligence}</span>
-      </header>
+      <PageIntro label={workspace.labels.intelligence} />
 
       {/* ── Intelligence Briefing ── */}
       <section className={styles.briefingSection}>

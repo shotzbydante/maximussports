@@ -14,6 +14,7 @@ import { getFlag, setFlag } from '../utils/localFlags';
 import { trackAccountCreateSkipped } from '../lib/analytics/posthog';
 import { useAuth } from '../context/AuthContext';
 import GuestLanding from './landing/GuestLanding';
+import SeasonCountdown from '../components/season/SeasonCountdown';
 import styles from './Landing.module.css';
 
 const WelcomeModal = lazy(() => import('../components/marketing/WelcomeModal'));
@@ -95,6 +96,21 @@ function MemberLanding() {
   const ncaam = WORKSPACES[WorkspaceId.CBB];
   const ncaamComplete = ncaam.seasonState === SeasonState.COMPLETED;
   const ch = ncaam.championship;
+  const mlb = WORKSPACES[WorkspaceId.MLB];
+  const mlbComplete = mlb.seasonState === SeasonState.COMPLETED;
+  const mlbCh = mlb.championship;
+  // Offseason: the MLB home is the season recap, not a daily briefing.
+  const mlbModules = mlbComplete && mlbCh
+    ? [
+        {
+          title: 'Season Recap',
+          desc: `The ${mlbCh.seasonLabel} champion, the season in brief, and a countdown to ${mlb.nextSeason?.shortLabel || 'next season'}.`,
+          to: '/mlb',
+        },
+        ...MLB_MODULES.filter((m) => m.to !== '/mlb' && m.to !== '/mlb/insights'),
+        { title: 'News Feed', desc: 'Free agency, trades, and the rest of the offseason.', to: '/mlb/news' },
+      ]
+    : MLB_MODULES;
 
   const navigate = useNavigate();
   const [mlbNews, setMlbNews] = useState([]);
@@ -204,18 +220,33 @@ function MemberLanding() {
               <img src="/mlb-logo.png" alt="MLB" className={styles.tileLogo} width={42} height={42} />
               <div>
                 <h2 className={styles.tileTitle}>Major League Baseball</h2>
-                <span className={styles.tileStatus}>
-                  <span className={styles.statusDot} /> Regular Season Underway
-                </span>
+                {mlbComplete ? (
+                  <span className={`${styles.tileStatus} ${styles.statusComplete}`}>
+                    {mlbCh?.seasonLabel} Season Complete
+                  </span>
+                ) : (
+                  <span className={styles.tileStatus}>
+                    <span className={styles.statusDot} /> Regular Season Underway
+                  </span>
+                )}
               </div>
             </div>
             <p className={styles.tileDesc}>
-              Daily intel briefings, team projections, championship odds, run line picks,
-              value leans, and game-by-game analysis across the full MLB slate.
+              {mlbComplete && mlbCh
+                ? `The ${mlbCh.champion} won the ${mlbCh.scoreLabel}, ${mlbCh.score} over the ${mlbCh.runnerUp}. Season recap, team intel, and offseason news.`
+                : 'Daily intel briefings, team projections, championship odds, run line picks, value leans, and game-by-game analysis across the full MLB slate.'}
             </p>
             <div className={styles.tileCta}>
-              <span className={styles.ctaBtn}>Enter MLB Intelligence →</span>
-              <span className={styles.ctaMicro}>Live now →</span>
+              <span className={styles.ctaBtn}>
+                {mlbComplete ? 'View Season Recap →' : 'Enter MLB Intelligence →'}
+              </span>
+              <span className={styles.ctaMicro}>
+                {mlbComplete && mlb.nextSeason ? (
+                  <SeasonCountdown nextSeason={mlb.nextSeason} variant="inline" className={styles.tileCountdown} />
+                ) : (
+                  'Live now →'
+                )}
+              </span>
             </div>
           </Link>
 
@@ -248,15 +279,21 @@ function MemberLanding() {
               <img src="/ncaa-logo.png" alt="NCAAM" className={styles.tileLogo} width={42} height={42} />
               <div>
                 <h2 className={styles.tileTitle}>College Basketball</h2>
-                <span className={`${styles.tileStatus} ${styles.statusComplete}`}>
-                  {ncaamComplete ? '2026 Season Complete' : 'Season Active'}
-                </span>
+                {ncaamComplete ? (
+                  <span className={`${styles.tileStatus} ${styles.statusComplete}`}>
+                    {ch?.seasonLabel ?? ''} Season Complete
+                  </span>
+                ) : (
+                  <span className={styles.tileStatus}>
+                    <span className={styles.statusDot} /> Season Underway
+                  </span>
+                )}
               </div>
             </div>
             <p className={styles.tileDesc}>
               {ncaamComplete && ch
                 ? `March Madness 2026 is complete. ${ch.champion.split(' ').pop()} defeated ${ch.runnerUp.split(' ').pop()} ${ch.score} on April 6. Explore bracket insights, tournament recap, team intel, and picks history.`
-                : 'Bracket intelligence, team intel, odds insights, ATS analytics, and tournament analysis.'}
+                : `Daily briefings, team intel, odds insights, and ATS analytics${ch ? `. ${ch.champion.split(' ')[0]} is the defending national champion.` : '.'}`}
             </p>
             <div className={styles.tileCta}>
               <span className={styles.ctaBtn}>
@@ -276,7 +313,7 @@ function MemberLanding() {
               <img src="/mlb-logo.png" alt="" width={18} height={18} /> MLB Intelligence
             </h3>
             <div className={styles.moduleCards}>
-              {MLB_MODULES.map((m, i) => (
+              {mlbModules.map((m, i) => (
                 <Link key={i} to={m.to} className={styles.moduleCard}>
                   <span className={styles.moduleTitle}>{m.title} <span className={styles.moduleArrow}>→</span></span>
                   <span className={styles.moduleDesc}>{m.desc}</span>

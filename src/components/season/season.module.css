@@ -1,0 +1,615 @@
+/* Season recap, offseason and countdown surfaces.
+ *
+ * Light cards built on the app tokens (colors, fonts, radii, shadows), so they
+ * follow the design-system restyle without edits here. Each top-level
+ * component carries `.scope`; set `--season-accent` inline to tint it with the
+ * sport's identity color (defaults to the brand primary).
+ */
+
+.scope {
+  --season-accent: var(--color-primary);
+  --season-gold: #a8791a;
+  --season-tint: rgba(60, 121, 180, 0.05);
+  --season-rule: var(--color-border-light);
+}
+
+@supports (color: color-mix(in srgb, red 10%, transparent)) {
+  .scope {
+    --season-tint: color-mix(in srgb, var(--season-accent) 6%, transparent);
+    --season-rule: color-mix(in srgb, var(--season-accent) 16%, transparent);
+  }
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.eyebrow {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--season-accent);
+}
+
+.teamLogo {
+  flex-shrink: 0;
+  object-fit: contain;
+}
+
+/* ── Full recap card (offseason home) ─────────────────────────── */
+
+.recap {
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--season-rule);
+  border-left: 4px solid var(--season-accent);
+  border-radius: var(--radius-card, var(--radius-lg));
+  box-shadow: var(--shadow-hero, var(--shadow-md));
+  margin-bottom: var(--section-gap, var(--space-lg));
+  overflow: hidden;
+}
+
+.recapHero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 340px);
+  gap: 28px;
+  align-items: center;
+  padding: 28px 32px;
+  background: linear-gradient(135deg, var(--season-tint) 0%, transparent 70%);
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.champ {
+  display: flex;
+  align-items: flex-start;
+  gap: 18px;
+  min-width: 0;
+}
+
+.trophyBadge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  color: var(--season-gold);
+  background: rgba(168, 121, 26, 0.1);
+  border: 1px solid rgba(168, 121, 26, 0.28);
+}
+
+.champBody {
+  min-width: 0;
+}
+
+.champTeamRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 8px 0 10px;
+}
+
+.champTeam {
+  margin: 0;
+  font-size: clamp(1.5rem, 3.2vw, 2rem);
+  line-height: 1.1;
+  color: var(--color-text);
+  text-transform: none;
+}
+
+.resultRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+}
+
+.resultLabel {
+  font-weight: 600;
+}
+
+.scoreBadge {
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--season-accent);
+  background: var(--season-tint);
+  border: 1px solid var(--season-rule);
+}
+
+.runnerUp {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.resultMeta {
+  margin: 8px 0 0;
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+}
+
+.recapBody {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 300px);
+  gap: 32px;
+  padding: 28px 32px 30px;
+}
+
+.recapTitle {
+  margin: 6px 0 14px;
+  font-size: 1.125rem;
+  color: var(--color-text);
+  text-transform: none;
+}
+
+.recapCopy p {
+  margin: 0 0 14px;
+  max-width: 62ch;
+  font-size: 0.9375rem;
+  line-height: 1.65;
+  color: var(--color-text-secondary);
+}
+
+.recapCopy p:last-child {
+  margin-bottom: 0;
+}
+
+.sideBlock + .sideBlock {
+  margin-top: 22px;
+  padding-top: 20px;
+  border-top: 1px solid var(--color-border-light);
+}
+
+.facts,
+.honors {
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.fact {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 7px 0;
+  border-bottom: 1px dashed var(--color-border-light);
+}
+
+.fact:last-child {
+  border-bottom: 0;
+}
+
+.factLabel {
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+}
+
+.factValue {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 700;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+}
+
+.factTeam {
+  margin-left: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+/* ── Countdown clock ──────────────────────────────────────────── */
+
+.clock {
+  padding: 18px 20px;
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--season-rule);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.clockHead {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 14px;
+}
+
+.clockDate {
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+}
+
+.clockUnits {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.clockUnit {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 12px 4px 10px;
+  border-radius: var(--radius-md);
+  background: var(--season-tint);
+  border: 1px solid var(--season-rule);
+}
+
+.clockValue {
+  font-family: var(--font-mono);
+  font-size: clamp(1.5rem, 4.4vw, 1.875rem);
+  font-weight: 500;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+}
+
+.clockUnitLabel {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.clockDetail {
+  margin: 12px 0 0;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--color-text-muted);
+}
+
+.clockDone {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.inlineClock {
+  white-space: nowrap;
+}
+
+.inlineLabel {
+  color: var(--color-text-secondary);
+}
+
+.inlineDigits {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+}
+
+/* ── Offseason panel (stands in for live slates) ──────────────── */
+
+.panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 340px);
+  gap: 28px;
+  align-items: center;
+  padding: 28px 32px;
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--season-rule);
+  border-left: 4px solid var(--season-accent);
+  border-radius: var(--radius-card, var(--radius-lg));
+  box-shadow: var(--shadow-card, var(--shadow-md));
+}
+
+.panelTitle {
+  margin: 8px 0 10px;
+  font-size: clamp(1.25rem, 2.6vw, 1.5rem);
+  line-height: 1.2;
+  color: var(--color-text);
+  text-transform: none;
+}
+
+.panelText {
+  margin: 0 0 8px;
+  max-width: 54ch;
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  color: var(--color-text-secondary);
+}
+
+.panelChamp {
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.panelChamp img,
+.panelChamp svg {
+  display: inline-block;
+  margin-right: 6px;
+  vertical-align: -0.28em;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.primaryLink,
+.secondaryLink {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 16px;
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.primaryLink {
+  color: #fff;
+  background: var(--season-accent);
+  border: 1px solid var(--season-accent);
+}
+
+.primaryLink:hover {
+  color: #fff;
+  filter: brightness(0.92);
+  text-decoration: none;
+}
+
+.secondaryLink {
+  color: var(--color-text);
+  background: transparent;
+  border: 1px solid var(--color-border);
+}
+
+.secondaryLink:hover {
+  color: var(--color-text);
+  background: var(--season-tint);
+  text-decoration: none;
+}
+
+.primaryLink:focus-visible,
+.secondaryLink:focus-visible,
+.stripLink:focus-visible,
+.lastSummary:focus-visible {
+  outline: 2px solid var(--season-accent);
+  outline-offset: 2px;
+}
+
+/* ── Offseason strip (top of secondary screens) ───────────────── */
+
+.strip {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  max-width: 1100px;
+  margin: var(--space-lg) auto var(--space-sm);
+  padding: 10px 16px;
+  font-size: 0.8125rem;
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--season-rule);
+  border-left: 4px solid var(--season-accent);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+.stripChamp {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: var(--color-text-secondary);
+}
+
+.stripChamp strong {
+  color: var(--color-text);
+}
+
+.stripTrophy {
+  flex-shrink: 0;
+  color: var(--season-gold);
+}
+
+.stripClock {
+  margin-left: auto;
+}
+
+.stripLink {
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--season-accent);
+  text-decoration: none;
+  border-radius: 4px;
+}
+
+.stripLink:hover {
+  text-decoration: underline;
+}
+
+/* ── Last-season card (in-season home) ────────────────────────── */
+
+.last {
+  margin-bottom: var(--space-lg);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--season-rule);
+  border-radius: var(--radius-card, var(--radius-lg));
+  box-shadow: var(--shadow-sm);
+}
+
+.lastHead {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+}
+
+.lastBadge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  color: var(--season-gold);
+  background: rgba(168, 121, 26, 0.1);
+  border: 1px solid rgba(168, 121, 26, 0.28);
+}
+
+.lastBody {
+  flex: 1;
+  min-width: 0;
+}
+
+.lastTeamRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  margin-top: 4px;
+}
+
+.lastTeam {
+  margin: 0;
+  font-size: 1.125rem;
+  line-height: 1.2;
+  color: var(--color-text);
+  text-transform: none;
+}
+
+.lastResult {
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+}
+
+.lastDetails {
+  border-top: 1px solid var(--color-border-light);
+}
+
+.lastSummary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 44px;
+  padding: 0 20px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--season-accent);
+  cursor: pointer;
+  list-style: none;
+}
+
+.lastSummary::-webkit-details-marker {
+  display: none;
+}
+
+.lastSummary::after {
+  content: '';
+  width: 7px;
+  height: 7px;
+  margin-right: 4px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg);
+  transition: transform 0.15s ease;
+}
+
+.lastDetails[open] > .lastSummary::after {
+  transform: rotate(-135deg);
+}
+
+.lastDetails[open] > .lastSummary .whenClosed,
+.lastDetails:not([open]) > .lastSummary .whenOpen {
+  display: none;
+}
+
+.lastContent {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 280px);
+  gap: 28px;
+  padding: 4px 20px 20px;
+}
+
+/* ── Responsive ───────────────────────────────────────────────── */
+
+@media (max-width: 900px) {
+  .recapHero,
+  .recapBody,
+  .panel,
+  .lastContent {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .recapBody {
+    gap: 24px;
+  }
+}
+
+@media (max-width: 640px) {
+  .recapHero,
+  .recapBody,
+  .panel {
+    padding: 20px 18px;
+  }
+
+  .champ {
+    gap: 14px;
+  }
+
+  .trophyBadge {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+  }
+
+  .strip {
+    margin-left: 0;
+    margin-right: 0;
+  }
+
+  .stripClock {
+    margin-left: 0;
+  }
+
+  .lastHead {
+    align-items: flex-start;
+    padding: 14px 16px;
+  }
+
+  .lastSummary {
+    padding: 0 16px;
+  }
+
+  .lastContent {
+    padding: 4px 16px 18px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .primaryLink,
+  .secondaryLink,
+  .lastSummary::after {
+    transition: none;
+  }
+}
