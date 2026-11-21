@@ -28,7 +28,7 @@ const LASTKNOWN_TTL_SEC  = 72 * 3600;
 const GEN_LOCK_TTL_SEC   = 90;
 const FORCE_LOCK_TTL_SEC = 45;
 
-const MAX_TOKENS  = 1200;
+const MAX_TOKENS  = 1800;
 const LLM_TIMEOUT = 18000;
 
 const SEASON_PHASE = { 1: 'preseason', 2: 'regular_season', 3: 'playoffs', 4: 'offseason' };
