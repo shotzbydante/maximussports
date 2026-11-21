@@ -203,7 +203,7 @@ export default function WelcomeModal({ open, onClose, onSignup, onExplore }) {
             <div className={styles.stepContent} aria-label="Step 1 of 3">
               <div className={styles.heroVisual}>
                 <div className={styles.heroDualMascot}>
-                  <img src="/mascot.png" alt="Maximus" className={styles.heroMascotLeft} loading="eager" />
+                  <img src="/mascot-basketball.png" alt="Basketball Maximus" className={styles.heroMascotLeft} loading="eager" />
                   <img src="/maximus-logo.png" alt="Maximus Sports" className={styles.heroLogoCenter}
                     onError={(e) => { e.target.style.display = 'none'; }} />
                   <img src="/mascot-mlb.png" alt="Baseball Maximus" className={styles.heroMascotRight} loading="eager" />

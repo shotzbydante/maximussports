@@ -11,7 +11,7 @@ export default function NbaLoading() {
       <div className={styles.loadingInner}>
         <div className={styles.robotGlow} />
         <img
-          src="/mascot.png"
+          src="/mascot-basketball.png"
           alt="Maximus"
           className={styles.robot}
           width={260}
@@ -26,6 +26,7 @@ export default function NbaLoading() {
           </div>
           <span className={styles.loadingSubtext}>Loading court data&hellip;</span>
         </div>
+        <img src="/brand/watermark-color-60.png" alt="Maximus Sports" className={styles.brandMark} width={700} height={325} decoding="async" />
       </div>
     </div>
   );

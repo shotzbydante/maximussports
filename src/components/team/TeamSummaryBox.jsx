@@ -96,7 +96,7 @@ export default function TeamSummaryBox({ slug, team, schedule, ats, news, rank =
     <section className={styles.briefing} aria-labelledby="team-briefing-title">
       <div className={styles.header}>
         <div className={styles.headerLeft}>
-          <img src="/mascot.png" alt="" className={styles.mascot} aria-hidden />
+          <img src="/mascot-basketball.png" alt="" className={styles.mascot} aria-hidden />
           <h2 id="team-briefing-title" className={styles.title}>Intel Briefing</h2>
         </div>
         <button

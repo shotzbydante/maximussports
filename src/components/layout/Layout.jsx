@@ -31,6 +31,9 @@ export default function Layout() {
         <Sidebar />
         <main className={styles.main}>
           <Outlet />
+          {pathname !== '/' && (
+            <img src="/brand/watermark-navy.png" alt="" aria-hidden="true" className={styles.endMark} width={700} height={325} loading="lazy" decoding="async" />
+          )}
         </main>
       </div>
       <Footer />

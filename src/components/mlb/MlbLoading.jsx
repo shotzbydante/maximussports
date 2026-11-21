@@ -32,6 +32,7 @@ export default function MlbLoading() {
           </div>
           <span className={styles.loadingSubtext}>Calibrating projections&hellip;</span>
         </div>
+        <img src="/brand/watermark-white.png" alt="Maximus Sports" className={styles.brandMark} width={700} height={325} decoding="async" />
       </div>
     </div>
   );

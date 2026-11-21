@@ -48,6 +48,8 @@
   line-height: 1.2;
 }
 
+.brandLogo { display: block; height: 44px; width: auto; margin: 0 0 2px -4px; opacity: 0.92; }
+
 .brandTagline {
   font-size: 0.72rem;
   color: rgba(255, 255, 255, 0.40);

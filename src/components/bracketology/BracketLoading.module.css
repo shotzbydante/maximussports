@@ -90,3 +90,12 @@
   0% { transform: translateX(-200%); }
   100% { transform: translateX(600%); }
 }
+
+.brandMark {
+  display: block;
+  width: 156px;
+  height: auto;
+  margin-top: 1.75rem;
+  position: relative;
+  z-index: 1;
+}
