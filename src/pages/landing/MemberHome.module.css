@@ -69,7 +69,8 @@
 .sportName { font-family: var(--font-display); font-size: 1.25rem; font-weight: 700; line-height: 1; letter-spacing: 0.01em; }
 .sportLabel { font-size: 0.8125rem; color: var(--color-text-muted); }
 .sportLine { font-size: 0.875rem; line-height: 1.45; color: var(--color-text-secondary); min-height: 2.9em; }
-.sportCountdown { font-size: 0.8125rem; color: var(--color-text-secondary); font-variant-numeric: tabular-nums; }
+.sportCountdown { font-size: 0.8125rem; color: var(--color-text-secondary); font-variant-numeric: tabular-nums; white-space: normal; }
+.sportCountdown span span:last-child { white-space: nowrap; }
 .sportMascot {
   position: absolute;
   right: 10px;

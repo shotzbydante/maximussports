@@ -93,6 +93,11 @@ async function buildPayload() {
       const move = g.market.pregameSpread - g.market.openSpread;
       if (Math.abs(move) >= 1) out.lineMove = `${Math.abs(move).toFixed(1)} points toward ${move < 0 ? home.abbrev : away.abbrev} since open`;
     }
+    const qbs = [
+      ...(g.injuries?.away?.quarterbacks || []).map((q) => `${away.abbrev} QB ${q.name}: ${q.status}`),
+      ...(g.injuries?.home?.quarterbacks || []).map((q) => `${home.abbrev} QB ${q.name}: ${q.status}`),
+    ];
+    if (qbs.length > 0) out.quarterbackInjuries = qbs;
     return out;
   });
 
@@ -133,7 +138,7 @@ Write the home-page briefing using ONLY the JSON data provided. Do NOT invent sc
 FORMAT: 4 or 5 paragraphs, no headers, no bullet lists.
 
 P1 THE WEEK: Open on the biggest stories in headlines[] and where the slate stands (use week, and any finalScore or liveScore in games[]).
-P2 THE BOARD: Walk through 3 or 4 games still to be played from games[]. Quote the spread and total exactly as given. Where a game has modelLean or lineMove, say so in plain terms.
+P2 THE BOARD: Walk through 3 or 4 games still to be played from games[]. Quote the spread and total exactly as given. Where a game has modelLean or lineMove, say so in plain terms. Where a game has quarterbackInjuries, mention it and note that the model lean does not account for it.
 P3 PLAYOFF PICTURE: Use playoffPicture to say who holds the top seeds in each conference and who is on a streak.
 P4 SUPER BOWL MARKET: Reference 3 or 4 teams from superBowlOdds with exact odds (positive odds MUST include "+"), and one from superBowlSleepers if present.
 P5 CLOSER: One or two sentences on what to watch next. Mention byeTeams if any.

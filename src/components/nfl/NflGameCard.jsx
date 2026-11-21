@@ -60,6 +60,27 @@ function TeamRow({ team, isWinner, isLoser, hasBall, showScore, to }) {
   );
 }
 
+/** One line: players ruled out on each side, and any quarterback flag. */
+function InjuryLine({ game }) {
+  const { injuries, teams, gameState: gs = {} } = game;
+  if (!injuries || gs.isFinal) return null;
+  const count = (side) => (injuries[side]?.out || 0) + (injuries[side]?.doubtful || 0);
+  const away = count('away');
+  const home = count('home');
+  const qbs = [
+    ...(injuries.away?.quarterbacks || []).map((q) => `${teams.away.abbrev} QB ${q.name} ${String(q.status).toLowerCase()}`),
+    ...(injuries.home?.quarterbacks || []).map((q) => `${teams.home.abbrev} QB ${q.name} ${String(q.status).toLowerCase()}`),
+  ];
+  if (away + home === 0 && qbs.length === 0) return null;
+  return (
+    <p className={s.gameInjuries}>
+      <span className={s.gameInjuriesLabel}>Out or doubtful</span>
+      {' '}{teams.away.abbrev} {away} · {teams.home.abbrev} {home}
+      {qbs.length > 0 && <span className={s.gameInjuriesFlag}>{qbs.join(' · ')}</span>}
+    </p>
+  );
+}
+
 export default function NflGameCard({ game }) {
   const { buildPath } = useWorkspace();
   if (!game) return null;
@@ -135,6 +156,8 @@ export default function NflGameCard({ game }) {
       )}
 
       {insight?.summary && <p className={s.gameInsight}>{insight.summary}</p>}
+
+      <InjuryLine game={game} />
 
       {links?.gamecastUrl && (
         <div className={s.gameFoot}>

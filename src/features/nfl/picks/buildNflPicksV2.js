@@ -244,8 +244,8 @@ function makePick({ game, kind, side, line, price, probs, edgePoints, scored, fl
     rawEdge: round3(probs.edge),
     edgePoints: isNum(edgePoints) ? Math.round(edgePoints * 10) / 10 : null,
     expectedTotal: kind === 'total' ? projection.total : null,
-    isLowConviction: !!flags.informationGap || !!flags.priceGuard,
-    lowSignalReason: flags.informationGap ? 'information_gap' : flags.priceGuard ? 'price_guard' : null,
+    isLowConviction: !!flags.informationGap || !!flags.priceGuard || !!flags.qbInjury,
+    lowSignalReason: flags.qbInjury ? 'qb_injury' : flags.informationGap ? 'information_gap' : flags.priceGuard ? 'price_guard' : null,
     modelSource: ctx.ratingSource === 'results' ? 'nfl_ratings_v1' : 'nfl_standings_v1',
 
     result: null,
@@ -345,6 +345,20 @@ export function buildNflPicksV2({
 
     const homeAbbr = game.teams.home.abbrev;
     const awayAbbr = game.teams.away.abbrev;
+
+    // The ratings come from results and do not know who starts. A
+    // quarterback tagged Out or Doubtful this week is information the
+    // model lacks, so every pick on the game is tracked, not recommended.
+    const qbNotes = [
+      ...(game.injuries?.away?.quarterbacks || []).map((q) => `${awayAbbr} QB ${q.name} (${String(q.status).toLowerCase()})`),
+      ...(game.injuries?.home?.quarterbacks || []).map((q) => `${homeAbbr} QB ${q.name} (${String(q.status).toLowerCase()})`),
+    ];
+    const qbInjury = qbNotes.length > 0;
+    const qbNote = qbInjury
+      ? `Injury report: ${qbNotes.join(', ')}. The ratings do not account for who starts at quarterback, so this is tracked, not recommended.`
+      : null;
+    if (qbInjury) meta.qbInjuryGames = (meta.qbInjuryGames || 0) + 1;
+
     const ratingLine =
       `Ratings: ${awayAbbr} ${fmtSigned(awayR?.rating)} (off ${fmtSigned(awayR?.offense)}, def ${fmtSigned(awayR?.defense)}), ` +
       `${homeAbbr} ${fmtSigned(homeR?.rating)} (off ${fmtSigned(homeR?.offense)}, def ${fmtSigned(homeR?.defense)}).`;
@@ -362,10 +376,11 @@ export function buildNflPicksV2({
       const moved = isNum(mkt.openSpread) && mkt.openSpread !== s.marketSpreadHome
         ? (sideIsHome ? s.marketSpreadHome < mkt.openSpread : s.marketSpreadHome > mkt.openSpread)
         : null;
-      const flags = { informationGap: s.informationGap };
+      const flags = { informationGap: s.informationGap, qbInjury };
       const scored = scoreCandidate({
         kind: 'runline', edgePoints: s.edgePoints, sideIsHome, ctx, config,
         informationGap: s.informationGap, lineMoveToward: moved,
+        guarded: s.informationGap || qbInjury,
       });
       const team = sideIsHome ? game.teams.home : game.teams.away;
       const bullets = [
@@ -375,6 +390,7 @@ export function buildNflPicksV2({
         ...situationalBullets(scored.notes, ctx, sideIsHome),
       ];
       if (s.informationGap) bullets.unshift(INFO_GAP_NOTE);
+      if (qbNote) bullets.unshift(qbNote);
       picks.runline = makePick({
         game, kind: 'runline', side, line, price: null,
         probs: { model: cover, implied: 0.5, edge: cover - 0.5 },
@@ -399,10 +415,10 @@ export function buildNflPicksV2({
         const guards = config?.guards || NFL_DEFAULT_CONFIG.guards;
         const priceGuard = isNum(price) && (price < guards.mlMaxFavorite || price > guards.mlMaxUnderdog);
         const informationGap = !!priced.side?.informationGap;
-        const flags = { informationGap, priceGuard };
+        const flags = { informationGap, priceGuard, qbInjury };
         const scored = scoreCandidate({
           kind: 'moneyline', probEdge: edge, sideIsHome, ctx, config,
-          informationGap, lineMoveToward: null, guarded: informationGap || priceGuard,
+          informationGap, lineMoveToward: null, guarded: informationGap || priceGuard || qbInjury,
         });
         const team = sideIsHome ? game.teams.home : game.teams.away;
         const bullets = [
@@ -411,6 +427,7 @@ export function buildNflPicksV2({
           ...situationalBullets(scored.notes, ctx, sideIsHome),
         ];
         if (informationGap) bullets.unshift(INFO_GAP_NOTE);
+        if (qbNote) bullets.unshift(qbNote);
         if (priceGuard) bullets.push('Price is outside the range the model promotes. Tracked, not recommended.');
         picks.moneyline = makePick({
           game, kind: 'moneyline', side, line: null, price,
@@ -433,10 +450,11 @@ export function buildNflPicksV2({
       const moved = isNum(mkt.openTotal) && mkt.openTotal !== t.marketTotal
         ? (over ? t.marketTotal > mkt.openTotal : t.marketTotal < mkt.openTotal)
         : null;
-      const flags = { informationGap: t.informationGap };
+      const flags = { informationGap: t.informationGap, qbInjury };
       const scored = scoreCandidate({
         kind: 'total', edgePoints: t.edgePoints, sideIsHome: false, ctx, config,
         informationGap: t.informationGap, lineMoveToward: moved,
+        guarded: t.informationGap || qbInjury,
       });
       const bullets = [
         `Ratings project ${projection.awayPoints.toFixed(1)}–${projection.homePoints.toFixed(1)}, a total of ${t.modelTotal.toFixed(1)} against a posted ${t.marketTotal}. ` +
@@ -445,6 +463,7 @@ export function buildNflPicksV2({
         ...situationalBullets(scored.notes, ctx, false),
       ];
       if (t.informationGap) bullets.unshift(INFO_GAP_NOTE);
+      if (qbNote) bullets.unshift(qbNote);
       picks.total = makePick({
         game, kind: 'total', side, line: t.marketTotal, price: null,
         probs: { model: prob, implied: 0.5, edge: prob - 0.5 },
@@ -478,6 +497,7 @@ export function buildNflPicksV2({
         total: isNum(mkt.pregameTotal) ? mkt.pregameTotal : null,
         moneyline: mkt.moneyline || null,
       },
+      injuries: game.injuries || null,
       picks,
     });
   }

@@ -9,6 +9,7 @@ import { createCache, coalesce } from '../_cache.js';
 import { fetchScoreboardPage } from '../nfl/live/_normalize.js';
 import { enrichGamesWithOdds } from '../nfl/live/_odds.js';
 import { getNflRatings } from './nflRatings.js';
+import { getNflInjuries, attachInjuries } from './nflInjuries.js';
 import { projectNflGame, priceNflGame } from '../../src/features/nfl/picks/nflModel.js';
 
 const cache = createCache(30_000);
@@ -58,14 +59,16 @@ export async function getNflSlate() {
   if (cached) return cached;
 
   const slate = await coalesce(CACHE_KEY, async () => {
-    const [page, ratings] = await Promise.all([
+    const [page, ratings, injuries] = await Promise.all([
       fetchScoreboardPage(),
       getNflRatings().catch(() => null),
+      getNflInjuries().catch(() => null),
     ]);
     let games = page.games;
     try { games = await enrichGamesWithOdds(games); }
     catch (err) { console.warn('[nflSlate] odds enrichment failed:', err?.message); }
     games = attachModel(games, ratings);
+    games = attachInjuries(games, injuries);
     return {
       games,
       week: page.week,

@@ -19,6 +19,7 @@ import NflLogo from '../../components/nfl/NflLogo';
 import { buildNflTeamIntelSummary } from '../../data/nfl/teamIntelSummary';
 import {
   fetchNflTeamBoard, fetchNflChampionshipOdds, fetchNflSeasonModel, fetchNflGames, fetchNflTeamSchedule,
+  fetchNflTeamInjuries,
 } from '../../api/nfl';
 import s from '../../components/nfl/nfl.module.css';
 
@@ -53,6 +54,67 @@ function Stat({ label, value, sub }) {
       <span className={s.statValue}>{value}</span>
       {sub && <span className={s.statSub}>{sub}</span>}
     </div>
+  );
+}
+
+const INJURY_PILL = { out: 'pillLoss', doubtful: 'pillLoss', questionable: 'pillWarn', ir: 'pillFinal', other: 'pillFinal' };
+
+/** Players with a game-week tag first; injured reserve folded behind a toggle. */
+function InjuryReport({ report }) {
+  const [showAll, setShowAll] = useState(false);
+  const active = report.injuries.filter((p) => p.status !== 'ir');
+  const reserve = report.injuries.filter((p) => p.status === 'ir');
+  const rows = showAll ? [...active, ...reserve] : active;
+  const c = report.summary || {};
+  const counts = [
+    c.out ? `${c.out} out` : null,
+    c.doubtful ? `${c.doubtful} doubtful` : null,
+    c.questionable ? `${c.questionable} questionable` : null,
+    c.ir ? `${c.ir} on injured reserve` : null,
+  ].filter(Boolean).join(' · ');
+  return (
+    <section className={s.section}>
+      <div className={s.sectionHead}>
+        <h2 className={s.sectionTitle}>Injury report</h2>
+        {counts && <span className={s.sectionSub}>{counts}</span>}
+      </div>
+      {rows.length === 0 ? (
+        <div className={s.empty}>No one carries a game-week designation.</div>
+      ) : (
+        <div className={`${s.card} ${s.cardFlush}`}>
+          <div className={s.tableWrap}>
+            <table className={`${s.table} ${s.tableCompact}`}>
+              <thead>
+                <tr>
+                  <th>Player</th>
+                  <th>Pos</th>
+                  <th>Status</th>
+                  <th className={s.hideSm}>Injury</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((p) => (
+                  <tr key={p.id}>
+                    <td className={s.cellStrong}>{p.name}</td>
+                    <td>{p.position || '\u2014'}</td>
+                    <td><span className={`${s.pill} ${s[INJURY_PILL[p.status]] || ''}`}>{p.statusLabel}</span></td>
+                    <td className={s.hideSm}>{p.injury || '\u2014'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+      {reserve.length > 0 && (
+        <button type="button" className={s.linkButton} onClick={() => setShowAll((v) => !v)}>
+          {showAll ? 'Hide injured reserve' : `Show injured reserve (${reserve.length})`}
+        </button>
+      )}
+      <p className={s.footnote}>
+        The power rating is built from results and does not adjust for who is unavailable this week.
+      </p>
+    </section>
   );
 }
 
@@ -152,6 +214,7 @@ function TeamDetail({ team }) {
   const [game, setGame] = useState(null);
   const [onBye, setOnBye] = useState(false);
   const [schedule, setSchedule] = useState(null);
+  const [injuries, setInjuries] = useState(null);
   const [pinError, setPinError] = useState(null);
 
   useEffect(() => {
@@ -165,6 +228,7 @@ function TeamDetail({ team }) {
       setOnBye(g.byeTeams.includes(team.slug));
     });
     fetchNflTeamSchedule(team.slug).then((d) => { if (!cancelled) setSchedule(d); });
+    fetchNflTeamInjuries(team.slug).then((d) => { if (!cancelled) setInjuries(d); });
     return () => { cancelled = true; };
   }, [team]);
 
@@ -276,6 +340,8 @@ function TeamDetail({ team }) {
           <div className={s.empty}>No game on this week’s board.</div>
         )}
       </section>
+
+      {injuries?.injuries?.length > 0 && <InjuryReport report={injuries} />}
 
       <section className={s.section}>
         <div className={s.sectionHead}>

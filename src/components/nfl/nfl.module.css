@@ -299,6 +299,9 @@
 .lineValue { font-size: 0.875rem; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .lineSub { font-size: 0.75rem; color: var(--color-text-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .gameInsight { margin: 0; font-size: 0.8125rem; line-height: 1.5; color: var(--color-text-secondary); }
+.gameInjuries { margin: 0; font-size: 0.8125rem; line-height: 1.5; color: var(--color-text-secondary); font-variant-numeric: tabular-nums; }
+.gameInjuriesLabel { color: var(--color-text-muted); }
+.gameInjuriesFlag { display: block; font-weight: 600; color: var(--nfl-warn); }
 .gameFoot { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 0.75rem; }
 .gameFoot a { font-weight: 600; }
 .probBar { height: 4px; border-radius: 2px; background: var(--color-border-light); overflow: hidden; }
@@ -325,6 +328,20 @@
 }
 .table tr:last-child td { border-bottom: 0; }
 /* Two tables side by side: tighter cells so every column fits. */
+.cellStrong { font-weight: 600; color: var(--color-text); }
+.linkButton {
+  align-self: flex-start;
+  padding: 6px 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  cursor: pointer;
+}
+.linkButton:hover { color: var(--color-primary-hover); }
+.footnote { margin: 0; font-size: 0.75rem; line-height: 1.5; color: var(--color-text-muted); }
 .tableCompact th, .tableCompact td { padding: 10px 8px; }
 .tableCompact th:first-child, .tableCompact td:first-child { padding-left: 14px; }
 .tableCompact th:last-child, .tableCompact td:last-child { padding-right: 14px; }

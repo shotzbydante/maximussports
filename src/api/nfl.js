@@ -107,6 +107,12 @@ export function fetchNflTeamSchedule(team) {
     .then((d) => ({ events: d.events ?? [], teamRecord: d.teamRecord ?? null, byeWeek: d.byeWeek ?? null }));
 }
 
+/** One team's injury report: players out, doubtful, questionable or on IR. */
+export function fetchNflTeamInjuries(team) {
+  return getJson(`/api/nfl/injuries?team=${encodeURIComponent(team)}`, { injuries: [] })
+    .then((d) => ({ injuries: d.injuries ?? [], summary: d.summary ?? null, generatedAt: d.generatedAt ?? null }));
+}
+
 export function fetchNflScorecard({ days = 9 } = {}) {
   return getJson(`/api/nfl/picks/scorecard?days=${days}`, null);
 }

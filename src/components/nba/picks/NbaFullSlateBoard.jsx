@@ -41,6 +41,9 @@ function formatGameDate(iso) {
 function sourceLineFor(pick, marketKey) {
   if (!pick) return null;
   // Sport-agnostic guard reasons (NFL): shown regardless of market.
+  if (pick.lowSignalReason === 'qb_injury') {
+    return { label: 'Quarterback listed out or doubtful \u00b7 tracking only', warn: true };
+  }
   if (pick.lowSignalReason === 'information_gap') {
     return { label: 'Model far from market \u00b7 likely news the ratings miss', warn: true };
   }
