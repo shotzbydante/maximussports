@@ -16,7 +16,7 @@ const LASTKNOWN_TTL_SEC  = 72 * 3600;
 const GEN_LOCK_TTL_SEC   = 90;
 const FORCE_LOCK_TTL_SEC = 45;
 
-const MAX_TOKENS     = 600;
+const MAX_TOKENS     = 800;
 const LLM_TIMEOUT    = 25000;
 
 const isDev = process.env.NODE_ENV !== 'production';

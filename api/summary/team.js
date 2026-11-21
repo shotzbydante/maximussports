@@ -110,7 +110,7 @@ export default async function handler(req, res) {
     }
     const { systemPrompt, userPrompt } = buildPrompts({ teamName, tier, seed, seasonRecord, conferenceFinish, tournamentStatus, upcomingGames, lastWeek, atsSummary, headlines });
     try {
-      const summary = await claudeComplete({ system: systemPrompt, user: userPrompt, maxTokens: 480 });
+      const summary = await claudeComplete({ system: systemPrompt, user: userPrompt, maxTokens: 700 });
       const updatedAt = new Date().toISOString();
       teamCache[key] = { summary, updatedAt, expires: Date.now() + CACHE_TTL_MS };
       return res.status(200).json({ summary, updatedAt });
@@ -143,7 +143,7 @@ export default async function handler(req, res) {
 
   try {
     let fullContent = '';
-    for await (const delta of claudeStream({ system: systemPrompt, user: userPrompt, maxTokens: 480 })) {
+    for await (const delta of claudeStream({ system: systemPrompt, user: userPrompt, maxTokens: 700 })) {
       fullContent += delta;
       send(res, { text: delta, done: false });
     }

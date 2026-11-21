@@ -23,7 +23,7 @@ const GEN_LOCK_TTL_SEC   = 90;
 const INLINE_REGEN_AFTER_SEC = 3 * 3600;  // older than this → regenerate inline instead of serving it
 const FORCE_LOCK_TTL_SEC = 45;
 
-const MAX_TOKENS      = 850;
+const MAX_TOKENS      = 1100;
 const LLM_TIMEOUT  = 18000; // 18s — leaves 12s buffer for data build + KV + response within Vercel 30s limit
 
 const isDev = process.env.NODE_ENV !== 'production';
