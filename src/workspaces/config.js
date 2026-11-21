@@ -64,6 +64,7 @@ export const SeasonState = /** @type {const} */ ({
  * @property {Object} [championship]   - result of the most recently completed season
  * @property {Object} [recap]          - recap copy + facts for that season
  * @property {Object} [nextSeason]     - first game of the next season (countdown target)
+ * @property {{ paused?: boolean }} [emails] - hold this sport's own emails while in season
  */
 
 /** @type {Record<WorkspaceIdType, WorkspaceConfig>} */
@@ -80,6 +81,13 @@ export const WORKSPACES = {
     // game on Apr 5, 2027. Flip back to COMPLETED (and refresh `championship`
     // + `recap`, add `nextSeason`) once that game is final.
     seasonState: SeasonState.ACTIVE,
+    /**
+     * NCAAM emails (briefing, team digest, picks) were suspended for the
+     * 2026 offseason and have not been sent this season. They stay paused
+     * until someone has checked a test send against this season's data;
+     * remove this flag to resume the daily sends.
+     */
+    emails: { paused: true },
     /** Most recently completed season — drives the Home champion card */
     championship: {
       year: 2026,
@@ -272,7 +280,7 @@ export const WORKSPACES = {
     access: { public: true },
     labels: {
       sportName: 'NBA Basketball',
-      intelligence: 'NBA Playoffs Intelligence',
+      intelligence: 'NBA Intelligence',
       teamIntel: 'Team Intel',
       picks: 'Odds Insights',
       games: 'Games',
@@ -293,9 +301,10 @@ export const WORKSPACES = {
 
 export const WORKSPACE_LIST = Object.values(WORKSPACES);
 
-/** Default workspace — MLB is the active season sport.
- *  Change back to CBB when NCAAM season resumes. */
-export const DEFAULT_WORKSPACE_ID = WorkspaceId.MLB;
+/** Default workspace — the sport whose nav shows on pages that are not
+ *  sport-specific (home, dashboard, settings). NCAAM is in season; MLB held
+ *  this slot until its 2026 season ended. Keep it on an in-season sport. */
+export const DEFAULT_WORKSPACE_ID = WorkspaceId.CBB;
 
 export function getWorkspace(id) {
   return WORKSPACES[id] ?? WORKSPACES[DEFAULT_WORKSPACE_ID];

@@ -113,6 +113,9 @@ function getNbaSeasonPhase() {
   if (n >= 20251022 && n < 20260415) return 'regular_season';
   if (n >= 20260415 && n < 20260625) return 'playoffs';
   if (n >= 20260625 && n < 20261022) return 'offseason';
+  // 2026-27: regular season is under way; mid-April end is approximate and
+  // should be set to the real play-in date when the playoff calendar is added.
+  if (n >= 20261022 && n < 20270415) return 'regular_season';
   return 'preseason';
 }
 

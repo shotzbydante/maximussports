@@ -38,6 +38,7 @@ import { fixPositiveOdds } from '../utils/fixPositiveOdds';
 import styles from './Home.module.css';
 import SEOHead, { buildOgImageUrl } from '../components/seo/SEOHead';
 import { BRACKETOLOGY_ROUTE } from '../config/bracketology';
+import { isTournamentOver } from '../utils/tournamentHelpers';
 import { WORKSPACES, WorkspaceId, SeasonState } from '../workspaces/config';
 import LastSeasonCard from '../components/season/LastSeasonCard';
 
@@ -1183,6 +1184,9 @@ export default function Home() {
       )}
 
       {/* ── 2b. Bracketology Promo ──────────────────────────────────── */}
+      {/* Hidden once that tournament is over, until the bracket calendar in
+          tournamentHelpers is rolled forward to the next one. */}
+      {!isTournamentOver() && (
       <section className={styles.bracketPromo}>
         <div className={styles.bracketPromoInner}>
           <div className={styles.bracketPromoContent}>
@@ -1202,6 +1206,7 @@ export default function Home() {
           </div>
         </div>
       </section>
+      )}
 
       {/* ── 3. Pulse / Snapshot Strip ──────────────────────────────────── */}
       <SectionErrorBoundary name="Today's Snapshot" silent>

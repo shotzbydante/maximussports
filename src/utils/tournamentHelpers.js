@@ -165,6 +165,15 @@ export function getTournamentPhase(now = new Date()) {
 }
 
 /**
+ * Whether the tournament these constants describe has finished. Stays true
+ * until the calendar above is rolled forward to the next tournament, so
+ * surfaces that promote "this year's bracket" can stand down in between.
+ */
+export function isTournamentOver(now = new Date()) {
+  return _toDateNum(now.toISOString().slice(0, 10)) > _toDateNum(TOURNAMENT_END);
+}
+
+/**
  * Whether the tournament bracket is set (post-Selection Sunday).
  * True from Selection Sunday through the entire tournament.
  */
