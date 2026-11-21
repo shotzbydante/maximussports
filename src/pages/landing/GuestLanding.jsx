@@ -243,7 +243,7 @@ export default function GuestLanding() {
         <header className={styles.header}>
           <div className={styles.headerInner}>
             <Link to="/" className={styles.brand} aria-label="Maximus Sports home">
-              <img src="/logo-wordmark.png" alt="Maximus Sports" width={158} height={72} />
+              <img src="/logo-wordmark.png" alt="Maximus Sports" width={158} height={80} />
             </Link>
 
             <nav className={styles.nav} aria-label="Primary">
