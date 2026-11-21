@@ -9,6 +9,7 @@ import { getQueryParam } from '../../_requestUrl.js';
 import { createCache } from '../../_cache.js';
 import { NBA_TEAMS } from '../../../src/sports/nba/teams.js';
 import { claudeComplete, isClaudeConfigured } from '../../_lib/claude.js';
+import { loadNbaChampionshipOdds } from '../odds/championship.js';
 
 const FRESH_KEY      = 'chat:nba:home:summary:v1';
 const LASTKNOWN_KEY  = 'chat:nba:home:lastKnown:v1';
@@ -89,10 +90,10 @@ async function fetchNbaHeadlines() {
   } catch { return []; }
 }
 
+// Cache-first, with a live Odds API fetch when the cache is cold, so the
+// briefing always has title prices to write about.
 async function fetchNbaOdds() {
-  const kvKey = 'odds:championship:nba:v1';
-  const cached = await getJson(kvKey).catch(() => null);
-  return cached?.odds ?? {};
+  return loadNbaChampionshipOdds();
 }
 
 async function buildNbaSummaryData() {

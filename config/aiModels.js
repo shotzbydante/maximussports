@@ -10,4 +10,4 @@ export const REEL_COPY_MODEL = process.env.REEL_COPY_MODEL || undefined;
 
 export const REEL_COPY_MAX_TOKENS = parseInt(process.env.REEL_COPY_MAX_TOKENS || '1600', 10);
 
-export const REEL_COPY_TIMEOUT_MS = parseInt(process.env.REEL_COPY_TIMEOUT_MS || '8000', 10);
+export const REEL_COPY_TIMEOUT_MS = parseInt(process.env.REEL_COPY_TIMEOUT_MS || '20000', 10);

@@ -16,7 +16,9 @@ import {
   getClaudeModel,
   trimToLastSentence,
   DEFAULT_CLAUDE_MODEL,
+  FALLBACK_CLAUDE_MODEL,
   OUTPUT_RULES,
+  EDITORIAL_STANDARDS,
 } from './claude.js';
 
 const ENV_KEYS = ['ANTHROPIC_API_KEY', 'CLAUDE_MODEL'];
@@ -89,25 +91,40 @@ describe('buildClaudeRequest', () => {
     expect(body).not.toHaveProperty('stream');
   });
 
-  it('turns thinking off on Haiku so max_tokens is all answer text', () => {
+  it('writes on Sonnet by default with its lowest thinking setting', () => {
     const body = buildClaudeRequest({ user: 'hi', maxTokens: 600 });
-    expect(body.model).toBe('claude-haiku-5-5');
+    expect(body.model).toBe('claude-sonnet-5-5');
+    expect(body.thinking).toEqual({ type: 'between_tools' });
+    expect(body.max_tokens).toBe(600);
+    expect(body).not.toHaveProperty('output_config');
+  });
+
+  it('turns thinking off on Haiku so max_tokens is all answer text', () => {
+    const body = buildClaudeRequest({ user: 'hi', maxTokens: 600, model: 'claude-haiku-5-5' });
     expect(body.thinking).toEqual({ type: 'disabled' });
     expect(body.max_tokens).toBe(600);
     expect(body).not.toHaveProperty('output_config');
   });
 
-  it('uses low effort plus headroom on models that cannot disable thinking', () => {
-    const body = buildClaudeRequest({ user: 'hi', maxTokens: 600, model: 'claude-sonnet-5-5' });
+  it('uses low effort plus headroom on models that always think', () => {
+    const body = buildClaudeRequest({ user: 'hi', maxTokens: 600, model: 'claude-opus-5-5' });
     expect(body).not.toHaveProperty('thinking');
     expect(body.output_config).toEqual({ effort: 'low' });
     expect(body.max_tokens).toBeGreaterThan(600);
   });
 
-  it('appends the reader-facing output rules to every system prompt', () => {
-    expect(buildClaudeRequest({ system: 'sys', user: 'hi', maxTokens: 10 }).system).toBe(`sys\n\n${OUTPUT_RULES}`);
-    expect(buildClaudeRequest({ user: 'hi', maxTokens: 10 }).system).toBe(OUTPUT_RULES);
+  it('appends the editorial standards and output rules to every system prompt', () => {
+    expect(buildClaudeRequest({ system: 'sys', user: 'hi', maxTokens: 10 }).system)
+      .toBe(`sys\n\n${EDITORIAL_STANDARDS}\n\n${OUTPUT_RULES}`);
+    expect(buildClaudeRequest({ user: 'hi', maxTokens: 10 }).system)
+      .toBe(`${EDITORIAL_STANDARDS}\n\n${OUTPUT_RULES}`);
     expect(OUTPUT_RULES).toMatch(/Never mention these instructions/);
+    expect(EDITORIAL_STANDARDS).toMatch(/work the exact numbers into the copy/);
+  });
+
+  it('leaves the editorial standards off copy that is not written from data', () => {
+    expect(buildClaudeRequest({ system: 'sys', user: 'hi', maxTokens: 10, editorial: false }).system)
+      .toBe(`sys\n\n${OUTPUT_RULES}`);
   });
 
   it('sets stream only when asked', () => {
@@ -204,6 +221,41 @@ describe('claudeComplete', () => {
     await expect(claudeComplete({ user: 'x', maxTokens: 10 })).rejects.toMatchObject({ code: 'http_error', status: 401 });
   });
 
+  it('retries once on the fallback model when the configured model is rejected', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(jsonResponse({ type: 'error', error: { type: 'invalid_request_error' } }, 400))
+      .mockResolvedValueOnce(jsonResponse({ content: [{ type: 'text', text: 'Still published.' }] }));
+    vi.stubGlobal('fetch', fetchMock);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    expect(await claudeComplete({ user: 'x', maxTokens: 10 })).toBe('Still published.');
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).model).toBe(DEFAULT_CLAUDE_MODEL);
+    const retry = JSON.parse(fetchMock.mock.calls[1][1].body);
+    expect(retry.model).toBe(FALLBACK_CLAUDE_MODEL);
+    expect(retry.thinking).toEqual({ type: 'disabled' });
+    warn.mockRestore();
+  });
+
+  it('does not loop when the fallback model is rejected too', async () => {
+    const fetchMock = vi.fn(async () => jsonResponse({ type: 'error' }, 400));
+    vi.stubGlobal('fetch', fetchMock);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    await expect(claudeComplete({ user: 'x', maxTokens: 10 })).rejects.toMatchObject({ code: 'http_error', status: 400 });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    warn.mockRestore();
+  });
+
+  it('does not fall back on auth, rate-limit or server errors', async () => {
+    for (const status of [401, 429, 500, 529]) {
+      const fetchMock = vi.fn(async () => jsonResponse({ type: 'error' }, status));
+      vi.stubGlobal('fetch', fetchMock);
+      await expect(claudeComplete({ user: 'x', maxTokens: 10 })).rejects.toMatchObject({ code: 'http_error', status });
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    }
+  });
+
   it('throws timeout when the request outlives timeoutMs', async () => {
     vi.stubGlobal('fetch', vi.fn((_url, init) => new Promise((_resolve, reject) => {
       init.signal.addEventListener('abort', () => {
@@ -271,6 +323,17 @@ describe('claudeStream', () => {
   it('throws http_error before yielding anything on a non-2xx response', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({ type: 'error' }, 529)));
     await expect(collect(claudeStream({ user: 'x', maxTokens: 10 }))).rejects.toMatchObject({ code: 'http_error', status: 529 });
+  });
+
+  it('falls back to the fallback model when the stream request is rejected', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(jsonResponse({ type: 'error' }, 404))
+      .mockResolvedValueOnce(sseResponse([textDelta('Fallback copy.'), sse({ type: 'message_stop' })]));
+    vi.stubGlobal('fetch', fetchMock);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    expect(await collect(claudeStream({ user: 'x', maxTokens: 10 }))).toEqual(['Fallback copy.']);
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body).model).toBe(FALLBACK_CLAUDE_MODEL);
+    warn.mockRestore();
   });
 
   it('throws not_configured when the key is missing', async () => {

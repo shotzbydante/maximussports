@@ -33,7 +33,7 @@ All AI-written text in the app (the Home synopsis, sport briefings, team insight
    ANTHROPIC_API_KEY=sk-ant-...
    ```
 
-3. Every route calls Claude through `api/_lib/claude.js`. The default model is `claude-haiku-5-5`; set `CLAUDE_MODEL` to use a different one. Summaries are cached, so most page loads do not call the API.
+3. Every route calls Claude through `api/_lib/claude.js`. The default model is `claude-sonnet-5-5`; set `CLAUDE_MODEL` to use a different one (for example `claude-haiku-5-5` for lower cost). If the API rejects the configured model, the request is retried once on Haiku. Summaries are cached, so most page loads do not call the API.
 4. If `ANTHROPIC_API_KEY` is missing, the routes return their non-AI fallback and the Home banner shows the static welcome message.
 
 ## Setup

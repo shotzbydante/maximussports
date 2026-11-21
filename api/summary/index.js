@@ -9,6 +9,24 @@
 import crypto from 'node:crypto';
 import { getQueryParam } from '../_requestUrl.js';
 import { claudeStream, isClaudeConfigured } from '../_lib/claude.js';
+import { loadNcaamChampionshipOdds } from '../odds/championship/index.js';
+import { formatAmerican, impliedPct } from '../_lib/slateOdds.js';
+
+/** "Florida Gators +600 (14.3% implied)" lines for the six shortest title prices. */
+async function titleOddsText() {
+  const odds = await loadNcaamChampionshipOdds().catch(() => ({}));
+  const rows = Object.entries(odds || {})
+    .map(([slug, v]) => ({ slug, american: v?.bestChanceAmerican ?? v?.american }))
+    .filter((r) => typeof r.american === 'number')
+    .map((r) => ({ ...r, pct: impliedPct(r.american) }))
+    .sort((a, b) => (b.pct ?? 0) - (a.pct ?? 0))
+    .slice(0, 6)
+    .map((r) => {
+      const name = r.slug.split('-').map((w) => w[0].toUpperCase() + w.slice(1)).join(' ');
+      return `${name} ${formatAmerican(r.american)} (${r.pct}% implied)`;
+    });
+  return rows.length > 0 ? rows.join('\n') : null;
+}
 
 const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
 const RATE_LIMIT_MS = 60 * 1000; // 1 minute
@@ -225,21 +243,24 @@ export default async function handler(req, res) {
     ? headlines.map((h) => `- ${h.title || ''} (${h.source || 'News'})`).join('\n')
     : 'No headlines available.';
 
+  const titleOdds = await titleOddsText();
+  const titleOddsSection = titleOdds ? `\n--- National title odds (shortest prices) ---\n${titleOdds}\n` : '';
+
   const systemPrompt = useFallbackPrompt
     ? `You are a friendly sports host for Maximus Sports. Write a short daily briefing.
 
 RULES:
 1. Use ONLY the data provided below. ATS and news/headlines are NOT available yet — say so explicitly (e.g. "ATS and news are not available yet").
-2. Still cover: (a) Today's games and recent scores, (b) Top 25 context from the rankings and any games involving ranked teams.
+2. Still cover: (a) Today's games and recent scores, (b) Top 25 context from the rankings and any games involving ranked teams, (c) two or three national title prices when that section is present, quoted exactly.
 3. Keep it to 2–3 short paragraphs. Narrative tone.`
     : `You are a friendly sports host for Maximus Sports. Write a conversational daily briefing. Use short paragraphs, not long bullet lists.
 
 RULES:
 1. Use ONLY the data provided below. If an array is empty, explicitly state that part is unavailable.
-2. Recap must include when data exists: (a) Top 25 results from recent games, (b) Upcoming Top 25 games with spreads, (c) ATS leaderboard highlights (best and worst), (d) Headlines.
+2. Recap must include when data exists: (a) Top 25 results from recent games, (b) Upcoming Top 25 games with spreads, (c) ATS leaderboard highlights (best and worst), (d) two or three national title prices, quoted exactly, (e) Headlines.
 3. Every game you mention should include spread and ATS result where that data is in the payload.
 4. ATS phrasing: ${atsQualifier ? atsQualifier : 'Mention ATS leaders when present.'}
-5. ${atsWindowInstruction ? atsWindowInstruction + ' ' : ''}Style: "Here's the rundown for today…" and "Looking ahead…" Short paragraphs, narrative tone.`;
+5. ${atsWindowInstruction ? atsWindowInstruction + ' ' : ''}Short paragraphs, narrative tone.`;
 
   const userPrompt = useFallbackPrompt
     ? `Today's date (PST): ${getPstDate()}
@@ -254,7 +275,7 @@ ${recentText}
 
 --- Upcoming games ---
 ${upcomingText}
-
+${titleOddsSection}
 ATS and headlines data are not in the payload yet. Write a brief recap using only scores and Top 25 above. Explicitly say that ATS and news are not available yet. Use 2–3 short paragraphs.`
     : `Today's date (PST): ${getPstDate()}
 
@@ -268,7 +289,7 @@ ${recentText}
 
 --- Upcoming games (spreads when available) ---
 ${upcomingText}
-
+${titleOddsSection}
 --- ATS leaderboard: Top 10 (best cover %) ---
 ${atsBestText}
 
