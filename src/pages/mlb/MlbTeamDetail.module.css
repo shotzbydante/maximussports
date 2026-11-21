@@ -118,9 +118,9 @@
 }
 
 .recordChip {
-  background: rgba(60, 121, 180, 0.08);
+  background: rgba(22, 104, 227, 0.08);
   color: var(--color-primary);
-  border: 1px solid rgba(60, 121, 180, 0.14);
+  border: 1px solid rgba(22, 104, 227, 0.14);
   font-variant-numeric: tabular-nums;
 }
 

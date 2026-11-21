@@ -114,7 +114,7 @@
   border-radius: 3px;
 }
 .tierLock { background: rgba(45, 138, 110, 0.12); color: var(--color-up); }
-.tierShould { background: rgba(60, 121, 180, 0.12); color: var(--color-metro-blue); }
+.tierShould { background: rgba(22, 104, 227, 0.12); color: var(--color-metro-blue); }
 .tierWork { background: rgba(183, 152, 108, 0.15); color: var(--color-beige-dune); }
 .tierLong { background: rgba(196, 92, 74, 0.12); color: var(--color-down); }
 
@@ -136,9 +136,9 @@
   letter-spacing: 0.05em;
   padding: 2px 8px;
   border-radius: 4px;
-  background: rgba(60, 121, 180, 0.08);
+  background: rgba(22, 104, 227, 0.08);
   color: var(--color-text-muted);
-  border: 1px solid rgba(60, 121, 180, 0.14);
+  border: 1px solid rgba(22, 104, 227, 0.14);
 }
 
 .tournamentActive {
@@ -252,11 +252,11 @@
   transition: all 0.15s;
   border: 1px solid transparent;
 }
-.navPill:hover { color: var(--color-primary); background: rgba(60, 121, 180, 0.05); }
+.navPill:hover { color: var(--color-primary); background: rgba(22, 104, 227, 0.05); }
 .navPillActive {
   color: var(--color-primary);
-  background: rgba(60, 121, 180, 0.08);
-  border-color: rgba(60, 121, 180, 0.15);
+  background: rgba(22, 104, 227, 0.08);
+  border-color: rgba(22, 104, 227, 0.15);
 }
 
 /* ── Content ─────────────────────────────────────────────────────────────── */
@@ -323,8 +323,8 @@
   letter-spacing: 0.04em;
   color: var(--color-text-muted);
   padding: 2px 6px;
-  background: rgba(60, 121, 180, 0.08);
-  border: 1px solid rgba(60, 121, 180, 0.15);
+  background: rgba(22, 104, 227, 0.08);
+  border: 1px solid rgba(22, 104, 227, 0.15);
   border-radius: 4px;
 }
 
@@ -684,15 +684,15 @@
   font-weight: 600;
   color: var(--color-primary);
   padding: 6px 14px;
-  border: 1px solid rgba(60, 121, 180, 0.15);
+  border: 1px solid rgba(22, 104, 227, 0.15);
   border-radius: 999px;
   text-decoration: none;
   transition: all 0.12s;
   white-space: nowrap;
 }
 .quickLink:hover {
-  background: rgba(60, 121, 180, 0.06);
-  border-color: rgba(60, 121, 180, 0.25);
+  background: rgba(22, 104, 227, 0.06);
+  border-color: rgba(22, 104, 227, 0.25);
 }
 
 /* ── Shared utilities ────────────────────────────────────────────────────── */
@@ -736,7 +736,7 @@
   font-family: inherit;
   transition: background 0.12s;
 }
-.retryBtn:hover { background: rgba(60, 121, 180, 0.06); }
+.retryBtn:hover { background: rgba(22, 104, 227, 0.06); }
 
 /* ── Mobile ──────────────────────────────────────────────────────────────── */
 

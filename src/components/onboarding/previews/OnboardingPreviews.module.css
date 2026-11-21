@@ -8,16 +8,16 @@
   border-radius: 10px;
   overflow: hidden;
   background: var(--color-bg, #F1F4F7);
-  border: 1px solid var(--color-border-light, rgba(60, 121, 180, 0.12));
+  border: 1px solid var(--color-border-light, rgba(22, 104, 227, 0.12));
   box-shadow:
     0 1px 3px rgba(0, 0, 0, 0.06),
-    0 6px 16px rgba(60, 121, 180, 0.08);
+    0 6px 16px rgba(22, 104, 227, 0.08);
   transform: scale(1);
   transition: transform 0.25s ease, box-shadow 0.25s ease;
   aspect-ratio: 4 / 3;
   display: flex;
   flex-direction: column;
-  font-family: var(--font-sans, 'DM Sans', system-ui, sans-serif);
+  font-family: var(--font-sans, var(--font-sans));
   -webkit-font-smoothing: antialiased;
   user-select: none;
   pointer-events: none;
@@ -27,7 +27,7 @@
   transform: scale(1.02);
   box-shadow:
     0 2px 6px rgba(0, 0, 0, 0.08),
-    0 10px 24px rgba(60, 121, 180, 0.12);
+    0 10px 24px rgba(22, 104, 227, 0.12);
 }
 
 /* ─── Shared: header bar ──────────────────────────── */
@@ -38,7 +38,7 @@
   gap: 6px;
   padding: 6px 10px;
   background: var(--color-bg-elevated, #fff);
-  border-bottom: 1px solid var(--color-border-light, rgba(60, 121, 180, 0.12));
+  border-bottom: 1px solid var(--color-border-light, rgba(22, 104, 227, 0.12));
   flex-shrink: 0;
 }
 
@@ -46,7 +46,7 @@
   font-family: var(--font-sans, 'DM Sans', sans-serif);
   font-size: 0.52rem;
   font-weight: 600;
-  color: var(--color-primary, #3C79B4);
+  color: var(--color-primary, #1668e3);
   letter-spacing: 0.1em;
   text-transform: uppercase;
   margin: 0;
@@ -62,8 +62,8 @@
 }
 
 .headerBadgePrimary {
-  background: rgba(60, 121, 180, 0.12);
-  color: var(--color-primary, #3C79B4);
+  background: rgba(22, 104, 227, 0.12);
+  color: var(--color-primary, #1668e3);
 }
 
 .headerBadgeAccent {
@@ -91,7 +91,7 @@
 
 .miniCard {
   background: var(--color-bg-elevated, #fff);
-  border: 1px solid var(--color-border-light, rgba(60, 121, 180, 0.12));
+  border: 1px solid var(--color-border-light, rgba(22, 104, 227, 0.12));
   border-radius: 6px;
   padding: 5px 8px;
   display: flex;
@@ -150,12 +150,12 @@
 }
 
 .tagLow {
-  background: rgba(60, 121, 180, 0.10);
-  color: var(--color-primary, #3C79B4);
+  background: rgba(22, 104, 227, 0.10);
+  color: var(--color-primary, #1668e3);
 }
 
 .tagPartial {
-  background: rgba(60, 121, 180, 0.08);
+  background: rgba(22, 104, 227, 0.08);
   color: var(--color-text-muted, #5c7a91);
 }
 
@@ -165,8 +165,8 @@
 }
 
 .tagSignal {
-  background: rgba(60, 121, 180, 0.10);
-  color: var(--color-primary, #3C79B4);
+  background: rgba(22, 104, 227, 0.10);
+  color: var(--color-primary, #1668e3);
 }
 
 /* ─── Shared: logo placeholder ────────────────────── */
@@ -189,7 +189,7 @@
 .progressBar {
   height: 3px;
   border-radius: 2px;
-  background: var(--color-border-light, rgba(60, 121, 180, 0.12));
+  background: var(--color-border-light, rgba(22, 104, 227, 0.12));
   overflow: hidden;
 }
 
@@ -308,7 +308,7 @@
   letter-spacing: 0.06em;
   text-transform: uppercase;
   padding-bottom: 2px;
-  border-bottom: 1px solid var(--color-border-light, rgba(60, 121, 180, 0.12));
+  border-bottom: 1px solid var(--color-border-light, rgba(22, 104, 227, 0.12));
 }
 
 .pickCard {

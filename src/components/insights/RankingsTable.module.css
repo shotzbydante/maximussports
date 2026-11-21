@@ -1,6 +1,6 @@
 .table {
   background: var(--color-bg-elevated);
-  border: 1px solid rgba(60, 121, 180, 0.12);
+  border: 1px solid rgba(22, 104, 227, 0.12);
   border-radius: var(--radius-md);
   overflow: hidden;
   box-shadow: var(--shadow-card);
@@ -34,7 +34,7 @@
 }
 
 .toggleBtn:hover {
-  background: rgba(60, 121, 180, 0.025);
+  background: rgba(22, 104, 227, 0.025);
 }
 
 .toggleBtn:focus-visible {
@@ -93,9 +93,9 @@
   align-items: center;
   gap: var(--space-sm);
   padding: 10px var(--space-md);
-  background: linear-gradient(135deg, rgba(28, 80, 165, 0.09) 0%, rgba(60, 121, 180, 0.06) 100%);
-  border-bottom: 1px solid rgba(60, 121, 180, 0.16);
-  border-top: 2px solid rgba(60, 121, 180, 0.22);
+  background: linear-gradient(135deg, rgba(28, 80, 165, 0.09) 0%, rgba(22, 104, 227, 0.06) 100%);
+  border-bottom: 1px solid rgba(22, 104, 227, 0.16);
+  border-top: 2px solid rgba(22, 104, 227, 0.22);
 }
 
 @media (max-width: 600px) {
@@ -127,7 +127,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.09em;
-  color: var(--color-primary, #3c79b4);
+  color: var(--color-primary, #1668e3);
   opacity: 0.78;
   font-family: var(--font-mono);
   white-space: nowrap;
@@ -145,7 +145,7 @@
   font-size: 0.74rem;
   font-weight: 500;
   padding: 4px 10px;
-  border: 1px solid rgba(60, 121, 180, 0.28);
+  border: 1px solid rgba(22, 104, 227, 0.28);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.78);
   color: var(--color-text, #1a2d3d);
@@ -154,24 +154,24 @@
   transition: border-color 0.12s, background 0.12s, box-shadow 0.12s;
   appearance: none;
   -webkit-appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='rgba(60,121,180,0.65)' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='rgba(22, 104, 227,0.65)' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 8px center;
   padding-right: 24px;
-  box-shadow: 0 1px 3px rgba(60, 121, 180, 0.08);
+  box-shadow: 0 1px 3px rgba(22, 104, 227, 0.08);
 }
 
 .select:hover {
-  border-color: rgba(60, 121, 180, 0.5);
+  border-color: rgba(22, 104, 227, 0.5);
   background-color: #ffffff;
-  box-shadow: 0 1px 5px rgba(60, 121, 180, 0.14);
+  box-shadow: 0 1px 5px rgba(22, 104, 227, 0.14);
 }
 
 .select:focus {
   outline: none;
-  border-color: var(--color-primary, #3c79b4);
+  border-color: var(--color-primary, #1668e3);
   background-color: #ffffff;
-  box-shadow: 0 0 0 2px rgba(60, 121, 180, 0.14);
+  box-shadow: 0 0 0 2px rgba(22, 104, 227, 0.14);
 }
 
 .select option {
@@ -212,10 +212,10 @@
     background: var(--color-bg-elevated);
   }
   .grid tbody .trRanked {
-    background: rgba(60, 121, 180, 0.04);
+    background: rgba(22, 104, 227, 0.04);
   }
   .grid tbody .trRanked:hover {
-    background: rgba(60, 121, 180, 0.07);
+    background: rgba(22, 104, 227, 0.07);
   }
   .grid .colTeam {
     display: flex;
@@ -309,7 +309,7 @@
   color: var(--color-text-muted);
   padding: var(--space-sm) var(--space-md);
   border-bottom: 1px solid var(--color-border);
-  background: rgba(60, 121, 180, 0.04);
+  background: rgba(22, 104, 227, 0.04);
 }
 
 .grid td {
@@ -354,11 +354,11 @@
 
 /* Ranked rows — very subtle tint for visual hierarchy */
 .trRanked {
-  background: rgba(60, 121, 180, 0.025);
+  background: rgba(22, 104, 227, 0.025);
 }
 
 .grid tbody .trRanked:hover {
-  background: rgba(60, 121, 180, 0.055);
+  background: rgba(22, 104, 227, 0.055);
 }
 
 /* Section divider between ranked and unranked teams */
@@ -397,8 +397,8 @@
   font-size: 0.62rem;
   font-weight: 700;
   color: var(--color-primary);
-  background: rgba(60, 121, 180, 0.1);
-  border: 1px solid rgba(60, 121, 180, 0.2);
+  background: rgba(22, 104, 227, 0.1);
+  border: 1px solid rgba(22, 104, 227, 0.2);
   padding: 1px 5px;
   border-radius: 3px;
   margin-left: var(--space-xs);
@@ -421,7 +421,7 @@
 }
 
 .tierShould {
-  background: rgba(60, 121, 180, 0.15);
+  background: rgba(22, 104, 227, 0.15);
   color: var(--color-metro-blue);
 }
 
@@ -468,8 +468,8 @@
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--color-primary);
-  background: rgba(60, 121, 180, 0.08);
-  border: 1px solid rgba(60, 121, 180, 0.18);
+  background: rgba(22, 104, 227, 0.08);
+  border: 1px solid rgba(22, 104, 227, 0.18);
   border-radius: 999px;
   padding: 2px 7px;
   flex-shrink: 0;

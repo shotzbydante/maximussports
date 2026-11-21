@@ -35,8 +35,8 @@
 
 /* Upcoming / scheduled */
 .upcoming {
-  background: rgba(60, 121, 180, 0.1);
-  color: var(--color-primary, #3c79b4);
+  background: rgba(22, 104, 227, 0.1);
+  color: var(--color-primary, #1668e3);
 }
 
 /* Pulsing dot for live games */

@@ -57,7 +57,7 @@
 }
 .confChip { background: var(--nba-primary-soft); color: var(--nba-primary); border: 1px solid var(--nba-primary-border); }
 .divisionChip { background: var(--nba-accent-soft); color: var(--nba-accent); border: 1px solid rgba(201,8,42,0.12); }
-.recordChip { background: rgba(60,121,180,0.08); color: var(--color-primary); border: 1px solid rgba(60,121,180,0.14); font-variant-numeric: tabular-nums; }
+.recordChip { background: rgba(22, 104, 227,0.08); color: var(--color-primary); border: 1px solid rgba(22, 104, 227,0.14); font-variant-numeric: tabular-nums; }
 .standingChip { background: rgba(29,66,138,0.06); color: var(--nba-primary); border: 1px solid rgba(29,66,138,0.12); }
 
 .streakChip { font-size: 0.58rem; font-weight: 700; padding: 2px 7px; border-radius: 999px; }

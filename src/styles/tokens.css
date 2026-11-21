@@ -1,16 +1,16 @@
 /**
  * Design tokens — premium intelligence terminal aesthetic.
- * Air Force One palette × editorial sports intelligence.
+ * Light app theme by default; dark theme for public-facing pages.
  */
 
 :root {
   /* ── Card & surface ─────────────────────────────────────────────── */
-  --radius-card: 12px;
-  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.05), 0 4px 14px rgba(60, 121, 180, 0.08);
-  --shadow-card-hover: 0 6px 12px rgba(0, 0, 0, 0.09), 0 16px 32px rgba(60, 121, 180, 0.15);
-  --shadow-hero: 0 2px 8px rgba(0, 0, 0, 0.05), 0 10px 28px rgba(60, 121, 180, 0.13);
+  --radius-card: 16px;
+  --shadow-card: 0 1px 2px rgba(11, 27, 51, 0.04), 0 6px 18px rgba(11, 27, 51, 0.06);
+  --shadow-card-hover: 0 6px 14px rgba(11, 27, 51, 0.08), 0 18px 36px rgba(22, 104, 227, 0.14);
+  --shadow-hero: 0 2px 8px rgba(11, 27, 51, 0.05), 0 12px 30px rgba(22, 104, 227, 0.12);
   --card-padding: 20px;
-  --card-border: 1px solid rgba(60, 121, 180, 0.10);
+  --card-border: 1px solid rgba(22, 104, 227, 0.12);
 
   /* ── Typography ─────────────────────────────────────────────────── */
   --header-font-size: 11px;
@@ -21,7 +21,7 @@
   --body-line-height: 1.6;
 
   /* ── Dividers ────────────────────────────────────────────────────── */
-  --divider-color: rgba(60, 121, 180, 0.08);
+  --divider-color: rgba(22, 104, 227, 0.10);
 
   /* ── Controls ───────────────────────────────────────────────────── */
   --pill-height: 30px;
@@ -46,4 +46,44 @@
   :root {
     --card-padding: 24px;
   }
+}
+
+/* ── Dark theme — public-facing pages (sign-in, legal, contact) ──────
+   Mirrors the logged-out landing page. Applied by Layout to <main>
+   for guests; any component built on the colour tokens follows. */
+[data-theme='dark'] {
+  color-scheme: dark;
+  --color-bg: #040a1a;
+  --color-bg-elevated: #0a1830;
+  --color-bg-muted: rgba(29, 139, 255, 0.12);
+  --color-andrea: rgba(29, 139, 255, 0.14);
+  --color-angora-white: #0d2040;
+
+  --color-text: #f3f7ff;
+  --color-text-secondary: #b4c4de;
+  --color-text-muted: #8a9dbd;
+
+  --color-metro-blue: #2a8cff;
+  --color-primary: #2a8cff;
+  --color-primary-hover: #63adff;
+
+  --color-border: rgba(110, 168, 255, 0.34);
+  --color-border-light: rgba(110, 168, 255, 0.18);
+  --card-border: 1px solid rgba(110, 168, 255, 0.18);
+  --divider-color: rgba(110, 168, 255, 0.14);
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 6, 24, 0.4);
+  --shadow-lg: 0 12px 32px rgba(0, 6, 24, 0.5);
+  --shadow-card: 0 20px 60px rgba(0, 8, 30, 0.5), inset 0 1px 0 rgba(160, 205, 255, 0.08);
+  --shadow-card-hover: 0 24px 70px rgba(0, 8, 30, 0.6), inset 0 1px 0 rgba(160, 205, 255, 0.12);
+  --shadow-hero: 0 30px 80px rgba(0, 8, 30, 0.6);
+
+  --color-up: #34d399;
+  --color-down: #f58a78;
+
+  color: var(--color-text);
+  background:
+    radial-gradient(900px 520px at 70% 0, rgba(29, 139, 255, 0.12), transparent 70%),
+    var(--color-bg);
 }

@@ -13,7 +13,7 @@
 
   background: linear-gradient(180deg, var(--bg) 0%, var(--bg2) 50%, var(--bg3) 100%);
   min-height: 100vh; padding: 0; margin: -16px -16px 0; color: var(--tx);
-  font-family: var(--font-sans, 'DM Sans', system-ui, sans-serif);
+  font-family: var(--font-sans, var(--font-sans));
   position: relative;
 }
 
