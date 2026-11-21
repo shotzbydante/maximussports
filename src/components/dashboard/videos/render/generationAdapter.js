@@ -1,7 +1,7 @@
 /**
  * Generation adapter layer.
  *
- * Calls the OpenAI server route first. If it fails or is unavailable,
+ * Calls the Claude server route first. If it fails or is unavailable,
  * falls back to the local heuristic copy bank. The interface is the
  * same regardless of backend — callers never need to know which
  * engine produced the copy.
@@ -40,7 +40,7 @@ function normalizeInput(raw) {
 
 /**
  * Generate all reel copy from structured inputs.
- * Tries OpenAI first, falls back to heuristic on any error.
+ * Tries Claude first, falls back to heuristic on any error.
  *
  * @returns {Promise<{ headline, subhead, overlayBeats, cta, variantHooks, caption,
  *   coverTitle, detectedFeatureType, generationMode, input }>}

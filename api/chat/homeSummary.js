@@ -2,7 +2,7 @@
  * GET /api/chat/homeSummary?force=0|1
  * Three-tier KV cache for AI-generated home briefings.
  * fresh KV (15 min) → lastKnown KV (72 h) → generate inline (force=1) or kick bg.
- * Rate limiting: forceLock (45 s) prevents OpenAI stampedes on force=1.
+ * Rate limiting: forceLock (45 s) prevents LLM stampedes on force=1.
  * genLock (90 s) prevents concurrent bg generation.
  * No self-HTTP calls — uses buildHomeSummaryData() directly.
  */
@@ -10,6 +10,7 @@
 import { getJson, setJson, tryAcquireLock } from '../_globalCache.js';
 import { getQueryParam } from '../_requestUrl.js';
 import { buildHomeSummaryData } from '../_lib/homeData.js';
+import { claudeComplete, isClaudeConfigured } from '../_lib/claude.js';
 
 const FRESH_KEY      = 'chat:home:summary:v1';
 const LASTKNOWN_KEY  = 'chat:home:lastKnown:v1';
@@ -22,10 +23,8 @@ const GEN_LOCK_TTL_SEC   = 90;
 const INLINE_REGEN_AFTER_SEC = 3 * 3600;  // older than this → regenerate inline instead of serving it
 const FORCE_LOCK_TTL_SEC = 45;
 
-const OPENAI_MODEL    = 'gpt-4o-mini';
 const MAX_TOKENS      = 850;
-const TEMPERATURE     = 0.5;
-const OPENAI_TIMEOUT  = 18000; // 18s — leaves 12s buffer for data build + KV + response within Vercel 30s limit
+const LLM_TIMEOUT  = 18000; // 18s — leaves 12s buffer for data build + KV + response within Vercel 30s limit
 
 const isDev = process.env.NODE_ENV !== 'production';
 
@@ -323,43 +322,22 @@ function fixPositiveOdds(text) {
     });
 }
 
-async function generateWithOpenAI(systemPrompt, userPrompt) {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey?.trim()) {
-    if (isDev) console.warn('[chat/homeSummary] OPENAI_API_KEY not set');
+async function generateWithClaude(systemPrompt, userPrompt) {
+  if (!isClaudeConfigured()) {
+    if (isDev) console.warn('[chat/homeSummary] ANTHROPIC_API_KEY not set');
     return null;
   }
   // Single attempt with bounded timeout — no retry to stay within Vercel 30s limit
-  const controller = new AbortController();
-  const t = setTimeout(() => controller.abort(), OPENAI_TIMEOUT);
   try {
-    const r = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        model: OPENAI_MODEL,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
-        ],
-        max_tokens: MAX_TOKENS,
-        temperature: TEMPERATURE,
-      }),
-      signal: controller.signal,
+    const raw = await claudeComplete({
+      system: systemPrompt,
+      user: userPrompt,
+      maxTokens: MAX_TOKENS,
+      timeoutMs: LLM_TIMEOUT,
     });
-    clearTimeout(t);
-    if (!r.ok) {
-      const body = await r.text().catch(() => '');
-      console.warn('[chat/homeSummary] OpenAI error', r.status, body.slice(0, 200));
-      return null;
-    }
-    const json = await r.json();
-    const raw = json?.choices?.[0]?.message?.content?.trim() || null;
     return raw ? fixPositiveOdds(raw) : null;
   } catch (err) {
-    clearTimeout(t);
-    const isAbort = err?.name === 'AbortError' || err?.message?.includes('aborted');
-    console.warn(`[chat/homeSummary] OpenAI ${isAbort ? 'timeout' : 'error'}:`, err?.message);
+    console.warn(`[chat/homeSummary] Claude ${err?.code === 'timeout' ? 'timeout' : 'error'}:`, err?.message);
     return null;
   }
 }
@@ -378,7 +356,7 @@ async function readCached() {
 async function generateAndCache() {
   const data = await buildHomeSummaryData();
   const { systemPrompt, userPrompt } = buildPrompt(data);
-  const summary = await generateWithOpenAI(systemPrompt, userPrompt);
+  const summary = await generateWithClaude(systemPrompt, userPrompt);
   if (summary) {
     const payload = { summary, generatedAt: new Date().toISOString() };
     await Promise.all([

@@ -408,7 +408,7 @@ export function buildLeagueWhyItMatters(stories, allStandings) {
 //  STANDINGS SUMMARY FOR PROMPTS
 //
 //  Generates a compact text block of standings for AI prompt injection.
-//  Used by homeSummary.js to give OpenAI division-race context.
+//  Used by homeSummary.js to give the LLM division-race context.
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /**
