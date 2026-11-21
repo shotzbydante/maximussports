@@ -22,7 +22,7 @@ export default function PicksSlideShell({
       {!hideMascot && (
         <div className={styles.mascotWrap}>
           <img
-            src="/mascot.png"
+            src="/mascot-basketball.png"
             alt=""
             className={styles.mascot}
             crossOrigin="anonymous"

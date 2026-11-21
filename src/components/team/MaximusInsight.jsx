@@ -174,7 +174,7 @@ export default function MaximusInsight({ slug, initialData, atsOnly = false }) {
         </div>
       ) : (
         <div className={styles.header}>
-          <img src="/mascot.png" alt="" className={styles.headerMascot} aria-hidden />
+          <img src="/mascot-basketball.png" alt="" className={styles.headerMascot} aria-hidden />
           <h3 className={styles.title}>Maximus&apos;s Insight</h3>
           <SourceBadge source="Odds API" />
         </div>

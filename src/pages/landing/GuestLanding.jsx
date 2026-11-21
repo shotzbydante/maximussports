@@ -11,6 +11,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
+import { MASCOTS } from '../../brand/mascots';
 import { Link, useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { track } from '../../analytics/index';
@@ -80,9 +81,9 @@ const STEPS = [
 ];
 
 const LEAGUES = [
-  { badge: 'MLB', title: 'Baseball intelligence', meta: 'Matchups · projections · odds', to: '/mlb' },
-  { badge: 'NBA', title: 'Basketball intelligence', meta: 'Games · picks · markets', to: '/nba' },
-  { badge: 'NCAA', title: 'College basketball', meta: 'Teams · brackets · outlooks', to: '/ncaam' },
+  { badge: 'MLB', sport: 'baseball', title: 'Baseball intelligence', meta: 'Matchups · projections · odds', to: '/mlb' },
+  { badge: 'NBA', sport: 'basketball', title: 'Basketball intelligence', meta: 'Games · picks · markets', to: '/nba' },
+  { badge: 'NCAA', sport: 'basketball', title: 'College basketball', meta: 'Teams · brackets · outlooks', to: '/ncaam' },
 ];
 
 const PRINCIPLES = [
@@ -243,7 +244,7 @@ export default function GuestLanding() {
         <header className={styles.header}>
           <div className={styles.headerInner}>
             <Link to="/" className={styles.brand} aria-label="Maximus Sports home">
-              <img src="/logo-wordmark.png" alt="Maximus Sports" width={158} height={72} />
+              <img src="/logo-wordmark.png" alt="Maximus Sports" width={158} height={76} />
             </Link>
 
             <nav className={styles.nav} aria-label="Primary">
@@ -344,6 +345,14 @@ export default function GuestLanding() {
 
             {/* ── Sample signal ── */}
             <div id="signal" className={styles.signal}>
+              <img
+                src="/brand/mascots/football-3d.webp"
+                alt=""
+                aria-hidden="true"
+                className={styles.heroMascot}
+                width={487}
+                height={900}
+              />
               <div className={styles.signalTop}>
                 <h2 className={styles.signalTitle}>
                   <svg width="42" height="18" viewBox="0 0 42 18" aria-hidden="true">
@@ -533,6 +542,14 @@ export default function GuestLanding() {
                   className={styles.league}
                   onClick={() => trackCta(`league_${l.badge.toLowerCase()}`, 'sports')}
                 >
+                  <img
+                    src={MASCOTS[l.sport].render}
+                    alt=""
+                    aria-hidden="true"
+                    className={styles.leagueMascot}
+                    loading="lazy"
+                    decoding="async"
+                  />
                   <span className={styles.leagueBadge}>{l.badge}</span>
                   <span className={styles.leagueText}>
                     <span className={styles.leagueTitle}>{l.title}</span>
@@ -547,6 +564,16 @@ export default function GuestLanding() {
           {/* ── Closing CTA ── */}
           <section className={styles.section}>
             <div className={`${styles.panel} ${styles.closing}`}>
+              <img
+                src="/brand/mascots/football-3d.webp"
+                alt=""
+                aria-hidden="true"
+                className={styles.closingMascot}
+                width={487}
+                height={900}
+                loading="lazy"
+                decoding="async"
+              />
               <p className={styles.kicker}>Maximus Sports</p>
               <h2 className={styles.h2}>Make your next sports decision<br />more informed.</h2>
               <p className={styles.panelBody}>
@@ -566,6 +593,15 @@ export default function GuestLanding() {
         {/* ── Footer ── */}
         <footer className={styles.footer}>
           <div className={styles.footerInner}>
+            <img
+              src="/brand/watermark-color-30.png"
+              alt="Maximus Sports"
+              className={styles.footerMark}
+              width={700}
+              height={325}
+              loading="lazy"
+              decoding="async"
+            />
             <p className={styles.footerNote}>
               © {new Date().getFullYear()} Maximus Sports. Sample probabilities on this page are
               illustrative only.<br />

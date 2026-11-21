@@ -203,7 +203,7 @@ export default function NbaDailySlide1({ data, asOf: _a, slideNumber: _s, slideT
           <div className={styles.s1Date}>{fmtDate()}</div>
         </div>
         <img
-          src="/mascot.png" alt="Maximus"
+          src="/mascot-basketball.png" alt="Maximus"
           className={styles.s1Mascot}
           loading="eager" decoding="sync" crossOrigin="anonymous"
           onError={e => { e.currentTarget.style.display = 'none'; }}

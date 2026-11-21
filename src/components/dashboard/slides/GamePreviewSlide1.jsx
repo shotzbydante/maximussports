@@ -423,7 +423,7 @@ export default function GamePreviewSlide1({ game, data, asOf, slideNumber, slide
       <div className={styles.header}>
         <div className={styles.heroRow}>
           <h2 className={styles.heroTitle}>MATCHUP INTEL</h2>
-          <img src="/mascot.png" alt="" className={styles.heroMascot} crossOrigin="anonymous" />
+          <img src="/mascot-basketball.png" alt="" className={styles.heroMascot} crossOrigin="anonymous" />
         </div>
         {roundLabel && <div className={styles.roundBadge}>{roundLabel}</div>}
       </div>

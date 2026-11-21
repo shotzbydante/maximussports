@@ -171,7 +171,7 @@ export default function NbaHome() {
         </div>
         <div className={styles.briefingContent}>
           <img
-            src="/mascot.png"
+            src="/mascot-basketball.png"
             alt="Maximus Sports NBA intelligence mascot"
             className={styles.briefingMascot}
             height={110}

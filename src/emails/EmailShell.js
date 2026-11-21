@@ -105,7 +105,7 @@ ${previewText ? `<div style="display:none;font-size:1px;color:${BG_OUTER};line-h
             <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">
               <tr>
                 <td valign="middle">
-                  <span class="shell-wordmark" style="font-size:16px;font-weight:800;color:${BRAND};letter-spacing:0.06em;text-transform:uppercase;font-family:'DM Sans',Arial,Helvetica,sans-serif;">MAXIMUS SPORTS</span>
+                  <a href="https://maximussports.ai" style="text-decoration:none;"><img src="https://maximussports.ai/brand/logo-navy.png" alt="MAXIMUS SPORTS" width="124" height="60" class="shell-wordmark" style="display:block;width:124px;height:auto;border:0;outline:none;font-size:16px;font-weight:800;color:${BRAND};letter-spacing:0.06em;font-family:'DM Sans',Arial,Helvetica,sans-serif;" /></a>
                 </td>
                 <td align="right" valign="middle">
                   <a href="https://maximussports.ai" style="font-size:12px;color:${TEXT_MUTED};text-decoration:none;font-family:'DM Sans',Arial,Helvetica,sans-serif;">maximussports.ai</a>
@@ -158,6 +158,7 @@ ${previewText ? `<div style="display:none;font-size:1px;color:${BG_OUTER};line-h
             <p style="margin:0;font-size:11px;color:#b0b8c4;text-align:center;font-family:'DM Sans',Arial,Helvetica,sans-serif;">
               &copy; ${year} Maximus Sports
             </p>
+            <img src="https://maximussports.ai/brand/watermark-navy.png" alt="" width="96" height="45" style="display:block;width:96px;height:auto;margin:12px auto 0;border:0;outline:none;" />
           </td>
         </tr>
 

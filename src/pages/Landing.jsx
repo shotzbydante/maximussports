@@ -14,6 +14,7 @@ import { getFlag, setFlag } from '../utils/localFlags';
 import { trackAccountCreateSkipped } from '../lib/analytics/posthog';
 import { useAuth } from '../context/AuthContext';
 import GuestLanding from './landing/GuestLanding';
+import { mascotFor } from '../brand/mascots';
 import SeasonCountdown from '../components/season/SeasonCountdown';
 import styles from './Landing.module.css';
 
@@ -187,10 +188,9 @@ function MemberLanding() {
         <header className={styles.hero}>
           <div className={styles.heroGlow} />
           <div className={styles.heroContent}>
-            <img src="/mascot.png" alt="" className={styles.heroMascot} width={120} height={120} />
+            <img src="/brand/mascots/football-3d.webp" alt="" className={styles.heroMascot} width={487} height={900} />
             <h1 className={styles.heroTitle}>
-              <span className={styles.heroTitleMain}>MAXIMUS</span>
-              <span className={styles.heroTitleSub}>SPORTS</span>
+              <img src="/logo-wordmark.png" alt="Maximus Sports" className={styles.heroLogo} width={720} height={347} />
             </h1>
             <p className={styles.heroTagline}>
               AI-powered sports intelligence, built for fans who want an edge.
@@ -216,6 +216,7 @@ function MemberLanding() {
           {/* MLB */}
           <Link to="/mlb" className={`${styles.tile} ${styles.tileMlb}`}>
             <div className={styles.tileGlow} />
+            <img src={mascotFor('mlb').render} alt="" aria-hidden="true" className={styles.tileMascot} loading="lazy" decoding="async" />
             <div className={styles.tileHeader}>
               <img src="/mlb-logo.png" alt="MLB" className={styles.tileLogo} width={42} height={42} />
               <div>
@@ -253,6 +254,7 @@ function MemberLanding() {
           {/* NBA */}
           <Link to="/nba" className={`${styles.tile} ${styles.tileNba}`}>
             <div className={styles.tileGlow} />
+            <img src={mascotFor('nba').render} alt="" aria-hidden="true" className={styles.tileMascot} loading="lazy" decoding="async" />
             <div className={styles.tileHeader}>
               <img src="/nba-logo.png" alt="NBA" className={styles.tileLogo} width={42} height={42} />
               <div>
@@ -275,6 +277,7 @@ function MemberLanding() {
           {/* NCAAM */}
           <Link to="/ncaam" className={`${styles.tile} ${styles.tileNcaam}`}>
             <div className={styles.tileGlow} />
+            <img src={mascotFor('ncaam').render} alt="" aria-hidden="true" className={styles.tileMascot} loading="lazy" decoding="async" />
             <div className={styles.tileHeader}>
               <img src="/ncaa-logo.png" alt="NCAAM" className={styles.tileLogo} width={42} height={42} />
               <div>

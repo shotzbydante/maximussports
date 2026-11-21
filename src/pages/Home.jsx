@@ -1132,7 +1132,7 @@ export default function Home() {
 
       {/* ── Hero Intelligence Briefing Card ─────────────────────────── */}
       <div className={styles.banner}>
-        <img src="/mascot.png" alt="Maximus Sports college basketball intelligence mascot" className={styles.bannerMascot} width={120} height={120} loading="lazy" decoding="async" onError={(e) => { e.target.style.display = 'none'; }} />
+        <img src="/mascot-basketball.png" alt="Maximus, the Maximus Sports basketball mascot" className={styles.bannerMascot} width={120} height={120} loading="lazy" decoding="async" onError={(e) => { e.target.style.display = 'none'; }} />
         <div className={styles.bannerContent}>
           {/* Editorial briefing header — always visible */}
           <div className={styles.heroBriefingHeader}>

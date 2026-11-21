@@ -14,7 +14,7 @@ import { useNavigate } from 'react-router-dom';
 const overlayStyle = {
   position: 'fixed',
   inset: 0,
-  background: 'rgba(0,0,0,0.45)',
+  background: "url('/brand/watermark-tiled.png') center / 960px auto repeat, rgba(2,10,30,0.55)",
   backdropFilter: 'blur(4px)',
   WebkitBackdropFilter: 'blur(4px)',
   zIndex: 9999,

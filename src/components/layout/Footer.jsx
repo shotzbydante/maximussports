@@ -59,11 +59,11 @@ export default function Footer() {
         <div className={styles.brandCluster}>
           <img
             src={mascot2d}
-            alt="Maximus Sports college basketball intelligence mascot"
+            alt="Maximus, the Maximus Sports mascot"
             className={styles.mascot}
           />
           <div className={styles.brandText}>
-            <span className={styles.brandName}>Maximus Sports</span>
+            <img src="/brand/logo-white.png" alt="Maximus Sports" className={styles.brandLogo} width={720} height={347} loading="lazy" decoding="async" />
             <span className={styles.brandTagline}>Maximum Sports. Maximum Intelligence.</span>
           </div>
         </div>

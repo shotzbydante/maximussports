@@ -140,7 +140,7 @@ export const WORKSPACES = {
     },
     /** Sport-aware theme — colors, mascot, loading copy */
     theme: {
-      mascot: '/mascot.png',
+      mascot: '/mascot-basketball.png',
       accent: '#3885e0',
       accentRgb: '56, 133, 224',
       gradientBg: 'radial-gradient(ellipse at center, #0a1628 0%, #060d1a 60%, #020408 100%)',
@@ -288,7 +288,7 @@ export const WORKSPACES = {
     },
     /** Sport-aware theme — NBA Daily Briefing identity: black + gold */
     theme: {
-      mascot: '/mascot.png',
+      mascot: '/mascot-basketball.png',
       accent: '#d4af37',
       accentRgb: '212, 175, 55',
       gradientBg: 'radial-gradient(ellipse at center, #1a1408 0%, #0d0a04 60%, #050403 100%)',
