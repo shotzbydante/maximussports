@@ -1,7 +1,7 @@
 /* Modern live scores feed */
 .widget {
   background: var(--color-bg-elevated);
-  border: 1px solid rgba(60, 121, 180, 0.11);
+  border: 1px solid rgba(22, 104, 227, 0.11);
   border-radius: 10px;
   overflow: hidden;
   box-shadow: var(--shadow-card);
@@ -143,7 +143,7 @@
 }
 
 .gameCard:hover {
-  background: rgba(60, 121, 180, 0.032);
+  background: rgba(22, 104, 227, 0.032);
   filter: brightness(1.006);
 }
 
@@ -158,8 +158,8 @@
 
 /* Scheduled / upcoming — reads "this game hasn't happened yet" */
 .gameCardUpcoming {
-  background: rgba(60, 121, 180, 0.018);
-  border-left: 2px solid rgba(60, 121, 180, 0.24);
+  background: rgba(22, 104, 227, 0.018);
+  border-left: 2px solid rgba(22, 104, 227, 0.24);
 }
 
 /* Completed games — reads "settled, done" */
@@ -319,7 +319,7 @@ a.teamName:hover {
 }
 
 .status--upcoming {
-  background: rgba(60, 121, 180, 0.1);
+  background: rgba(22, 104, 227, 0.1);
   color: var(--color-primary);
 }
 
@@ -361,8 +361,8 @@ a.teamName:hover {
   font-size: 0.65rem;
   color: var(--color-text-muted);
   white-space: nowrap;
-  background: rgba(60, 121, 180, 0.055);
-  border: 1px solid rgba(60, 121, 180, 0.12);
+  background: rgba(22, 104, 227, 0.055);
+  border: 1px solid rgba(22, 104, 227, 0.12);
   border-radius: 3px;
   padding: 1px 5px;
   letter-spacing: 0.02em;
@@ -387,7 +387,7 @@ a.teamName:hover {
 }
 
 .viewMore:hover {
-  background: rgba(60, 121, 180, 0.04);
+  background: rgba(22, 104, 227, 0.04);
 }
 
 /* Fade-in for games newly revealed by expand */
@@ -433,7 +433,7 @@ a.teamName:hover {
 }
 
 .tier--Shouldbein {
-  background: rgba(60, 121, 180, 0.12);
+  background: rgba(22, 104, 227, 0.12);
   color: var(--color-metro-blue);
 }
 

@@ -48,7 +48,7 @@
 
 .swatchActive {
   border-color: var(--color-primary) !important;
-  box-shadow: 0 0 0 2px rgba(60, 121, 180, 0.25), 0 2px 6px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 0 0 2px rgba(22, 104, 227, 0.25), 0 2px 6px rgba(0, 0, 0, 0.15);
   transform: scale(1.08);
 }
 

@@ -16,7 +16,7 @@
      looks visually continuous at any scroll position.
      `.main` has its own --color-bg, so the dark only ever shows in the
      sidebar column or behind the sidebar at scroll-end. */
-  background: #0a1628;
+  background: #050c1d;
 }
 
 .main {

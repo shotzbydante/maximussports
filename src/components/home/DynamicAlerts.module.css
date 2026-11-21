@@ -57,7 +57,7 @@
 
 .alert {
   background: var(--color-bg-elevated);
-  border: 1px solid rgba(60, 121, 180, 0.10);
+  border: 1px solid rgba(22, 104, 227, 0.10);
   border-left: 3px solid var(--color-down);
   border-radius: 8px;
   padding: 12px var(--space-md);
@@ -70,7 +70,7 @@
 }
 
 .alert:hover {
-  box-shadow: 0 4px 12px rgba(60, 121, 180, 0.08);
+  box-shadow: 0 4px 12px rgba(22, 104, 227, 0.08);
   transform: translateY(-1px);
 }
 

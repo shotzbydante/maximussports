@@ -185,7 +185,7 @@
 .pickerSearchInput:focus {
   outline: none;
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(60, 121, 180, 0.1);
+  box-shadow: 0 0 0 3px rgba(22, 104, 227, 0.1);
 }
 
 .pickerSearchInput::placeholder {
@@ -198,7 +198,7 @@
   align-items: center;
   gap: 8px;
   padding: 6px 14px;
-  background: rgba(60, 121, 180, 0.04);
+  background: rgba(22, 104, 227, 0.04);
   border-bottom: 1px solid var(--color-border-light);
   flex-shrink: 0;
   flex-wrap: wrap;
@@ -214,7 +214,7 @@
 }
 
 .selectedCountAtCap {
-  color: var(--color-primary, #3c79b4);
+  color: var(--color-primary, #1668e3);
   font-weight: 700;
 }
 
@@ -234,8 +234,8 @@
   font-weight: 500;
   font-family: inherit;
   color: var(--color-primary);
-  background: rgba(60, 121, 180, 0.1);
-  border: 1px solid rgba(60, 121, 180, 0.22);
+  background: rgba(22, 104, 227, 0.1);
+  border: 1px solid rgba(22, 104, 227, 0.22);
   border-radius: 999px;
   cursor: pointer;
   max-width: 100px;
@@ -340,11 +340,11 @@
 }
 
 .pickerRowActive {
-  background: rgba(60, 121, 180, 0.05);
+  background: rgba(22, 104, 227, 0.05);
 }
 
 .pickerRowActive:hover {
-  background: rgba(60, 121, 180, 0.09);
+  background: rgba(22, 104, 227, 0.09);
 }
 
 .pickerRowLogo {
@@ -498,10 +498,10 @@
   display: block;
   align-self: start;   /* don't stretch to match right column height */
   background: var(--color-bg-elevated, #fff);
-  border: 1px solid var(--color-border-light, rgba(60, 121, 180, 0.12));
+  border: 1px solid var(--color-border-light, rgba(22, 104, 227, 0.12));
   border-radius: 10px;
   padding: 20px var(--space-lg, 20px);
-  box-shadow: 0 1px 4px rgba(60, 121, 180, 0.06);
+  box-shadow: 0 1px 4px rgba(22, 104, 227, 0.06);
   min-height: 120px;
   min-width: 0; /* allow shrink in tight columns */
 }
@@ -662,8 +662,8 @@
   font-size: 0.72rem;
   font-weight: 600;
   color: var(--color-primary);
-  background: rgba(60, 121, 180, 0.08);
-  border: 1px solid rgba(60, 121, 180, 0.2);
+  background: rgba(22, 104, 227, 0.08);
+  border: 1px solid rgba(22, 104, 227, 0.2);
   border-radius: 999px;
   cursor: pointer;
   font-family: inherit;
@@ -671,8 +671,8 @@
 }
 
 .quickChip:hover {
-  background: rgba(60, 121, 180, 0.15);
-  border-color: rgba(60, 121, 180, 0.35);
+  background: rgba(22, 104, 227, 0.15);
+  border-color: rgba(22, 104, 227, 0.35);
 }
 
 .quickChip:focus-visible {
@@ -777,8 +777,8 @@
 .card {
   display: flex;
   flex-direction: column;
-  background: linear-gradient(135deg, var(--color-bg-elevated) 0%, rgba(60, 121, 180, 0.015) 100%);
-  border: 1px solid rgba(60, 121, 180, 0.13);
+  background: linear-gradient(135deg, var(--color-bg-elevated) 0%, rgba(22, 104, 227, 0.015) 100%);
+  border: 1px solid rgba(22, 104, 227, 0.13);
   border-radius: var(--radius-card, 12px);
   padding: var(--space-md);
   box-shadow:
@@ -795,7 +795,7 @@
     var(--shadow-card-hover),
     inset 0 1px 0 rgba(255, 255, 255, 0.55);
   transform: translateY(-2px);
-  border-color: rgba(60, 121, 180, 0.25);
+  border-color: rgba(22, 104, 227, 0.25);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -820,7 +820,7 @@
   gap: var(--space-sm);
   margin-bottom: 10px;
   padding-bottom: 8px;
-  border-bottom: 1px solid rgba(60, 121, 180, 0.07);
+  border-bottom: 1px solid rgba(22, 104, 227, 0.07);
 }
 
 .cardLink {
@@ -893,7 +893,7 @@
 }
 
 .tierShould {
-  background: rgba(60, 121, 180, 0.15);
+  background: rgba(22, 104, 227, 0.15);
   color: var(--color-metro-blue);
 }
 
@@ -955,8 +955,8 @@
 .gameModule {
   padding: 8px 10px;
   margin-bottom: 8px;
-  background: rgba(60, 121, 180, 0.04);
-  border: 1px solid rgba(60, 121, 180, 0.10);
+  background: rgba(22, 104, 227, 0.04);
+  border: 1px solid rgba(22, 104, 227, 0.10);
   border-radius: 8px;
 }
 
@@ -1085,7 +1085,7 @@
 }
 
 .videoTeaser:hover {
-  background: rgba(60, 121, 180, 0.04);
+  background: rgba(22, 104, 227, 0.04);
 }
 
 .videoThumb {
@@ -1179,8 +1179,8 @@
   gap: 0;
   padding: 6px 0;
   margin-bottom: var(--space-sm);
-  background: rgba(60, 121, 180, 0.03);
-  border: 1px solid rgba(60, 121, 180, 0.08);
+  background: rgba(22, 104, 227, 0.03);
+  border: 1px solid rgba(22, 104, 227, 0.08);
   border-radius: 8px;
   font-size: 0.65rem;
 }
@@ -1195,7 +1195,7 @@
 }
 
 .statCell + .statCell {
-  border-left: 1px solid rgba(60, 121, 180, 0.08);
+  border-left: 1px solid rgba(22, 104, 227, 0.08);
 }
 
 .statCellWide {
@@ -1295,8 +1295,8 @@
   font-size: 0.72rem;
   font-weight: 700;
   color: var(--color-primary);
-  background: linear-gradient(135deg, rgba(60, 121, 180, 0.08), rgba(60, 121, 180, 0.04));
-  border: 1px solid rgba(60, 121, 180, 0.18);
+  background: linear-gradient(135deg, rgba(22, 104, 227, 0.08), rgba(22, 104, 227, 0.04));
+  border: 1px solid rgba(22, 104, 227, 0.18);
   border-radius: var(--pill-radius, 999px);
   text-decoration: none;
   letter-spacing: 0.01em;
@@ -1309,9 +1309,9 @@
 }
 
 .cardCta:hover {
-  background: linear-gradient(135deg, rgba(60, 121, 180, 0.14), rgba(60, 121, 180, 0.08));
-  border-color: rgba(60, 121, 180, 0.32);
-  box-shadow: 0 2px 8px rgba(60, 121, 180, 0.1);
+  background: linear-gradient(135deg, rgba(22, 104, 227, 0.14), rgba(22, 104, 227, 0.08));
+  border-color: rgba(22, 104, 227, 0.32);
+  box-shadow: 0 2px 8px rgba(22, 104, 227, 0.1);
   transform: translateY(-1px);
 }
 
@@ -1334,8 +1334,8 @@
   font-size: 0.72rem;
   font-weight: 700;
   color: var(--color-primary);
-  background: rgba(60, 121, 180, 0.06);
-  border: 1px solid rgba(60, 121, 180, 0.16);
+  background: rgba(22, 104, 227, 0.06);
+  border: 1px solid rgba(22, 104, 227, 0.16);
   border-radius: var(--pill-radius, 999px);
   text-decoration: none;
   letter-spacing: 0.01em;
@@ -1343,8 +1343,8 @@
 }
 
 .teamLinkCompact:hover {
-  background: rgba(60, 121, 180, 0.12);
-  border-color: rgba(60, 121, 180, 0.28);
+  background: rgba(22, 104, 227, 0.12);
+  border-color: rgba(22, 104, 227, 0.28);
 }
 
 /* ─── Reduced motion ─────────────────────────────────────────────── */

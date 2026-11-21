@@ -67,7 +67,7 @@
   background: linear-gradient(135deg, var(--color-metro-blue) 0%, var(--color-primary-hover) 100%);
   border-radius: var(--radius-card, 12px);
   overflow: hidden;
-  box-shadow: var(--shadow-card, 0 2px 10px rgba(60,121,180,0.08));
+  box-shadow: var(--shadow-card, 0 2px 10px rgba(22, 104, 227,0.08));
 }
 
 .briefingHeader {
@@ -242,7 +242,7 @@
 
 .moverCard:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 18px rgba(60,121,180,0.12);
+  box-shadow: 0 6px 18px rgba(22, 104, 227,0.12);
 }
 
 .moverHeader {
@@ -295,7 +295,7 @@
 
 .chipUp { background: rgba(45, 138, 110, 0.12); color: var(--color-up); }
 .chipDown { background: rgba(196, 92, 74, 0.12); color: var(--color-down); }
-.chipNeutral { background: rgba(60, 121, 180, 0.1); color: var(--color-primary); }
+.chipNeutral { background: rgba(22, 104, 227, 0.1); color: var(--color-primary); }
 
 /* Skeleton */
 .skeleton {
@@ -339,7 +339,7 @@
 
 .matchupCard:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 22px rgba(60,121,180,0.13);
+  box-shadow: 0 8px 22px rgba(22, 104, 227,0.13);
 }
 
 .matchupBadges {
@@ -520,14 +520,14 @@
 .badgeUpset { background: rgba(245,158,11,0.14); color: #92400e; }
 .badgeRanked { background: rgba(29,78,216,0.12); color: #1d4ed8; }
 .badgePrimetime { background: rgba(109,40,217,0.1); color: #6d28d9; }
-.badgeDefault { background: rgba(60,121,180,0.1); color: var(--color-primary); }
+.badgeDefault { background: rgba(22, 104, 227,0.1); color: var(--color-primary); }
 
 /* ─── Rank badge ──────────────────────────────────────────────────────────── */
 
 .rankBadge {
   display: inline-block;
   padding: 1px 5px;
-  background: rgba(60,121,180,0.1);
+  background: rgba(22, 104, 227,0.1);
   color: var(--color-primary);
   border-radius: 4px;
   font-size: 0.6rem;
@@ -587,7 +587,7 @@
 }
 
 .underdogMid {
-  background: rgba(60,121,180,0.04);
+  background: rgba(22, 104, 227,0.04);
   border: var(--card-border);
 }
 
@@ -652,7 +652,7 @@
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--color-primary);
-  background: rgba(60,121,180,0.1);
+  background: rgba(22, 104, 227,0.1);
   padding: 1px 5px;
   border-radius: 3px;
 }
@@ -852,7 +852,7 @@
 
 .adSlot {
   margin: var(--space-xl) var(--space-lg) 0;
-  border: 1px dashed rgba(60,121,180,0.18);
+  border: 1px dashed rgba(22, 104, 227,0.18);
   border-radius: var(--radius-card, 12px);
   padding: var(--space-md) var(--space-lg);
   text-align: center;
@@ -861,7 +861,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.12em;
-  background: rgba(60,121,180,0.015);
+  background: rgba(22, 104, 227,0.015);
   pointer-events: none;
   user-select: none;
 }
@@ -893,7 +893,7 @@
 }
 
 .tableToggle:hover {
-  background: rgba(60,121,180,0.04);
+  background: rgba(22, 104, 227,0.04);
 }
 
 .tableWrap {
@@ -920,7 +920,7 @@
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: var(--color-text-muted);
-  background: rgba(60,121,180,0.04);
+  background: rgba(22, 104, 227,0.04);
   border-bottom: 1px solid var(--color-border-light);
   cursor: pointer;
   white-space: nowrap;
@@ -928,18 +928,18 @@
   transition: background 0.12s;
 }
 
-.th:hover { background: rgba(60,121,180,0.08); }
+.th:hover { background: rgba(22, 104, 227,0.08); }
 
 .thActive {
   color: var(--color-primary);
-  background: rgba(60,121,180,0.08);
+  background: rgba(22, 104, 227,0.08);
 }
 
 .tr {
   transition: background 0.1s;
 }
 
-.tr:hover { background: rgba(60,121,180,0.025); }
+.tr:hover { background: rgba(22, 104, 227,0.025); }
 
 .tr:not(:last-child) td {
   border-bottom: 1px solid var(--color-border-light);
@@ -1156,7 +1156,7 @@
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: var(--color-primary);
-  background: rgba(60, 121, 180, 0.09);
+  background: rgba(22, 104, 227, 0.09);
   padding: 2px 8px;
   border-radius: 999px;
 }

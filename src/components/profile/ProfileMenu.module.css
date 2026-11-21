@@ -79,7 +79,7 @@
 }
 
 .menuItemPrimary:hover {
-  background: rgba(60, 121, 180, 0.08);
+  background: rgba(22, 104, 227, 0.08);
   color: var(--color-primary);
 }
 
@@ -94,6 +94,6 @@
 
 .menuDivider {
   height: 1px;
-  background: var(--divider-color, rgba(60, 121, 180, 0.08));
+  background: var(--divider-color, rgba(22, 104, 227, 0.08));
   margin: var(--space-xs) 0;
 }

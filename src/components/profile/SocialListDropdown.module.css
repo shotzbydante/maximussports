@@ -102,7 +102,7 @@
   width: 22px;
   height: 22px;
   border: 2.5px solid var(--color-border-light, rgba(0, 0, 0, 0.08));
-  border-top-color: var(--color-primary, #3c79b4);
+  border-top-color: var(--color-primary, #1668e3);
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
 }
@@ -177,7 +177,7 @@
   width: 48px;
   height: 48px;
   border-radius: 50%;
-  background: var(--color-bg-muted, rgba(60, 121, 180, 0.06));
+  background: var(--color-bg-muted, rgba(22, 104, 227, 0.06));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -274,7 +274,7 @@
 }
 
 .btnFollow {
-  background: var(--color-primary, #3c79b4);
+  background: var(--color-primary, #1668e3);
   color: #fff;
 }
 .btnFollow:hover:not(:disabled) {
@@ -282,7 +282,7 @@
 }
 
 .btnFollowBack {
-  background: var(--color-primary, #3c79b4);
+  background: var(--color-primary, #1668e3);
   color: #fff;
 }
 .btnFollowBack:hover:not(:disabled) {
@@ -290,9 +290,9 @@
 }
 
 .btnFollowing {
-  background: rgba(60, 121, 180, 0.08);
-  color: var(--color-primary, #3c79b4);
-  border: 1px solid rgba(60, 121, 180, 0.18);
+  background: rgba(22, 104, 227, 0.08);
+  color: var(--color-primary, #1668e3);
+  border: 1px solid rgba(22, 104, 227, 0.18);
 }
 .btnFollowing:hover:not(:disabled) {
   background: rgba(196, 92, 74, 0.06);

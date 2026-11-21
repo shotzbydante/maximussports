@@ -43,7 +43,7 @@
   gap: var(--space-md);
   width: 100%;
   padding: var(--space-sm) var(--card-padding);
-  background: rgba(60, 121, 180, 0.04);
+  background: rgba(22, 104, 227, 0.04);
   border: none;
   cursor: pointer;
   font-family: inherit;
@@ -54,7 +54,7 @@
 }
 
 .panelHeader:hover {
-  background: rgba(60, 121, 180, 0.08);
+  background: rgba(22, 104, 227, 0.08);
 }
 
 .panelDate {
@@ -101,7 +101,7 @@
 }
 
 .row:nth-child(even):not(.rowHeader) {
-  background: rgba(60, 121, 180, 0.04);
+  background: rgba(22, 104, 227, 0.04);
 }
 
 .rowHeader {

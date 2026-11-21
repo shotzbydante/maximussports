@@ -156,7 +156,7 @@
 
 .bDefault { color: var(--color-text-muted); background: var(--color-bg-muted); }
 .bGreen  { color: #1b6b4a; background: rgba(45,138,110,0.10); }
-.bBlue   { color: #3C79B4; background: rgba(60,121,180,0.10); }
+.bBlue   { color: #1668e3; background: rgba(22, 104, 227,0.10); }
 .bTeal   { color: #1a8a7a; background: rgba(26,138,122,0.10); }
 .bAmber  { color: #a07020; background: rgba(180,130,40,0.10); }
 .bRed    { color: #b8293d; background: rgba(184,41,61,0.08); }

@@ -7,6 +7,9 @@ import { useAuth } from '../../context/AuthContext';
 import { usePinnedTeamsSync } from '../../hooks/usePinnedTeamsSync';
 import styles from './Layout.module.css';
 
+/** Public-facing routes that use the dark theme for guests. */
+const PUBLIC_DARK_ROUTES = new Set(['/settings', '/privacy', '/terms', '/contact']);
+
 export default function Layout() {
   const { user } = useAuth();
   // Sync pinned teams between localStorage and server when authenticated.
@@ -29,7 +32,10 @@ export default function Layout() {
       <TopNav />
       <div className={styles.body}>
         <Sidebar />
-        <main className={styles.main}>
+        <main
+          className={styles.main}
+          data-theme={!user && PUBLIC_DARK_ROUTES.has(pathname.replace(/\/$/, '') || '/') ? 'dark' : undefined}
+        >
           <Outlet />
         </main>
       </div>

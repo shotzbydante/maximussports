@@ -11,8 +11,8 @@
 /* ── Web variant (light background) ─────────────────────────── */
 
 .webVariant {
-  background: linear-gradient(135deg, rgba(60, 121, 180, 0.06) 0%, rgba(183, 152, 108, 0.06) 100%);
-  border: 1px solid rgba(60, 121, 180, 0.14);
+  background: linear-gradient(135deg, rgba(22, 104, 227, 0.06) 0%, rgba(183, 152, 108, 0.06) 100%);
+  border: 1px solid rgba(22, 104, 227, 0.14);
 }
 
 .webVariant .title {

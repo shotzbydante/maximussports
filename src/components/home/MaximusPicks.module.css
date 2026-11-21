@@ -57,7 +57,7 @@
   display: flex;
   flex-direction: column;
   background: var(--color-bg-elevated, #fff);
-  border: 1px solid rgba(60, 121, 180, 0.10);
+  border: 1px solid rgba(22, 104, 227, 0.10);
   border-radius: var(--radius-card, 12px);
   overflow: hidden;
   box-shadow: var(--shadow-card);
@@ -118,7 +118,7 @@
   font-size: 0.54rem;
   font-weight: 700;
   color: var(--color-primary);
-  background: rgba(60, 121, 180, 0.1);
+  background: rgba(22, 104, 227, 0.1);
   border-radius: 999px;
   flex-shrink: 0;
 }
@@ -132,7 +132,7 @@
 
 .columnDivider {
   height: 1px;
-  background: rgba(60, 121, 180, 0.12);
+  background: rgba(22, 104, 227, 0.12);
   margin-top: 8px;
 }
 
@@ -161,7 +161,7 @@
   }
 
   .accordionToggle:hover {
-    background: rgba(60, 121, 180, 0.04);
+    background: rgba(22, 104, 227, 0.04);
   }
 }
 
@@ -246,8 +246,8 @@
 
 @media (hover: hover) {
   .pickCard:hover {
-    border-color: rgba(60, 121, 180, 0.3);
-    box-shadow: 0 2px 8px rgba(60, 121, 180, 0.09);
+    border-color: rgba(22, 104, 227, 0.3);
+    box-shadow: 0 2px 8px rgba(22, 104, 227, 0.09);
   }
 }
 
@@ -264,14 +264,14 @@
   display: inline-flex;
   align-items: center;
   padding: 1px 6px 1px;
-  background: rgba(60, 121, 180, 0.07);
-  border: 1px solid rgba(60, 121, 180, 0.18);
+  background: rgba(22, 104, 227, 0.07);
+  border: 1px solid rgba(22, 104, 227, 0.18);
   border-radius: 3px;
   font-size: 0.56rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--color-primary, #3c79b4);
+  color: var(--color-primary, #1668e3);
   white-space: nowrap;
   line-height: 1.4;
 }
@@ -314,7 +314,7 @@
   border-radius: 50%;
   overflow: hidden;
   flex-shrink: 0;
-  border: 1px solid rgba(60, 121, 180, 0.14);
+  border: 1px solid rgba(22, 104, 227, 0.14);
   background: var(--color-bg, #f6f6f6);
   padding: 1px;
 }
@@ -400,8 +400,8 @@
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   color: var(--color-primary);
-  background: rgba(60, 121, 180, 0.09);
-  border: 1px solid rgba(60, 121, 180, 0.22);
+  background: rgba(22, 104, 227, 0.09);
+  border: 1px solid rgba(22, 104, 227, 0.22);
   border-radius: 999px;
   letter-spacing: 0.01em;
   white-space: nowrap;
@@ -507,8 +507,8 @@
   gap: 8px;
   flex-wrap: wrap;
   padding: 5px 10px;
-  background: rgba(60, 121, 180, 0.03);
-  border: 1px solid rgba(60, 121, 180, 0.07);
+  background: rgba(22, 104, 227, 0.03);
+  border: 1px solid rgba(22, 104, 227, 0.07);
   border-radius: 5px;
   row-gap: 4px;
 }
@@ -536,8 +536,8 @@
 
 .signalPanel {
   padding: 7px 10px;
-  background: rgba(60, 121, 180, 0.04);
-  border: 1px solid rgba(60, 121, 180, 0.1);
+  background: rgba(22, 104, 227, 0.04);
+  border: 1px solid rgba(22, 104, 227, 0.1);
   border-radius: 6px;
 }
 
@@ -588,9 +588,9 @@
   display: block;
   background: linear-gradient(
     90deg,
-    var(--color-border-light, rgba(60, 121, 180, 0.12)) 25%,
-    rgba(60, 121, 180, 0.09)                            50%,
-    var(--color-border-light, rgba(60, 121, 180, 0.12)) 75%
+    var(--color-border-light, rgba(22, 104, 227, 0.12)) 25%,
+    rgba(22, 104, 227, 0.09)                            50%,
+    var(--color-border-light, rgba(22, 104, 227, 0.12)) 75%
   );
   background-size: 200% 100%;
   animation: shimmer 1.6s ease-in-out infinite;
@@ -651,13 +651,13 @@
   text-decoration: none;
   text-align: right;
   letter-spacing: 0.01em;
-  border-top: 1px solid rgba(60, 121, 180, 0.1);
+  border-top: 1px solid rgba(22, 104, 227, 0.1);
   transition: background 0.12s, color 0.12s;
   opacity: 0.85;
 }
 
 .viewMoreLink:hover {
-  background: rgba(60, 121, 180, 0.04);
+  background: rgba(22, 104, 227, 0.04);
   opacity: 1;
 }
 
@@ -690,7 +690,7 @@
 .slateDateValue {
   font-size: 0.78rem;
   font-weight: 700;
-  color: var(--color-primary, #3c79b4);
+  color: var(--color-primary, #1668e3);
   letter-spacing: -0.01em;
 }
 
