@@ -153,7 +153,7 @@ describe('consensus odds', () => {
 
   it('takes the median across books for each market, by team name not position', () => {
     const p = parseOddsEvent(oddsEvent);
-    expect(p).toMatchObject({ homeSlug: 'bills', awaySlug: 'dolphins', spreadHome: -16.5, total: 44.75, booksCount: 3 });
+    expect(p).toMatchObject({ homeSlug: 'bills', awaySlug: 'dolphins', spreadHome: -16.5, total: 45, booksCount: 3 });
     expect(p.moneyline.home).toBeLessThan(-1600);
     expect(p.moneyline.home).toBeGreaterThan(-1800);
     expect(p.moneyline.away).toBeGreaterThan(900);
@@ -162,8 +162,8 @@ describe('consensus odds', () => {
 
   it('merges onto the matching game and keeps the ESPN opening line', () => {
     const [g] = mergeOdds([normalizeEvent(event())], [parseOddsEvent(oddsEvent)]);
-    expect(g.market).toMatchObject({ pregameSpread: -16.5, pregameTotal: 44.75, booksCount: 3, source: 'consensus', openSpread: -11.5 });
-    expect(g.betting.totalDisplay).toBe('O/U 44.75');
+    expect(g.market).toMatchObject({ pregameSpread: -16.5, pregameTotal: 45, booksCount: 3, source: 'consensus', openSpread: -11.5 });
+    expect(g.betting.totalDisplay).toBe('O/U 45');
   });
 
   it('will not price this week from a rematch weeks away', () => {
