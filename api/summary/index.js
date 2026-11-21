@@ -1,5 +1,5 @@
 /**
- * Vercel Serverless: Dynamic Home synopsis via OpenAI (SSE streaming).
+ * Vercel Serverless: Dynamic Home synopsis via Claude (SSE streaming).
  * POST /api/summary with body { top25, atsLeaders, recentGames, upcomingGames, headlines }.
  * No internal API calls — uses only the payload. Cache keyed by payload hash (30 min).
  * Rate limit: max 1 refresh per 60 seconds per IP; if exceeded, returns cached summary with message.
@@ -8,10 +8,10 @@
 
 import crypto from 'node:crypto';
 import { getQueryParam } from '../_requestUrl.js';
+import { claudeStream, isClaudeConfigured } from '../_lib/claude.js';
 
 const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
 const RATE_LIMIT_MS = 60 * 1000; // 1 minute
-const OPENAI_MODEL = 'gpt-4o-mini';
 
 const cacheByHash = {};
 const lastRequestByIp = {};
@@ -133,9 +133,8 @@ export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-cache, no-transform');
   res.setHeader('Connection', 'keep-alive');
 
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey || apiKey.trim() === '') {
-    send(res, { error: true, message: 'Summary unavailable — OpenAI key not configured.' });
+  if (!isClaudeConfigured()) {
+    send(res, { error: true, message: 'Summary unavailable — AI key not configured.' });
     return res.end();
   }
 
@@ -288,57 +287,10 @@ Write a conversational daily recap using only the data above. If any section is 
   });
 
   try {
-    const openaiRes = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: OPENAI_MODEL,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
-        ],
-        max_tokens: 700,
-        temperature: 0.5,
-        stream: true,
-      }),
-    });
-
-    if (!openaiRes.ok) {
-      const errBody = await openaiRes.text();
-      console.error('OpenAI error:', openaiRes.status, errBody);
-      send(res, { error: true, message: 'Summary unavailable — try again later.' });
-      return res.end();
-    }
-
-    const reader = openaiRes.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = '';
     let fullContent = '';
-
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
-      buffer = lines.pop() || '';
-      for (const line of lines) {
-        const trimmed = line.trim();
-        if (trimmed.startsWith('data: ')) {
-          const data = trimmed.slice(6);
-          if (data === '[DONE]') continue;
-          try {
-            const parsed = JSON.parse(data);
-            const delta = parsed?.choices?.[0]?.delta?.content;
-            if (delta) {
-              fullContent += delta;
-              send(res, { text: delta, done: false });
-            }
-          } catch (_) {}
-        }
-      }
+    for await (const delta of claudeStream({ system: systemPrompt, user: userPrompt, maxTokens: 700 })) {
+      fullContent += delta;
+      send(res, { text: delta, done: false });
     }
 
     const updatedAt = new Date().toISOString();
@@ -351,7 +303,7 @@ Write a conversational daily recap using only the data above. If any section is 
     send(res, { done: true, updatedAt });
     res.end();
   } catch (err) {
-    console.error('Summary API OpenAI error:', err.message);
+    console.error('Summary API Claude error:', err.message);
     send(res, { error: true, message: 'Summary unavailable — try again later.' });
     res.end();
   }

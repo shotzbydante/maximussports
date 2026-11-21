@@ -1,6 +1,6 @@
 /**
  * GET /api/nba/chat/homeSummary?force=0|1
- * AI-generated NBA home briefing using OpenAI + Odds API + Google News.
+ * AI-generated NBA home briefing using Claude + Odds API + Google News.
  * Three-tier KV cache: fresh (15 min) -> lastKnown (72 h) -> generate.
  */
 
@@ -8,6 +8,7 @@ import { getJson, setJson, tryAcquireLock } from '../../_globalCache.js';
 import { getQueryParam } from '../../_requestUrl.js';
 import { createCache } from '../../_cache.js';
 import { NBA_TEAMS } from '../../../src/sports/nba/teams.js';
+import { claudeComplete, isClaudeConfigured } from '../../_lib/claude.js';
 
 const FRESH_KEY      = 'chat:nba:home:summary:v1';
 const LASTKNOWN_KEY  = 'chat:nba:home:lastKnown:v1';
@@ -19,10 +20,8 @@ const LASTKNOWN_TTL_SEC  = 72 * 3600;
 const GEN_LOCK_TTL_SEC   = 90;
 const FORCE_LOCK_TTL_SEC = 45;
 
-const OPENAI_MODEL    = 'gpt-4o-mini';
 const MAX_TOKENS      = 1200;
-const TEMPERATURE     = 0.5;
-const OPENAI_TIMEOUT  = 18000;
+const LLM_TIMEOUT  = 18000;
 const NEWS_FETCH_TIMEOUT_MS = 5000;
 
 const isDev = process.env.NODE_ENV !== 'production';
@@ -214,44 +213,27 @@ function fixPositiveOdds(text) {
     });
 }
 
-async function generateWithOpenAI(systemPrompt, userPrompt) {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey?.trim()) {
-    if (isDev) console.warn('[nba/chat/homeSummary] OPENAI_API_KEY not set');
+async function generateWithClaude(systemPrompt, userPrompt) {
+  if (!isClaudeConfigured()) {
+    if (isDev) console.warn('[nba/chat/homeSummary] ANTHROPIC_API_KEY not set');
     return null;
   }
   const maxAttempts = 2;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    const controller = new AbortController();
-    const t = setTimeout(() => controller.abort(), OPENAI_TIMEOUT);
     try {
-      const r = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-        body: JSON.stringify({
-          model: OPENAI_MODEL,
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userPrompt },
-          ],
-          max_tokens: MAX_TOKENS,
-          temperature: TEMPERATURE,
-        }),
-        signal: controller.signal,
+      const raw = await claudeComplete({
+        system: systemPrompt,
+        user: userPrompt,
+        maxTokens: MAX_TOKENS,
+        timeoutMs: LLM_TIMEOUT,
       });
-      clearTimeout(t);
-      if (!r.ok) {
-        const body = await r.text().catch(() => '');
-        console.error('[nba/chat/homeSummary] OpenAI error', r.status, body.slice(0, 200));
-        return null;
-      }
-      const json = await r.json();
-      const raw = json?.choices?.[0]?.message?.content?.trim() || null;
       return raw ? fixPositiveOdds(raw) : null;
     } catch (err) {
-      clearTimeout(t);
-      if (err?.name === 'AbortError' && attempt < maxAttempts) continue;
-      console[err?.name === 'AbortError' ? 'warn' : 'error']('[nba/chat/homeSummary]', err?.message);
+      const timedOut = err?.code === 'timeout';
+      if (timedOut && attempt < maxAttempts) {
+        continue;
+      }
+      console[timedOut ? 'warn' : 'error']('[nba/chat/homeSummary] Claude', err?.message);
       return null;
     }
   }
@@ -272,7 +254,7 @@ async function readCached() {
 async function generateAndCache() {
   const data = await buildNbaSummaryData();
   const { systemPrompt, userPrompt } = buildPrompt(data);
-  const summary = await generateWithOpenAI(systemPrompt, userPrompt);
+  const summary = await generateWithClaude(systemPrompt, userPrompt);
   if (summary) {
     const payload = { summary, generatedAt: new Date().toISOString() };
     await Promise.all([
