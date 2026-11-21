@@ -40,6 +40,7 @@ const LASTKNOWN_TTL_SEC = 72 * 60 * 60;
 
 export const PERSIST_WINDOW_HOURS = 36;
 const PERSIST_THROTTLE_MS = 30 * 60 * 1000;
+const PERSIST_WAIT_MS = 8000;
 const lastPersistAt = new Map(); // slateDate → epoch ms
 
 function countPicks(board) {
@@ -179,8 +180,14 @@ export async function buildNflPicksBoard({ preferFresh = false } = {}) {
     if (freshCount > 0) {
       setJson(KV_LATEST, freshBoard, { exSeconds: LATEST_TTL_SEC }).catch(() => {});
       setJson(KV_LASTKNOWN, freshBoard, { exSeconds: LASTKNOWN_TTL_SEC }).catch(() => {});
-      // Best-effort, never blocks the response.
-      persistBoard(freshBoard).catch((err) => console.error(`[nflPicksBuilder] persist: ${err?.message}`));
+      // Waited on, with a cap. A serverless function can be frozen the
+      // moment it responds, and a write left running in the background was
+      // observed never to finish. Writes are throttled to one per slate
+      // per half hour, so almost every request skips this entirely.
+      await Promise.race([
+        persistBoard(freshBoard),
+        new Promise((resolve) => setTimeout(resolve, PERSIST_WAIT_MS)),
+      ]).catch((err) => console.error(`[nflPicksBuilder] persist: ${err?.message}`));
       return { board: freshBoard, source: 'fresh', counts: getCounts(freshBoard) };
     }
   } catch (err) {

@@ -198,3 +198,40 @@ describe('simulateNflSeason', () => {
     expect(done.gamesRemaining).toBe(0);
   });
 });
+
+describe('consensus line rounding', () => {
+  it('snaps a quarter-point median to the nearest half point', async () => {
+    const { parseOddsEvent } = await import('../nfl/live/_odds.js');
+    const book = (key, spread, total) => ({
+      key,
+      markets: [
+        { key: 'spreads', outcomes: [{ name: 'Kansas City Chiefs', point: spread }, { name: 'Arizona Cardinals', point: -spread }] },
+        { key: 'totals', outcomes: [{ name: 'Over', point: total }, { name: 'Under', point: total }] },
+      ],
+    });
+    const parsed = parseOddsEvent({
+      id: 'e1', commence_time: '2026-11-22T18:00:00Z',
+      home_team: 'Kansas City Chiefs', away_team: 'Arizona Cardinals',
+      bookmakers: [book('a', -15.5, 40.5), book('b', -16, 41)],
+    });
+    expect(Math.abs(parsed.spreadHome * 2) % 1).toBe(0);
+    expect(Math.abs(parsed.total * 2) % 1).toBe(0);
+    expect(parsed.spreadHome).toBeLessThanOrEqual(-15.5);
+    expect(parsed.spreadHome).toBeGreaterThanOrEqual(-16);
+  });
+});
+
+describe('dropLookaheadOpeners', () => {
+  it('keeps a plausible opener and drops one a season of news away', async () => {
+    const { dropLookaheadOpeners } = await import('./nflSlate.js');
+    const g = (market) => ({ gameId: 'g', market });
+    const [near, far, none] = dropLookaheadOpeners([
+      g({ pregameSpread: -4.5, openSpread: -3, pregameTotal: 47.5, openTotal: 49.5 }),
+      g({ pregameSpread: 3.5, openSpread: -5.5, pregameTotal: 37.5, openTotal: 42.5 }),
+      g({ pregameSpread: -7, openSpread: null, pregameTotal: 44, openTotal: null }),
+    ]);
+    expect(near.market).toMatchObject({ openSpread: -3, openTotal: 49.5 });
+    expect(far.market).toMatchObject({ openSpread: null, openTotal: null, pregameSpread: 3.5, pregameTotal: 37.5 });
+    expect(none.market.openSpread).toBeNull();
+  });
+});

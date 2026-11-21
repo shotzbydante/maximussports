@@ -29,6 +29,10 @@ function median(arr) {
 }
 
 /** Median of a set of American prices, taken in probability space. */
+function roundHalf(v) {
+  return typeof v === 'number' && Number.isFinite(v) ? Math.round(v * 2) / 2 : v;
+}
+
 function medianAmerican(prices) {
   if (!prices || prices.length === 0) return null;
   const toProb = (a) => (a < 0 ? -a / (-a + 100) : 100 / (a + 100));
@@ -90,8 +94,10 @@ export function parseOddsEvent(ev) {
     homeSlug: home.slug,
     awaySlug: away.slug,
     commenceTime: ev.commence_time || null,
-    spreadHome: median(spreads),
-    total: median(totals),
+    // With an even number of books the median can land on a quarter point
+    // (-15.5 and -16 give -15.75). No book posts that, so snap to the half.
+    spreadHome: roundHalf(median(spreads)),
+    total: roundHalf(median(totals)),
     moneyline: { home: medianAmerican(homeMls), away: medianAmerican(awayMls) },
     booksCount: bookmakers.length,
   };
