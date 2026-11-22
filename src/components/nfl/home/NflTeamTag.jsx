@@ -34,9 +34,9 @@ export function Matchup({ away, home, size = 16 }) {
   );
 }
 
-/** Plain text with a logo placed before each team it names. */
-export function TeamText({ text, size = 16 }) {
-  return splitTeamMentions(text).map((part, i) => (
+/** Plain text with a logo placed before each team it names. `abbrev` also tags abbreviations like "KC". */
+export function TeamText({ text, size = 16, abbrev = false }) {
+  return splitTeamMentions(text, { abbrev }).map((part, i) => (
     part.slug
       ? <TeamTag key={i} slug={part.slug} text={part.text} size={size} />
       : part.text
