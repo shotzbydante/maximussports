@@ -14,9 +14,11 @@
  * missing, and the slides render an honest empty state from that.
  */
 
+import { NFL_EXPLAINERS } from './explainers.js';
+
 const ET = 'America/New_York';
 
-export const NFL_STUDIO_SECTIONS = ['nfl-slate', 'nfl-picks', 'nfl-game', 'nfl-receipts'];
+export const NFL_STUDIO_SECTIONS = ['nfl-slate', 'nfl-picks', 'nfl-game', 'nfl-team', 'nfl-review', 'nfl-receipts', 'nfl-explain'];
 
 const TIER_LABEL = { tier1: 'Top play', tier2: 'Strong play', tier3: 'Value play' };
 
@@ -72,10 +74,15 @@ function normalizePick(p) {
   const home = team(m.homeTeam);
   const reasons = (p.pick?.topSignals || []).filter(Boolean).slice(0, 3);
   const kick = kickoffParts(m.startTime);
+  // Model win chance with pushes set aside, so it compares like-for-like with the price's break-even.
+  const win = Number(p.fair?.win);
+  const lose = Number(p.fair?.lose);
+  const modelProb = Number.isFinite(win) && Number.isFinite(lose) && win + lose > 0 ? win / (win + lose) : (p.modelProb ?? null);
+  const label = p.pick?.label || p.selection?.label || '';
   return {
     id: p.id,
     gameId: String(p.gameId ?? ''),
-    label: p.pick?.label || p.selection?.label || '',
+    label,
     marketType: p.market?.type || p.pick?.marketType || null,
     category: p.category || null,
     priceAmerican: p.market?.priceAmerican ?? null,
@@ -92,6 +99,12 @@ function normalizePick(p) {
     // comparison when pushPct is null. Fair price vs offered price always is.
     pushPct: Number(p.fair?.push) > 0 ? fmtPct(p.fair.push, 1) : null,
     offeredPrice: fmtAmerican(p.market?.priceAmerican),
+    // "Market 51.2%, Maximus 53.6%": the same bet as a probability gap.
+    marketProb: p.impliedProb ?? null,
+    modelProb,
+    marketPct: fmtPct(p.impliedProb, 1),
+    modelPct: fmtPct(modelProb, 1),
+    side: p.pick?.side || p.selection?.side || (/^under\b/i.test(label) ? 'under' : /^over\b/i.test(label) ? 'over' : null),
     fairPrice: fmtAmerican(p.fair?.priceAmerican),
     // True when the same ticket is no longer worth betting at today's number.
     movedAgainst: p.lock?.evNow != null && Number(p.lock.evNow) < 0,
@@ -180,7 +193,10 @@ function normalizeGame(g, boardGame, picksByGame) {
           total: proj.total ?? null,
           margin: proj.margin ?? null,
         }
-      : null,
+      // Finished games drop off the picks board; the scoreboard feed still carries the pregame projection.
+      : (g.model?.projectedHome != null && g.model?.projectedAway != null
+          ? { homePoints: g.model.projectedHome, awayPoints: g.model.projectedAway, total: g.model.fairTotal ?? null, margin: g.model.projectedHome - g.model.projectedAway }
+          : null),
     quarterbacks: { away: qb('away'), home: qb('home') },
     weather,
     situations: (boardGame?.situations || []).filter((s) => s?.label).map((s) => ({ label: s.label, note: s.note || null, team: s.team || null })),
@@ -267,6 +283,98 @@ function receipts(scorecard) {
   };
 }
 
+function ordinal(n) {
+  const v = Number(n);
+  if (!Number.isFinite(v)) return '';
+  const s = ['th', 'st', 'nd', 'rd'];
+  const m = v % 100;
+  return `${v}${s[(m - 20) % 10] || s[m] || s[0]}`;
+}
+
+function teamCard(season, games, byeTeams, slug) {
+  const t = seasonTeams(season).find((x) => x.slug === slug);
+  if (!t) return null;
+  const mine = (g) => g.away?.slug === slug || g.home?.slug === slug;
+  const next = games.find((g) => g.status !== 'final' && mine(g)) || null;
+  const last = [...games].reverse().find((g) => g.isFinal && mine(g)) || null;
+  const isHome = next?.home?.slug === slug;
+  const winProb = next?.homeWinProb != null ? (isHome ? next.homeWinProb : 1 - next.homeWinProb) : null;
+  return {
+    slug: t.slug,
+    name: t.name,
+    nickname: t.nickname || t.name,
+    abbrev: t.abbrev,
+    logo: t.logo,
+    record: t.record,
+    standingLabel: t.divisionRank && t.division ? `${ordinal(t.divisionRank)} in the ${t.division}` : (t.division || null),
+    streak: t.streak || null,
+    pointDiffLabel: t.pointDiff != null ? `${t.pointDiff > 0 ? '+' : ''}${t.pointDiff}` : null,
+    powerRank: t.powerRank ?? null,
+    seedLabel: t.playoffSeed != null ? (t.playoffSeed <= 7 ? `In, No. ${t.playoffSeed} seed` : `Out, ${ordinal(t.playoffSeed)} in the ${t.conference}`) : null,
+    projectedWinsLabel: t.projectedWins != null ? Number(t.projectedWins).toFixed(1) : null,
+    playoffPct: t.playoffPct ?? null,
+    playoffLabel: t.playoffPct != null ? (t.playoffPct >= 0.995 ? '>99%' : t.playoffPct <= 0.005 ? '<1%' : fmtPct(t.playoffPct)) : null,
+    titleOddsLabel: fmtAmerican(t.titleOdds),
+    onBye: !next && (byeTeams || []).includes(slug),
+    next: next
+      ? {
+          opponent: isHome ? next.away : next.home,
+          isHome,
+          kickoffLabel: next.kickoffLabel,
+          network: next.network,
+          spreadLabel: next.spreadLabel,
+          total: next.total,
+          winPct: fmtPct(winProb),
+          winProb,
+          pick: next.picks[0] || null,
+        }
+      : null,
+    lastResult: last
+      ? `${last.away.abbrev} ${last.away.score}, ${last.home.abbrev} ${last.home.score}`
+      : null,
+  };
+}
+
+/** How the pregame projections did against the games that have finished. */
+function review(games, receiptsData) {
+  const rows = games
+    .filter((g) => g.isFinal && g.projection?.homePoints != null && g.home?.score != null && g.away?.score != null)
+    .map((g) => {
+      const projMargin = g.projection.homePoints - g.projection.awayPoints;
+      const actualMargin = g.home.score - g.away.score;
+      return {
+        id: g.id,
+        away: g.away,
+        home: g.home,
+        matchupLabel: `${g.away.abbrev} @ ${g.home.abbrev}`,
+        projected: `${g.away.abbrev} ${Math.round(g.projection.awayPoints)}, ${g.home.abbrev} ${Math.round(g.projection.homePoints)}`,
+        actual: `${g.away.abbrev} ${g.away.score}, ${g.home.abbrev} ${g.home.score}`,
+        missPts: Math.round(Math.abs(projMargin - actualMargin) * 10) / 10,
+        rightSide: actualMargin !== 0 && Math.sign(projMargin) === Math.sign(actualMargin),
+      };
+    });
+  const thisWeek = new Set(games.filter((g) => g.isFinal).map((g) => `${g.away?.abbrev} @ ${g.home?.abbrev}`));
+  const right = rows.filter((r) => r.rightSide).length;
+  const avgMiss = rows.length ? Math.round((rows.reduce((n, r) => n + r.missPts, 0) / rows.length) * 10) / 10 : null;
+  return {
+    finals: rows.length,
+    rightSide: right,
+    wrongSide: rows.length - right,
+    avgMiss,
+    misses: [...rows].sort((a, b) => b.missPts - a.missPts).slice(0, 4),
+    // Only bets on games that finished this week; last week's losses belong on Receipts.
+    lostPicks: (receiptsData?.recent || []).filter((k) => k.status === 'lost' && thisWeek.has(k.matchupLabel)).slice(0, 3),
+  };
+}
+
+/** One line that gives someone a reason to forward the post. Chosen by the top pick, never random. */
+function sendLine(topPick) {
+  if (topPick?.side === 'under') return 'Send this to the friend who always bets the over.';
+  if (topPick?.side === 'over') return 'Send this to the friend who thinks every game ends 13-10.';
+  if (topPick) return 'Send this to the friend who bets with their heart.';
+  return 'Send this to the group chat before anyone bets.';
+}
+
 function ptDateLabel(now) {
   return now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', timeZone: 'America/Los_Angeles' });
 }
@@ -279,9 +387,11 @@ function ptDateLabel(now) {
  * @param {object|null} input.season
  * @param {object|null} input.scorecard
  * @param {string|null} [input.selectedGameId]
+ * @param {string|null} [input.selectedTeamSlug]   team for the Team Card
+ * @param {string|null} [input.explainerId]        which explainer to show
  * @param {Date} [input.now]
  */
-export function normalizeNflStudioPayload({ section, picks, games, season, scorecard, selectedGameId = null, now = new Date() }) {
+export function normalizeNflStudioPayload({ section, picks, games, season, scorecard, selectedGameId = null, selectedTeamSlug = null, explainerId = null, now = new Date() }) {
   const heroPicks = (picks?.heroPicks || []).map(normalizePick).filter(Boolean);
 
   const picksByGame = new Map();
@@ -319,6 +429,15 @@ export function normalizeNflStudioPayload({ section, picks, games, season, score
     || allGames[0]
     || null;
 
+  const receiptsData = receipts(scorecard);
+  const byeTeams = games?.byeTeams || picks?.byeTeams || [];
+  const teamOptions = seasonTeams(season)
+    .map((t) => ({ slug: t.slug, name: t.name, conference: t.conference }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+  // Default team: the one in the top pick's game, else the title favorite.
+  const defaultTeam = heroPicks[0]?.home?.slug || titleRace(season, 1)[0]?.slug || teamOptions[0]?.slug || null;
+  const explainer = NFL_EXPLAINERS.find((e) => e.id === explainerId) || NFL_EXPLAINERS[0];
+
   return {
     sport: 'nfl',
     section,
@@ -342,9 +461,21 @@ export function normalizeNflStudioPayload({ section, picks, games, season, score
     },
     titleRace: titleRace(season),
     bubble: bubble(season),
-    receipts: receipts(scorecard),
+    receipts: receiptsData,
     selectedGame,
-    byeTeams: games?.byeTeams || picks?.byeTeams || [],
+    byeTeams,
+    teamOptions,
+    team: teamCard(season, allGames, byeTeams, selectedTeamSlug || defaultTeam),
+    review: review(allGames, receiptsData),
+    sendLine: sendLine(heroPicks[0] || null),
+    explainer: {
+      id: explainer.id,
+      kicker: explainer.kicker,
+      title: explainer.title,
+      points: explainer.points,
+      example: explainer.example(heroPicks[0] || null, { marketsChecked: heroPicks.length + held, held }),
+      closer: explainer.closer,
+    },
   };
 }
 
@@ -364,6 +495,16 @@ export function nflSectionReady(payload) {
       return payload.selectedGame
         ? { ok: true, reason: null }
         : { ok: false, reason: 'Pick a game to break down.' };
+    case 'nfl-team':
+      return payload.team
+        ? { ok: true, reason: null }
+        : { ok: false, reason: 'Team data did not load. Regenerate to retry.' };
+    case 'nfl-review':
+      return payload.review.finals > 0
+        ? { ok: true, reason: null }
+        : { ok: false, reason: 'No finished games this week yet. The review unlocks after the first final.' };
+    case 'nfl-explain':
+      return { ok: true, reason: null };
     case 'nfl-receipts':
       return payload.receipts.hasGraded
         ? { ok: true, reason: null }

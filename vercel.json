@@ -37,6 +37,21 @@
   },
   "redirects": [
     {
+      "source": "/ig",
+      "destination": "/?utm_source=instagram&utm_medium=social&utm_campaign=bio",
+      "permanent": false
+    },
+    {
+      "source": "/ig/record",
+      "destination": "/record?utm_source=instagram&utm_medium=social&utm_campaign=record",
+      "permanent": false
+    },
+    {
+      "source": "/ig/picks",
+      "destination": "/nfl/insights?utm_source=instagram&utm_medium=social&utm_campaign=picks",
+      "permanent": false
+    },
+    {
       "source": "/:path*",
       "has": [{"type": "host", "value": "www.maximussports.ai"}],
       "destination": "https://maximussports.ai/:path*",

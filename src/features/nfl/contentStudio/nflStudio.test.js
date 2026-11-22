@@ -163,6 +163,48 @@ describe('normalizeNflStudioPayload', () => {
   });
 });
 
+describe('team card, review, explainers', () => {
+  const seasonFull = { ...season, teams: [...season.teams, { slug: 'chiefs', abbrev: 'KC', name: 'Kansas City Chiefs', nickname: 'Chiefs', conference: 'AFC', division: 'AFC West', divisionRank: 1, record: '7-2', streak: 'W2', pointDiff: 81, powerRank: 6, projectedWins: 11.8, playoffPct: 0.979, titleOdds: 970, titleImpliedPct: 0.072 }] };
+  it('builds a team card with the next game from the team\u2019s side', () => {
+    const t = build('nfl-team', { season: seasonFull, selectedTeamSlug: 'chiefs' }).team;
+    expect(t).toMatchObject({ nickname: 'Chiefs', standingLabel: '1st in the AFC West', playoffLabel: '98%', titleOddsLabel: '+970', pointDiffLabel: '+81' });
+    expect(t.next).toMatchObject({ isHome: true, spreadLabel: 'KC -15.5', winPct: '93%' });
+    expect(t.next.opponent.abbrev).toBe('ARI');
+    expect(t.next.pick.label).toBe('Under 40.5');
+  });
+  it('defaults the team card to the top pick\u2019s home team', () => {
+    expect(build('nfl-team', { season: seasonFull }).team.slug).toBe('chiefs');
+  });
+  it('scores finished games against the pregame projection', () => {
+    const withModel = { ...games, games: games.games.map((g) => (g.gameId === '0' ? { ...g, model: { projectedHome: 27.9, projectedAway: 19.1, fairTotal: 46.9 } } : g)) };
+    const r = build('nfl-review', { games: withModel }).review;
+    expect(r).toMatchObject({ finals: 1, rightSide: 1, wrongSide: 0, avgMiss: 14.2 });
+    expect(r.misses[0]).toMatchObject({ projected: 'IND 19, HOU 28', actual: 'IND 3, HOU 26', rightSide: true });
+    expect(r.lostPicks).toEqual([]); // last week's JAX @ NYG loss is not part of this week's review
+    const lostThisWeek = { ...scorecard, slates: [{ date: '2026-11-19', picks: [{ id: 'g9', pickRole: 'hero', status: 'lost', label: 'IND +7.5', awayAbbrev: 'IND', homeAbbrev: 'HOU', price: -110, finalScore: 'IND 3, HOU 26', units: -1, slateDate: '2026-11-19' }] }] };
+    expect(build('nfl-review', { games: withModel, scorecard: lostThisWeek }).review.lostPicks.map((k) => k.id)).toEqual(['g9']);
+    expect(nflSectionReady(build('nfl-review')).ok).toBe(false); // no projection on the final, nothing to review
+  });
+  it('expresses a pick as a probability gap with pushes set aside', () => {
+    const [a] = build('nfl-picks').heroPicks;
+    expect(a.marketPct).toBe('51.2%');
+    const raw = { ...picks, heroPicks: [{ ...picks.heroPicks[1], impliedProb: 0.517, fair: { win: 0.512, lose: 0.458, push: 0.03, priceAmerican: -112 } }] };
+    const [k] = build('nfl-picks', { picks: raw }).heroPicks;
+    expect(k).toMatchObject({ marketPct: '51.7%', modelPct: '52.8%' });
+  });
+  it('fills the explainer example from live data and has a send line', () => {
+    const p = build('nfl-explain', { explainerId: 'passing' });
+    expect(p.explainer.title).toBe('Most games are a pass');
+    expect(p.explainer.example).toBe('This week we priced 6 markets and passed on 4.');
+    expect(p.sendLine).toBe('Send this to the friend who always bets the over.');
+  });
+  it.each(['nfl-team', 'nfl-explain'])('%s caption is publishable', (section) => {
+    const c = normalizeStudioCaption(buildNflCaption(build(section, { season: seasonFull })));
+    expect(c.ok).toBe(true);
+    expect(c.fullCaption).not.toMatch(/undefined|null|NaN/);
+  });
+});
+
 describe('readiness and slide counts', () => {
   it('sizes the picks carousel as a cover plus one slide per pick', () => {
     expect(nflSlideCount(build('nfl-picks'))).toBe(3);

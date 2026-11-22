@@ -38,6 +38,7 @@
 import { getSupabaseAdmin } from '../../_lib/supabaseAdmin.js';
 import { requireAdminOrCron } from '../../_lib/requireAuth.js';
 import { getInstagramCredentials } from '../../_lib/instagramAuth.js';
+import { findVoiceIssues } from '../../../src/features/contentStudio/voice.js';
 import { randomUUID } from 'node:crypto';
 
 // ── Constants ───────────────────────────────────────────────────────────────
@@ -444,6 +445,14 @@ export default async function handler(req, res) {
   // ── HARD SERVER-SIDE GUARD — reject blank/generic captions ──
   // Same threshold as carousel endpoint. Blocks the "MLB Intelligence —
   // maximussports.ai" fallback that caused a blank production post.
+  const hype = findVoiceIssues(trimmedCaption);
+  if (hype.length > 0) {
+    return res.status(400).json({
+      ok: false, stage: 'validate', requestId,
+      error: `caption promises an outcome (${hype.join(', ')}). Maximus Sports does not post that.`,
+    });
+  }
+
   const MIN_CAPTION_CHARS = 80;
   if (trimmedCaption.length < MIN_CAPTION_CHARS) {
     console.error(`[publish/single req=${requestId.slice(0,8)}] rejected short caption: chars=${trimmedCaption.length} preview="${trimmedCaption.slice(0, 120)}"`);
