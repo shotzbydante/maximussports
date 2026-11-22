@@ -9,6 +9,7 @@ import { getQueryParam } from '../../_requestUrl.js';
 import { createCache } from '../../_cache.js';
 import { NBA_TEAMS } from '../../../src/sports/nba/teams.js';
 import { claudeComplete, isClaudeConfigured } from '../../_lib/claude.js';
+import { fixPositiveOdds } from '../../_lib/oddsText.js';
 import { loadNbaChampionshipOdds } from '../odds/championship.js';
 
 const FRESH_KEY      = 'chat:nba:home:summary:v1';
@@ -216,21 +217,6 @@ ${languageRule}
   const userPrompt = `DATA:\n${JSON.stringify(payload, null, 2)}\n\nWrite the briefing now. Exactly 5 substantive paragraphs, no headers. Use team emojis from the mapping above.`;
 
   return { systemPrompt, userPrompt };
-}
-
-function fixPositiveOdds(text) {
-  if (!text) return text;
-  return text
-    .replace(/\bat\s+(\d{3,4})(?=[\s.,;!?)\-\u2013\u2014]|$)/g, (match, num) => {
-      const n = parseInt(num, 10);
-      if (n >= 100 && n <= 9999) return `at +${num}`;
-      return match;
-    })
-    .replace(/\((\d{3,4})\)/g, (match, num) => {
-      const n = parseInt(num, 10);
-      if (n >= 100 && n <= 9999) return `(+${num})`;
-      return match;
-    });
 }
 
 async function generateWithClaude(systemPrompt, userPrompt) {

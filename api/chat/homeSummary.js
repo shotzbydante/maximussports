@@ -11,6 +11,7 @@ import { getJson, setJson, tryAcquireLock } from '../_globalCache.js';
 import { getQueryParam } from '../_requestUrl.js';
 import { buildHomeSummaryData } from '../_lib/homeData.js';
 import { claudeComplete, isClaudeConfigured } from '../_lib/claude.js';
+import { fixPositiveOdds } from '../_lib/oddsText.js';
 import { findMatchupLine, describeLine } from '../_lib/slateOdds.js';
 
 const FRESH_KEY      = 'chat:home:summary:v1';
@@ -305,26 +306,6 @@ STYLE RULES:
   const userPrompt = `DATA:\n${JSON.stringify(payload, null, 2)}\n\nWrite the briefing now. Exactly 5 paragraphs, no headers.`;
 
   return { systemPrompt, userPrompt };
-}
-
-/**
- * Post-process LLM output to fix positive American odds missing their "+" sign.
- * Matches patterns like "at 320" or "at 1400" in championship-odds contexts
- * and ensures the "+" is present.
- */
-function fixPositiveOdds(text) {
-  if (!text) return text;
-  return text
-    .replace(/\bat\s+(\d{3,4})(?=[\s.,;!?)\-–—]|$)/g, (match, num) => {
-      const n = parseInt(num, 10);
-      if (n >= 100 && n <= 9999) return `at +${num}`;
-      return match;
-    })
-    .replace(/\((\d{3,4})\)/g, (match, num) => {
-      const n = parseInt(num, 10);
-      if (n >= 100 && n <= 9999) return `(+${num})`;
-      return match;
-    });
 }
 
 async function generateWithClaude(systemPrompt, userPrompt) {
