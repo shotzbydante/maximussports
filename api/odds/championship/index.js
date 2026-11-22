@@ -147,6 +147,49 @@ function aggregateAllBookmakers(events, updatedAt) {
   return { odds, unmappedOutcomesSample: unmapped, bookmakerCountReturned: bookmakers.length };
 }
 
+/**
+ * Championship odds for server-side callers (briefings, summaries, emails).
+ *
+ * Serves the KV copy while it is fresh. When the cache is cold it fetches from
+ * the Odds API with the current ODDS_API_KEY and re-caches, so a briefing that
+ * regenerates between page views still has prices to write about. The cache
+ * lasts an hour, so this adds at most one Odds API request per hour.
+ * Never throws; returns {} when no odds can be had.
+ */
+export async function loadNcaamChampionshipOdds({ timeoutMs = 5000 } = {}) {
+  let cached = null;
+  const cachedOdds = () => (cached?.odds && typeof cached.odds === 'object' && Object.keys(cached.odds).length > 0 ? cached.odds : {});
+  try {
+    cached = await getJson(CHAMPIONSHIP_KV_KEY).catch(() => null);
+    const ageSec = cached?.updatedAt ? ageSecondsFromUpdatedAt(cached.updatedAt) : null;
+    if (Object.keys(cachedOdds()).length > 0 && ageSec != null && ageSec < CHAMPIONSHIP_TTL_SECONDS) return cached.odds;
+
+    const apiKey = process.env.ODDS_API_KEY;
+    if (!apiKey) return cachedOdds();
+
+    const url = `https://api.the-odds-api.com/v4/sports/${ODDS_API_SPORT}/odds?regions=us&markets=outrights&oddsFormat=american&apiKey=${apiKey}`;
+    const r = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
+    if (!r.ok) {
+      console.warn(`[api/odds/championship] live fetch for briefing failed: HTTP ${r.status}`);
+      return cachedOdds();
+    }
+    const data = await r.json();
+    const updatedAt = new Date().toISOString();
+    const { odds, bookmakerCountReturned } = aggregateAllBookmakers(Array.isArray(data) ? data : data?.data ?? [], updatedAt);
+    const mappedOutcomesCount = Object.keys(odds).length;
+    if (mappedOutcomesCount === 0) return cachedOdds();
+    await setJson(CHAMPIONSHIP_KV_KEY, {
+      odds,
+      updatedAt,
+      oddsMeta: { bookmakerCountReturned, mappedOutcomesCount },
+    }, { exSeconds: CHAMPIONSHIP_TTL_SECONDS }).catch(() => {});
+    return odds;
+  } catch (err) {
+    console.warn('[api/odds/championship] live fetch for briefing failed:', err?.message);
+    return cachedOdds();
+  }
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');

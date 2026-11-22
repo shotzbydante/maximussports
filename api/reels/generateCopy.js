@@ -127,6 +127,7 @@ Rules:
       maxTokens: REEL_COPY_MAX_TOKENS,
       timeoutMs: REEL_COPY_TIMEOUT_MS,
       model: REEL_COPY_MODEL,
+      editorial: false, // marketing copy, not written from sports data
     });
 
     if (!text) {

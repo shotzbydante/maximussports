@@ -10,6 +10,16 @@
 
 import { getQueryParam } from '../_requestUrl.js';
 import { claudeComplete, claudeStream, isClaudeConfigured } from '../_lib/claude.js';
+import { loadNcaamChampionshipOdds } from '../odds/championship/index.js';
+import { titleOddsFor } from '../_lib/slateOdds.js';
+
+/** "+750 (11.8% implied)" for a team slug, or null. Cache-first; never throws. */
+async function titleOddsLine(slug) {
+  if (!slug) return null;
+  const odds = await loadNcaamChampionshipOdds().catch(() => ({}));
+  const t = titleOddsFor(odds, slug);
+  return t ? `${t.odds} (${t.impliedPct}% implied)` : null;
+}
 
 const CACHE_TTL_MS = 30 * 60 * 1000;
 
@@ -108,7 +118,8 @@ export default async function handler(req, res) {
     if (!isClaudeConfigured()) {
       return res.status(200).json({ summary: null, updatedAt: null, message: 'Summary unavailable.' });
     }
-    const { systemPrompt, userPrompt } = buildPrompts({ teamName, tier, seed, seasonRecord, conferenceFinish, tournamentStatus, upcomingGames, lastWeek, atsSummary, headlines });
+    const titleOdds = await titleOddsLine(slug);
+    const { systemPrompt, userPrompt } = buildPrompts({ teamName, tier, seed, seasonRecord, conferenceFinish, tournamentStatus, upcomingGames, lastWeek, atsSummary, headlines, titleOdds });
     try {
       const summary = await claudeComplete({ system: systemPrompt, user: userPrompt, maxTokens: 700 });
       const updatedAt = new Date().toISOString();
@@ -139,7 +150,9 @@ export default async function handler(req, res) {
     return res.end();
   }
 
-  const { systemPrompt, userPrompt } = buildPrompts({ teamName, tier, seed, seasonRecord, conferenceFinish, tournamentStatus, upcomingGames, lastWeek, atsSummary, headlines });
+  const titleOdds = await titleOddsLine(slug);
+
+  const { systemPrompt, userPrompt } = buildPrompts({ teamName, tier, seed, seasonRecord, conferenceFinish, tournamentStatus, upcomingGames, lastWeek, atsSummary, headlines, titleOdds });
 
   try {
     let fullContent = '';
@@ -169,7 +182,7 @@ function _isInTournamentWindow() {
   return n >= 20260315 && n <= 20260407;
 }
 
-function buildPrompts({ teamName, tier, seed, seasonRecord, conferenceFinish, tournamentStatus, upcomingGames, lastWeek, atsSummary, headlines }) {
+function buildPrompts({ teamName, tier, seed, seasonRecord, conferenceFinish, tournamentStatus, upcomingGames, lastWeek, atsSummary, headlines, titleOdds = null }) {
   const isTournament = _isInTournamentWindow();
 
   const systemPrompt = isTournament
@@ -178,7 +191,7 @@ function buildPrompts({ teamName, tier, seed, seasonRecord, conferenceFinish, to
 Priority order:
 1) Tournament status: seed, whether they are still alive or eliminated, current round, and next opponent.
 2) Season record and conference finish for context on who this team is.
-3) ATS record and betting angle — reference their full-season ATS if available.
+3) ATS record and betting angle — reference their full-season ATS if available, and the national title price exactly as given when present.
 4) One sentence of relevant news context from headlines if useful.
 
 Frame everything as March Madness intel. Mention seed number when available. Reference season record (e.g., "27-4") and ATS record when provided. Be specific and current. Do NOT write generic filler. Keep it concise and card-friendly but pack in real data.`
@@ -188,8 +201,9 @@ Include when data exists:
 1) Season record and conference standing for context.
 2) NCAA bracket tier/tournament prospects (use the team's tier: Lock, Should be in, Work to do, Long shot).
 3) ATS record and recent results.
-4) Upcoming games (mention opponents).
-5) One sentence of relevant news from headlines.
+4) The national title price exactly as given (e.g. "+750"), when present.
+5) Upcoming games (mention opponents, and the spread when the data has one).
+6) One sentence of relevant news from headlines.
 
 Avoid bullet points. Keep it conversational and card-friendly. If a section has no data, skip it.`;
 
@@ -206,7 +220,7 @@ Tier (NCAA prospects): ${tier || 'Not specified'}
 Upcoming games: ${JSON.stringify(upcomingGames)}
 Recent results: ${JSON.stringify(lastWeek)}
 ATS summary: ${JSON.stringify(atsSummary)}
-Headlines: ${JSON.stringify(headlines)}
+${titleOdds ? `National title odds: ${titleOdds}\n` : ''}Headlines: ${JSON.stringify(headlines)}
 
 Write the team insight using only the data above. Be specific — reference record numbers, ATS numbers, and tournament round when available.`;
 

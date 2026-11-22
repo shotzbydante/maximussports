@@ -4,6 +4,8 @@
  */
 
 import { fetchRankingsSource, fetchTeamIdsSource, fetchTeamNewsSource, fetchScheduleSource, fetchOddsHistorySource } from '../_sources.js';
+import { loadNcaamChampionshipOdds } from '../odds/championship/index.js';
+import { getNcaamSlateLines, findNextLineForTeam, describeLine, titleOddsFor } from './slateOdds.js';
 import { SEASON_START } from '../../src/utils/dateChunks.js';
 import { buildSlugToRankMap } from '../../src/utils/rankingsNormalize.js';
 import { getTeamBySlug, TEAMS } from '../../src/data/teams.js';
@@ -103,10 +105,14 @@ export async function buildTeamSummaryData(slug) {
   const team = getTeamBySlug(slug);
   const today = toDateStr(new Date());
 
-  const [teamIdsRes, rankingsRes, newsRes] = await Promise.allSettled([
+  // Odds use shared, cache-first loaders (hourly title prices, 15-minute
+  // slate lines), so a team summary costs no extra Odds API request of its own.
+  const [teamIdsRes, rankingsRes, newsRes, champRes, linesRes] = await Promise.allSettled([
     fetchTeamIdsSource(),
     fetchRankingsSource(),
     fetchTeamNewsSource(slug),
+    loadNcaamChampionshipOdds(),
+    getNcaamSlateLines(),
   ]);
 
   const slugToId = (teamIdsRes.status === 'fulfilled' ? teamIdsRes.value?.slugToId : null) ?? {};
@@ -131,6 +137,10 @@ export async function buildTeamSummaryData(slug) {
   const schedule = buildScheduleSummary(scheduleEvents);
   const ats = computeAts(scheduleEvents, oddsGames, team?.name ?? slug);
 
+  const championshipOdds = champRes.status === 'fulfilled' && champRes.value ? champRes.value : {};
+  const slateLines = linesRes.status === 'fulfilled' && Array.isArray(linesRes.value) ? linesRes.value : [];
+  const nextLine = team?.name ? findNextLineForTeam(slateLines, team.name) : null;
+
   return {
     team: team
       ? { name: team.name, conference: team.conference, oddsTier: team.oddsTier, slug: team.slug }
@@ -141,5 +151,9 @@ export async function buildTeamSummaryData(slug) {
     rank,
     teamId,
     tier: team?.oddsTier ?? null,
+    titleOdds: titleOddsFor(championshipOdds, slug),   // { odds: '+750', impliedPct: 11.8 } or null
+    nextGameLine: nextLine
+      ? { home: nextLine.homeTeam, away: nextLine.awayTeam, ...describeLine(nextLine) }
+      : null,                                           // { home, away, spread, total } or null
   };
 }

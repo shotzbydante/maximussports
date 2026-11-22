@@ -6,9 +6,8 @@
 import { fetchScoresSource, fetchRankingsSource, fetchNewsAggregateSource } from '../_sources.js';
 import { getHeadlines } from '../home/cache.js';
 import { getAtsLeadersPipeline } from '../home/atsPipeline.js';
-import { getJson } from '../_globalCache.js';
-
-const CHAMPIONSHIP_KV_KEY = 'odds:championship:ncaab:v1';
+import { loadNcaamChampionshipOdds } from '../odds/championship/index.js';
+import { getNcaamSlateLines } from './slateOdds.js';
 
 function toDateStr(d) {
   return d.toISOString().slice(0, 10);
@@ -32,19 +31,23 @@ export async function buildHomeSummaryData() {
   })();
   const yesterdayParam = yesterday.replace(/-/g, '');
 
-  const [scoresRes, scoresYestRes, rankingsRes, atsRes, champRes] = await Promise.allSettled([
+  // Odds come through cache-first loaders that fetch live when the cache is
+  // cold, so the briefing has prices even when nobody has loaded an odds page.
+  const [scoresRes, scoresYestRes, rankingsRes, atsRes, champRes, linesRes] = await Promise.allSettled([
     fetchScoresSource(),
     fetchScoresSource(yesterdayParam),
     fetchRankingsSource(),
     getAtsLeadersPipeline({ atsWindow: 'last30' }),
-    getJson(CHAMPIONSHIP_KV_KEY),
+    loadNcaamChampionshipOdds(),
+    getNcaamSlateLines(),
   ]);
 
   const scoresToday = scoresRes.status === 'fulfilled' && Array.isArray(scoresRes.value) ? scoresRes.value : [];
   const scoresYesterday = scoresYestRes.status === 'fulfilled' && Array.isArray(scoresYestRes.value) ? scoresYestRes.value : [];
   const rankingsRaw = rankingsRes.status === 'fulfilled' ? (rankingsRes.value?.rankings ?? []) : [];
   const ats = atsRes.status === 'fulfilled' && atsRes.value ? atsRes.value : {};
-  const champCached = champRes.status === 'fulfilled' && champRes.value ? champRes.value : null;
+  const championshipOdds = champRes.status === 'fulfilled' && champRes.value ? champRes.value : {};
+  const slateLines = linesRes.status === 'fulfilled' && Array.isArray(linesRes.value) ? linesRes.value : [];
 
   // Headlines: in-memory cache first, then fetch.
   let headlines = getHeadlines();
@@ -75,6 +78,7 @@ export async function buildHomeSummaryData() {
     },
     atsMeta: ats.atsMeta ?? null,
     atsWindow: ats.atsWindow ?? 'last30',
-    championshipOdds: champCached?.odds ?? {},
+    championshipOdds,
+    slateLines,              // spread/total per upcoming game from the Odds API
   };
 }
