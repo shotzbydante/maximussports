@@ -50,6 +50,22 @@ function sourceLineFor(pick, marketKey) {
   if (pick.lowSignalReason === 'price_guard') {
     return { label: 'Price outside the promoted range \u00b7 tracking only', warn: true };
   }
+  // NFL engine v2: a pick is recommended on price, so each hold has a reason.
+  const NFL_V2_REASON = {
+    no_price_edge: { label: 'Model lean \u00b7 no price beats the market', warn: false },
+    same_side: { label: 'Same opinion as the recommended side bet', warn: false },
+    qb_uncertain: { label: 'Quarterback in doubt \u00b7 tracking only', warn: true },
+    injury_feed_down: { label: 'Injury report unavailable \u00b7 tracking only', warn: true },
+    stale_price: { label: 'Best price looks stale \u00b7 tracking only', warn: true },
+    price_outlier: { label: 'Price too far from the market to trust', warn: true },
+    outside_window: { label: 'Too early \u00b7 picks lock inside three days', warn: false },
+    thin_market: { label: 'Too few books posted \u00b7 tracking only', warn: true },
+    data_gap: { label: 'Model data incomplete \u00b7 tracking only', warn: true },
+  };
+  if (NFL_V2_REASON[pick.lowSignalReason]) return NFL_V2_REASON[pick.lowSignalReason];
+  if (pick.lock?.lockedAt) {
+    return { label: `Locked at ${pick.lock.price > 0 ? '+' : ''}${pick.lock.price ?? ''}${pick.lock.book ? ` \u00b7 ${pick.lock.book}` : ''}`, warn: false };
+  }
   const isTracking = pick.pickRole === 'tracking' || pick.flags?.tracking === true;
   const isCrossMarket =
     pick.modelSource === 'spread'

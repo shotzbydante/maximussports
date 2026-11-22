@@ -10,7 +10,11 @@ import { fetchScoreboardPage } from '../nfl/live/_normalize.js';
 import { enrichGamesWithOdds } from '../nfl/live/_odds.js';
 import { getNflRatings } from './nflRatings.js';
 import { getNflInjuries, attachInjuries } from './nflInjuries.js';
+import { getNflModelData } from './nflModelData.js';
+import { getWeatherForGames } from './nflWeather.js';
+import { getNflConfig } from './nflConfig.js';
 import { projectNflGame, priceNflGame } from '../../src/features/nfl/picks/nflModel.js';
+import { analyzeGame } from '../../src/features/nfl/picks/v2/engine.js';
 
 const cache = createCache(30_000);
 const CACHE_KEY = 'nfl:slate:v1';
@@ -79,17 +83,54 @@ export function attachModel(games, ratings) {
 }
 
 /**
- * @returns {Promise<{ games, week, seasonType, seasonYear, byeTeams, ratings }>}
+ * Attach the v2 engine block to every game that has not finished, and
+ * point the game's `model` fields at the v2 projection so the games page,
+ * the briefing and the picks board all quote the same number. Games the
+ * engine cannot project keep the v1 numbers from attachModel().
  */
-export async function getNflSlate() {
+export function attachEngine(games, { model, weather = {}, config } = {}) {
+  return games.map((g) => {
+    const s = (g?.status || '').toLowerCase();
+    if (!g || s === 'final' || g.gameState?.isFinal) return g;
+    let engine;
+    try {
+      engine = analyzeGame({ game: g, model, weather: weather[String(g.gameId)] || null, config });
+    } catch (err) {
+      console.warn(`[nflSlate] engine failed for ${g.gameId}: ${err?.message}`);
+      return g;
+    }
+    if (!engine.projection) return { ...g, engine };
+    return {
+      ...g,
+      engine,
+      model: {
+        ...g.model,
+        fairSpread: engine.projection.fairSpreadHome,
+        fairTotal: engine.projection.total,
+        homeWinProb: engine.fair?.homeWin ?? g.model?.homeWinProb ?? null,
+        projectedHome: engine.projection.homePoints,
+        projectedAway: engine.projection.awayPoints,
+        pregameEdge: engine.modelGap?.side ?? null,
+        confidence: null,
+        version: 'v2',
+      },
+    };
+  });
+}
+
+/**
+ * @returns {Promise<{ games, week, seasonType, seasonYear, byeTeams, ratings, engine }>}
+ */
+export async function getNflSlate({ modelWaitMs = 6000 } = {}) {
   const cached = cache.get(CACHE_KEY);
   if (cached) return cached;
 
   const slate = await coalesce(CACHE_KEY, async () => {
-    const [page, ratings, injuries] = await Promise.all([
+    const [page, ratings, injuries, config] = await Promise.all([
       fetchScoreboardPage(),
       getNflRatings().catch(() => null),
       getNflInjuries().catch(() => null),
+      getNflConfig(),
     ]);
     let games = page.games;
     try { games = await enrichGamesWithOdds(games); }
@@ -97,6 +138,25 @@ export async function getNflSlate() {
     games = dropLookaheadOpeners(games);
     games = attachModel(games, ratings);
     games = attachInjuries(games, injuries);
+
+    // v2 engine: nflverse ratings and quarterbacks, kickoff weather, and a
+    // per-book consensus. Each piece degrades on its own; the engine block
+    // says what was missing.
+    // A cold model build downloads several megabytes from nflverse. Page
+    // requests wait a few seconds and then go on without it; the picks
+    // cron waits it out and leaves the reduced files in KV for everyone.
+    let modelTimedOut = false;
+    const model = page.ok
+      ? await Promise.race([
+          getNflModelData({ seasonYear: page.seasonYear, seasonType: page.seasonType, week: page.week }),
+          new Promise((resolve) => setTimeout(() => { modelTimedOut = true; resolve({ ok: false, reasons: ['model data is still loading'] }); }, modelWaitMs)),
+        ])
+      : { ok: false, reasons: ['ESPN scoreboard unavailable'] };
+    let weather = {};
+    try { weather = await getWeatherForGames(games, { schedule: model?.schedule || {} }); }
+    catch (err) { console.warn('[nflSlate] weather failed:', err?.message); }
+    games = attachEngine(games, { model, weather, config });
+
     return {
       games,
       week: page.week,
@@ -104,12 +164,24 @@ export async function getNflSlate() {
       seasonYear: page.seasonYear,
       byeTeams: page.byeTeams,
       ratings,
+      engine: {
+        ok: !!model?.ok,
+        asOf: model?.asOf || null,
+        reasons: model?.reasons || [],
+        source: model?.source || null,
+        injuriesOk: !!injuries?.teams && Object.keys(injuries.teams).length > 0 && injuries.ok !== false,
+        injuriesStale: !!injuries?.stale,
+        weatherGames: Object.keys(weather).length,
+        loading: modelTimedOut,
+      },
       ok: page.ok,
     };
   });
 
   if (slate.games.length > 0) {
-    cache.set(CACHE_KEY, slate);
+    // A slate built while the model was still loading is not cached, so
+    // the next request gets the full engine as soon as it is ready.
+    if (!slate.engine?.loading) cache.set(CACHE_KEY, slate);
     return slate;
   }
   // Empty response (ESPN hiccup or true offseason): prefer the last good slate.

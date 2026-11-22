@@ -1,51 +1,72 @@
 /**
- * buildNflPicksV2 — canonical NFL picks builder.
+ * buildNflPicksV2 — canonical NFL picks builder, engine version 2.
  *
  * Same output contract as buildMlbPicksV2 / buildNbaPicksV2 so the shared
- * picks UI, persistence, settlement and scorecard code all work unchanged:
+ * picks UI, persistence, settlement and scorecard code keep working:
  *
  *   { sport, date, modelVersion, configVersion, topPick,
  *     tiers: { tier1, tier2, tier3 }, coverage,
  *     fullSlatePicks, heroPicks, trackingPicks, byGame,
  *     scorecardSummary, meta, categories, legacy }
  *
- * The NFL slate is a week, not a day. Every game left in the current week
- * gets a spread, moneyline and total lean (the full-slate board); only the
- * strongest are promoted to tiers. The spread market keeps the persisted
- * key `runline` so the picks tables, grader and scorecards need no change.
+ * What a recommended pick is
+ * --------------------------
+ * A bet is recommended only when a specific book's posted line and price
+ * beat the fair number by a fixed margin of expected value. The fair number
+ * is the multi-book consensus, plus the one situational adjustment that has
+ * held up in backtests (strong wind on totals). See v2/engine.js for why
+ * the ratings do not move it.
  *
- * Pure and testable: no HTTP, no DB.
+ * Everything else is a tracking pick: the model's lean on each market,
+ * recorded and graded so the ratings keep an honest record, never promoted.
+ *
+ * Rules
+ *   - Expected value is computed at the real price, with pushes.
+ *   - Tiers are fixed EV thresholds, not percentiles of the slate.
+ *   - One side bet per game: moneyline and spread are the same opinion.
+ *   - A quarterback in doubt, a stale or implausible price, or a missing
+ *     feed holds the game to tracking.
+ *
+ * The spread market keeps the persisted key `runline` so the picks tables
+ * and grader need no change. Pure and testable: no HTTP, no DB.
  */
 
-import { assignTiers } from '../../mlb/picks/v2/tier.js';
-import { NFL_MODEL, projectNflGame, priceNflGame } from './nflModel.js';
+import { priceOffers, bestOffer } from './v2/market.js';
+import { impliedProb, probToAmerican, spreadProbs, totalProbs, expectedValue } from './v2/distribution.js';
+import { UNIT_LABELS } from './v2/units.js';
+import { ENGINE_DEFAULTS } from './v2/engine.js';
 
-export const NFL_MODEL_VERSION = 'nfl-picks-v1.0.0';
+export const NFL_MODEL_VERSION = 'nfl-picks-v2.0.0';
 
 export const NFL_DEFAULT_CONFIG = Object.freeze({
-  version: 'nfl-picks-tuning-2026-11-21a',
+  version: 'nfl-picks-v2-2026-11-21a',
   sport: 'nfl',
-  weights: Object.freeze({ edge: 0.45, conf: 0.25, sit: 0.15, mkt: 0.15 }),
-  tierCutoffs: Object.freeze({
-    tier1: { floor: 0.72, slatePercentile: 0.90 },
-    tier2: { floor: 0.62, slatePercentile: 0.70 },
-    tier3: { floor: 0.54, slatePercentile: 0.50 },
-  }),
+  /** Minimum expected value per unit staked for each tier. */
+  evThresholds: Object.freeze({ tier1: 0.04, tier2: 0.025, tier3: 0.015 }),
   maxPerTier: Object.freeze({ tier1: 3, tier2: 5, tier3: 6 }),
+  /** One side bet and one total at most. */
   maxPerGame: 2,
-  maxTier1PerGame: 1,
-  components: Object.freeze({
-    /** Blended edge (points) at which edge strength reaches ~0.86. */
-    edge: { pointsCap: 2.0, mlCap: 0.05 },
-  }),
+  /** Hours before kickoff inside which a pick can be recommended (and is locked). */
+  lockWindowHours: 72,
+  modelWeight: ENGINE_DEFAULTS.modelWeight,
   guards: Object.freeze({
     /** Moneylines outside this band are graded but never promoted. */
     mlMaxFavorite: -450,
     mlMaxUnderdog: 400,
-    /** Floor for the lower-conviction coverage pool. */
-    coverageMinScore: 0.48,
-    coverageMaxPicks: 12,
   }),
+});
+
+const HOLD_REASONS = Object.freeze({
+  no_price_edge: 'No book is offering a price that beats the market’s fair number. Tracked, not recommended.',
+  qb_uncertain: 'A starting quarterback is in doubt, so prices are moving and any gap between books is unreliable. Tracked, not recommended.',
+  injury_feed_down: 'The injury report could not be loaded, so quarterback status is unconfirmed. Tracked, not recommended.',
+  stale_price: 'The best price on the board has not updated with the rest of the market. Tracked, not recommended.',
+  price_outlier: 'This price is too far from the market to trust; it is more likely stale than a gift. Tracked, not recommended.',
+  outside_window: 'Kickoff is more than three days out. Picks are recommended and locked inside that window.',
+  price_guard: 'Price is outside the range the model promotes. Tracked, not recommended.',
+  thin_market: 'Too few books have posted this market to form a consensus. Tracked, not recommended.',
+  data_gap: 'Model data for this game is incomplete. Tracked, not recommended.',
+  same_side: 'The spread and moneyline are one opinion; the better-priced of the two is the pick.',
 });
 
 function isNum(v) { return typeof v === 'number' && Number.isFinite(v); }
@@ -75,156 +96,101 @@ function teamShape(t) {
   };
 }
 
-/** Days between a team's last game and this kickoff (null when unknown). */
-function restDays(rating, startTime) {
-  if (!rating?.lastGameAt || !startTime) return null;
-  const kick = Date.parse(startTime);
-  if (!Number.isFinite(kick)) return null;
-  const days = (kick - rating.lastGameAt) / 86_400_000;
-  return days > 0 && days < 40 ? Math.round(days) : null;
+/** Conviction shown in the UI. Recommended picks start at 62; leans stay under 50. */
+export function convictionFromEv(ev) {
+  return clamp01(0.5 + 8 * ev);
 }
-
-function softSquash(x, cap) {
-  if (!isNum(x) || !isNum(cap) || cap <= 0) return 0;
-  return clamp01(1 - Math.exp(-2 * Math.abs(x) / cap));
+function leanScore(gap) {
+  return Math.min(0.49, 0.25 + 0.05 * Math.abs(isNum(gap) ? gap : 0));
 }
-
-/**
- * Build the four bet-score components for one candidate.
- * Every component is bounded to [0, 1]; neutral is 0.5 for S and M.
- */
-const GUARDED_SCORE_CAP = 0.5;
-
-function scoreCandidate({ kind, edgePoints, probEdge, sideIsHome, ctx, config, informationGap, lineMoveToward, guarded = informationGap }) {
-  const caps = config?.components?.edge || {};
-  const w = config?.weights || NFL_DEFAULT_CONFIG.weights;
-
-  // E — how much the blended number differs from the posted one.
-  const E = kind === 'moneyline'
-    ? softSquash(probEdge, caps.mlCap ?? 0.05)
-    : softSquash(edgePoints, caps.pointsCap ?? 2.0);
-
-  // C — how much to trust the ratings behind it.
-  const sample = clamp01(Math.min(ctx.homeGames, ctx.awayGames) / 8);
-  let C = 0.4 + 0.5 * sample;
-  if (ctx.ratingSource !== 'results') C *= 0.8;
-  if (informationGap) C *= 0.6;
-  C = clamp01(C);
-
-  // S — rest and recent form, from the selected side's point of view.
-  let S = 0.5;
-  const notes = [];
-  if (kind !== 'total') {
-    const mine = sideIsHome ? ctx.homeRest : ctx.awayRest;
-    const theirs = sideIsHome ? ctx.awayRest : ctx.homeRest;
-    if (isNum(mine) && isNum(theirs)) {
-      const diff = mine - theirs;
-      if (diff >= 3) { S += 0.15; notes.push('rest_advantage'); }
-      else if (diff <= -3) { S -= 0.15; notes.push('rest_disadvantage'); }
-    }
-    const myTrend = sideIsHome ? ctx.homeTrend : ctx.awayTrend;
-    const theirTrend = sideIsHome ? ctx.awayTrend : ctx.homeTrend;
-    const trendDiff = (myTrend ?? 0) - (theirTrend ?? 0);
-    if (trendDiff >= 4) { S += 0.10; notes.push('form_up'); }
-    else if (trendDiff <= -4) { S -= 0.10; notes.push('form_down'); }
-  }
-  S = clamp01(S);
-
-  // M — is this a number worth trusting, and is the market moving with us?
-  let M = ctx.booksCount > 0 ? 0.45 + 0.4 * clamp01(ctx.booksCount / 6) : 0.6;
-  if (lineMoveToward === true) { M += 0.1; notes.push('line_move_with'); }
-  else if (lineMoveToward === false) { M -= 0.1; notes.push('line_move_against'); }
-  M = clamp01(M);
-
-  let total = clamp01(w.edge * E + w.conf * C + w.sit * S + w.mkt * M);
-  // A guarded pick is tracked, never recommended. Its size is the reason it
-  // is guarded, so it must not also earn a high conviction number.
-  if (guarded) total = Math.min(total, GUARDED_SCORE_CAP);
-  return {
-    betScore: {
-      total: round3(total),
-      components: {
-        edgeStrength: round3(E),
-        modelConfidence: round3(C),
-        situationalEdge: round3(S),
-        marketQuality: round3(M),
-      },
-      weights: { ...w },
-    },
-    notes,
-  };
-}
-
 function convictionLabel(total) {
-  if (total >= 0.85) return 'Top Play';
-  if (total >= 0.70) return 'Strong';
-  if (total >= 0.55) return 'Solid';
+  if (total >= 0.9) return 'Elite';
+  if (total >= 0.8) return 'Strong';
+  if (total >= 0.7) return 'Solid';
   return 'Lean';
 }
 
-function situationalBullets(notes, ctx, sideIsHome) {
+function tierForEv(ev, t) {
+  if (!isNum(ev)) return null;
+  if (ev >= t.tier1) return 'tier1';
+  if (ev >= t.tier2) return 'tier2';
+  if (ev >= t.tier3) return 'tier3';
+  return null;
+}
+
+function contextBullets(game, e) {
   const out = [];
-  const mine = sideIsHome ? ctx.homeRest : ctx.awayRest;
-  const theirs = sideIsHome ? ctx.awayRest : ctx.homeRest;
-  if (notes.includes('rest_advantage')) out.push(`Rest edge: ${mine} days since their last game against ${theirs} for the opponent.`);
-  if (notes.includes('rest_disadvantage')) out.push(`Rest disadvantage: ${mine} days since their last game against ${theirs} for the opponent.`);
-  if (notes.includes('form_up')) out.push('Recent form is running ahead of their season baseline.');
-  if (notes.includes('form_down')) out.push('Recent form is running behind their season baseline.');
-  if (notes.includes('line_move_with')) out.push('The line has moved toward this side since open.');
-  if (notes.includes('line_move_against')) out.push('The line has moved away from this side since open.');
+  const homeAbbr = game.teams.home.abbrev, awayAbbr = game.teams.away.abbrev;
+  if (e.projection && e.ratings) {
+    out.push(
+      `Maximus ratings: ${awayAbbr} ${fmtSigned(e.ratings.away.rating)}, ${homeAbbr} ${fmtSigned(e.ratings.home.rating)}; ` +
+      `projection ${homeAbbr} ${fmtLine(e.projection.fairSpreadHome)}, total ${e.projection.total.toFixed(1)}.`
+    );
+  }
+  for (const s of ['away', 'home']) {
+    const q = e.quarterbacks?.[s];
+    if (!q) continue;
+    if (q.uncertain && q.reason) out.push(`Quarterback: ${q.reason}.`);
+    else if (q.changed && q.starter && Math.abs(q.points) >= 0.5) {
+      out.push(
+        `Quarterback: ${q.starter} starts for ${q.team}; ${q.primary?.name || 'another quarterback'} took ${Math.round((q.primary?.share || 0) * 100)}% ` +
+        `of the snaps behind the rating. Worth ${fmtSigned(q.points)} points${q.lowSample ? ' on a small sample' : ''}.`
+      );
+    }
+  }
+  const mm = e.units?.mismatches?.[0];
+  if (mm) {
+    const A = (c) => (c === e.teams.home ? homeAbbr : awayAbbr);
+    out.push(
+      `Biggest unit mismatch: ${A(mm.offenseTeam)} ${UNIT_LABELS[mm.offense].toLowerCase()} (${mm.offenseGrade}) ` +
+      `against ${A(mm.defenseTeam)} ${UNIT_LABELS[mm.defense].toLowerCase()} (${mm.defenseGrade}).`
+    );
+  }
+  for (const tag of (e.situations || []).slice(0, 2)) out.push(tag.note);
   return out;
 }
 
-const INFO_GAP_NOTE =
-  'Model and market are more than a touchdown apart. That gap usually means news the ratings cannot see, such as an injury or a quarterback change. Tracked, not recommended.';
-
-function makePick({ game, kind, side, line, price, probs, edgePoints, scored, flags, rationale, ctx, projection, priced }) {
+function makePick({ game, e, kind, side, line, price, book, probs, ev, tier, role, reason, score, headline, bullets, components, modelSource }) {
   const away = teamShape(game.teams.away);
   const home = teamShape(game.teams.home);
   const team = side === 'away' ? away : side === 'home' ? home : null;
-
   const label = kind === 'total'
     ? `${side === 'over' ? 'Over' : 'Under'} ${line}`
     : kind === 'runline'
       ? `${team.shortName} ${fmtLine(line)}`
       : `${team.shortName} ${fmtOdds(price)}`.trim();
-
-  const total = scored.betScore.total;
+  const priceLabel = isNum(price) ? `${fmtOdds(price)}${book?.title ? ` at ${book.title}` : ''}` : null;
+  const winShare = probs && probs.win + probs.lose > 0 ? probs.win / (probs.win + probs.lose) : null;
   const legacyCategory = kind === 'moneyline' ? 'pickEms' : kind === 'runline' ? 'ats' : 'totals';
+  const isHero = role === 'hero';
 
-  const displayMetrics = kind === 'moneyline'
-    ? {
-        edgeLabel: 'Edge',
-        edgeValue: pct(probs.edge),
-        hitProbabilityLabel: 'Win %',
-        hitProbabilityValue: pct(probs.model),
-        hitProbabilityDescription: 'Model win probability after weighting the market.',
-      }
-    : {
-        edgeLabel: 'Line value',
-        edgeValue: `${fmtSigned(Math.abs(edgePoints))} pts`,
-        hitProbabilityLabel: kind === 'total' ? 'Model %' : 'Cover %',
-        hitProbabilityValue: pct(probs.model),
-        hitProbabilityDescription: 'Model probability this side of the number wins, after weighting the market.',
-      };
-  displayMetrics.signalQualityLabel = 'Signal Quality';
-  displayMetrics.signalQualityValue = `${Math.round(scored.betScore.components.modelConfidence * 100)}%`;
-  displayMetrics.signalQualityDescription =
-    'Signal quality is how much data sits behind the rating, not the probability this pick wins.';
-  displayMetrics.betScoreLabel = 'Bet Score';
-  displayMetrics.betScoreValue = String(Math.round(total * 100));
+  const displayMetrics = {
+    edgeLabel: 'Expected value',
+    edgeValue: isNum(ev) ? `${fmtSigned(ev * 100)}%` : null,
+    hitProbabilityLabel: kind === 'moneyline' ? 'Fair win %' : kind === 'total' ? 'Fair hit %' : 'Fair cover %',
+    hitProbabilityValue: pct(winShare),
+    hitProbabilityDescription: 'Chance this bet wins at this number, from the multi-book consensus, with pushes set aside.',
+    signalQualityLabel: 'Price',
+    signalQualityValue: priceLabel || '—',
+    signalQualityDescription: isHero
+      ? 'The book and price this pick is graded at. Expected value assumes you get this number or better.'
+      : (HOLD_REASONS[reason] || HOLD_REASONS.no_price_edge),
+    betScoreLabel: 'Conviction',
+    betScoreValue: String(Math.round(score * 100)),
+  };
 
   return {
     id: `${game.gameId}-${kind}-${side}`,
     sport: 'nfl',
     gameId: game.gameId,
     week: game.week ?? null,
-    tier: null,
-    pickRole: 'tracking',
-    conviction: { label: convictionLabel(total), score: Math.round(total * 100) },
+    tier: isHero ? tier : 'tracking',
+    pickRole: role,
+    conviction: { label: convictionLabel(score), score: Math.round(score * 100) },
 
     market: { type: kind, line: isNum(line) ? line : null, priceAmerican: isNum(price) ? price : null },
-    selection: { side, team: team?.shortName || null, label },
+    selection: { side, team: team?.shortName || null, label, priceLabel },
+    book: book ? { key: book.key, title: book.title } : null,
 
     matchup: {
       awayTeam: away,
@@ -234,248 +200,277 @@ function makePick({ game, kind, side, line, price, probs, edgePoints, scored, fl
       network: game.broadcast?.network || null,
     },
 
-    betScore: scored.betScore,
-    rationale: { ...rationale, pickRole: 'tracking' },
+    betScore: { total: round3(score), components, weights: null },
+    rationale: { headline, bullets, pickRole: role },
     displayMetrics,
-    flags,
+    flags: {
+      informationGap: false,
+      priceGuard: reason === 'price_guard',
+      qbInjury: reason === 'qb_uncertain' || reason === 'injury_feed_down',
+      tracking: !isHero,
+    },
 
-    modelProb: round3(probs.model),
-    impliedProb: round3(probs.implied),
-    rawEdge: round3(probs.edge),
-    edgePoints: isNum(edgePoints) ? Math.round(edgePoints * 10) / 10 : null,
-    expectedTotal: kind === 'total' ? projection.total : null,
-    isLowConviction: !!flags.informationGap || !!flags.priceGuard || !!flags.qbInjury,
-    lowSignalReason: flags.qbInjury ? 'qb_injury' : flags.informationGap ? 'information_gap' : flags.priceGuard ? 'price_guard' : null,
-    modelSource: ctx.ratingSource === 'results' ? 'nfl_ratings_v1' : 'nfl_standings_v1',
+    ev: round3(ev),
+    fair: probs ? {
+      win: round3(probs.win), push: round3(probs.push), lose: round3(probs.lose),
+      priceAmerican: probToAmerican(winShare),
+    } : null,
+    modelProb: round3(winShare),
+    impliedProb: round3(impliedProb(price)),
+    rawEdge: round3(ev),
+    edgePoints: kind === 'total' ? e.modelGap?.total ?? null : e.modelGap?.side ?? null,
+    expectedTotal: kind === 'total' ? (e.projection?.total ?? null) : null,
+    isLowConviction: !isHero,
+    lowSignalReason: isHero ? null : (reason || 'no_price_edge'),
+    modelSource,
 
     result: null,
 
     // Back-compat mirror for legacy consumers of the v1 shape.
     category: legacyCategory,
-    confidence: total >= 0.72 ? 'high' : total >= 0.62 ? 'medium' : 'low',
-    confidenceScore: Math.round(total * 100) / 100,
+    confidence: tier === 'tier1' ? 'high' : tier === 'tier2' ? 'medium' : 'low',
+    confidenceScore: Math.round(score * 100) / 100,
     pick: {
       label,
       side,
       value: kind === 'moneyline' ? (price ?? null) : line,
       marketType: kind,
-      explanation: rationale.headline,
-      topSignals: rationale.bullets.slice(0, 3),
+      explanation: headline,
+      topSignals: bullets.slice(0, 3),
     },
     model: {
-      awayWinProb: priced.moneyline?.awayWinProb ?? projection.awayWinProb,
-      homeWinProb: priced.moneyline?.homeWinProb ?? projection.homeWinProb,
-      impliedAwayWinProb: priced.moneyline?.impliedAway ?? null,
-      impliedHomeWinProb: priced.moneyline?.impliedHome ?? null,
-      edge: round3(Math.abs(probs.edge ?? 0)),
-      dataQuality: scored.betScore.components.modelConfidence,
+      awayWinProb: isNum(e.fair?.homeWin) ? round3(1 - e.fair.homeWin) : null,
+      homeWinProb: isNum(e.fair?.homeWin) ? e.fair.homeWin : null,
+      impliedAwayWinProb: isNum(e.consensus?.fairHomeWin) ? round3(1 - e.consensus.fairHomeWin) : null,
+      impliedHomeWinProb: e.consensus?.fairHomeWin ?? null,
+      edge: round3(Math.abs(ev ?? 0)),
+      dataQuality: components.modelConfidence,
       signalAgreement: null,
-      projectedMargin: projection.margin,
-      projectedTotal: projection.total,
+      projectedMargin: e.projection?.margin ?? null,
+      projectedTotal: e.projection?.total ?? null,
     },
   };
 }
 
+/** Best price on the board for a side at exactly the consensus line (or any moneyline). */
+function priceAtConsensus(offers, line) {
+  const pool = isNum(line) ? offers.filter((o) => o.line === line) : offers;
+  return pool.filter((o) => !o.flags.stale).sort((a, b) => b.ev - a.ev)[0] || null;
+}
+
 /**
  * @param {object} args
- * @param {Array}  args.games    — normalized NFL games (see api/nfl/live/_normalize.js)
- * @param {object} args.ratings  — output of buildNflRatings()
+ * @param {Array}  args.games   normalized NFL games with an `engine` block (api/_lib/nflSlate.js)
  * @param {object} [args.config]
  * @param {object} [args.scorecardSummary]
  * @param {Date}   [args.now]
  */
 export function buildNflPicksV2({
   games = [],
-  ratings = null,
   config = NFL_DEFAULT_CONFIG,
   modelVersion = NFL_MODEL_VERSION,
   scorecardSummary = null,
   now = new Date(),
+  // Accepted and ignored: v1 callers passed the ratings here.
+  ratings = null, // eslint-disable-line no-unused-vars
 } = {}) {
+  const cfg = { ...NFL_DEFAULT_CONFIG, ...(config || {}) };
+  const thresholds = { ...NFL_DEFAULT_CONFIG.evThresholds, ...(cfg.evThresholds || {}) };
+  const guards = { ...NFL_DEFAULT_CONFIG.guards, ...(cfg.guards || {}) };
+  const nowMs = now.getTime();
   const meta = {
-    totalCandidates: 0, qualifiedGames: 0, skippedGames: 0, picksPublished: 0,
-    flags: [], ratingSource: ratings?.source || 'none', ratingGames: ratings?.games || 0,
+    totalCandidates: 0, qualifiedGames: 0, skippedGames: 0, picksPublished: 0, flags: [],
+    heldByReason: {}, booksSeen: [],
   };
 
-  const upcoming = (games || []).filter(g => {
+  const upcoming = (games || []).filter((g) => {
     const s = (g?.status || '').toLowerCase();
-    return g && !g.gameState?.isLive && !g.gameState?.isFinal && s !== 'final' && s !== 'live';
+    return g && !g.gameState?.isLive && !g.gameState?.isFinal && s !== 'final' && s !== 'live' && s !== 'postponed';
   }).sort((a, b) => Date.parse(a.startTime || 0) - Date.parse(b.startTime || 0));
 
   meta.totalCandidates = upcoming.length;
-  const week = upcoming.find(g => g.week != null)?.week ?? games.find(g => g?.week != null)?.week ?? null;
+  const week = upcoming.find((g) => g.week != null)?.week ?? games.find((g) => g?.week != null)?.week ?? null;
   const seasonType = upcoming[0]?.seasonType ?? games[0]?.seasonType ?? null;
+  const bookSet = new Set();
 
-  if (!ratings || Object.keys(ratings.teams || {}).length === 0) meta.flags.push('no_ratings');
-
-  const candidates = [];
+  const heroCandidates = [];
+  const all = [];
   const byGame = [];
 
   for (const game of upcoming) {
-    const homeSlug = game.teams?.home?.slug;
-    const awaySlug = game.teams?.away?.slug;
-    const projection = homeSlug && awaySlug
-      ? projectNflGame({ homeSlug, awaySlug, ratings, neutralSite: !!game.venue?.neutralSite })
-      : null;
-    if (!projection) { meta.skippedGames += 1; continue; }
+    const e = game.engine;
+    if (!e || !game.teams?.home?.abbrev || !game.teams?.away?.abbrev) { meta.skippedGames += 1; continue; }
+    meta.qualifiedGames += 1;
+    const books = game.market?.books || [];
+    for (const b of books) bookSet.add(b.key);
+    const homeAbbr = game.teams.home.abbrev;
+    const hoursOut = (Date.parse(game.startTime || '') - nowMs) / 3_600_000;
 
-    const mkt = game.market || {};
-    const priced = priceNflGame({
-      projection,
-      market: {
-        spreadHome: mkt.pregameSpread,
-        total: mkt.pregameTotal,
-        moneylineHome: mkt.moneyline?.home,
-        moneylineAway: mkt.moneyline?.away,
-      },
-    });
+    // A reason that holds every pick on this game to tracking.
+    let gameHold = null;
+    if (e.flags?.qbUncertain) gameHold = e.flags.injuryFeedDown && !Object.values(e.quarterbacks || {}).some((q) => q.status) ? 'injury_feed_down' : 'qb_uncertain';
+    else if (!(hoursOut <= cfg.lockWindowHours)) gameHold = 'outside_window';
 
-    const homeR = ratings.teams[homeSlug];
-    const awayR = ratings.teams[awaySlug];
-    const ctx = {
-      homeGames: homeR?.games || 0,
-      awayGames: awayR?.games || 0,
-      homeRest: restDays(homeR, game.startTime),
-      awayRest: restDays(awayR, game.startTime),
-      homeTrend: homeR?.formTrend ?? 0,
-      awayTrend: awayR?.formTrend ?? 0,
-      ratingSource: ratings.source,
-      booksCount: mkt.booksCount || 0,
+    const fair = e.fair || {};
+    const priced = (market, side) => priceOffers({ market, side, books, fair: { margin: fair.margin, total: fair.total, homeWin: fair.homeWin }, consensus: e.consensus, params: cfg.market });
+    const offers = {
+      runline: { home: priced('spread', 'home'), away: priced('spread', 'away') },
+      moneyline: { home: priced('moneyline', 'home'), away: priced('moneyline', 'away') },
+      total: { over: priced('total', 'over'), under: priced('total', 'under') },
     };
 
-    const homeAbbr = game.teams.home.abbrev;
-    const awayAbbr = game.teams.away.abbrev;
-
-    // The ratings come from results and do not know who starts. A
-    // quarterback tagged Out or Doubtful this week is information the
-    // model lacks, so every pick on the game is tracked, not recommended.
-    const qbNotes = [
-      ...(game.injuries?.away?.quarterbacks || []).map((q) => `${awayAbbr} QB ${q.name} (${String(q.status).toLowerCase()})`),
-      ...(game.injuries?.home?.quarterbacks || []).map((q) => `${homeAbbr} QB ${q.name} (${String(q.status).toLowerCase()})`),
-    ];
-    const qbInjury = qbNotes.length > 0;
-    const qbNote = qbInjury
-      ? `Injury report: ${qbNotes.join(', ')}. The ratings do not account for who starts at quarterback, so this is tracked, not recommended.`
-      : null;
-    if (qbInjury) meta.qbInjuryGames = (meta.qbInjuryGames || 0) + 1;
-
-    const ratingLine =
-      `Ratings: ${awayAbbr} ${fmtSigned(awayR?.rating)} (off ${fmtSigned(awayR?.offense)}, def ${fmtSigned(awayR?.defense)}), ` +
-      `${homeAbbr} ${fmtSigned(homeR?.rating)} (off ${fmtSigned(homeR?.offense)}, def ${fmtSigned(homeR?.defense)}).`;
-
     const picks = { moneyline: null, runline: null, total: null };
-    meta.qualifiedGames += 1;
+    const context = () => contextBullets(game, e);
+    const windTag = (e.situations || []).find((t) => t.key === 'windUnder' && t.weight !== 0);
 
-    // ── Spread ──
-    if (priced.side && priced.side.edgePoints !== 0) {
-      const s = priced.side;
-      const sideIsHome = s.edgePoints > 0;
-      const side = sideIsHome ? 'home' : 'away';
-      const line = sideIsHome ? s.marketSpreadHome : -s.marketSpreadHome;
-      const cover = sideIsHome ? s.homeCoverProb : s.awayCoverProb;
-      const moved = isNum(mkt.openSpread) && mkt.openSpread !== s.marketSpreadHome
-        ? (sideIsHome ? s.marketSpreadHome < mkt.openSpread : s.marketSpreadHome > mkt.openSpread)
-        : null;
-      const flags = { informationGap: s.informationGap, qbInjury };
-      const scored = scoreCandidate({
-        kind: 'runline', edgePoints: s.edgePoints, sideIsHome, ctx, config,
-        informationGap: s.informationGap, lineMoveToward: moved,
-        guarded: s.informationGap || qbInjury,
-      });
-      const team = sideIsHome ? game.teams.home : game.teams.away;
-      const bullets = [
-        `Power ratings make this ${homeAbbr} ${fmtLine(s.modelSpreadHome)}; the market is ${homeAbbr} ${fmtLine(s.marketSpreadHome)}. ` +
-        `After weighting the market, the model's number is ${homeAbbr} ${fmtLine(s.blendedSpreadHome)}.`,
-        ratingLine,
-        ...situationalBullets(scored.notes, ctx, sideIsHome),
-      ];
-      if (s.informationGap) bullets.unshift(INFO_GAP_NOTE);
-      if (qbNote) bullets.unshift(qbNote);
-      picks.runline = makePick({
-        game, kind: 'runline', side, line, price: null,
-        probs: { model: cover, implied: 0.5, edge: cover - 0.5 },
-        edgePoints: s.edgePoints, scored, flags, ctx, projection, priced,
-        rationale: {
-          headline: `${team.name} ${fmtLine(line)}: model sees ${Math.abs(s.edgePoints).toFixed(1)} points of value on the number`,
-          bullets,
+    // ── Value candidates: the best clean offer on each side of each market ──
+    const candidates = [];
+    for (const kind of ['runline', 'moneyline', 'total']) {
+      for (const side of Object.keys(offers[kind])) {
+        const list = offers[kind][side];
+        const top = list[0];
+        const clean = bestOffer(list);
+        let cand = clean || top;
+        if (!cand) continue;
+        let hold = gameHold;
+        // The best number on the board is flagged and nothing clean qualifies:
+        // show it, held, so the reader sees why it is not a pick.
+        const flagged = top && (top.flags.stale || top.flags.implausible);
+        if (flagged && tierForEv(top.ev, thresholds) && !(clean && tierForEv(clean.ev, thresholds))) {
+          cand = top;
+          hold = hold || (top.flags.implausible ? 'price_outlier' : 'stale_price');
+        }
+        if (kind === 'moneyline' && (cand.price < guards.mlMaxFavorite || cand.price > guards.mlMaxUnderdog)) hold = hold || 'price_guard';
+        candidates.push({ kind, side, offer: cand, hold, tier: tierForEv(cand.ev, thresholds) });
+      }
+    }
+    const qualifying = candidates.filter((c) => c.tier).sort((x, y) => y.offer.ev - x.offer.ev);
+    const bestSide = qualifying.find((c) => c.kind !== 'total') || null;
+    const bestTotal = qualifying.find((c) => c.kind === 'total') || null;
+
+    const valuePick = (c, shadowed = false) => {
+      const { kind, side, offer } = c;
+      const team = side === 'home' ? game.teams.home : side === 'away' ? game.teams.away : null;
+      const name = kind === 'total' ? `${side === 'over' ? 'Over' : 'Under'} ${offer.line}` : kind === 'runline' ? `${team.name} ${fmtLine(offer.line)}` : `${team.name} to win`;
+      const winShare = offer.probs.win / (offer.probs.win + offer.probs.lose);
+      const fairPrice = probToAmerican(winShare);
+      const wind = kind === 'total' && side === 'under' && windTag;
+      const bullets = [];
+      if (kind === 'total') {
+        bullets.push(`${e.consensus.counts.total} books put the fair total at ${e.consensus.fairTotal.toFixed(1)}${wind ? `, and wind takes it to ${fair.total.toFixed(1)}` : ''}. ${offer.title} has ${side === 'over' ? 'Over' : 'Under'} ${offer.line} at ${fmtOdds(offer.price)}.`);
+      } else if (kind === 'runline') {
+        bullets.push(`${e.consensus.counts.spread} books make this ${homeAbbr} ${fmtLine(e.consensus.spreadHome)}. ${offer.title} has ${team.abbrev} ${fmtLine(offer.line)} at ${fmtOdds(offer.price)}.`);
+      } else {
+        bullets.push(`${e.consensus.counts.moneyline} books put ${team.abbrev} at ${pct(winShare)} to win with the vig removed. ${offer.title} is paying ${fmtOdds(offer.price)}.`);
+      }
+      bullets.push(
+        `At that number the bet wins ${pct(offer.probs.win)}${offer.probs.push > 0.001 ? `, pushes ${pct(offer.probs.push)}` : ''}; ` +
+        `the price needs ${pct(offer.implied)}. Fair price ${fmtOdds(fairPrice)}, expected value ${fmtSigned(offer.ev * 100)}% per unit.`
+      );
+      if (wind) bullets.push(windTag.note);
+      bullets.push(...context(side).filter((b) => !wind || b !== windTag.note));
+      const hold = c.hold || (shadowed ? 'same_side' : null);
+      if (hold) bullets.unshift(HOLD_REASONS[hold]);
+      const role = hold ? 'tracking' : 'hero';
+      const score = hold ? Math.min(0.49, convictionFromEv(offer.ev) - 0.2) : convictionFromEv(offer.ev);
+      return makePick({
+        game, e, kind, side, line: kind === 'moneyline' ? null : offer.line, price: offer.price,
+        book: { key: offer.book, title: offer.title }, probs: offer.probs, ev: offer.ev,
+        tier: c.tier, role, reason: hold, score,
+        headline: wind
+          ? `${name}: ${Math.round(e.env.wind)} mph wind and ${fmtOdds(offer.price)} at ${offer.title}`
+          : `${name} at ${fmtOdds(offer.price)} (${offer.title}): the market’s fair price is ${fmtOdds(fairPrice)}`,
+        bullets,
+        components: {
+          edgeStrength: round3(clamp01(offer.ev / 0.06)),
+          modelConfidence: round3(clamp01((e.consensus.books || 0) / 10)),
+          situationalEdge: wind ? 1 : 0.5,
+          marketQuality: round3(clamp01((e.consensus.books || 0) / 10)),
         },
+        modelSource: wind ? 'nfl_v2_wind' : 'nfl_v2_price',
+      });
+    };
+
+    if (bestSide) picks[bestSide.kind] = valuePick(bestSide);
+    if (bestTotal) picks.total = valuePick(bestTotal);
+    // A qualifying price on the other side market is the same opinion; show it, do not double up.
+    const otherSide = bestSide && qualifying.find((c) => c.kind !== 'total' && c.kind !== bestSide.kind);
+    if (otherSide && !picks[otherSide.kind]) picks[otherSide.kind] = valuePick(otherSide, true);
+
+    // ── Model leans for every market without a value pick ──
+    const leanSideHome = isNum(e.modelGap?.side) ? e.modelGap.side > 0 : null;
+    const leanOver = isNum(e.modelGap?.total) ? e.modelGap.total > 0 : null;
+    const baseReason = gameHold === 'qb_uncertain' || gameHold === 'injury_feed_down' ? gameHold
+      : e.flags?.dataGap ? 'data_gap' : e.flags?.thinMarket ? 'thin_market' : 'no_price_edge';
+    const leanComponents = (gap) => ({
+      edgeStrength: round3(clamp01(Math.abs(gap ?? 0) / 10)),
+      modelConfidence: round3(clamp01((e.consensus?.books || 0) / 10)),
+      situationalEdge: 0.5,
+      marketQuality: round3(clamp01((e.consensus?.books || 0) / 10)),
+    });
+    const leanBullets = (reason, lead, side) => [HOLD_REASONS[reason], lead, ...context(side)].filter(Boolean);
+
+    if (!picks.runline && isNum(e.consensus?.spreadHome)) {
+      const sideIsHome = leanSideHome ?? ((offers.runline.home[0]?.ev ?? -1) >= (offers.runline.away[0]?.ev ?? -1));
+      const side = sideIsHome ? 'home' : 'away';
+      const line = sideIsHome ? e.consensus.spreadHome : -e.consensus.spreadHome;
+      const at = priceAtConsensus(offers.runline[side], line);
+      const probs = at?.probs || (isNum(fair.margin) ? spreadProbs(fair.margin, e.consensus.spreadHome, side) : null);
+      const price = at?.price ?? -110;
+      const team = sideIsHome ? game.teams.home : game.teams.away;
+      const gap = e.modelGap?.side;
+      picks.runline = makePick({
+        game, e, kind: 'runline', side, line, price, book: at ? { key: at.book, title: at.title } : null,
+        probs, ev: probs ? expectedValue(probs, price) : null, tier: null, role: 'tracking', reason: baseReason, score: leanScore(gap),
+        headline: e.projection
+          ? `Model lean: ${team.name} ${fmtLine(line)}. Ratings make it ${homeAbbr} ${fmtLine(e.projection.fairSpreadHome)} against a market of ${homeAbbr} ${fmtLine(e.consensus.spreadHome)}`
+          : `${team.name} ${fmtLine(line)}: no model lean available`,
+        bullets: leanBullets(baseReason, isNum(gap) ? `The ratings and the market are ${Math.abs(gap).toFixed(1)} points apart. Over 4,096 games since 2011, gaps like this have not predicted which side covers.` : null, side),
+        components: leanComponents(gap), modelSource: 'nfl_v2_lean',
       });
     }
-
-    // ── Moneyline ──
-    if (priced.moneyline?.priced) {
-      const m = priced.moneyline;
-      const sideIsHome = (m.homeEdge ?? 0) > (m.awayEdge ?? 0);
-      const edge = sideIsHome ? m.homeEdge : m.awayEdge;
-      if (isNum(edge) && edge > 0) {
-        const side = sideIsHome ? 'home' : 'away';
-        const price = sideIsHome ? mkt.moneyline.home : mkt.moneyline.away;
-        const modelProb = sideIsHome ? m.homeWinProb : m.awayWinProb;
-        const implied = sideIsHome ? m.impliedHome : m.impliedAway;
-        const guards = config?.guards || NFL_DEFAULT_CONFIG.guards;
-        const priceGuard = isNum(price) && (price < guards.mlMaxFavorite || price > guards.mlMaxUnderdog);
-        const informationGap = !!priced.side?.informationGap;
-        const flags = { informationGap, priceGuard, qbInjury };
-        const scored = scoreCandidate({
-          kind: 'moneyline', probEdge: edge, sideIsHome, ctx, config,
-          informationGap, lineMoveToward: null, guarded: informationGap || priceGuard || qbInjury,
-        });
+    if (!picks.moneyline && isNum(fair.homeWin)) {
+      const sideIsHome = picks.runline ? picks.runline.selection.side === 'home' : (leanSideHome ?? fair.homeWin >= 0.5);
+      const side = sideIsHome ? 'home' : 'away';
+      const at = priceAtConsensus(offers.moneyline[side], null);
+      if (at) {
         const team = sideIsHome ? game.teams.home : game.teams.away;
-        const bullets = [
-          `Model win probability ${pct(modelProb)} against a no-vig market price of ${pct(implied)}.`,
-          ratingLine,
-          ...situationalBullets(scored.notes, ctx, sideIsHome),
-        ];
-        if (informationGap) bullets.unshift(INFO_GAP_NOTE);
-        if (qbNote) bullets.unshift(qbNote);
-        if (priceGuard) bullets.push('Price is outside the range the model promotes. Tracked, not recommended.');
+        const win = sideIsHome ? fair.homeWin : 1 - fair.homeWin;
+        const reason = (at.price < guards.mlMaxFavorite || at.price > guards.mlMaxUnderdog) && baseReason === 'no_price_edge' ? 'price_guard' : baseReason;
         picks.moneyline = makePick({
-          game, kind: 'moneyline', side, line: null, price,
-          probs: { model: modelProb, implied, edge },
-          edgePoints: null, scored, flags, ctx, projection, priced,
-          rationale: {
-            headline: `${team.name} to win: model ${pct(modelProb, 0)} against a ${pct(implied, 0)} market`,
-            bullets,
-          },
+          game, e, kind: 'moneyline', side, line: null, price: at.price, book: { key: at.book, title: at.title },
+          probs: at.probs, ev: at.ev, tier: null, role: 'tracking', reason, score: leanScore(e.modelGap?.side),
+          headline: `Model lean: ${team.name} to win. Market ${pct(win, 0)}, best price ${fmtOdds(at.price)}`,
+          bullets: leanBullets(reason, `The market gives ${team.abbrev} a ${pct(win)} chance with the vig removed; ${at.title} pays ${fmtOdds(at.price)}, which needs ${pct(at.implied)}.`, side),
+          components: leanComponents(e.modelGap?.side), modelSource: 'nfl_v2_lean',
         });
       }
     }
-
-    // ── Total ──
-    if (priced.total && priced.total.edgePoints !== 0) {
-      const t = priced.total;
-      const over = t.edgePoints > 0;
+    if (!picks.total && isNum(e.consensus?.total)) {
+      const over = leanOver ?? ((offers.total.over[0]?.ev ?? -1) >= (offers.total.under[0]?.ev ?? -1));
       const side = over ? 'over' : 'under';
-      const prob = over ? t.overProb : t.underProb;
-      const moved = isNum(mkt.openTotal) && mkt.openTotal !== t.marketTotal
-        ? (over ? t.marketTotal > mkt.openTotal : t.marketTotal < mkt.openTotal)
-        : null;
-      const flags = { informationGap: t.informationGap, qbInjury };
-      const scored = scoreCandidate({
-        kind: 'total', edgePoints: t.edgePoints, sideIsHome: false, ctx, config,
-        informationGap: t.informationGap, lineMoveToward: moved,
-        guarded: t.informationGap || qbInjury,
-      });
-      const bullets = [
-        `Ratings project ${projection.awayPoints.toFixed(1)}–${projection.homePoints.toFixed(1)}, a total of ${t.modelTotal.toFixed(1)} against a posted ${t.marketTotal}. ` +
-        `After weighting the market, the model's number is ${t.blendedTotal.toFixed(1)}.`,
-        ratingLine,
-        ...situationalBullets(scored.notes, ctx, false),
-      ];
-      if (t.informationGap) bullets.unshift(INFO_GAP_NOTE);
-      if (qbNote) bullets.unshift(qbNote);
+      const line = e.consensus.total;
+      const at = priceAtConsensus(offers.total[side], line);
+      const probs = at?.probs || (isNum(fair.total) ? totalProbs(fair.total, line, side) : null);
+      const price = at?.price ?? -110;
+      const gap = e.modelGap?.total;
       picks.total = makePick({
-        game, kind: 'total', side, line: t.marketTotal, price: null,
-        probs: { model: prob, implied: 0.5, edge: prob - 0.5 },
-        edgePoints: t.edgePoints, scored, flags, ctx, projection, priced,
-        rationale: {
-          headline: `${over ? 'Over' : 'Under'} ${t.marketTotal}: model total ${t.blendedTotal.toFixed(1)}`,
-          bullets,
-        },
+        game, e, kind: 'total', side, line, price, book: at ? { key: at.book, title: at.title } : null,
+        probs, ev: probs ? expectedValue(probs, price) : null, tier: null, role: 'tracking', reason: baseReason, score: leanScore(gap),
+        headline: e.projection
+          ? `Model lean: ${over ? 'Over' : 'Under'} ${line}. Ratings project ${e.projection.total.toFixed(1)} against a market of ${line}`
+          : `${over ? 'Over' : 'Under'} ${line}: no model lean available`,
+        bullets: leanBullets(baseReason, e.projection ? `Ratings project ${e.projection.awayPoints.toFixed(1)} to ${e.projection.homePoints.toFixed(1)}. Since 2011 the ratings’ disagreements with the closing total have not reliably predicted overs or unders.` : null, null),
+        components: leanComponents(gap), modelSource: 'nfl_v2_lean',
       });
     }
 
-    for (const p of Object.values(picks)) if (p) candidates.push(p);
+    for (const p of Object.values(picks)) {
+      if (!p) continue;
+      all.push(p);
+      if (p.pickRole === 'hero') heroCandidates.push(p);
+      else meta.heldByReason[p.lowSignalReason] = (meta.heldByReason[p.lowSignalReason] || 0) + 1;
+    }
 
     byGame.push({
       gameId: game.gameId,
@@ -484,56 +479,61 @@ export function buildNflPicksV2({
       awayTeam: teamShape(game.teams.away),
       homeTeam: teamShape(game.teams.home),
       network: game.broadcast?.network || null,
-      projection: {
-        margin: projection.margin,
-        fairSpreadHome: projection.fairSpreadHome,
-        total: projection.total,
-        homePoints: projection.homePoints,
-        awayPoints: projection.awayPoints,
-        homeWinProb: priced.moneyline?.homeWinProb ?? projection.homeWinProb,
-      },
+      projection: e.projection ? {
+        margin: e.projection.margin,
+        fairSpreadHome: e.projection.fairSpreadHome,
+        total: e.projection.total,
+        homePoints: e.projection.homePoints,
+        awayPoints: e.projection.awayPoints,
+        homeWinProb: e.fair?.homeWin ?? null,
+        parts: e.projection.parts,
+      } : null,
       market: {
-        spreadHome: isNum(mkt.pregameSpread) ? mkt.pregameSpread : null,
-        total: isNum(mkt.pregameTotal) ? mkt.pregameTotal : null,
-        moneyline: mkt.moneyline || null,
+        spreadHome: e.consensus?.spreadHome ?? null,
+        total: e.consensus?.total ?? null,
+        moneyline: game.market?.moneyline || null,
+        fairMargin: e.consensus?.fairMargin ?? null,
+        fairTotal: e.consensus?.fairTotal ?? null,
+        fairHomeWin: e.consensus?.fairHomeWin ?? null,
+        books: e.consensus?.books ?? 0,
       },
+      fair: e.fair || null,
+      quarterbacks: e.quarterbacks || null,
+      units: e.units || null,
+      situations: e.situations || [],
+      environment: e.env || null,
+      coaches: e.coaches || null,
       injuries: game.injuries || null,
+      flags: e.flags || {},
       picks,
     });
   }
 
-  // Never let a zero or invalid score reach the UI.
-  const clean = candidates.filter(p => Number.isFinite(p.betScore?.total) && p.betScore.total > 0);
-  meta.invalidBetScoreDropped = candidates.length - clean.length;
-
-  // Tiers: only picks without a guard flag are eligible to be promoted.
-  const eligible = clean.filter(p => !p.flags?.informationGap && !p.flags?.priceGuard && !p.flags?.qbInjury);
-  const assigned = assignTiers(eligible, config);
-  const heroIds = new Set(assigned.published.map(p => p.id));
-  for (const p of clean) {
-    if (heroIds.has(p.id)) {
-      p.pickRole = 'hero';
-      p.rationale.pickRole = 'hero';
-    } else {
-      p.tier = 'tracking';
+  // ── Tiers: fixed thresholds, capped per tier and per game ──
+  const caps = { ...NFL_DEFAULT_CONFIG.maxPerTier, ...(cfg.maxPerTier || {}) };
+  const tiers = { tier1: [], tier2: [], tier3: [] };
+  const perGame = new Map();
+  for (const p of [...heroCandidates].sort((a, b) => (b.ev ?? 0) - (a.ev ?? 0))) {
+    const n = perGame.get(p.gameId) || 0;
+    const room = tiers[p.tier].length < caps[p.tier] && n < cfg.maxPerGame;
+    if (!room) {
+      p.pickRole = 'tracking'; p.rationale.pickRole = 'tracking'; p.tier = 'tracking';
+      p.isLowConviction = true; p.lowSignalReason = 'no_price_edge'; p.flags.tracking = true;
+      continue;
     }
+    tiers[p.tier].push(p);
+    perGame.set(p.gameId, n + 1);
   }
-  meta.picksPublished = assigned.published.length;
-  if (upcoming.length > 0 && assigned.published.length === 0) meta.flags.push('no_qualified_edges');
+  const published = [...tiers.tier1, ...tiers.tier2, ...tiers.tier3];
+  meta.picksPublished = published.length;
+  meta.booksSeen = [...bookSet].sort();
+  if (upcoming.length > 0 && published.length === 0) meta.flags.push('no_qualified_edges');
+  if (upcoming.some((g) => g.engine?.flags?.dataGap)) meta.flags.push('model_data_gap');
+  if (upcoming.some((g) => g.engine?.flags?.injuryFeedDown)) meta.flags.push('injury_feed_down');
 
-  const guards = config?.guards || NFL_DEFAULT_CONFIG.guards;
-  const coverage = eligible
-    .filter(p => !heroIds.has(p.id) && p.betScore.total >= guards.coverageMinScore)
-    .sort((a, b) => b.betScore.total - a.betScore.total)
-    .slice(0, guards.coverageMaxPicks)
-    .map(p => ({ ...p, tier: 'coverage', _coverage: true }));
-  meta.coverageAvailable = coverage.length;
-
-  const topPick = assigned.tier1[0] || assigned.tier2[0] || null;
-  const trackingPicks = clean.filter(p => p.pickRole !== 'hero');
-
+  const trackingPicks = all.filter((p) => p.pickRole !== 'hero');
   const categories = { pickEms: [], ats: [], leans: [], totals: [] };
-  for (const p of assigned.published) {
+  for (const p of published) {
     if (p.market.type === 'total') categories.totals.push(p);
     else if (p.market.type === 'runline') categories.ats.push(p);
     else if (p.tier === 'tier3') categories.leans.push(p);
@@ -547,23 +547,22 @@ export function buildNflPicksV2({
     seasonType,
     slateLabel: week != null ? `Week ${week}` : null,
     modelVersion,
-    configVersion: config?.version || 'nfl-picks-unknown',
+    configVersion: cfg.version || 'nfl-picks-unknown',
     generatedAt: now.toISOString(),
-    topPick,
-    tiers: { tier1: assigned.tier1, tier2: assigned.tier2, tier3: assigned.tier3 },
-    coverage,
-    fullSlatePicks: clean,
-    heroPicks: assigned.published,
+    topPick: tiers.tier1[0] || tiers.tier2[0] || tiers.tier3[0] || null,
+    tiers,
+    coverage: [],
+    fullSlatePicks: all,
+    heroPicks: published,
     trackingPicks,
     byGame,
     scorecardSummary: scorecardSummary || null,
     meta: {
       ...meta,
       model: {
-        homeField: NFL_MODEL.HOME_FIELD,
-        marketWeightSide: NFL_MODEL.MARKET_WEIGHT_SIDE,
-        marketWeightTotal: NFL_MODEL.MARKET_WEIGHT_TOTAL,
-        leaguePpg: ratings?.leaguePpg ?? null,
+        evThresholds: thresholds,
+        modelWeight: cfg.modelWeight,
+        lockWindowHours: cfg.lockWindowHours,
       },
     },
     legacy: { categories },

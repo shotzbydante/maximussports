@@ -15,8 +15,9 @@
  *     sport: 'nfl',
  *     window: { from, to, days },
  *     record, byMarket, byPickRole,          // window totals
+ *     performance: { hero, tracking },       // record, units, ROI, closing-line value
  *     slates: [{ date, record, picks: [...] }],
- *     season: { record, byMarket, byPickRole, slates } | null,
+ *     season: { record, byMarket, byPickRole, performance, slates } | null,
  *     generatedAt
  *   }
  */
@@ -27,6 +28,8 @@ import { todayET } from '../../_lib/dateWindows.js';
 import { getNflSlate } from '../../_lib/nflSlate.js';
 import { settlePick } from '../../../src/features/mlb/picks/v2/settle.js';
 import { getNflTeamBySlug } from '../../../src/sports/nfl/teams.js';
+import { unitsFor } from '../../../src/features/nfl/picks/v2/distribution.js';
+import { summarizePerformance, addPerformance, presentPerformance } from '../../../src/features/nfl/picks/v2/performance.js';
 
 const ZERO = () => ({ won: 0, lost: 0, push: 0, pending: 0 });
 
@@ -86,6 +89,7 @@ export default async function handler(req, res) {
     record: ZERO(),
     byMarket: { moneyline: ZERO(), runline: ZERO(), total: ZERO() },
     byPickRole: { hero: ZERO(), tracking: ZERO() },
+    performance: { hero: presentPerformance(summarizePerformance([]).hero), tracking: presentPerformance(summarizePerformance([]).tracking) },
     slates: [],
     season: null,
     generatedAt: new Date().toISOString(),
@@ -98,8 +102,10 @@ export default async function handler(req, res) {
   try {
     const [stored, { data: cards }, slate] = await Promise.all([
       getNflPicks({ from, to }),
+      // `select('*')` on purpose: naming a column the table does not have
+      // fails the whole read, which is how the season block went missing.
       admin.from('picks_daily_scorecards')
-        .select('slate_date, record, by_market, by_pick_role')
+        .select('*')
         .eq('sport', 'nfl')
         .order('slate_date', { ascending: false })
         .limit(200),
@@ -113,6 +119,7 @@ export default async function handler(req, res) {
     }
 
     const bySlate = new Map();
+    const graded = [];
     for (const p of stored.picks) {
       const settled = Array.isArray(p.pick_results) ? p.pick_results[0] : p.pick_results;
       let status = settled?.status || 'pending';
@@ -131,6 +138,9 @@ export default async function handler(req, res) {
       }
 
       const pickRole = p.rationale?.pickRole || (p.tier === 'tracking' ? 'tracking' : 'hero');
+      const price = p.price_american == null ? null : Number(p.price_american);
+      const units = settled?.units != null ? Number(settled.units) : unitsFor(status, price);
+      graded.push({ ...p, pick_results: { status, units } });
       const away = getNflTeamBySlug(p.away_team_slug);
       const home = getNflTeamBySlug(p.home_team_slug);
 
@@ -154,6 +164,13 @@ export default async function handler(req, res) {
         side: p.selection_side,
         line: p.line_value,
         price: p.price_american,
+        book: p.book || null,
+        lockedAt: p.locked_at || null,
+        units: status === 'pending' ? null : units,
+        expectedValue: p.expected_value == null ? null : Number(p.expected_value),
+        closingLine: p.closing_line == null ? null : Number(p.closing_line),
+        clvPoints: p.clv_points == null ? null : Number(p.clv_points),
+        clvEv: p.clv_ev == null ? null : Number(p.clv_ev),
         label: pickLabel(p),
         tier: p.tier,
         pickRole,
@@ -173,11 +190,22 @@ export default async function handler(req, res) {
         || (b.conviction - a.conviction));
     }
 
-    const season = (cards || []).length > 0
-      ? { ...sumScorecards(cards), slates: cards.length, lastGradedDate: cards[0]?.slate_date || null }
-      : null;
+    const windowPerf = summarizePerformance(graded);
+    const performance = { hero: presentPerformance(windowPerf.hero), tracking: presentPerformance(windowPerf.tracking) };
 
-    return res.status(200).json({ ...base, slates, season, week: slate?.week ?? null });
+    let season = null;
+    if ((cards || []).length > 0) {
+      const seasonPerf = addPerformance(cards.map((c) => c.performance).filter(Boolean));
+      const hasPerf = cards.some((c) => c.performance);
+      season = {
+        ...sumScorecards(cards),
+        performance: hasPerf ? { hero: presentPerformance(seasonPerf.hero), tracking: presentPerformance(seasonPerf.tracking) } : null,
+        slates: cards.length,
+        lastGradedDate: cards[0]?.slate_date || null,
+      };
+    }
+
+    return res.status(200).json({ ...base, performance, slates, season, week: slate?.week ?? null });
   } catch (e) {
     return res.status(200).json({ ...base, _error: 'exception', _detail: e?.message });
   }

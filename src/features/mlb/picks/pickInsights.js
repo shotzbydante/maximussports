@@ -12,7 +12,7 @@
 
 function marketTypeSituationLabel(pick) {
   const m = pick?.market?.type;
-  if (pick?.sport === 'nfl') return m === 'total' ? 'scoring pace context' : 'rest + recent form';
+  if (pick?.sport === 'nfl') return m === 'total' ? 'weather + game conditions' : 'schedule + matchup context';
   if (m === 'total') return 'park + pitching context';
   if (m === 'runline') return 'spread + margin context';
   return 'rotation + bullpen context';
@@ -30,9 +30,18 @@ const DRIVER_MAP = {
  *
  *   { key: 'edgeStrength', value: 0.82, bucket: 'edge', label: 'market mispricing' }
  */
+const NFL_DRIVERS = {
+  nfl_v2_price: { key: 'edgeStrength', bucket: 'edge', label: 'price beats the market' },
+  nfl_v2_wind: { key: 'situationalEdge', bucket: 'situation', label: 'wind and the total' },
+  nfl_v2_lean: { key: 'modelConfidence', bucket: 'confidence', label: 'ratings lean' },
+};
+
 export function primaryDriver(pick) {
   const c = pick?.betScore?.components;
   if (!c) return null;
+  // NFL v2 picks say what produced them; the component bar is not a ranking.
+  const nfl = pick?.sport === 'nfl' ? NFL_DRIVERS[pick.modelSource] : null;
+  if (nfl) return { ...nfl, value: Number(c[nfl.key]) || 0 };
 
   let bestKey = null;
   let bestVal = -Infinity;

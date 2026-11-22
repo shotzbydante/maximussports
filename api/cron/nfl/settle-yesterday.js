@@ -14,7 +14,9 @@
 
 import { fetchYesterdayFinals } from '../../nfl/live/_normalize.js';
 import { upsertPickResults } from '../../_lib/picksHistory.js';
-import { getNflPicks } from '../../_lib/nflPicksStore.js';
+import { getNflPicks, getLineSnapshots, saveClosingValues } from '../../_lib/nflPicksStore.js';
+import { unitsFor } from '../../../src/features/nfl/picks/v2/distribution.js';
+import { closingLineValue } from '../../../src/features/nfl/picks/v2/locks.js';
 import { gradePicks } from '../../../src/features/mlb/picks/v2/settle.js';
 import { yesterdayET } from '../../_lib/dateWindows.js';
 import { buildFinalsIndex, resolveFinalForPick } from '../../_lib/finalsIndex.js';
@@ -59,13 +61,43 @@ export default async function handler(req, res) {
       if (r.final) finalsByGameId.set(String(p.game_id || p.id), r.final);
     }
 
-    const rows = gradePicks(picks, finalsByGameId, alreadyGraded);
+    const graded = gradePicks(picks, finalsByGameId, alreadyGraded);
+    const byId = new Map(picks.map((p) => [p.id, p]));
+    // One unit staked per pick at the stored price; -110 for rows written
+    // before prices were stored.
+    const rows = graded.map((r) => {
+      const p = byId.get(r.pick_id);
+      const price = p?.price_american == null ? null : Number(p.price_american);
+      return { ...r, units: unitsFor(r.status, price) };
+    });
     const matched = rows.filter((r) => r.status !== 'pending').length;
     const unmatched = rows.length - matched;
 
-    const { count, ok: writeOk, error } = await upsertPickResults(rows);
+    let { count, ok: writeOk, error } = await upsertPickResults(rows);
+    if (writeOk === false && /units/i.test(error?.message || '')) {
+      // docs/nfl-picks-v2-migration.sql has not been run: grade without units.
+      ({ count, ok: writeOk, error } = await upsertPickResults(rows.map(({ units, ...rest }) => rest))); // eslint-disable-line no-unused-vars
+    }
     if (writeOk === false) {
       console.error(`[cron/nfl/settle-yesterday] write failed: ${error?.kind} ${error?.message || ''}`);
+    }
+
+    // Closing-line value: the stored ticket against the last consensus
+    // snapshot before kickoff. Only locked picks have a real ticket.
+    let clvSaved = 0;
+    try {
+      const locked = picks.filter((p) => p.locked_at && p.clv_ev == null);
+      const snaps = await getLineSnapshots(locked.map((p) => p.game_id));
+      const updates = [];
+      for (const p of locked) {
+        const close = snaps.get(String(p.game_id));
+        if (!close) continue;
+        const v = closingLineValue(p, close);
+        if (v.clvEv != null || v.clvPoints != null) updates.push({ id: p.id, ...v });
+      }
+      clvSaved = (await saveClosingValues(updates)).saved;
+    } catch (e) {
+      console.warn(`[cron/nfl/settle-yesterday] closing-line value skipped: ${e?.message}`);
     }
 
     console.log(
@@ -79,7 +111,7 @@ export default async function handler(req, res) {
       totalPicks: picks.length, totalRaw, droppedDuplicates,
       alreadyGraded: alreadyGraded.size,
       finalsSeen: index.map.size,
-      matched, unmatched, graded: count,
+      matched, unmatched, graded: count, clvSaved,
       durationMs: Date.now() - t0,
       error: error || null,
     });
