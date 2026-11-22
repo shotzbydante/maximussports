@@ -57,6 +57,8 @@ export function launchLeans(board, { now = Date.now() } = {}) {
   const byGame = new Map();
   for (const p of upcoming) {
     if (p.pickRole !== 'tracking' || recommended.has(p.gameId)) continue;
+    // Only calls the engine itself words as a lean; "Not a bet" and "Tracked only" are not leans.
+    if (!/^(Lean only|Thin value)/i.test(p.why || '')) continue;
     const cur = byGame.get(p.gameId);
     const score = (x) => (x?.conviction?.score ?? 0) + (x?.market?.type === 'moneyline' ? -0.5 : 0);
     if (!cur || score(p) > score(cur)) byGame.set(p.gameId, p);
@@ -64,7 +66,7 @@ export function launchLeans(board, { now = Date.now() } = {}) {
   return [...byGame.values()]
     .sort((a, b) => Date.parse(a.matchup?.startTime || 0) - Date.parse(b.matchup?.startTime || 0))
     .map((p) => {
-      const why = String(p.why || '').replace(/^Lean only, not a recommended bet:\s*/i, '');
+      const why = String(p.why || '').replace(/^(Lean only|Thin value), not a recommended bet:\s*/i, '');
       return {
         ...summarizePick(p),
         why: why ? why.charAt(0).toUpperCase() + why.slice(1) : '',
