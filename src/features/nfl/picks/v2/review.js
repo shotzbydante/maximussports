@@ -358,20 +358,25 @@ export function reviewPick({ pick, result = resultOf(pick), close = null, contex
   } else if (read && mine) {
     const m = read.margin;
     const sign = side === 'home' ? 1 : -1;
-    if (m.yardGap !== 0) {
+    const yardPoints = Math.abs(m.yardGap) * p.marginPerYard;
+    if (yardPoints >= 1) {
       const ahead = m.yardGap > 0 ? H : A, behind = m.yardGap > 0 ? A : H;
-      factors.push({ key: 'yards', text: `${ahead} outgained ${behind} by ${Math.abs(m.yardGap)} yards, usually worth about ${pts(Math.round(Math.abs(m.yardGap) * p.marginPerYard))}.` });
+      factors.push({ key: 'yards', points: r1(yardPoints), text: `${ahead} outgained ${behind} by ${Math.abs(m.yardGap)} yards, usually worth about ${pts(Math.round(yardPoints))}.` });
+    } else {
+      factors.push({ key: 'yards', points: r1(yardPoints), text: 'The yardage was about even.' });
     }
     if (isNum(m.turnoverGap) && Math.abs(m.turnoverGap) >= 2) {
       const won = m.turnoverGap > 0 ? H : A;
       const to = facts.turnovers;
-      factors.push({ key: 'turnovers', forPick: Math.sign(m.turnoverGap) === sign, text: `${won} won the turnovers ${Math.max(to.home, to.away)}-${Math.min(to.home, to.away)}, usually worth about ${pts(Math.round(Math.abs(m.turnovers)))}.` });
+      factors.push({ key: 'turnovers', points: Math.abs(m.turnovers), forPick: Math.sign(m.turnoverGap) === sign, text: `${won} won the turnovers ${Math.max(to.home, to.away)}-${Math.min(to.home, to.away)}, usually worth about ${pts(Math.round(Math.abs(m.turnovers)))}.` });
     }
     if (isNum(m.returnGap) && m.returnGap !== 0) {
       const team = m.returnGap > 0 ? H : A;
       const n = Math.abs(m.returnGap);
-      factors.push({ key: 'return_tds', forPick: Math.sign(m.returnGap) === sign, text: `${team} scored ${n === 1 ? 'a return touchdown' : `${n} more return touchdowns`}.` });
+      factors.push({ key: 'return_tds', points: Math.abs(m.returns), forPick: Math.sign(m.returnGap) === sign, text: `${team} scored ${n === 1 ? 'a return touchdown' : `${n} more return touchdowns`}.` });
     }
+    // The biggest swing first: three turnovers say more about a two-point game than 40 yards do.
+    factors.sort((a, b) => (b.points ?? 0) - (a.points ?? 0));
   }
   if (facts?.overtime) factors.push({ key: 'overtime', text: 'It went to overtime.' });
   for (const s of ['home', 'away']) {
