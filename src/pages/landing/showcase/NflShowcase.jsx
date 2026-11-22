@@ -1,7 +1,7 @@
 /**
  * NflShowcase — the product, shown on the guest landing page.
  *
- * Four pieces, each a light "app window" on the dark page, each filled with
+ * Four pieces, each a light app surface on the dark page, each filled with
  * the real Week 11 examples in ./week11.js:
  *
  *   PickTicket    one recommended pick as the NFL home page shows it
@@ -41,17 +41,14 @@ function Ring({ value, size = 44 }) {
   );
 }
 
-/** A light app surface with the address of the page it comes from. */
-function Window({ path, children, className = '' }) {
-  return (
-    <div className={`${s.window} ${className}`}>
-      <div className={s.windowBar}>
-        <span className={s.windowDots} aria-hidden="true"><i /><i /><i /></span>
-        <span className={s.windowPath}>maximussports.ai{path}</span>
-      </div>
-      <div className={s.windowBody}>{children}</div>
-    </div>
-  );
+/**
+ * A light app surface on the dark page. No browser chrome and no address:
+ * the surface is the product, not a picture of a browser. `flush` is for a
+ * single card that fills the surface; without it the surface is a tray
+ * that holds several cards.
+ */
+function Window({ children, flush = false }) {
+  return <div className={`${s.window} ${flush ? s.windowFlush : s.windowTray}`}>{children}</div>;
 }
 
 /* ───────────────────────── Pick ticket ───────────────────────── */
@@ -70,7 +67,7 @@ function TicketSide({ team, role }) {
 export function PickTicket() {
   const t = TICKET;
   return (
-    <Window path="/nfl">
+    <Window flush>
       <article className={s.ticket} aria-label={`Example pick: ${t.pick}, ${t.away.nickname} at ${t.home.nickname}`}>
         <div className={s.ticketTop}>
           <TicketSide team={t.away} role="Away" />
@@ -137,7 +134,8 @@ function CallRow({ row, rank }) {
           {row.hold && <span className={`${s.chip} ${s.chipWarn}`}>{row.hold}</span>}
         </span>
         <span className={s.rowMeta}>
-          <Logo team={away} size={14} /> {away.abbrev} at <Logo team={home} size={14} /> {home.abbrev}, {row.meta}
+          <span><Logo team={away} size={14} /> {away.abbrev} at <Logo team={home} size={14} /> {home.abbrev}, {row.when}</span>
+          <span>{row.price}</span>
         </span>
         <span className={s.rowWhy}>{row.why}</span>
       </div>
@@ -164,7 +162,7 @@ export function EveryGame() {
   };
 
   return (
-    <Window path="/nfl/insights">
+    <Window flush>
       <div className={s.board}>
         <div className={s.boardHead}>
           <span className={s.boardTitle}>Every game</span>
@@ -268,7 +266,7 @@ function GroupStrip({ team, index }) {
 export function MatchupWindow() {
   const m = MATCHUP;
   return (
-    <Window path="/nfl/games/cardinals-at-chiefs" className={s.windowWide}>
+    <Window>
       <div className={s.matchup}>
         <div className={s.matchHead}>
           <span className={s.matchTeams}>
