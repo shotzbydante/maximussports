@@ -92,9 +92,8 @@ export default function FriendActivityFeed({ limit = 20 }) {
           <div className={styles.feedAvatar}>
             <RobotAvatar
               jerseyNumber={activity.user?.avatarConfig?.jerseyNumber || ''}
-              jerseyColor={activity.user?.avatarConfig?.jerseyColor}
               robotColor={activity.user?.avatarConfig?.robotColor}
-              mascotType={activity.user?.avatarConfig?.mascotType || 'basketball'}
+              mascotType={activity.user?.avatarConfig?.mascotType}
               size={36}
             />
           </div>

@@ -16,7 +16,7 @@
  *     window: { from, to, days },
  *     record, byMarket, byPickRole,          // window totals
  *     performance: { hero, tracking },       // record, units, ROI, closing-line value
- *     slates: [{ date, record, picks: [...] }],
+ *     slates: [{ date, record, picks: [...] }],   // each pick carries `review` once reviewed
  *     season: { record, byMarket, byPickRole, performance, slates } | null,
  *     generatedAt
  *   }
@@ -24,6 +24,7 @@
 
 import { getSupabaseAdmin } from '../../_lib/supabaseAdmin.js';
 import { getNflPicks } from '../../_lib/nflPicksStore.js';
+import { getReviewNotes } from '../../_lib/nflReview.js';
 import { todayET } from '../../_lib/dateWindows.js';
 import { getNflSlate } from '../../_lib/nflSlate.js';
 import { settlePick } from '../../../src/features/mlb/picks/v2/settle.js';
@@ -100,7 +101,7 @@ export default async function handler(req, res) {
   catch (e) { return res.status(200).json({ ...base, _error: 'supabase_unavailable', _detail: e?.message }); }
 
   try {
-    const [stored, { data: cards }, slate] = await Promise.all([
+    const [stored, { data: cards }, slate, notes] = await Promise.all([
       getNflPicks({ from, to }),
       // `select('*')` on purpose: naming a column the table does not have
       // fails the whole read, which is how the season block went missing.
@@ -110,6 +111,8 @@ export default async function handler(req, res) {
         .order('slate_date', { ascending: false })
         .limit(200),
       getNflSlate().catch(() => null),
+      // Post-game review notes, where the review has run.
+      getReviewNotes({ from, to }).catch(() => new Map()),
     ]);
     if (!stored.ok) return res.status(200).json({ ...base, _error: 'query_failed', _detail: stored.error });
 
@@ -162,6 +165,7 @@ export default async function handler(req, res) {
         homeAbbrev: home?.abbrev || null,
         market: p.market_type,
         why: p.rationale?.whyShort || p.rationale?.why || p.rationale?.headline || null,
+        review: notes.get(p.id) || null,
         side: p.selection_side,
         line: p.line_value,
         price: p.price_american,

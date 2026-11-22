@@ -7,6 +7,9 @@
  * GLOBAL (Maximus Sports)
  *   global_briefing        — Daily Global Intel Briefing
  *
+ * NFL
+ *   nfl_picks              — NFL Picks (Thursday 5 PM ET and Sunday 9 AM ET, in season)
+ *
  * MLB
  *   mlb_briefing           — Daily MLB Briefing
  *   mlb_team_digest        — Daily MLB Team Digest (pinned teams)
@@ -25,6 +28,10 @@
 export const DEFAULT_EMAIL_PREFS = {
   // Global
   global_briefing:     true,
+
+  // NFL. For an account with no stored choice this follows global_briefing,
+  // see resolvePreferences().
+  nfl_picks:           true,
 
   // MLB
   mlb_briefing:        true,
@@ -95,5 +102,12 @@ export function migratePreferences(raw) {
  */
 export function resolvePreferences(stored) {
   const migrated = migratePreferences(stored);
-  return { ...DEFAULT_EMAIL_PREFS, ...migrated };
+  const resolved = { ...DEFAULT_EMAIL_PREFS, ...migrated };
+  // NFL Picks arrived after most accounts were created, so they hold no choice
+  // for it. Follow their daily-brief choice: someone who turned the daily
+  // email off must not start getting a new one by default.
+  if (!migrated || typeof migrated.nfl_picks !== 'boolean') {
+    resolved.nfl_picks = resolved.global_briefing === true;
+  }
+  return resolved;
 }

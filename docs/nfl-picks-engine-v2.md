@@ -166,3 +166,47 @@ It moves no fair number and makes no pick. The blend's weights are judgment, the
 The page data comes from a second `picks_config` row, sport `nfl_talent_detail`, shaped by `src/features/nfl/talent/talentView.js`. Players are stored one string per team (`group|pos|name|madden|pffRank|production|score|groupRank|xFactor`, joined by `;`). Neither row is in this repository. To refresh both: rebuild the workbook, then replace the two rows.
 
 UI: `TeamTalent` on `/nfl/teams/:slug` and `MatchupTalent` on the new `/nfl/games/:away-at-:home` page (`src/components/nfl/NflTalent.jsx`). Game cards link to the matchup page.
+
+## Post-game review (`v2/review.js`)
+
+Every stored pick is reviewed after its game ends, win or lose. The review explains one result. It never changes the engine: reviews go into a ledger, and a line in the ledger is only raised for a decision once it has enough results over enough weeks.
+
+### What runs
+
+- **`api/cron/nfl/review-games.js`**, every half hour. It does nothing until a game with stored picks has had time to finish (170 minutes after kickoff). Then it grades the slate with the same code the overnight cron uses (`api/_lib/nflSettle.js`), so results are on the record soon after the final whistle, and reviews every newly graded pick. `?date=YYYY-MM-DD` backfills a slate; `?force=1` re-reviews.
+- **It waits for a finished box score.** ESPN's game summary can lag the final whistle (a summary with 28 minutes of possession was served for a game the scoreboard already had as final). The review checks the summary against the graded score, or a full game's time of possession, and leaves the game for the next run if it does not match. After eight hours it reviews the game without a box score.
+- **Before kickoff**, each board build saves what the engine believed about every upcoming game (`saveGameContexts` in `api/_lib/nflReview.js`): the line, the ratings projection, wind, the roster-talent lean, the schedule spots, the expected quarterbacks. Kept in KV for three weeks; the last save before kickoff is the one the review reads.
+- **Storage**: `picks_audit_artifacts`, one row per slate date. `summary` holds the slate's pick reviews and input results, `signal_attribution` the season-to-date ledger as of that slate, and `recommended_deltas` is always empty. No migration.
+- **Where it shows**: each graded pick in the results table carries a "What happened" line (`/api/nfl/picks/scorecard` adds `review` to the pick). The full ledger is `GET /api/nfl/picks/review`, admin or cron only.
+
+### What a review answers
+
+1. **How it finished.** Points the ticket won or lost by. Three or fewer is a coin flip; ten or more is decisive.
+2. **Was the number good.** The locked ticket priced at the closing consensus. For a recommended pick: still positive (a good number), about zero (the edge was gone by kickoff) or negative (the market moved against it). A pick can win with a bad number and lose with a good one, and the two are counted apart.
+3. **What the game said.** Yards, turnovers and return touchdowns from ESPN's game summary, turned into points with a least-squares fit on 1,359 regular-season games, 2021 to 2025 (nflverse):
+
+   | | Fit | Error |
+   | --- | --- | --- |
+   | Margin | 0.9 for the home team + 0.065 per yard gained more than the opponent + 4.25 per turnover won + 5.4 per return touchdown | 9.2 points |
+   | Total | -19.8 + 0.0863 per combined yard + 6.5 per return touchdown | 9.5 points |
+
+   Turnovers add nothing to the total once yards are known (-0.09 ± 0.18). When the yardage alone says the ticket should have finished six or more points the other side of the number, the result is marked unlucky (a loss) or fortunate (a win). The error is about nine points either way, so this describes a game; it does not re-grade it.
+4. **What changed after the lock.** The line moving against the pick, a market that never moved for the wind, a price edge that was gone by kickoff, a quarterback starting whom the engine did not expect, a wind forecast that moved five mph or more between lock and kickoff.
+
+### Inputs graded against the closing line
+
+Whether or not it led to a pick, each input is graded on every game: the roster-talent lean, the ratings side and total when they sit a point or more from the line, the under in 10+ mph wind, each schedule spot and the biggest unit mismatch. This is how an input with no weight earns one, and how one with weight would lose it. An input that knows nothing covers half the time, so each is measured against 50%.
+
+### When a trend may change the engine (`TREND_RULES`)
+
+| Stage | Bar | What happens |
+| --- | --- | --- |
+| Logging | Under 30 results | Recorded. Nothing is concluded, however lopsided. |
+| Nothing | 30+ results, inside 1.5 standard errors | No trend. |
+| Watching | 30+ results, 1.5 standard errors from break-even | Named in the weekly review. No change. |
+| Decision | 60+ results over 4+ different weeks, 2 standard errors | A test is run: the backtest where history exists (ratings, wind, spots), a four-week shadow configuration where it does not (talent, pick rules). |
+| Change | The test agrees, and Dante approves | New model or config version, noted in this document. |
+
+For picks the yardstick is closing-line value whenever most of the picks have one, because it settles faster than wins and losses; otherwise units. One game cannot move a line past Logging, and one week cannot move it to Decision. With roughly 40 lines in the ledger, two would cross two standard errors by chance alone, which is why Decision triggers a test and not a change.
+
+At about three recommended picks a week, the recommended-pick lines will not reach 30 results this season. Model leans (about 33 a week) and the inputs get there in weeks.

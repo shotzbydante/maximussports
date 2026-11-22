@@ -34,6 +34,9 @@
     "api/cron/nfl/build-picks.js": {
       "maxDuration": 60
     },
+    "api/cron/nfl/review-games.js": {
+      "maxDuration": 60
+    },
     "api/user/followers.js": {
       "maxDuration": 30
     },
@@ -104,6 +107,8 @@
     {"path": "/api/ats/warmAll",                        "schedule": "*/10 * * * *"},
     {"path": "/api/ats/warmFull",                       "schedule": "*/30 * * * *"},
     {"path": "/api/email/run-daily?type=global_briefing",   "schedule": "0 13 * * *"},
+    {"path": "/api/email/run-daily?type=nfl_picks&slot=thu", "schedule": "0 22 * * 4"},
+    {"path": "/api/email/run-daily?type=nfl_picks&slot=sun", "schedule": "0 14 * * 0"},
     {"path": "/api/email/run-daily?type=mlb_briefing",      "schedule": "30 16 * * *"},
     {"path": "/api/email/run-daily?type=mlb_team_digest",   "schedule": "30 2 * * *"},
     {"path": "/api/email/run-daily?type=mlb_picks",         "schedule": "15 19 * * *"},
@@ -121,6 +126,7 @@
     {"path": "/api/cron/nfl/settle-yesterday",                     "schedule": "30 9 * * *"},
     {"path": "/api/cron/nfl/build-scorecard",                      "schedule": "45 9 * * *"},
     {"path": "/api/cron/nfl/build-picks",                          "schedule": "*/10 * * * *"},
+    {"path": "/api/cron/nfl/review-games",                         "schedule": "7,37 * * * *"},
     {"path": "/api/cron/instagram/refresh-token",                          "schedule": "17 11 * * 1"}
   ]
 }

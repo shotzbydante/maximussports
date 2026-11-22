@@ -1,0 +1,71 @@
+.list { display: flex; flex-direction: column; gap: 10px; }
+.row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 16px;
+  border: 1.5px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-bg-elevated, #fff);
+  transition: border-color 0.15s, background-color 0.15s;
+}
+.rowOn { border-color: rgba(22, 104, 227, 0.45); background: rgba(22, 104, 227, 0.04); }
+.text { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; }
+.label { font-size: 0.9375rem; font-weight: 700; color: var(--color-text); }
+.when { font-size: 0.75rem; font-weight: 600; color: var(--color-primary); }
+.desc { font-size: 0.8125rem; line-height: 1.5; color: var(--color-text-secondary); }
+.note { font-size: 0.75rem; line-height: 1.45; color: var(--color-text-muted); }
+
+.switch {
+  position: relative;
+  flex: none;
+  width: 46px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: #c9d3e2;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+.switchOn { background: var(--color-primary); }
+.thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(11, 27, 51, 0.3);
+  transition: transform 0.15s;
+}
+.switchOn .thumb { transform: translateX(18px); }
+.switch:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 3px; }
+
+.offseason { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
+.offseasonToggle {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 2px 12px;
+  padding: 10px 4px;
+  border: 0;
+  border-top: 1px solid var(--color-border);
+  background: none;
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+  text-align: left;
+  cursor: pointer;
+}
+.offseasonHint { font-weight: 500; color: var(--color-text-muted); }
+.offseasonToggle:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; border-radius: 6px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .switch, .thumb, .row { transition: none; }
+}

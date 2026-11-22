@@ -1,0 +1,80 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  background: var(--color-bg-elevated, #fff);
+}
+.head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; }
+.title { margin: 0; font-size: 1rem; font-weight: 800; letter-spacing: -0.01em; color: var(--color-text); }
+.counts { display: inline-flex; gap: 12px; }
+.count {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+}
+.count b { font-weight: 800; color: var(--color-text); }
+.count:hover { color: var(--color-primary); text-decoration: underline; }
+.count:focus-visible, .copy:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; border-radius: 6px; }
+
+.search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  border: 1.5px solid var(--color-border);
+  border-radius: 10px;
+  color: var(--color-text-muted);
+  background: var(--color-bg, #f6f8fc);
+}
+.search:focus-within { border-color: var(--color-primary); box-shadow: 0 0 0 3px rgba(22, 104, 227, 0.15); }
+.search input {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 0;
+  border: 0;
+  outline: 0;
+  background: none;
+  font: inherit;
+  font-size: 0.875rem;
+  color: var(--color-text);
+}
+.srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+.results { display: flex; flex-direction: column; }
+.results:empty { display: none; }
+.note { margin: 0; font-size: 0.8125rem; line-height: 1.5; color: var(--color-text-secondary); }
+.block { display: flex; flex-direction: column; padding-top: 10px; border-top: 1px solid var(--color-border); }
+.blockLabel { margin: 0 0 2px; font-size: 0.75rem; font-weight: 700; color: var(--color-text-muted); }
+
+.share {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border);
+}
+.shareText { margin: 0; flex: 1; min-width: 150px; font-size: 0.8125rem; line-height: 1.45; color: var(--color-text-secondary); }
+.shareText b { color: var(--color-text); }
+.copy {
+  padding: 7px 12px;
+  border: 1.5px solid var(--color-border);
+  border-radius: 8px;
+  background: none;
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--color-primary);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.copy:hover { border-color: var(--color-primary); }

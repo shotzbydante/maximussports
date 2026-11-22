@@ -40,6 +40,13 @@ export const EMAIL_REGISTRY = {
     includePennantRace: true,
     includeWorldSeriesOutlook: true,
   },
+  nfl_picks: {
+    template: 'nflPicks',
+    prefKey: 'nfl_picks',
+    sport: 'nfl',
+    seasonGated: true,
+    dataNeeds: ['nfl'],
+  },
   mlb_briefing: {
     template: 'mlbBriefing',
     prefKey: 'mlb_briefing',
