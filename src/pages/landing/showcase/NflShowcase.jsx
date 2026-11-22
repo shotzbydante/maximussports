@@ -4,9 +4,9 @@
  * Four pieces, each a light app surface on the dark page, each filled with
  * the real Week 11 examples in ./week11.js:
  *
- *   PickTicket    one recommended pick as the NFL home page shows it
+ *   PickTicket    one game's calls as locked, with how each was graded
  *   EveryGame     the four ranked tabs from Odds Insights
- *   MatchupWindow unit against unit, and every position group, for one game
+ *   MatchupWindow unit against unit, and every position group, for that game
  *   WeekClock     when the board refreshes, locks and grades
  *
  * They are drawn for this page, not imported from the app, so the landing
@@ -53,59 +53,85 @@ function Window({ children, flush = false }) {
 
 /* ───────────────────────── Pick ticket ───────────────────────── */
 
-function TicketSide({ team, role }) {
+function Check({ size = 16 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <path d="M3.5 8.5 6.5 11.5 12.5 4.5" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function TicketSide({ team, role, won }) {
+  const final = team.score != null;
   return (
     <div className={s.side}>
       <Logo team={team} size={44} />
       <span className={s.sideName}>{team.nickname}</span>
-      <span className={s.sideMeta}>{team.record}</span>
+      {final
+        ? <span className={`${s.sideScore} ${won ? '' : s.sideScoreLost}`}>{team.score}</span>
+        : <span className={s.sideMeta}>{team.record}</span>}
       <span className={`${s.role} ${role === 'Home' ? s.roleHome : ''}`}>{role}</span>
     </div>
   );
 }
 
+/** One call on the ticket: what was locked, why, and how it was graded. */
+function TicketCall({ call }) {
+  const won = call.result === 'won';
+  return (
+    <li className={`${s.call} ${won ? s.callWon : ''}`}>
+      <span className={s.check} aria-hidden="true"><Check /></span>
+      <div className={s.callMain}>
+        <span className={s.callPick}>
+          {call.team && <Logo team={TEAMS[call.team]} size={22} />}
+          {call.pick}
+        </span>
+        <span className={s.callPrice}>{call.market}, {call.price} at {call.book}</span>
+      </div>
+      {won && <span className={s.won}><Check size={12} /> Won</span>}
+      <p className={s.callWhy}>
+        <span className={s.chip}>Lean</span> {call.why} <b>{call.graded}</b>
+      </p>
+    </li>
+  );
+}
+
 export function PickTicket() {
   const t = TICKET;
+  const final = t.status === 'Final';
+  const awayWon = final && t.away.score > t.home.score;
+  const label = `${t.away.nickname} at ${t.home.nickname}${final ? `, final ${t.away.score} to ${t.home.score}` : ''}: ${t.calls.map((c) => `${c.pick} ${c.result}`).join(', ')}`;
   return (
     <Window flush>
-      <article className={s.ticket} aria-label={`Example pick: ${t.pick}, ${t.away.nickname} at ${t.home.nickname}`}>
+      <article className={s.ticket} aria-label={label}>
         <div className={s.ticketTop}>
-          <TicketSide team={t.away} role="Away" />
+          <TicketSide team={t.away} role="Away" won={awayWon} />
           <div className={s.at}>
-            <span className={s.atWhen}>{t.kickoff}</span>
+            {final && <span className={s.atFinal}>Final</span>}
+            <span className={final ? s.atNet : s.atWhen}>{t.kickoff}</span>
             <span className={s.atNet}>{t.network}</span>
           </div>
-          <TicketSide team={t.home} role="Home" />
+          <TicketSide team={t.home} role="Home" won={final && !awayWon} />
         </div>
-        <p className={s.venue}>{t.venue}, {t.city}<br />{t.conditions}</p>
+        <p className={s.venue}>{t.venue}, {t.city}{t.conditions && <><br />{t.conditions}</>}</p>
 
         <div className={s.lines}>
           {t.lines.map((l) => (
             <div key={l.market} className={`${s.line} ${l.picked ? s.lineOn : ''}`}>
-              <span className={s.lineLabel}>{l.market}</span>
+              <span className={s.lineLabel}>{l.market}{l.picked && final && <Check size={12} />}</span>
               <span className={s.lineValue}>{l.value}</span>
               {l.sub && <span className={s.lineSub}>{l.sub}</span>}
             </div>
           ))}
         </div>
 
-        <div className={s.call}>
-          <span className={s.check} aria-hidden="true">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <path d="M3.5 8.5 6.5 11.5 12.5 4.5" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </span>
-          <div>
-            <span className={s.callPick}>{t.pick}</span>
-            <span className={s.callPrice}>{t.price} at {t.book}</span>
-          </div>
-          <Ring value={t.conviction} size={54} />
-        </div>
+        <ul className={s.calls}>
+          {t.calls.map((c) => <TicketCall key={c.pick} call={c} />)}
+        </ul>
 
-        <p className={s.why}>{t.why}</p>
         <p className={s.stamp}>
           <span>{t.locked}</span>
-          <span className={s.stampValue}>{t.value} expected value when locked</span>
+          <span className={s.stampValue}>{t.graded}</span>
         </p>
       </article>
     </Window>
@@ -209,8 +235,13 @@ function Names({ players }) {
   );
 }
 
+/** The edge is drawn from the middle, toward the side it favours. An even matchup draws none. */
 function EdgeRow({ row }) {
-  const width = `${Math.min(50, (Math.abs(row.edge) / 20) * 50)}%`;
+  const size = Math.abs(row.edge);
+  const width = `${Math.min(50, (size / 20) * 50)}%`;
+  const toOffense = row.edge > 0;
+  const even = row.size === 'even';
+  const favoured = toOffense ? MATCHUP.offense : MATCHUP.defense;
   return (
     <div className={s.edge}>
       <div className={s.edgeSide}>
@@ -220,10 +251,15 @@ function EdgeRow({ row }) {
       </div>
       <div className={s.edgeMid}>
         <span className={s.edgeTrack} aria-hidden="true">
-          <span className={s.edgeFill} style={{ right: '50%', width }} />
+          {!even && (
+            <span
+              className={`${s.edgeFill} ${toOffense ? '' : s.edgeFillRight}`}
+              style={toOffense ? { right: '50%', width } : { left: '50%', width }}
+            />
+          )}
         </span>
-        <span className={`${s.edgeChip} ${row.size === 'big' ? s.edgeChipBig : ''}`}>
-          {MATCHUP.offense.abbrev} +{row.edge.toFixed(1)}
+        <span className={`${s.edgeChip} ${row.size === 'big' ? s.edgeChipBig : even ? s.edgeChipEven : ''}`}>
+          {even ? 'Even' : `${favoured.abbrev} +${size.toFixed(1)}`}
         </span>
       </div>
       <div className={`${s.edgeSide} ${s.edgeSideRight}`}>
@@ -276,7 +312,7 @@ export function MatchupWindow() {
         </div>
 
         <div className={s.matchGrid}>
-          <section className={s.matchCard} aria-label="Unit matchups when the Chiefs have the ball">
+          <section className={s.matchCard} aria-label={`Unit matchups when the ${m.offense.nickname} have the ball`}>
             <h3 className={s.cardTitle}><Logo team={m.offense} size={20} /> When the {m.offense.nickname} have the ball</h3>
             <div className={s.edgeKey} aria-hidden="true">
               <span><Logo team={m.offense} size={14} /> {m.offense.abbrev} offense</span>
@@ -296,6 +332,7 @@ export function MatchupWindow() {
               <span className={`${s.swatch} ${s.cellStrong}`} /> Top ten
               <span className={`${s.swatch} ${s.cellWeak}`} /> Bottom ten
             </p>
+            {m.note && <p className={s.matchNote}>{m.note}</p>}
           </section>
         </div>
       </div>

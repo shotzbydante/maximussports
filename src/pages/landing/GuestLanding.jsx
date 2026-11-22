@@ -2,11 +2,12 @@
  * GuestLanding — logged-out homepage for maximussports.ai
  *
  * Positioning: sports intelligence for prediction markets and betting.
- * The page shows the product instead of describing it: one real NFL pick
- * above the fold, then the every-game board, a position-group matchup and
- * the weekly clock, all filled with a dated snapshot from the app
- * (showcase/week11.js). It says what the app does and how often, and
- * leaves out how the numbers are made.
+ * The page shows the product instead of describing it: one real, graded
+ * NFL ticket above the fold, then this week's games live with the top
+ * three picks open (live/LiveWeek.jsx), then the every-game board, a
+ * position-group matchup and the weekly clock, filled with a dated
+ * snapshot from the app (showcase/week11.js). It says what the app does
+ * and how often, and leaves out how the numbers are made.
  *
  * Renders its own header and footer; Layout drops the app chrome for
  * guests on "/".
@@ -20,6 +21,7 @@ import { track } from '../../analytics/index';
 import { trackAccountCreateSkipped } from '../../lib/analytics/posthog';
 import { PickTicket, EveryGame, MatchupWindow, WeekClock } from './showcase/NflShowcase';
 import { WEEK, ALSO } from './showcase/week11';
+import LiveWeek from './live/LiveWeek';
 import styles from './GuestLanding.module.css';
 
 const WelcomeModal = lazy(() => import('../../components/marketing/WelcomeModal'));
@@ -38,6 +40,7 @@ const META = {
 const PAGE_BG = '#040a1a';
 
 const NAV_LINKS = [
+  { href: '#this-week', label: 'Live games' },
   { href: '#every-game', label: 'Every game' },
   { href: '#matchups', label: 'Matchups' },
   { href: '#week', label: 'The week' },
@@ -294,7 +297,7 @@ export default function GuestLanding() {
               </p>
             </div>
 
-            {/* ── A real pick, as the app shows it ── */}
+            {/* ── A real ticket: locked, then graded ── */}
             <div id="pick" className={styles.shot}>
               <img
                 src="/brand/mascots/football-3d.webp"
@@ -306,12 +309,16 @@ export default function GuestLanding() {
               />
               <PickTicket />
               <p className={styles.shotNote}>
-                A real pick from {WEEK.label}, shown as it was locked on November 21, 2026.
-                One example is not a record: every result, win or lose, is on{' '}
+                Two {WEEK.label} leans on one game, shown as they were locked on November 21, 2026
+                and graded against the final score. One game is not a record: every result, win or
+                lose, is on{' '}
                 <Link to="/record" onClick={() => trackCta('public_record', 'hero')}>the public record</Link>.
               </p>
             </div>
           </section>
+
+          {/* ── This week, live: every game, the top three picks open ── */}
+          <LiveWeek signupTo={SIGNUP_ROUTE} />
 
           {/* ── Every game, three markets ── */}
           <section id="every-game" className={styles.section}>
@@ -516,6 +523,7 @@ export default function GuestLanding() {
               Call 1-800-GAMBLER.
             </p>
             <nav className={styles.footerLinks} aria-label="Footer">
+              <a href="#this-week">Live games</a>
               <a href="#every-game">Every game</a>
               <a href="#methodology">Reading a signal</a>
               <Link to="/record">The record</Link>
