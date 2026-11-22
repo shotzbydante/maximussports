@@ -12,7 +12,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { WorkspaceId, SeasonState, orderWorkspacesForDisplay } from '../../workspaces/config';
+import { WorkspaceId, WORKSPACES, SeasonState, orderWorkspacesForDisplay } from '../../workspaces/config';
 import { getVisibleWorkspaces } from '../../workspaces/access';
 import { useAuth } from '../../context/AuthContext';
 import { useUserProfile } from '../../hooks/useUserProfile';
@@ -41,7 +41,8 @@ const META = {
 /** Pages each sport card links to, beyond its briefing. */
 const QUICK_LINKS = {
   [WorkspaceId.NFL]: [['Games', '/games'], ['Picks', '/insights'], ['Teams', '/teams'], ['Season', '/season-model']],
-  [WorkspaceId.NBA]: [['Games', '/games'], ['Picks', '/insights'], ['Teams', '/teams'], ['Bracket', '/bracketology']],
+  // The bracket link comes back with the playoffs (see the NBA workspace's capabilities).
+  [WorkspaceId.NBA]: [['Games', '/games'], ['Picks', '/insights'], ['Teams', '/teams'], WORKSPACES[WorkspaceId.NBA].capabilities.bracketology ? ['Bracket', '/bracketology'] : ['News', '/news']],
   [WorkspaceId.MLB]: [['Games', '/games'], ['Picks', '/insights'], ['Teams', '/teams'], ['Season', '/season-model']],
   [WorkspaceId.CBB]: [['Games', '/games'], ['Insights', '/insights'], ['Teams', '/teams'], ['Bracket', '/bracketology']],
 };

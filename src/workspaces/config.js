@@ -6,6 +6,8 @@
  * import from this module rather than hardcoding sport assumptions.
  */
 
+import { isNbaPlayoffs } from '../sports/nba/season.js';
+
 export const WorkspaceId = /** @type {const} */ ({
   CBB: 'cbb',
   MLB: 'mlb',
@@ -312,7 +314,11 @@ export const WORKSPACES = {
     sportKey: 'basketball_nba',
     seasonState: SeasonState.ACTIVE,
     capabilities: {
-      bracketology: true,
+      // The bracket only means something from the play-in to the Finals.
+      // During the regular season it would show last spring's field, so the
+      // nav link, the home shortcut and the page itself are off until then.
+      // The dates live in src/sports/nba/season.js.
+      bracketology: isNbaPlayoffs(),
       seasonIntel: false,
       contentStudio: true,
       champOdds: true,

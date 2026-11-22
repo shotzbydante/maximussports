@@ -12,7 +12,7 @@ import { initOfficialBracket } from './utils/bracketInit';
 import { WorkspaceProvider } from './workspaces/WorkspaceContext';
 import WorkspaceGate from './workspaces/WorkspaceGate';
 import RouteGate from './components/common/RouteGate';
-import { WorkspaceId } from './workspaces/config';
+import { WorkspaceId, WORKSPACES } from './workspaces/config';
 
 const Teams       = lazy(() => import('./pages/Teams'));
 const TeamPage    = lazy(() => import('./components/team/TeamPage'));
@@ -149,7 +149,13 @@ export default function App() {
                     <Route path="news" element={<RouteGate><NbaNewsFeed /></RouteGate>} />
                     <Route path="insights" element={<RouteGate><NbaPicks /></RouteGate>} />
                     <Route path="season-intel" element={<RouteGate><NbaSeasonIntel /></RouteGate>} />
-                    <Route path="bracketology" element={<RouteGate><NbaBracketology /></RouteGate>} />
+                    {/* Out of the playoffs an old link to the bracket lands on the NBA home. */}
+                    <Route
+                      path="bracketology"
+                      element={WORKSPACES[WorkspaceId.NBA].capabilities.bracketology
+                        ? <RouteGate><NbaBracketology /></RouteGate>
+                        : <Navigate to="/nba" replace />}
+                    />
                     <Route path="dashboard" element={<Navigate to="/dashboard" replace />} />
                     <Route path="settings" element={<Navigate to="/settings" replace />} />
                   </Route>
