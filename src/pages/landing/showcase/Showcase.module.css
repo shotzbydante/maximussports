@@ -1,0 +1,313 @@
+/* ═══════════════════════════════════════════════════════════════
+   Showcase — the app's own (light) surfaces, set on the dark landing
+   page. Colours inside a window are the app's, so what a visitor sees
+   here is what they get after signing in.
+   ═══════════════════════════════════════════════════════════════ */
+
+.window {
+  --ink: #0b1b33;
+  --ink-2: #3b4d68;
+  --ink-3: #5d6f8a;
+  --hair: rgba(22, 104, 227, 0.14);
+  --wash: #eef3fa;
+  --paper: #f3f6fb;
+  --blue: #1668e3;
+  --blue-soft: rgba(22, 104, 227, 0.12);
+  --up: #0b8a5c;
+  --up-soft: rgba(11, 138, 92, 0.1);
+  --warn: #a86a12;
+  --warn-soft: rgba(168, 106, 18, 0.13);
+
+  position: relative;
+  border-radius: 16px;
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 0.875rem;
+  line-height: 1.45;
+  box-shadow: 0 0 0 1px rgba(125, 211, 252, 0.28), 0 30px 80px -30px rgba(29, 139, 255, 0.55);
+  overflow: hidden;
+  font-variant-numeric: tabular-nums;
+}
+.windowBar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 14px;
+  background: #fff;
+  border-bottom: 1px solid var(--hair);
+}
+.windowDots { display: inline-flex; gap: 5px; }
+.windowDots i { width: 8px; height: 8px; border-radius: 50%; background: #d5deeb; }
+.windowPath { font-size: 0.75rem; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.windowBody { padding: 14px; }
+.logo { flex: none; object-fit: contain; vertical-align: -0.2em; }
+
+/* Conviction ring */
+.ring { position: relative; display: inline-grid; place-items: center; flex: none; }
+.ring svg { transform: rotate(-90deg); }
+.ringTrack { stroke: var(--hair); }
+.ringFill { stroke: var(--ink); stroke-linecap: round; }
+.ringValue { position: absolute; font-size: 0.8125rem; font-weight: 800; }
+
+/* ── Pick ticket ── */
+.ticket { background: #fff; border: 1px solid var(--hair); border-radius: 12px; }
+.ticketTop {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 8px;
+  padding: 18px 16px 10px;
+}
+.side { display: flex; flex-direction: column; align-items: center; gap: 2px; text-align: center; }
+.sideName { margin-top: 4px; font-size: 1rem; font-weight: 800; letter-spacing: -0.01em; }
+.sideMeta { font-size: 0.75rem; color: var(--ink-3); }
+.role {
+  margin-top: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--wash);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+.roleHome { background: var(--blue-soft); color: var(--blue); }
+.at { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.atWhen { font-size: 0.8125rem; font-weight: 700; white-space: nowrap; }
+.atNet { font-size: 0.75rem; color: var(--ink-3); }
+.venue { padding: 0 16px 12px !important; text-align: center; font-size: 0.75rem; color: var(--ink-3); }
+
+.lines { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; padding: 0 8px 10px; }
+.line { display: flex; flex-direction: column; gap: 1px; padding: 8px 10px; border-radius: 8px; background: var(--wash); }
+.lineOn { background: var(--up-soft); box-shadow: inset 0 0 0 1.5px var(--up); }
+.lineLabel { font-size: 0.6875rem; color: var(--ink-3); }
+.lineOn .lineLabel { color: var(--up); font-weight: 600; }
+.lineValue { font-size: 0.875rem; font-weight: 700; white-space: nowrap; }
+.lineSub { font-size: 0.6875rem; color: var(--ink-3); }
+
+.call {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  margin: 0 8px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: var(--up-soft);
+}
+.check {
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--up);
+  color: #fff;
+}
+.callPick { display: block; font-size: 1.25rem; font-weight: 800; letter-spacing: -0.02em; line-height: 1.15; }
+.callPrice { display: block; font-size: 0.8125rem; color: var(--ink-2); }
+.why { padding: 12px 16px 0 !important; font-size: 0.875rem; color: var(--ink-2); }
+.stamp {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 12px;
+  padding: 10px 16px 14px !important;
+  font-size: 0.75rem;
+  color: var(--ink-3);
+}
+.stampValue { color: var(--up); font-weight: 600; }
+
+/* ── Every game ── */
+.board { background: #fff; border: 1px solid var(--hair); border-radius: 12px; padding: 14px; }
+.boardHead { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.boardTitle { font-size: 1.0625rem; font-weight: 800; letter-spacing: -0.01em; }
+.boardWeek { font-size: 0.75rem; color: var(--ink-3); }
+.tabs { display: flex; gap: 4px; margin-top: 12px; padding: 4px; border-radius: 999px; background: var(--wash); }
+.tab {
+  flex: 1;
+  min-width: 0;
+  padding: 7px 6px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--ink-2);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.tab:hover { color: var(--ink); }
+.tabOn,
+.tabOn:hover { background: var(--ink); color: #fff; }
+.window .tab:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; border-radius: 999px; }
+.panel { min-height: 372px; }
+.panelNote { margin-top: 12px !important; font-size: 0.8125rem; color: var(--ink-3); }
+.callList { margin-top: 6px !important; }
+.callRow {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 0;
+  border-top: 1px solid var(--hair);
+}
+.rank {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--ink);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+.rankQuiet { background: var(--wash); color: var(--ink-2); }
+.rowMain { display: flex; flex-wrap: wrap; align-items: center; gap: 3px 10px; min-width: 0; }
+.rowPick { display: inline-flex; align-items: center; gap: 6px; font-size: 0.9375rem; font-weight: 800; }
+.chips { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+.chip {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--wash);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+.chipUp { color: var(--up); background: var(--up-soft); }
+.chipWarn { color: var(--warn); background: var(--warn-soft); }
+.rowMeta { flex-basis: 100%; font-size: 0.75rem; color: var(--ink-3); }
+.rowWhy { flex-basis: 100%; font-size: 0.8125rem; color: var(--ink-2); }
+.more { padding-top: 10px !important; border-top: 1px solid var(--hair); font-size: 0.75rem; color: var(--ink-3); }
+
+/* ── Matchup ── */
+.matchHead { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 24px; padding: 4px 4px 12px; }
+.matchTeams { display: inline-flex; align-items: center; gap: 8px; font-size: 1.125rem; font-weight: 800; letter-spacing: -0.01em; }
+.matchAt { font-size: 0.8125rem; font-weight: 500; color: var(--ink-3); }
+.matchLean { max-width: 36rem; font-size: 0.8125rem; color: var(--ink-2); }
+.matchGrid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 12px; align-items: stretch; }
+.overall { margin-top: 6px !important; font-size: 0.8125rem; color: var(--ink-2); }
+.overall b { font-weight: 800; color: var(--ink); }
+.matchCard { background: #fff; border: 1px solid var(--hair); border-radius: 12px; padding: 14px 16px; }
+.cardTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9375rem !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+.edgeKey { display: flex; justify-content: space-between; margin-top: 10px; font-size: 0.6875rem; font-weight: 600; color: var(--ink-3); }
+.edge {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 132px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  padding: 11px 0;
+  border-top: 1px solid var(--hair);
+}
+.edgeKey + .edge { margin-top: 6px; }
+.edgeSide { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.edgeSideRight { text-align: right; }
+.edgeUnit { font-size: 0.75rem; color: var(--ink-3); }
+.edgeGrade { font-size: 1.125rem; font-weight: 800; letter-spacing: -0.01em; line-height: 1.2; }
+.edgeNames { display: flex; flex-direction: column; margin-top: 2px; font-size: 0.6875rem; color: var(--ink-3); line-height: 1.4; }
+.edgeNames > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.edgeNames b { font-weight: 700; color: var(--ink-2); }
+.edgeMid { display: flex; flex-direction: column; align-items: center; gap: 7px; }
+.edgeTrack { position: relative; display: block; width: 100%; height: 8px; border-radius: 999px; background: var(--wash); }
+.edgeTrack::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: -3px;
+  bottom: -3px;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--ink-3);
+}
+.edgeFill { position: absolute; top: 0; bottom: 0; background: var(--blue); border-radius: 999px 0 0 999px; }
+.edgeChip {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--blue-soft);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: var(--blue);
+  white-space: nowrap;
+}
+.edgeChipBig { background: var(--ink); color: #fff; }
+
+.stripTeam { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--hair); }
+.stripName { display: inline-flex; align-items: center; gap: 6px; font-size: 0.8125rem; font-weight: 700; }
+.stripRow { display: grid; grid-template-columns: 52px minmax(0, 1fr); align-items: center; gap: 8px; margin-top: 6px; }
+.stripLabel { font-size: 0.6875rem; color: var(--ink-3); }
+.strip { display: grid; gap: 4px; }
+.cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 5px 2px;
+  border-radius: 8px;
+  border: 1px solid var(--hair);
+  background: #fff;
+}
+.cellLabel { font-size: 0.625rem; font-weight: 600; color: var(--ink-3); }
+.cellRank { font-size: 0.8125rem; font-weight: 800; color: var(--ink); }
+.cellStrong { border-color: transparent; background: var(--blue-soft); }
+.cellStrong .cellRank { color: var(--blue); }
+.cellWeak { border-color: transparent; background: var(--warn-soft); }
+.cellWeak .cellRank { color: var(--warn); }
+.legend { display: flex; align-items: center; gap: 6px; margin-top: 12px !important; font-size: 0.6875rem; color: var(--ink-3); }
+.swatch { width: 12px; height: 12px; border-radius: 4px; }
+.swatch + .swatch,
+.legend .swatch:not(:first-child) { margin-left: 10px; }
+
+/* ── The week ── */
+.clock {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0;
+  border-top: 2px solid rgba(110, 168, 255, 0.28);
+}
+.tick { position: relative; display: flex; flex-direction: column; gap: 6px; padding: 22px 20px 0 0; }
+.tick::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: -7px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #040a1a;
+  border: 2px solid #38bdf8;
+}
+.tick:nth-child(2)::before { background: #34d399; border-color: #34d399; }
+.tickWhen { font-size: 0.8125rem; font-weight: 600; color: #7dd3fc; }
+.tickWhat { font-family: 'Manrope', 'Inter', system-ui, sans-serif; font-size: 1.125rem; font-weight: 800; letter-spacing: -0.02em; color: #f3f7ff; line-height: 1.2; }
+.tickBody { font-size: 0.875rem; line-height: 1.5; color: #b4c4de; }
+
+@media (max-width: 1020px) {
+  .matchGrid { grid-template-columns: 1fr; }
+  .clock { grid-template-columns: 1fr; border-top: 0; border-left: 2px solid rgba(110, 168, 255, 0.28); }
+  .tick { padding: 0 0 26px 24px; }
+  .tick:last-child { padding-bottom: 0; }
+  .tick::before { left: -7px; top: 3px; }
+}
+@media (max-width: 600px) {
+  .windowBody { padding: 8px; }
+  .board { padding: 12px 10px; }
+  .tab { font-size: 0.75rem; padding: 7px 2px; }
+  .panel { min-height: 0; }
+  .ticketTop { padding: 14px 8px 8px; }
+  .line { padding: 7px 8px; }
+  .edge { grid-template-columns: minmax(0, 1fr) 84px minmax(0, 1fr); gap: 8px; }
+  .matchCard { padding: 12px; }
+  .stripRow { grid-template-columns: 1fr; gap: 3px; }
+  .matchTeams { font-size: 1rem; }
+  .edgeNames > span { white-space: normal; }
+}
