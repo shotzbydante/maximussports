@@ -6,21 +6,9 @@
 .sentence { margin: 0; font-size: 0.9375rem; line-height: 1.6; color: var(--color-text-secondary); }
 .subTitle { margin: 6px 0 0; font-size: 1rem; line-height: 1.3; color: var(--color-text); }
 
-/* Position-group tiles */
-.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
-.tile {
-  display: flex; flex-direction: column; gap: 6px;
-  padding: 12px 14px;
-  background: var(--color-bg-elevated);
-  border: 1px solid var(--color-border-light);
-  border-radius: var(--radius-lg, 10px);
-}
-.tileTop { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
-.tileLabel { font-size: 0.75rem; color: var(--color-text-muted); }
 .tileRank { font-size: 0.75rem; font-weight: 700; color: var(--color-text-secondary); font-variant-numeric: tabular-nums; }
 .tileRank.strong { color: var(--color-primary); }
 .tileRank.weak { color: var(--nfl-warn); }
-.tileGrade { font-size: 1.375rem; font-weight: 700; line-height: 1.1; color: var(--color-text); }
 
 .bar {
   position: relative; display: block; height: 6px; border-radius: 999px;
@@ -47,7 +35,7 @@
   border: 1px solid var(--color-border-light); color: var(--color-text-secondary);
 }
 .tierElite { background: var(--color-primary); border-color: var(--color-primary); color: #fff; }
-.tierGood { background: var(--nfl-accent-soft, rgba(22, 104, 227, 0.1)); border-color: var(--nfl-accent-border, rgba(22, 104, 227, 0.25)); color: var(--color-primary); }
+.tierGood { background: rgba(22, 104, 227, 0.12); border-color: transparent; color: var(--color-primary); }
 .tierBelow { background: var(--nfl-warn-soft, rgba(245, 158, 11, 0.12)); border-color: transparent; color: var(--nfl-warn); }
 
 .center { text-align: center; }
@@ -86,11 +74,90 @@
   font-variant-numeric: tabular-nums;
   color: var(--color-text-muted); border: 1px solid var(--color-border-light);
 }
-.chipEdge { color: var(--color-primary); border-color: var(--nfl-accent-border, rgba(22, 104, 227, 0.25)); background: var(--nfl-accent-soft, rgba(22, 104, 227, 0.1)); }
+.chipEdge { color: var(--color-primary); border-color: transparent; background: rgba(22, 104, 227, 0.12); }
 .chipBig { color: var(--color-bg-elevated, #fff); border-color: var(--color-text); background: var(--color-text); }
 
 @media (max-width: 560px) {
   .edge { grid-template-columns: minmax(0, 1fr) 96px minmax(0, 1fr); gap: 6px; }
   .edgeNames { display: none; }
   .matchGrid { grid-template-columns: 1fr; }
+}
+
+/* Team page, first screen: briefing beside the talent snapshot */
+.topGrid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 14px; align-items: stretch; }
+.snap { display: flex; flex-direction: column; gap: 12px; border-top: 3px solid var(--color-primary); }
+.snapHead { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.snapLink { font-size: 0.8125rem; font-weight: 600; white-space: nowrap; }
+.snapNums { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.snapNum { display: flex; flex-direction: column; gap: 2px; }
+.snapRank { font-size: 1.5rem; font-weight: 800; line-height: 1.1; color: var(--color-text); font-variant-numeric: tabular-nums; }
+.snapRank.strong { color: var(--color-primary); }
+.snapRank.weak { color: var(--nfl-warn); }
+.snapLabel { font-size: 0.75rem; color: var(--color-text-muted); font-variant-numeric: tabular-nums; }
+.snapText { margin: 0; font-size: 0.875rem; line-height: 1.55; color: var(--color-text-secondary); }
+
+.strips { display: flex; flex-direction: column; gap: 8px; }
+.stripLabel { display: block; margin-bottom: 4px; font-size: 0.6875rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--color-text-muted); }
+.strip { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
+.cell {
+  display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 6px 2px;
+  border-radius: var(--radius-md, 8px); border: 1px solid var(--color-border-light);
+  background: var(--color-bg-elevated);
+}
+.cellLabel { font-size: 0.6875rem; font-weight: 600; color: var(--color-text-muted); }
+.cellRank { font-size: 0.875rem; font-weight: 800; color: var(--color-text); font-variant-numeric: tabular-nums; }
+.cellStrong { border-color: transparent; background: rgba(22, 104, 227, 0.12); }
+.cellStrong .cellRank { color: var(--color-primary); }
+.cellWeak { border-color: transparent; background: var(--nfl-warn-soft, rgba(168, 106, 18, 0.1)); }
+.cellWeak .cellRank { color: var(--nfl-warn); }
+
+/* This week: the game beside its talent matchup */
+.weekGrid { display: grid; grid-template-columns: minmax(280px, 340px) minmax(0, 1fr); gap: 14px; align-items: start; }
+.weekCard { display: flex; flex-direction: column; gap: 10px; }
+.weekCard .matchHead { margin: 6px 0 0; }
+
+/* Starters and ratings */
+.anchor { scroll-margin-top: 96px; }
+.depthGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; align-items: start; }
+.depthHead {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 12px 14px;
+  font-size: 0.9375rem; font-weight: 700; color: var(--color-text);
+  border-bottom: 1px solid var(--color-border-light);
+}
+.depthHead span:last-child { font-size: 0.8125rem; font-variant-numeric: tabular-nums; }
+.group { border-top: 1px solid var(--color-border-light); padding: 4px 0 6px; }
+.groupHead {
+  display: grid; grid-template-columns: 112px minmax(0, 1fr) 40px 36px; align-items: center; gap: 10px;
+  padding: 8px 14px 4px;
+}
+.groupLabel { font-size: 0.8125rem; font-weight: 700; color: var(--color-text); }
+.groupGrade { font-size: 0.8125rem; font-weight: 700; text-align: right; color: var(--color-text); }
+.groupHead .tileRank { text-align: right; }
+.player {
+  display: grid; grid-template-columns: minmax(0, 1fr) 46px 40px 40px 58px; align-items: center; gap: 6px;
+  padding: 5px 14px; font-size: 0.8125rem; color: var(--color-text-secondary);
+}
+.player > span:not(:first-child) { text-align: right; }
+.playerCols { font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.02em; color: var(--color-text-muted); padding-top: 8px; padding-bottom: 6px; }
+.playerName { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; color: var(--color-text); }
+.playerPos { margin-left: 6px; font-size: 0.6875rem; font-weight: 500; color: var(--color-text-muted); }
+.scorePill {
+  display: inline-block; min-width: 44px; padding: 2px 7px; border-radius: 999px; text-align: center;
+  font-weight: 700; color: var(--color-text); border: 1px solid var(--color-border-light);
+}
+.scorePill.tierElite { color: #fff; }
+.scorePill.tierGood { color: var(--color-primary); }
+.scorePill.tierBelow { color: var(--nfl-warn); }
+.scorePill.tierGood, .scorePill.tierBelow { border-color: transparent; }
+
+@media (max-width: 1000px) {
+  .depthGrid { grid-template-columns: 1fr; }
+}
+@media (max-width: 900px) {
+  .topGrid, .weekGrid { grid-template-columns: 1fr; }
+}
+@media (max-width: 520px) {
+  .hideXs { display: none; }
+  .player { grid-template-columns: minmax(0, 1fr) 46px 58px; }
+  .groupHead { grid-template-columns: 96px minmax(0, 1fr) 38px 34px; }
 }
