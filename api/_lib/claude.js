@@ -8,7 +8,12 @@
  * Env:
  *   ANTHROPIC_API_KEY — required. Without it the helpers report "not configured"
  *                       and callers fall back to their non-AI behaviour.
- *   CLAUDE_MODEL      — optional model override (default: claude-haiku-5-5).
+ *   CLAUDE_MODEL      — optional model override (default: claude-sonnet-5-5).
+ *
+ * Model choice: Sonnet writes the copy. If the API rejects the request for the
+ * configured model (unknown model ID, unsupported parameter), the same request
+ * is retried once on Haiku, whose request shape is known to work, so a bad
+ * model setting degrades copy quality instead of blanking every AI surface.
  *
  * Notes on the request shape:
  *   - Current Claude models reject `temperature` / `top_p` / `top_k`, so no
@@ -18,15 +23,20 @@
  *     room to spare and an answer that still hits the cap is cut back to its
  *     last complete sentence.
  *   - `max_tokens` caps thinking and answer text combined. Haiku runs with
- *     thinking off, so the whole budget is answer text. Other models cannot
- *     turn thinking off; for those the helper asks for low effort and adds
- *     headroom so thinking never truncates the answer.
+ *     thinking off and Sonnet 5.5 with its lowest setting (`between_tools`,
+ *     which without tools returns text only), so the whole budget is answer
+ *     text and latency stays predictable. Any other model keeps adaptive
+ *     thinking at low effort and gets headroom so thinking never truncates
+ *     the answer.
  */
 
 const API_URL = 'https://api.anthropic.com/v1/messages';
 const API_VERSION = '2023-06-01';
 
-export const DEFAULT_CLAUDE_MODEL = 'claude-haiku-5-5';
+export const DEFAULT_CLAUDE_MODEL = 'claude-sonnet-5-5';
+
+/** Used when the API rejects a request for the configured model. */
+export const FALLBACK_CLAUDE_MODEL = 'claude-haiku-5-5';
 
 /** Extra output budget for models that always think. */
 const THINKING_HEADROOM_TOKENS = 2000;
@@ -41,8 +51,22 @@ export const OUTPUT_RULES = `OUTPUT RULES (these override anything above that co
 - If an instruction does not fit the data, follow the data and say nothing about the mismatch.
 - Stay inside the requested length and finish your last sentence.`;
 
-function withOutputRules(system) {
-  return system ? `${system}\n\n${OUTPUT_RULES}` : OUTPUT_RULES;
+/**
+ * House writing standards for anything built from sports data: briefings,
+ * summaries, team insights. Sits between the route's own prompt and the
+ * output rules.
+ */
+export const EDITORIAL_STANDARDS = `EDITORIAL STANDARDS (these apply on top of the format above):
+- Accuracy first. Every team, player, score, record, date and odds number must come from the data. Do not add a conference, division, region, roster detail, injury, ranking or piece of history that the data does not state.
+- Odds are the product. When the data includes odds (title prices, spreads, totals, moneylines), work the exact numbers into the copy, and keep the "+" on positive American odds. Never invent, round or estimate a number.
+- Lead with the most newsworthy result or number. No greeting, no date line, no warm-up sentence.
+- Write like a sharp beat writer who also reads the market: concrete nouns, active verbs, one idea per sentence, varied sentence length.
+- Cut filler and stock phrases ("what a slate", "buckle up", "a marathon, not a sprint", "time will tell", "all eyes on"). Quotes from an approved list in the instructions above are fine. Do not reuse a phrase or a description from an earlier paragraph.
+- Betting language stays measured: leans and prices, never locks or guarantees.
+- Do not point out data that is missing or thin unless the instructions above tell you to. Write around it.`;
+
+function composeSystem(system, editorial) {
+  return [system, editorial ? EDITORIAL_STANDARDS : null, OUTPUT_RULES].filter(Boolean).join('\n\n');
 }
 
 export function getClaudeModel(override) {
@@ -59,28 +83,60 @@ export function isClaudeConfigured() {
   return getClaudeApiKey() !== null;
 }
 
-function isHaiku(model) {
-  return /^claude-haiku/i.test(model);
-}
-
-/** Build the Messages API request body. Exported for tests. */
-export function buildClaudeRequest({ system, user, maxTokens, model, stream = false }) {
+/**
+ * Build the Messages API request body. Exported for tests.
+ *
+ * @param {boolean} [opts.editorial=true]  append EDITORIAL_STANDARDS. Turn off
+ *        for copy that is not written from sports data (reel/marketing copy).
+ */
+export function buildClaudeRequest({ system, user, maxTokens, model, stream = false, editorial = true }) {
   const resolvedModel = getClaudeModel(model);
   const body = {
     model: resolvedModel,
     max_tokens: maxTokens,
+    system: composeSystem(system, editorial),
     messages: [{ role: 'user', content: user }],
   };
-  body.system = withOutputRules(system);
   if (stream) body.stream = true;
 
-  if (isHaiku(resolvedModel)) {
+  if (/^claude-haiku/i.test(resolvedModel)) {
     body.thinking = { type: 'disabled' };
+  } else if (/^claude-sonnet-5-5/i.test(resolvedModel)) {
+    body.thinking = { type: 'between_tools' };
   } else {
     body.output_config = { effort: 'low' };
     body.max_tokens = maxTokens + THINKING_HEADROOM_TOKENS;
   }
   return body;
+}
+
+/** The API refused this model or request shape; worth one retry on the fallback model. */
+function shouldFallBack(status, model) {
+  return (status === 400 || status === 404) && model !== FALLBACK_CLAUDE_MODEL;
+}
+
+/**
+ * POST the request. If the configured model is rejected, retry once on the
+ * fallback model. Returns the successful Response or throws ClaudeError.
+ */
+async function postWithFallback({ apiKey, request, signal }) {
+  let model = getClaudeModel(request.model);
+  for (;;) {
+    const r = await fetch(API_URL, {
+      method: 'POST',
+      headers: requestHeaders(apiKey),
+      body: JSON.stringify(buildClaudeRequest({ ...request, model })),
+      signal,
+    });
+    if (r.ok) return r;
+    const body = await r.text().catch(() => '');
+    if (shouldFallBack(r.status, model)) {
+      console.warn(`[claude] ${model} rejected (${r.status}): ${body.slice(0, 160)} — retrying on ${FALLBACK_CLAUDE_MODEL}`);
+      model = FALLBACK_CLAUDE_MODEL;
+      continue;
+    }
+    throw new ClaudeError('http_error', `Claude API ${r.status}: ${body.slice(0, 200)}`, r.status);
+  }
 }
 
 function requestHeaders(apiKey) {
@@ -136,26 +192,22 @@ function isAbort(err) {
  * @param {string}  [opts.system]
  * @param {string}  opts.user
  * @param {number}  opts.maxTokens
- * @param {number}  [opts.timeoutMs]  abort after this long (no timeout if omitted)
+ * @param {number}  [opts.timeoutMs]  abort after this long, fallback attempt included (no timeout if omitted)
  * @param {string}  [opts.model]
+ * @param {boolean} [opts.editorial]  see buildClaudeRequest
  */
-export async function claudeComplete({ system, user, maxTokens, timeoutMs, model }) {
+export async function claudeComplete({ system, user, maxTokens, timeoutMs, model, editorial }) {
   const apiKey = getClaudeApiKey();
   if (!apiKey) throw new ClaudeError('not_configured', 'ANTHROPIC_API_KEY not set');
 
   const controller = new AbortController();
   const timer = timeoutMs ? setTimeout(() => controller.abort(), timeoutMs) : null;
   try {
-    const r = await fetch(API_URL, {
-      method: 'POST',
-      headers: requestHeaders(apiKey),
-      body: JSON.stringify(buildClaudeRequest({ system, user, maxTokens, model })),
+    const r = await postWithFallback({
+      apiKey,
+      request: { system, user, maxTokens, model, editorial },
       signal: controller.signal,
     });
-    if (!r.ok) {
-      const body = await r.text().catch(() => '');
-      throw new ClaudeError('http_error', `Claude API ${r.status}: ${body.slice(0, 200)}`, r.status);
-    }
     const json = await r.json();
     const text = extractClaudeText(json);
     // Hit the output cap: drop the dangling partial sentence so copy never ends mid-word.
@@ -174,25 +226,21 @@ export async function claudeComplete({ system, user, maxTokens, timeoutMs, model
  * arrive. Throws ClaudeError if the request fails, the API reports an error
  * mid-stream, or the stream ends before the message is complete.
  */
-export async function* claudeStream({ system, user, maxTokens, model, signal }) {
+export async function* claudeStream({ system, user, maxTokens, model, signal, editorial }) {
   const apiKey = getClaudeApiKey();
   if (!apiKey) throw new ClaudeError('not_configured', 'ANTHROPIC_API_KEY not set');
 
   let r;
   try {
-    r = await fetch(API_URL, {
-      method: 'POST',
-      headers: requestHeaders(apiKey),
-      body: JSON.stringify(buildClaudeRequest({ system, user, maxTokens, model, stream: true })),
+    r = await postWithFallback({
+      apiKey,
+      request: { system, user, maxTokens, model, editorial, stream: true },
       signal,
     });
   } catch (err) {
+    if (err instanceof ClaudeError) throw err;
     if (isAbort(err)) throw new ClaudeError('timeout', 'Claude request timed out');
     throw new ClaudeError('network_error', err?.message || 'Claude request failed');
-  }
-  if (!r.ok) {
-    const body = await r.text().catch(() => '');
-    throw new ClaudeError('http_error', `Claude API ${r.status}: ${body.slice(0, 200)}`, r.status);
   }
 
   const reader = r.body.getReader();
