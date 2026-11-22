@@ -43,6 +43,7 @@ let _sessionId  = '';
 const CRITICAL_EVENTS = new Set([
   'signup_started', 'auth_account_created', 'account_created',
   'onboarding_completed', 'oauth_attempted', 'oauth_blocked_embedded_browser',
+  'signup_email_sent', 'onboarding_started',
 ]);
 const MAX_BUFFERED_EVENTS = 100;
 

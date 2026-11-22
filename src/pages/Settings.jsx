@@ -29,7 +29,13 @@ import { VerifiedBadge } from '../components/profile/ProfileAvatar';
 import EmailChoices from '../components/settings/EmailChoices';
 import { SIGNUP_PREFS, toggleOption } from '../features/account/emailOptions';
 import { FOLLOW_SPORTS, teamBySlug, sportOfSlug, splitBySport } from '../utils/teamSports';
-import ContactDiscovery from '../components/social/ContactDiscovery';
+import {
+  trackOnboardingStarted, trackStepViewed, trackStepSubmitted, trackStepFailed, trackStepSkipped,
+  trackSportTabSelected, trackTeamToggled, trackTeamLimitHit, trackEmailChoiceToggled,
+  trackAvatarChange, trackUsernameIssue, trackNextAction, setOnboardingPersonProps,
+  trackSignupEmailSent, trackSignupEmailFailed, trackSignupEmailInvalid,
+  teamProps, emailProps, avatarProps, secondsInOnboarding, signupMethod,
+} from '../analytics/onboarding';
 import FollowPanel from '../components/social/FollowPanel';
 
 const SocialListDropdown = lazy(() => import('../components/profile/SocialListDropdown'));
@@ -83,7 +89,7 @@ function friendlyDbError(err) {
   return err.message || 'Something went wrong. Please try again.';
 }
 
-/** The profile's avatar as { sport, skin, tint, number }, whatever generation stored it. */
+/** The profile's avatar as { sport, skin, tint, uniform, uniformTint, number }, whatever generation stored it. */
 function profileAvatar(profile) {
   const number = profile?.favorite_number != null ? String(profile.favorite_number) : '';
   return normalizeAvatar(profile?.preferences?.robotConfig, number);
@@ -222,7 +228,7 @@ function StepPassword({ onNext, onSkip }) {
   const [error, setError]           = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
-  useEffect(() => { track('onboarding_step_view', { step: 'password' }); }, []);
+  useEffect(() => { trackStepViewed('password'); }, []);
 
   const handleSubmit = async (e) => {
     e?.preventDefault();
@@ -236,6 +242,7 @@ function StepPassword({ onNext, onSkip }) {
       const { error: updateErr } = await sb.auth.updateUser({ password });
       if (updateErr) throw updateErr;
       track('onboarding_password_created', {});
+      trackStepSubmitted('password');
       onNext();
     } catch (err) {
       setError(err.message || 'Could not set password. Try again.');
@@ -318,9 +325,10 @@ function StepTeams({ onNext, initialSelected = [] }) {
   const [query, setQuery]       = useState('');
   const [selected, setSelected] = useState(initialSelected);
   const [sportTab, setSportTab] = useState(FOLLOW_SPORTS[0].id); // football first
+  const usedSearch = useRef(false);
   const [error, setError]       = useState('');
 
-  useEffect(() => { track('onboarding_step_view', { step: 1 }); }, []);
+  useEffect(() => { trackStepViewed('teams'); }, []);
 
   // Free-tier cap for onboarding — new users are always free at this step.
   // This is enforced again server-side via /api/teams/pin-set.
@@ -334,22 +342,27 @@ function StepTeams({ onNext, initialSelected = [] }) {
 
   const toggleTeam = (slug) => {
     setError('');
-    setSelected((prev) => {
-      if (prev.includes(slug)) return prev.filter((x) => x !== slug);
-      if (prev.length >= ONBOARDING_FREE_LIMIT) {
-        setError(`The free plan follows up to ${ONBOARDING_FREE_LIMIT} teams. Remove one to swap, or upgrade later for more.`);
-        return prev;
-      }
-      return [...prev, slug];
-    });
+    if (selected.includes(slug)) {
+      trackTeamToggled({ slug, selected: false, position: selected.indexOf(slug) + 1 });
+      setSelected(selected.filter((x) => x !== slug));
+      return;
+    }
+    if (selected.length >= ONBOARDING_FREE_LIMIT) {
+      trackTeamLimitHit({ slug, limit: ONBOARDING_FREE_LIMIT });
+      setError(`The free plan follows up to ${ONBOARDING_FREE_LIMIT} teams. Remove one to swap, or upgrade later for more.`);
+      return;
+    }
+    trackTeamToggled({ slug, selected: true, position: selected.length + 1 });
+    setSelected([...selected, slug]);
   };
 
   const handleNext = () => {
-    if (selected.length === 0) { setError('Pick at least one team to continue.'); return; }
-    track('onboarding_step_submit', {
-      step: 1, success: true, primary_team: selected[0], team_count: selected.length,
-      sports: [...new Set(selected.map(sportOfSlug))].join(','),
-    });
+    if (selected.length === 0) {
+      trackStepFailed('teams', 'no_team_selected');
+      setError('Pick at least one team to continue.');
+      return;
+    }
+    trackStepSubmitted('teams', { ...teamProps(selected), used_search: usedSearch.current });
     onNext(selected);
   };
 
@@ -371,7 +384,7 @@ function StepTeams({ onNext, initialSelected = [] }) {
             <button
               key={sp.id} type="button" role="tab" aria-selected={sportTab === sp.id}
               className={`${styles.sportTab} ${sportTab === sp.id ? styles.sportTabActive : ''}`}
-              onClick={() => { setSportTab(sp.id); setQuery(''); }}
+              onClick={() => { if (sp.id !== sportTab) trackSportTabSelected(sp.id); setSportTab(sp.id); setQuery(''); }}
             >
               {sp.label}{count > 0 && <span className={styles.sportTabCount}>{count}</span>}
             </button>
@@ -406,7 +419,7 @@ function StepTeams({ onNext, initialSelected = [] }) {
             placeholder={sport.search}
             aria-label={sport.search}
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => { if (e.target.value) usedSearch.current = true; setQuery(e.target.value); }}
           />
         </div>
       </div>
@@ -479,6 +492,7 @@ function StepProfile({ onNext, defaultName = '', userId, primarySport }) {
   const [avatar, setAvatar] = useState({
     sport: { nfl: 'football', ncaam: 'basketball', mlb: 'baseball' }[primarySport] || DEFAULT_AVATAR.mascotType,
     skin: DEFAULT_AVATAR.robotColor,
+    uniform: DEFAULT_AVATAR.uniformColor,
     number: '',
     name: defaultName.slice(0, 18),
   });
@@ -487,7 +501,7 @@ function StepProfile({ onNext, defaultName = '', userId, primarySport }) {
   const [error, setError]                 = useState('');
   const debounceRef                       = useRef(null);
 
-  useEffect(() => { track('onboarding_step_view', { step: 3 }); }, []);
+  useEffect(() => { trackStepViewed('avatar'); }, []);
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -521,15 +535,20 @@ function StepProfile({ onNext, defaultName = '', userId, primarySport }) {
     displayName: avatar.name.trim() || name,
     favoriteNumber: avatar.number !== '' ? avatar.number : null,
     robotConfig: toAvatarConfig(avatar),
+    // For analytics only: what the studio held, and whether the step was skipped.
+    avatarValue: avatar,
+    skipped: false,
   });
 
+  const reject = (code, message) => { trackUsernameIssue(code); setError(message); };
+
+  // The step's submit event fires in the wizard, once the profile is saved.
   const handleNext = () => {
-    if (!username.trim()) { setError('Choose a username. It is how friends find you.'); return; }
-    if (!USERNAME_RE.test(username)) { setError('A username is 3 to 20 letters, numbers or underscores.'); return; }
-    if (usernameStatus === 'taken') { setError('That username is taken. Pick another, or tap a suggestion.'); return; }
-    if (usernameStatus === 'checking') { setError('Still checking that username. Try again in a second.'); return; }
-    track('onboarding_step_submit', { step: 3, success: true, avatar_sport: avatar.sport, avatar_has_number: avatar.number !== '' });
-    onNext(finish(username.trim()));
+    if (!username.trim()) return reject('username_empty', 'Choose a username. It is how friends find you.');
+    if (!USERNAME_RE.test(username)) return reject('username_invalid', 'A username is 3 to 20 letters, numbers or underscores.');
+    if (usernameStatus === 'taken') return reject('username_taken', 'That username is taken. Pick another, or tap a suggestion.');
+    if (usernameStatus === 'checking') return reject('username_checking', 'Still checking that username. Try again in a second.');
+    return onNext(finish(username.trim()));
   };
 
   const hint = (() => {
@@ -548,7 +567,7 @@ function StepProfile({ onNext, defaultName = '', userId, primarySport }) {
       <h2 className={styles.stepTitle}>Build your Maximus</h2>
       <p className={styles.stepSubtitle}>This is you on Maximus Sports: on your profile, next to your picks, and when friends follow you.</p>
 
-      <AvatarStudio value={avatar} onChange={(next) => { setAvatar(next); setError(''); }} username={USERNAME_RE.test(username) ? username : ''} />
+      <AvatarStudio value={avatar} onChange={(next) => { trackAvatarChange('onboarding', avatar, next); setAvatar(next); setError(''); }} username={USERNAME_RE.test(username) ? username : ''} />
 
       <div className={`${styles.fieldGroup} ${styles.usernameField}`}>
         <label className={styles.label} htmlFor="username">Username</label>
@@ -583,11 +602,16 @@ function StepProfile({ onNext, defaultName = '', userId, primarySport }) {
       <button className={styles.btnPrimary} onClick={handleNext} disabled={usernameStatus === 'checking'}>
         Finish setup
       </button>
-      <button type="button" className={styles.btnSkip} onClick={() => onNext({
-        ...finish(USERNAME_RE.test(username) && usernameStatus !== 'taken' ? username : `maximus_${Math.random().toString(36).slice(2, 7)}`),
-        favoriteNumber: null,
-        robotConfig: { ...DEFAULT_AVATAR },
-      })}>
+      <button type="button" className={styles.btnSkip} onClick={() => {
+        trackStepSkipped('avatar');
+        onNext({
+          ...finish(USERNAME_RE.test(username) && usernameStatus !== 'taken' ? username : `maximus_${Math.random().toString(36).slice(2, 7)}`),
+          favoriteNumber: null,
+          robotConfig: { ...DEFAULT_AVATAR },
+          avatarValue: { sport: DEFAULT_AVATAR.mascotType, skin: DEFAULT_AVATAR.robotColor, uniform: DEFAULT_AVATAR.uniformColor, number: '', name: '' },
+          skipped: true,
+        });
+      }}>
         Skip for now
       </button>
     </div>
@@ -597,41 +621,45 @@ function StepProfile({ onNext, defaultName = '', userId, primarySport }) {
 /* ─── Step 3: Subscriptions ──────────────────────────────────────────────── */
 function StepPreferences({ onNext, loading, teamSlugs = [] }) {
   // Someone who just followed baseball or college teams starts with team emails on.
-  const [prefs, setPrefs] = useState(() => {
+  const [initial] = useState(() => {
     const by = splitBySport(teamSlugs);
     return { ...SIGNUP_PREFS, mlb_team_digest: by.mlb.length > 0, ncaam_team_digest: by.ncaam.length > 0 };
   });
+  const [prefs, setPrefs] = useState(initial);
 
-  useEffect(() => { track('onboarding_step_view', { step: 2 }); }, []);
+  useEffect(() => { trackStepViewed('emails'); }, []);
 
   return (
     <div className={styles.step}>
       <h2 className={styles.stepTitle}>Choose your emails</h2>
       <p className={styles.stepSubtitle}>Each one says what it is and when it arrives. Switch any of them off here or later in Settings.</p>
 
-      <EmailChoices prefs={prefs} onToggle={(option) => setPrefs((p) => toggleOption(p, option))} />
+      <EmailChoices
+        prefs={prefs}
+        onToggle={(option) => {
+          const next = toggleOption(prefs, option);
+          trackEmailChoiceToggled({ surface: 'onboarding', choice: option.id, on: next[option.keys[0]] === true });
+          setPrefs(next);
+        }}
+      />
 
-      <button className={styles.btnPrimary} onClick={() => onNext(prefs)} disabled={loading}>
+      <button className={styles.btnPrimary} onClick={() => { trackStepSubmitted('emails', emailProps(prefs, initial)); onNext(prefs, initial); }} disabled={loading}>
         {loading ? <><SpinnerIcon /> Saving…</> : 'Continue'}
       </button>
     </div>
   );
 }
 
-/* ─── Step 4: Done ───────────────────────────────────────────────────────── */
-function StepDone({ profileData }) {
-  const navigate = useNavigate();
-  useEffect(() => { track('onboarding_complete', {}); }, []);
+/* ─── Finish screen ──────────────────────────────────────────────────────── */
+function StepDone({ profileData, onExit, returnTo }) {
+  useEffect(() => { trackStepViewed('done'); }, []);
   const a = normalizeAvatar(profileData?.robotConfig);
   const emails = profileData?.prefs || {};
-  const enter = (to) => {
-    try { localStorage.setItem('mx_onboarding_completed', 'true'); } catch { /* ignore */ }
-    navigate(to);
-  };
+  const go = (destination, to) => { trackNextAction(destination); onExit(to); };
   return (
     <div className={`${styles.step} ${styles.stepCenter}`}>
       <div className={styles.doneCard}>
-        <PlayerCard sport={a.sport} skin={a.skin} number={a.number} name={profileData?.displayName} username={profileData?.username} size="sm" />
+        <PlayerCard sport={a.sport} skin={a.skin} uniform={a.uniform} number={a.number} name={profileData?.displayName} username={profileData?.username} size="sm" />
       </div>
       <h2 className={styles.stepTitle}>You’re in{profileData?.displayName ? `, ${profileData.displayName}` : ''}</h2>
       <p className={styles.stepSubtitle}>Your teams are on your home page and this week’s NFL board is open.</p>
@@ -641,18 +669,34 @@ function StepDone({ profileData }) {
           {emails.nfl_picks ? 'NFL Picks arrive Thursday afternoon and Sunday morning.' : ''}
         </p>
       )}
-      <button className={styles.btnPrimary} onClick={() => enter('/nfl')}>
-        See this week’s NFL picks
-      </button>
-      <button type="button" className={styles.btnSkip} onClick={() => enter('/')}>
-        Go to my home page
-      </button>
+      <div className={styles.doneActions}>
+        {returnTo ? (
+          <button className={styles.btnPrimary} onClick={() => go('return_to', returnTo)}>
+            Continue where you left off
+          </button>
+        ) : (
+          <button className={styles.btnPrimary} onClick={() => go('nfl_picks', '/nfl')}>
+            See this week’s NFL picks
+          </button>
+        )}
+        <button type="button" className={styles.btnSkip} onClick={() => go('home', '/')}>
+          Go to my home page
+        </button>
+        <button type="button" className={styles.btnSkip} onClick={() => go('find_friends', null)}>
+          Find friends to follow
+        </button>
+      </div>
     </div>
   );
 }
 
 /* ─── Onboarding Wizard ──────────────────────────────────────────────────── */
-function OnboardingWizard({ user, onComplete }) {
+/** An error that also says, for analytics, which part of saving failed. */
+function coded(analyticsCode, message) {
+  return Object.assign(new Error(message), { analyticsCode });
+}
+
+function OnboardingWizard({ user, onSaved, onExit, returnTo }) {
   // Skip password step for OAuth users (Google) — they already have auth
   const isOAuth = !!user?.app_metadata?.provider && user.app_metadata.provider !== 'email';
   const [step, setStep]               = useState(isOAuth ? 1 : 0);
@@ -663,6 +707,9 @@ function OnboardingWizard({ user, onComplete }) {
 
   const defaultName = user?.user_metadata?.full_name?.split(' ')[0] || '';
   const wizardRef = useRef(null);
+
+  // During the first render, so it is recorded before the first step reports itself.
+  useState(() => { trackOnboardingStarted({ user, entryStep: isOAuth ? 'teams' : 'password' }); return null; });
 
   // Scroll to top of wizard on every step change
   useEffect(() => {
@@ -708,8 +755,8 @@ function OnboardingWizard({ user, onComplete }) {
 
       const { error: coreErr } = await sb.from('profiles').upsert(coreRow, { onConflict: 'id' });
       if (coreErr) {
-        if (coreErr.code === '23505') throw new Error('That username was just taken. Go back and choose another.');
-        throw new Error(friendlyDbError(coreErr));
+        if (coreErr.code === '23505') throw coded('username_taken_on_save', 'That username was just taken. Go back and choose another.');
+        throw coded('profile_save_failed', friendlyDbError(coreErr));
       }
 
       // SERVER-VALIDATED full-set persistence via /api/teams/pin-set.
@@ -717,7 +764,7 @@ function OnboardingWizard({ user, onComplete }) {
       // any set exceeding the limit with 403 regardless of grace window.
       const { data: { session } } = await sb.auth.getSession();
       const token = session?.access_token;
-      if (!token) throw new Error('Session expired. Please sign in again.');
+      if (!token) throw coded('session_expired', 'Session expired. Please sign in again.');
 
       const pinSetRes = await fetch('/api/teams/pin-set', {
         method: 'POST',
@@ -729,7 +776,7 @@ function OnboardingWizard({ user, onComplete }) {
       });
       const pinSetData = await pinSetRes.json().catch(() => ({}));
       if (!pinSetRes.ok || !pinSetData.ok) {
-        throw new Error(pinSetData.error || 'Failed to save teams. Please try again.');
+        throw coded(pinSetRes.status === 403 ? 'team_limit_rejected' : 'teams_save_failed', pinSetData.error || 'Failed to save teams. Please try again.');
       }
 
       // Re-read validated backend state for person properties — NEVER trust
@@ -740,39 +787,50 @@ function OnboardingWizard({ user, onComplete }) {
       const validatedSlugs = (validatedRows || []).map(r => r.team_slug).filter(Boolean);
 
       identifyUser(user, { username: allData.username, plan_tier: pinSetData.plan_tier || 'free' }, validatedSlugs);
-      track('onboarding_step_submit', {
-        step: 3,
-        success: true,
+      const chosen = { ...avatarProps(allData.avatarValue), avatar_step_skipped: allData.skipped === true };
+      trackStepSubmitted('avatar', {
+        ...chosen,
         validated_team_count: pinSetData.teamCount,
         attempted_count: teamSlugs.length,
       });
+      setOnboardingPersonProps({ teamSlugs: validatedSlugs, prefs: savedPrefs, avatar: allData.avatarValue });
+      // Home reads this to stop showing the first-visit welcome.
+      try { localStorage.setItem('mx_onboarding_completed', 'true'); } catch { /* ignore */ }
 
-      setStep(4); // Find Friends (optional)
-      if (onComplete) onComplete({ teamSlugs });
+      // Saved. The finish screen is next; the page behind it changes only
+      // when the person leaves that screen (onExit).
+      setStep(4);
+      if (onSaved) {
+        onSaved({
+          teamSlugs: validatedSlugs,
+          extra: { ...teamProps(validatedSlugs), ...emailProps(savedPrefs, allData.prefsInitial || profileData.prefsInitial), ...chosen, seconds_total: secondsInOnboarding() },
+        });
+      }
     } catch (err) {
       setWizardError(err.message || 'Something went wrong. Please try again.');
-      track('onboarding_step_submit', { step: 3, success: false, error_code: 'save_failed' });
+      trackStepFailed('avatar', err.analyticsCode || 'save_failed');
     } finally {
       setSaving(false);
     }
-  }, [user, profileData, teamSlugs, onComplete]);
+  }, [user, profileData, teamSlugs, onSaved]);
 
-  if (step === 5) return <StepDone profileData={profileData} />;
+  if (step === 4) {
+    return (
+      <div className={styles.wizardCard} ref={wizardRef}>
+        <StepDone profileData={profileData} onExit={onExit} returnTo={returnTo} />
+      </div>
+    );
+  }
 
   return (
     <div className={styles.wizardCard} ref={wizardRef}>
       {step >= 1 && step <= 3 && <ProgressBar step={step} />}
       {wizardError && <div className={styles.wizardError}>{wizardError}</div>}
-      {step === 0 && <StepPassword onNext={() => setStep(1)} onSkip={() => setStep(1)} />}
+      {step === 0 && <StepPassword onNext={() => setStep(1)} onSkip={() => { trackStepSkipped('password'); setStep(1); }} />}
       {step === 1 && <StepTeams onNext={handleTeams} />}
-      {step === 2 && <StepPreferences teamSlugs={teamSlugs} onNext={(prefs) => { setProfileData(prev => ({ ...prev, prefs })); setStep(3); }} loading={false} />}
+      {step === 2 && <StepPreferences teamSlugs={teamSlugs} onNext={(prefs, prefsInitial) => { setProfileData(prev => ({ ...prev, prefs, prefsInitial })); setStep(3); }} loading={false} />}
       {step === 3 && <StepProfile onNext={(d) => { setProfileData(prev => ({ ...prev, ...d })); handleProfileComplete({ ...profileData, ...d }); }} defaultName={defaultName} userId={user.id} primarySport={sportOfSlug(teamSlugs[0])} />}
       {step === 3 && saving && <p className={styles.savingStatus} role="status">Saving your profile…</p>}
-      {step === 4 && (
-        <div className={styles.step}>
-          <ContactDiscovery onDone={() => setStep(5)} showDoneButton={true} compact />
-        </div>
-      )}
     </div>
   );
 }
@@ -783,7 +841,7 @@ function EditProfileForm({ user, profile, onSave, onCancel }) {
   const [avatar, setAvatar]               = useState(() => {
     const a = profileAvatar(profile);
     const name = profile?.display_name && profile.display_name !== profile?.username ? profile.display_name : '';
-    return { sport: a.sport, skin: a.skin, number: a.number, name: name.slice(0, 18) };
+    return { sport: a.sport, skin: a.skin, uniform: a.uniform, number: a.number, name: name.slice(0, 18) };
   });
   const [usernameStatus, setUsernameStatus] = useState('idle');
   const [suggestions, setSuggestions]     = useState([]);
@@ -842,7 +900,8 @@ function EditProfileForm({ user, profile, onSave, onCancel }) {
       const { error: updateErr } = await sb.from('profiles').update(coreUpdates).eq('id', user.id);
       if (updateErr) throw updateErr;
 
-      track('profile_updated', { fields_changed: ['username', 'display_name', 'favorite_number', 'avatar'], avatar_sport: avatar.sport });
+      track('profile_updated', { fields_changed: ['username', 'display_name', 'favorite_number', 'avatar'], ...avatarProps(avatar) });
+      setOnboardingPersonProps({ teamSlugs: [], prefs: {}, avatar });
       onSave(coreUpdates);
     } catch (err) {
       if (err?.code === '23505') {
@@ -871,7 +930,7 @@ function EditProfileForm({ user, profile, onSave, onCancel }) {
       </div>
 
       <div className={styles.editFormBody}>
-        <AvatarStudio value={avatar} onChange={(next) => { setAvatar(next); setError(''); }} username={USERNAME_RE.test(username) ? username : ''} />
+        <AvatarStudio value={avatar} onChange={(next) => { trackAvatarChange('settings', avatar, next); setAvatar(next); setError(''); }} username={USERNAME_RE.test(username) ? username : ''} />
 
         <div className={`${styles.fieldGroup} ${styles.usernameField}`}>
           <label className={styles.label} htmlFor="edit-username">Username</label>
@@ -2425,7 +2484,7 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
     const before = prefs;
     const newPrefs = toggleOption(prefs, option);
     setPrefs(newPrefs);
-    track('email_choice_toggled', { choice: option.id, on: newPrefs[option.keys[0]] === true });
+    trackEmailChoiceToggled({ surface: 'settings', choice: option.id, on: newPrefs[option.keys[0]] === true });
     debouncedPrefSave(newPrefs, option.id, () => setPrefs(before));
   }
 
@@ -2496,7 +2555,7 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
 
       {/* ── Who you are: card, plan, friends ── */}
       <aside className={styles.profileAside}>
-        <PlayerCard sport={avatar.sport} skin={avatar.skin} number={avatar.number} name={cardName} username={profile?.username} size="sm" />
+        <PlayerCard sport={avatar.sport} skin={avatar.skin} uniform={avatar.uniform} number={avatar.number} name={cardName} username={profile?.username} size="sm" />
         <div className={styles.asideAccount}>
           <span className={styles.asideEmail}>
             {user.email}
@@ -2820,18 +2879,18 @@ function AuthenticatedSettings({ user }) {
     await signOut();
   };
 
-  const handleWizardComplete = ({ teamSlugs = [] } = {}) => {
-    const isFirstOnboarding = wasNewUserRef.current;
-    wasNewUserRef.current = false;
-    setShowWizard(false);
-
-    // Redirect to intended destination if present (preserved through the auth flow)
+  // Where they were headed before signing up (kept through the auth flow as ?next=).
+  const returnTo = (() => {
     try {
       const n = new URLSearchParams(window.location.search).get('next');
-      if (n && n.startsWith('/') && !n.startsWith('//') && !/^[a-z]+:/i.test(n)) {
-        navigate(n, { replace: true });
-      }
-    } catch { /* ignore */ }
+      return n && n.startsWith('/') && !n.startsWith('//') && !/^[a-z]+:/i.test(n) ? n : null;
+    } catch { return null; }
+  })();
+
+  // Setup saved: the wizard stays up to show its finish screen.
+  const handleWizardSaved = ({ teamSlugs = [], extra = {} } = {}) => {
+    const isFirstOnboarding = wasNewUserRef.current;
+    wasNewUserRef.current = false;
 
     const sb = getSupabase();
     if (sb) {
@@ -2841,9 +2900,7 @@ function AuthenticatedSettings({ user }) {
             setProfile(data);
             invalidateProfileCache(user.id);
             if (isFirstOnboarding) {
-              trackOnboardingCompleted(user, data, teamSlugs, {
-                method: user.app_metadata?.provider || 'google',
-              });
+              trackOnboardingCompleted(user, data, teamSlugs, { method: signupMethod(user), extra });
               // Send welcome email (best-effort, non-blocking)
               sb.auth.getSession().then(({ data: { session } }) => {
                 if (session?.access_token) {
@@ -2858,6 +2915,12 @@ function AuthenticatedSettings({ user }) {
         })
         .catch(() => { /* silently ignore */ });
     }
+  };
+
+  // They left the finish screen. `to` is null when they chose to stay on Settings.
+  const handleWizardExit = (to) => {
+    setShowWizard(false);
+    if (to) navigate(to, { replace: true });
   };
 
   if (profileLoading) {
@@ -2875,7 +2938,7 @@ function AuthenticatedSettings({ user }) {
           <h1 className={styles.pageTitle}>Welcome to Maximus Sports</h1>
           <p className={styles.pageSubtitle}>Three quick steps: your teams, your emails, your Maximus.</p>
         </div>
-        <OnboardingWizard user={user} onComplete={handleWizardComplete} />
+        <OnboardingWizard user={user} onSaved={handleWizardSaved} onExit={handleWizardExit} returnTo={returnTo} />
       </div>
     );
   }
@@ -2989,10 +3052,13 @@ function UnauthenticatedPanel() {
     }
   };
 
-  const sendConfirmEmail = async (emailAddress) => {
+  const sendConfirmEmail = async (emailAddress, { resend = false } = {}) => {
     setEmailLoading(true); setError('');
-    track('auth_start_email', {});
-    trackSignupStarted({ method: 'email' });
+    // A resend is the same signup, so it does not start a second one.
+    if (!resend) {
+      track('auth_start_email', {});
+      trackSignupStarted({ method: 'email' });
+    }
 
     // Preserve intended destination from ?next= (set by RouteGate redirects)
     let nextPath = null;
@@ -3011,9 +3077,11 @@ function UnauthenticatedPanel() {
       });
       // Endpoint always returns { ok: true } — no enumeration possible
       await res.json().catch(() => ({}));
+      if (res.ok) trackSignupEmailSent({ resend }); else trackSignupEmailFailed({ resend });
       setEmailSent(true);
       startResendCooldown(30);
     } catch {
+      trackSignupEmailFailed({ resend });
       setError('Could not send confirmation email. Please try again.');
     } finally {
       setEmailLoading(false);
@@ -3024,6 +3092,7 @@ function UnauthenticatedPanel() {
     e.preventDefault();
     const trimmed = email.trim().toLowerCase();
     if (!trimmed || !trimmed.includes('@')) {
+      trackSignupEmailInvalid();
       setError('Please enter a valid email address.');
       return;
     }
@@ -3034,7 +3103,7 @@ function UnauthenticatedPanel() {
     if (resendCooldown > 0 || emailLoading) return;
     const trimmed = email.trim().toLowerCase();
     if (!trimmed) return;
-    await sendConfirmEmail(trimmed);
+    await sendConfirmEmail(trimmed, { resend: true });
   };
 
   const anyLoading = googleLoading || emailLoading;
