@@ -41,6 +41,9 @@ const LASTKNOWN_TTL_SEC = 72 * 60 * 60;
 export const PERSIST_WINDOW_HOURS = 36;
 const PERSIST_THROTTLE_MS = 30 * 60 * 1000;
 const PERSIST_WAIT_MS = 8000;
+const TRACKING_BLOCK_KEY = 'nfl:picks:trackingBlocked:v1';
+const TRACKING_BLOCK_TTL_SEC = 6 * 3600;
+let trackingBlockedUntil = 0;
 const lastPersistAt = new Map(); // slateDate → epoch ms
 
 function countPicks(board) {
@@ -102,22 +105,85 @@ export function splitBoardBySlateDate(board, { now = Date.now(), windowHours = P
   });
 }
 
-async function persistBoard(board) {
+const VALID_HERO_TIERS = new Set(['tier1', 'tier2', 'tier3']);
+const isHero = (p) => VALID_HERO_TIERS.has(p?.tier) && p?.pickRole !== 'tracking';
+
+function withPicks(payload, picks, part) {
+  return {
+    ...payload,
+    meta: { ...(payload.meta || {}), persistedPicks: picks.length, part },
+    fullSlatePicks: picks,
+  };
+}
+
+async function trackingBlocked(now) {
+  if (now < trackingBlockedUntil) return true;
+  const stored = await getJson(TRACKING_BLOCK_KEY).catch(() => null);
+  if (stored?.until > now) { trackingBlockedUntil = stored.until; return true; }
+  return false;
+}
+
+function isTierConstraintFailure(r) {
+  return (r?.failures || []).some((f) => f?.code === '23514' || /picks_tier_check/.test(f?.message || ''));
+}
+
+/**
+ * Save one slate. Recommended picks and tracking picks go in separate
+ * runs: the recommended picks fit the original picks.tier constraint and
+ * must never be held up by it, while a database that has not had
+ * docs/nfl-picks-migration.sql applied rejects every tracking row. When
+ * that happens the tracking write is skipped for a few hours instead of
+ * failing row by row on every build.
+ */
+async function persistSlate(date, payload, now) {
+  const hero = payload.fullSlatePicks.filter(isHero);
+  const tracking = payload.fullSlatePicks.filter((p) => !isHero(p));
+  let ok = true;
+
+  if (hero.length > 0) {
+    const r = await writePicksRun(withPicks(payload, hero, 'recommended'));
+    if (r && !r.ok && r.reason !== 'no_supabase') {
+      ok = false;
+      console.error(
+        `[nflPicksBuilder] persist failed slate=${date} part=recommended reason=${r.reason} ` +
+        `inserted=${r.picksInserted ?? 0}/${r.picksAttempted ?? 0} first="${r.failures?.[0]?.message || 'n/a'}"`
+      );
+    }
+    if (r?.reason === 'no_supabase') return true;
+  }
+
+  if (tracking.length > 0 && !(await trackingBlocked(now))) {
+    const r = await writePicksRun(withPicks(payload, tracking, 'tracking'));
+    if (r && !r.ok && isTierConstraintFailure(r)) {
+      trackingBlockedUntil = now + TRACKING_BLOCK_TTL_SEC * 1000;
+      setJson(TRACKING_BLOCK_KEY, { until: trackingBlockedUntil }, { exSeconds: TRACKING_BLOCK_TTL_SEC }).catch(() => {});
+      console.error(
+        '[nflPicksBuilder] tracking picks rejected by picks_tier_check. ' +
+        'Run docs/nfl-picks-migration.sql in Supabase; recommended picks are unaffected. ' +
+        `Skipping tracking writes for ${TRACKING_BLOCK_TTL_SEC / 3600}h.`
+      );
+    } else if (r && !r.ok && r.reason !== 'no_supabase') {
+      ok = false;
+      console.error(
+        `[nflPicksBuilder] persist failed slate=${date} part=tracking reason=${r.reason} ` +
+        `inserted=${r.picksInserted ?? 0}/${r.picksAttempted ?? 0} first="${r.failures?.[0]?.message || 'n/a'}"`
+      );
+    }
+  }
+  return ok;
+}
+
+/** Exported for tests. */
+export async function persistBoard(board) {
   const now = Date.now();
   for (const { date, payload } of splitBoardBySlateDate(board, { now })) {
     const last = lastPersistAt.get(date) || 0;
     if (now - last < PERSIST_THROTTLE_MS) continue;
     lastPersistAt.set(date, now);
     try {
-      const r = await writePicksRun(payload);
-      if (r && !r.ok && r.reason !== 'no_supabase') {
-        console.error(
-          `[nflPicksBuilder] persist failed slate=${date} reason=${r.reason} ` +
-          `inserted=${r.picksInserted ?? 0}/${r.picksAttempted ?? 0} first="${r.failures?.[0]?.message || 'n/a'}"`
-        );
-        // Let the next build retry instead of waiting out the throttle.
-        lastPersistAt.delete(date);
-      }
+      const ok = await persistSlate(date, payload, now);
+      // Let the next build retry instead of waiting out the throttle.
+      if (!ok) lastPersistAt.delete(date);
     } catch (err) {
       console.error(`[nflPicksBuilder] persist threw slate=${date}: ${err?.message}`);
       lastPersistAt.delete(date);

@@ -7,10 +7,12 @@
 -- One thing to confirm. The original table definition in
 -- docs/mlb-picks-v2-migration.sql restricts picks.tier to
 -- ('tier1','tier2','tier3'). api/_lib/picksHistory.js has accepted
--- 'coverage' and 'tracking' since the NBA full-slate work, so production
--- has most likely been widened already. NFL writes 'tracking' rows for
--- every full-slate pick that does not clear a tier, so if the old
--- constraint is still in place those inserts fail (hero picks still save).
+-- 'coverage' and 'tracking' since the NBA full-slate work, but the database
+-- was never widened: on Nov 21, 2026 production rejected NFL tracking rows
+-- with `violates check constraint "picks_tier_check"` (the same applies to
+-- NBA tracking rows). Until this script is run, recommended picks save and
+-- are graded as normal, tracking picks are not recorded, and the NFL
+-- builder logs one reminder every six hours.
 --
 -- This script is idempotent and safe to run either way: it replaces the
 -- tier check with the set the application code validates against.

@@ -507,7 +507,7 @@ export function buildNflPicksV2({
   meta.invalidBetScoreDropped = candidates.length - clean.length;
 
   // Tiers: only picks without a guard flag are eligible to be promoted.
-  const eligible = clean.filter(p => !p.flags?.informationGap && !p.flags?.priceGuard);
+  const eligible = clean.filter(p => !p.flags?.informationGap && !p.flags?.priceGuard && !p.flags?.qbInjury);
   const assigned = assignTiers(eligible, config);
   const heroIds = new Set(assigned.published.map(p => p.id));
   for (const p of clean) {
