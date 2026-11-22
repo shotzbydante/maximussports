@@ -49,6 +49,25 @@ describe('bestPerGame', () => {
   });
 });
 
+describe('bestPerGame with a held call', () => {
+  it('passes over a call held for its price when the game has a playable one', () => {
+    const g = [
+      pick('g5', 'moneyline', 'BUF -1600', 49, { lowSignalReason: 'price_guard' }),
+      pick('g5', 'runline', 'MIA +16.5', 36, { lowSignalReason: 'no_price_edge' }),
+      pick('g5', 'total', 'Over 44.5', 28, { lowSignalReason: 'no_price_edge' }),
+    ];
+    expect(bestPerGame(g).map((p) => p.selection.label)).toEqual(['MIA +16.5']);
+  });
+
+  it('still uses the strongest call when the whole game is held', () => {
+    const g = [
+      pick('g6', 'moneyline', 'DET -200', 35, { lowSignalReason: 'qb_uncertain' }),
+      pick('g6', 'runline', 'DET -3.5', 47, { lowSignalReason: 'qb_uncertain' }),
+    ];
+    expect(bestPerGame(g).map((p) => p.selection.label)).toEqual(['DET -3.5']);
+  });
+});
+
 describe('oneLiner', () => {
   it('drops the "Lean:" opener the chip already says', () => {
     expect(oneLiner({ whyShort: 'Lean: ratings BUF -14.3, market BUF -16.5' })).toBe('Ratings BUF -14.3, market BUF -16.5.');
@@ -56,6 +75,10 @@ describe('oneLiner', () => {
 
   it('drops the "Tracked, ..." opener', () => {
     expect(oneLiner({ whyShort: 'Tracked, extreme price. Market gives MIA 7%; +950 needs 10%' })).toBe('Market gives MIA 7%; +950 needs 10%.');
+  });
+
+  it('drops the "Held, ..." opener', () => {
+    expect(oneLiner({ whyShort: 'Held, quarterback in doubt. Circa Sports pays +100; the fair price is -104' })).toBe('Circa Sports pays +100; the fair price is -104.');
   });
 
   it('leaves a recommended pick\'s reason alone', () => {

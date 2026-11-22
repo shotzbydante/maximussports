@@ -14,6 +14,14 @@ A bet is **recommended** only when one book's posted line and price beat the mar
 
 Everything else is a **tracking pick**: the model's lean on each market, locked a day before kickoff and graded, never promoted.
 
+The three tracking leans answer different questions (model version 2.2.0, Nov 22, 2026):
+
+- **Spread lean**: the side the ratings prefer against the market line, scored by the size of the gap.
+- **Total lean**: over or under, by the ratings' projected total against the market total.
+- **Moneyline lean, the winner call**: the team the market's fair price makes more likely to win, scored by that win chance (a coin flip scores 25, a 70% favorite 37, 90% or better 49). It no longer follows the spread lean's side. Before 2.2.0 it did, which made it the underdog in most games: in Week 11 all twelve moneyline leans had negative expected value and the top-ranked one was a +980 long shot. Covering and winning are different questions, so the spread lean and the winner call can now name different teams.
+
+Every lean scores between 25 and 49, so no lean can outrank a recommended pick. A winner call priced outside -450/+400 is still held as "extreme price".
+
 ## Why the ratings do not move the fair number
 
 `node scripts/nfl/backtest.mjs --data <dir> --download` replays 2011 to 2025, rating each week only on games already played, against nflverse closing lines.

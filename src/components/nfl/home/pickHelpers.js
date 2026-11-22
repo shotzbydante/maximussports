@@ -44,13 +44,14 @@ export const sentence = (t) => (t && !/[.!?]$/.test(t) ? `${t}.` : t);
 
 /**
  * The one line shown beside a decision. The engine's short reason opens
- * with "Lean:" or "Tracked, ...": the row already says that with a chip,
- * so the prefix comes off.
+ * with "Lean:", "Tracked, ..." or "Held, ...": the row already says that
+ * with a chip, so the prefix comes off.
  */
 export function oneLiner(p) {
   const raw = String(whyShortOf(p) || '')
     .replace(/^Lean:\s*/i, '')
-    .replace(/^Tracked,[^.]*\.\s*/i, '');
+    .replace(/^(Tracked|Held),[^.]*\.\s*/i, '')
+    .replace(/^Opens three days out\.\s*/i, '');
   if (!raw) return '';
   return sentence(raw.charAt(0).toUpperCase() + raw.slice(1));
 }
@@ -65,14 +66,15 @@ const isHeld = (p) => Boolean(HELD_BACK[p?.lowSignalReason]);
 
 /**
  * Which of two decisions on the same game should represent it: a
- * recommended pick first, then conviction; on a tie, one that is not held
- * back, then spread before total before moneyline (the spread and the
- * moneyline are the same opinion, and the spread is the cleaner price).
+ * recommended pick first; then one that is not held back (a -1500
+ * favorite to win is our surest call and nobody's bet, so it gives way to
+ * a call at a playable price); then conviction; then spread before total
+ * before moneyline.
  */
 function strongerForGame(a, b) {
   return (isRecommended(b) - isRecommended(a))
-    || (score(b) - score(a))
     || (isHeld(a) - isHeld(b))
+    || (score(b) - score(a))
     || ((MARKET_ORDER[a?.market?.type] ?? 9) - (MARKET_ORDER[b?.market?.type] ?? 9));
 }
 

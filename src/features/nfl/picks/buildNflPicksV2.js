@@ -23,7 +23,11 @@
  * Rules
  *   - Expected value is computed at the real price, with pushes.
  *   - Tiers are fixed EV thresholds, not percentiles of the slate.
- *   - One side bet per game: moneyline and spread are the same opinion.
+ *   - One side bet per game: a recommended moneyline and spread are the
+ *     same opinion, so only the better-priced one is the pick.
+ *   - The moneyline lean is a winner call (the team the market makes more
+ *     likely to win), scored by that likelihood. The spread lean is still
+ *     where the ratings sit against the line, so the two can disagree.
  *   - A quarterback in doubt, a stale or implausible price, or a missing
  *     feed holds the game to tracking.
  *
@@ -38,7 +42,8 @@ import { ENGINE_DEFAULTS } from './v2/engine.js';
 import { talentNote } from './v2/talent.js';
 import { windUnderRecord } from './v2/situations.js';
 
-export const NFL_MODEL_VERSION = 'nfl-picks-v2.1.0';
+// 2.2.0: the moneyline lean became a winner call (the likelier winner, scored by win chance).
+export const NFL_MODEL_VERSION = 'nfl-picks-v2.2.0';
 
 export const NFL_DEFAULT_CONFIG = Object.freeze({
   version: 'nfl-picks-v2-2026-11-22a',
@@ -138,6 +143,15 @@ export function convictionFromEv(ev) {
 }
 function leanScore(gap) {
   return Math.min(0.49, 0.25 + 0.05 * Math.abs(isNum(gap) ? gap : 0));
+}
+/**
+ * Conviction for a moneyline winner call: how likely the team is to win,
+ * on the same 25-49 band every lean uses, so no lean can outrank a
+ * recommended pick. A coin flip scores 25, a 70% favorite 37, 90% or
+ * better 49.
+ */
+function winnerScore(win) {
+  return Math.min(0.49, 0.25 + 0.6 * Math.max(0, (isNum(win) ? win : 0.5) - 0.5));
 }
 function convictionLabel(total) {
   if (total >= 0.9) return 'Elite';
@@ -519,22 +533,49 @@ export function buildNflPicksV2({
           : 'no ratings projection'),
       });
     }
+    // The moneyline lean is a winner call: the team the market's fair price
+    // makes more likely to win, scored by that likelihood. It used to follow
+    // the spread lean's side, which made it the underdog in most games and
+    // ranked 7% long shots as the strongest moneyline calls. Covering and
+    // winning are different questions, so the two leans may now disagree.
     if (!picks.moneyline && isNum(fair.homeWin)) {
-      const sideIsHome = picks.runline ? picks.runline.selection.side === 'home' : (leanSideHome ?? fair.homeWin >= 0.5);
+      const sideIsHome = fair.homeWin >= 0.5;
       const side = sideIsHome ? 'home' : 'away';
       const at = priceAtConsensus(offers.moneyline[side], null);
       if (at) {
         const team = sideIsHome ? game.teams.home : game.teams.away;
+        const other = sideIsHome ? game.teams.away : game.teams.home;
         const win = sideIsHome ? fair.homeWin : 1 - fair.homeWin;
         const reason = (at.price < guards.mlMaxFavorite || at.price > guards.mlMaxUnderdog) && baseReason === 'no_price_edge' ? 'price_guard' : baseReason;
+        const books = e.consensus?.counts?.moneyline || e.consensus?.books || null;
+        const booksText = books ? `${books} books give` : 'the market gives';
+        // The ratings' margin for the called team: positive when they agree.
+        const ratingsMargin = isNum(e.projection?.fairSpreadHome)
+          ? (sideIsHome ? -e.projection.fairSpreadHome : e.projection.fairSpreadHome)
+          : null;
+        const ratingsText = !isNum(ratingsMargin) ? ''
+          : Math.abs(ratingsMargin) < 0.05 ? 'the ratings call it even'
+            : ratingsMargin > 0 ? `the ratings make it ${team.abbrev} by ${ratingsMargin.toFixed(1)}`
+              : `the ratings lean ${other.abbrev} by ${Math.abs(ratingsMargin).toFixed(1)}`;
+        const priceText = `${fmtOdds(at.price)} needs ${pct(at.implied, 0)}`;
+        const winnerComponents = {
+          edgeStrength: round3(clamp01((win - 0.5) / 0.4)),
+          modelConfidence: round3(clamp01((e.consensus?.books || 0) / 10)),
+          situationalEdge: 0.5,
+          marketQuality: round3(clamp01((e.consensus?.books || 0) / 10)),
+        };
         picks.moneyline = makePick({
           game, e, kind: 'moneyline', side, line: null, price: at.price, book: { key: at.book, title: at.title },
-          probs: at.probs, ev: at.ev, tier: null, role: 'tracking', reason, score: leanScore(e.modelGap?.side),
-          headline: `Model lean: ${team.name} to win. Market ${pct(win, 0)}, best price ${fmtOdds(at.price)}`,
-          bullets: leanBullets(reason, `The market gives ${team.abbrev} a ${pct(win)} chance with the vig removed; ${at.title} pays ${fmtOdds(at.price)}, which needs ${pct(at.implied)}.`, side),
-          components: leanComponents(e.modelGap?.side), modelSource: 'nfl_v2_lean',
-          why: leanWhy(reason, `the market gives ${team.abbrev} a ${pct(win, 0)} chance and the best price, ${fmtOdds(at.price)} at ${at.title}, needs ${pct(at.implied, 0)}.`),
-          whyShort: leanShort(reason, `market gives ${team.abbrev} ${pct(win, 0)}; ${fmtOdds(at.price)} needs ${pct(at.implied, 0)}`),
+          probs: at.probs, ev: at.ev, tier: null, role: 'tracking', reason, score: winnerScore(win),
+          headline: `Winner call: ${team.name} to win. Market ${pct(win, 0)}, best price ${fmtOdds(at.price)}`,
+          bullets: leanBullets(reason, [
+            `${cap(booksText)} ${team.abbrev} a ${pct(win)} chance to win with the vig removed; ${at.title} pays ${fmtOdds(at.price)}, which needs ${pct(at.implied)}.`,
+            ratingsText ? `${cap(ratingsText)}.` : null,
+            'This is a call on who wins, not a recommended bet: no book’s price beats the market’s fair price.',
+          ].filter(Boolean).join(' '), side),
+          components: winnerComponents, modelSource: 'nfl_v2_winner',
+          why: leanWhy(reason, `${booksText} ${team.abbrev} a ${pct(win, 0)} chance to win${ratingsText ? `, and ${ratingsText}` : ''}. The best price, ${fmtOdds(at.price)} at ${at.title}, needs ${pct(at.implied, 0)}.`),
+          whyShort: leanShort(reason, `${booksText} ${team.abbrev} ${pct(win, 0)} to win${ratingsText ? `; ${ratingsText}` : ''}; ${priceText}`),
         });
       }
     }

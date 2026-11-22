@@ -3,7 +3,7 @@
  *
  *   Overall     the single strongest call on each game, whichever market
  *   Spreads     a side for every game
- *   Moneyline   a winner for every game
+ *   Moneyline   who we expect to win each game (the engine's winner call)
  *   Over/under  over or under for every game
  *
  * Each tab ranks the games from the strongest call to the weakest and
@@ -21,9 +21,9 @@ import { trackFilterChange } from '../../../analytics/sportEvents';
 import h from './home.module.css';
 
 const TABS = [
-  { key: 'overall', label: 'Overall', note: 'Our strongest call on each game, whichever market it is in.' },
+  { key: 'overall', label: 'Overall', note: 'Our strongest call on each game at a playable price, whichever market it is in.' },
   { key: 'runline', label: 'Spreads', note: 'A side against the spread for every game.' },
-  { key: 'moneyline', label: 'Moneyline', note: 'A winner for every game.' },
+  { key: 'moneyline', label: 'Moneyline', note: 'Who we expect to win each game, most likely first.' },
   { key: 'total', label: 'Over/under', note: 'Over or under for every game.' },
 ];
 const MARKET_NAME = { runline: 'Spread', moneyline: 'Moneyline', total: 'Over/under' };
@@ -129,7 +129,7 @@ export default function HomeEveryGame({ picks }) {
       <SectionHead title="Every game" />
       <p className={h.sectionNote}>
         A call on every game, ranked from our strongest to our weakest. Recommended picks beat the
-        market’s fair price. Leans are where the ratings point: saved and graded, never recommended.
+        market’s fair price. Leans are calls with no price edge: saved and graded, never recommended.
       </p>
 
       <div className={h.evTabs} role="tablist" aria-label="Every game, by market" onKeyDown={onKeyDown}>
