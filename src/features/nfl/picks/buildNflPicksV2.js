@@ -35,6 +35,7 @@ import { priceOffers, bestOffer } from './v2/market.js';
 import { impliedProb, probToAmerican, spreadProbs, totalProbs, expectedValue } from './v2/distribution.js';
 import { UNIT_LABELS } from './v2/units.js';
 import { ENGINE_DEFAULTS } from './v2/engine.js';
+import { talentNote } from './v2/talent.js';
 import { windUnderRecord } from './v2/situations.js';
 
 export const NFL_MODEL_VERSION = 'nfl-picks-v2.1.0';
@@ -181,6 +182,8 @@ function contextBullets(game, e) {
       `against ${A(mm.defenseTeam)} ${UNIT_LABELS[mm.defense].toLowerCase()} (${mm.defenseGrade}).`
     );
   }
+  const tn = talentNote(e.talent);
+  if (tn) out.push(tn);
   if (e.env?.label) out.push(`Conditions: ${e.env.label}.`);
   for (const tag of (e.situations || []).slice(0, 2)) out.push(tag.note);
   return out;
@@ -593,6 +596,7 @@ export function buildNflPicksV2({
       fair: e.fair || null,
       quarterbacks: e.quarterbacks || null,
       units: e.units || null,
+      talent: e.talent || null,
       situations: e.situations || [],
       environment: e.env || null,
       coaches: e.coaches || null,
