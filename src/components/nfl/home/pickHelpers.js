@@ -17,6 +17,11 @@ export const HELD_BACK = {
   data_gap: 'Thin data',
 };
 
+/** A price that beats fair, but by less than the bar for a recommendation. Playable, so not a hold. */
+export const THIN_VALUE = 'thin_value';
+/** Expected value below this is rounding, not value. Mirrors the engine's `evThresholds.thin`. */
+export const VALUE_FLOOR = 0.005;
+
 export const score = (p) => p?.conviction?.score ?? Math.round((p?.betScore?.total || 0) * 100);
 export const isRecommended = (p) => p?.pickRole === 'hero';
 
@@ -44,15 +49,44 @@ export const sentence = (t) => (t && !/[.!?]$/.test(t) ? `${t}.` : t);
 
 /**
  * The one line shown beside a decision. The engine's short reason opens
- * with "Lean:" or "Tracked, ...": the row already says that with a chip,
- * so the prefix comes off.
+ * with "Lean:", "Tracked, ..." or "Held, ...": the row already says that
+ * with a chip, so the prefix comes off.
  */
 export function oneLiner(p) {
   const raw = String(whyShortOf(p) || '')
     .replace(/^Lean:\s*/i, '')
-    .replace(/^Tracked,[^.]*\.\s*/i, '');
+    .replace(/^(Tracked|Held),[^.]*\.\s*/i, '')
+    .replace(/^Thin value\.\s*/i, '')
+    .replace(/^Opens three days out\.\s*/i, '');
   if (!raw) return '';
   return sentence(raw.charAt(0).toUpperCase() + raw.slice(1));
+}
+
+/** "+0.6%" */
+export const evText = (ev) => (typeof ev === 'number' ? `${ev >= 0 ? '+' : ''}${(ev * 100).toFixed(1)}%` : '');
+
+/**
+ * Whether a moneyline is worth showing. A moneyline is judged on value
+ * alone: a book's price has to pay more than the fair price by at least
+ * the floor. Anything else is not a call, it is just a price.
+ */
+export function moneylineHasValue(p, floor = VALUE_FLOOR) {
+  if (p?.market?.type !== 'moneyline') return false;
+  return isRecommended(p) || (typeof p.ev === 'number' && p.ev >= floor);
+}
+
+/** Moneylines with value, best value first. Often empty: most weeks no price beats fair. */
+export function rankMoneylineValue(picks, floor = VALUE_FLOOR) {
+  return (picks || [])
+    .filter((p) => moneylineHasValue(p, floor))
+    .sort((a, b) => (isRecommended(b) - isRecommended(a)) || ((b.ev || 0) - (a.ev || 0)));
+}
+
+/** The moneyline that comes closest to value, for saying how far off the board is. */
+export function closestMoneyline(picks) {
+  return (picks || [])
+    .filter((p) => p?.market?.type === 'moneyline' && typeof p.ev === 'number')
+    .sort((a, b) => b.ev - a.ev)[0] || null;
 }
 
 /** One market's decision for every game, strongest first. */
@@ -65,25 +99,27 @@ const isHeld = (p) => Boolean(HELD_BACK[p?.lowSignalReason]);
 
 /**
  * Which of two decisions on the same game should represent it: a
- * recommended pick first, then conviction; on a tie, one that is not held
- * back, then spread before total before moneyline (the spread and the
- * moneyline are the same opinion, and the spread is the cleaner price).
+ * recommended pick first; then one that is not held back (a -1500
+ * favorite to win is our surest call and nobody's bet, so it gives way to
+ * a call at a playable price); then conviction; then spread before total
+ * before moneyline.
  */
 function strongerForGame(a, b) {
   return (isRecommended(b) - isRecommended(a))
-    || (score(b) - score(a))
     || (isHeld(a) - isHeld(b))
+    || (score(b) - score(a))
     || ((MARKET_ORDER[a?.market?.type] ?? 9) - (MARKET_ORDER[b?.market?.type] ?? 9));
 }
 
 /**
  * The single strongest decision for each game, whichever market it is in,
  * with the games then ranked strongest first. A recommended pick always
- * represents its game.
+ * represents its game. A moneyline is only in the running when it has value.
  */
-export function bestPerGame(picks) {
+export function bestPerGame(picks, floor = VALUE_FLOOR) {
   const best = new Map();
   for (const p of picks || []) {
+    if (p?.market?.type === 'moneyline' && !moneylineHasValue(p, floor)) continue;
     const key = String(p.gameId);
     const cur = best.get(key);
     if (!cur || strongerForGame(p, cur) < 0) best.set(key, p);

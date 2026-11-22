@@ -23,7 +23,12 @@
  * Rules
  *   - Expected value is computed at the real price, with pushes.
  *   - Tiers are fixed EV thresholds, not percentiles of the slate.
- *   - One side bet per game: moneyline and spread are the same opinion.
+ *   - One side bet per game: a recommended moneyline and spread are the
+ *     same opinion, so only the better-priced one is the pick.
+ *   - A moneyline is judged on value alone: the side whose best price pays
+ *     the most against the fair price. Under the recommendation bar it is
+ *     tracked as thin value (positive EV) or no value, and `ev` says which.
+ *     The spread lean is still where the ratings sit against the line.
  *   - A quarterback in doubt, a stale or implausible price, or a missing
  *     feed holds the game to tracking.
  *
@@ -38,13 +43,18 @@ import { ENGINE_DEFAULTS } from './v2/engine.js';
 import { talentNote } from './v2/talent.js';
 import { windUnderRecord } from './v2/situations.js';
 
-export const NFL_MODEL_VERSION = 'nfl-picks-v2.1.0';
+// 2.2.0: the moneyline is judged on value (best price against the fair price), not the spread lean's side.
+export const NFL_MODEL_VERSION = 'nfl-picks-v2.2.0';
 
 export const NFL_DEFAULT_CONFIG = Object.freeze({
   version: 'nfl-picks-v2-2026-11-22a',
   sport: 'nfl',
-  /** Minimum expected value per unit staked for each tier. */
-  evThresholds: Object.freeze({ tier1: 0.04, tier2: 0.025, tier3: 0.015 }),
+  /**
+   * Minimum expected value per unit staked for each tier. `thin` is the
+   * floor for calling a price "thin value": positive, but under the bar for
+   * a recommendation. Below it an edge is rounding, not value.
+   */
+  evThresholds: Object.freeze({ tier1: 0.04, tier2: 0.025, tier3: 0.015, thin: 0.005 }),
   maxPerTier: Object.freeze({ tier1: 3, tier2: 5, tier3: 6 }),
   /** One side bet and one total at most. */
   maxPerGame: 2,
@@ -66,6 +76,7 @@ const HOLD_REASONS = Object.freeze({
   price_outlier: 'This price is too far from the market to trust; it is more likely stale than a gift. Tracked, not recommended.',
   outside_window: 'Kickoff is more than three days out. Picks are recommended and locked inside that window.',
   price_guard: 'Price is outside the range the model promotes. Tracked, not recommended.',
+  thin_value: 'The price beats the market’s fair price, but by less than the edge needed to recommend a bet. Tracked, not recommended.',
   thin_market: 'Too few books have posted this market to form a consensus. Tracked, not recommended.',
   data_gap: 'Model data for this game is incomplete. Tracked, not recommended.',
   same_side: 'The spread and moneyline are one opinion; the better-priced of the two is the pick.',
@@ -79,6 +90,7 @@ const HOLD_WHY = Object.freeze({
   price_outlier: 'Held back: this price is too far from the market to trust.',
   outside_window: 'Too early: picks are recommended and locked inside three days of kickoff.',
   price_guard: 'Tracked only: a price this long or this short is outside the range we promote.',
+  thin_value: 'Thin value, not a recommended bet: the price beats the fair price, but by less than we need to recommend it.',
   thin_market: 'Tracked only: too few books have posted this market to call a fair price.',
   data_gap: 'Tracked only: ratings data for this game is incomplete.',
   same_side: 'Same opinion as the recommended side bet on this game, so it is tracked, not doubled up.',
@@ -92,6 +104,7 @@ const HOLD_SHORT = Object.freeze({
   price_outlier: 'Held, price out of line',
   outside_window: 'Opens three days out',
   price_guard: 'Tracked, extreme price',
+  thin_value: 'Thin value',
   thin_market: 'Tracked, few books',
   data_gap: 'Tracked, thin data',
   same_side: 'Tracked, same side as the pick',
@@ -138,6 +151,16 @@ export function convictionFromEv(ev) {
 }
 function leanScore(gap) {
   return Math.min(0.49, 0.25 + 0.05 * Math.abs(isNum(gap) ? gap : 0));
+}
+/**
+ * Conviction for a moneyline that is not a recommended pick: 25 when the
+ * best price has no value, rising with expected value to 49 just under
+ * the recommendation bar. Same 25-49 band as every lean, so nothing here
+ * can outrank a recommended pick.
+ */
+function valueLeanScore(ev, bar) {
+  if (!isNum(ev) || ev <= 0 || !isNum(bar) || bar <= 0) return 0.25;
+  return Math.min(0.49, 0.25 + 0.24 * (ev / bar));
 }
 function convictionLabel(total) {
   if (total >= 0.9) return 'Elite';
@@ -519,22 +542,57 @@ export function buildNflPicksV2({
           : 'no ratings projection'),
       });
     }
-    if (!picks.moneyline && isNum(fair.homeWin)) {
-      const sideIsHome = picks.runline ? picks.runline.selection.side === 'home' : (leanSideHome ?? fair.homeWin >= 0.5);
-      const side = sideIsHome ? 'home' : 'away';
-      const at = priceAtConsensus(offers.moneyline[side], null);
-      if (at) {
-        const team = sideIsHome ? game.teams.home : game.teams.away;
-        const win = sideIsHome ? fair.homeWin : 1 - fair.homeWin;
-        const reason = (at.price < guards.mlMaxFavorite || at.price > guards.mlMaxUnderdog) && baseReason === 'no_price_edge' ? 'price_guard' : baseReason;
+    // The moneyline is judged on value alone: of the two sides, the one whose
+    // best price pays the most against the market's fair price. It is recorded
+    // for every game so the record stays honest, and `ev` says whether there is
+    // any value in it. Above the recommendation bar it was already handled as a
+    // value pick; here it is either thin value (positive, under the bar) or no
+    // value at all. It used to follow the spread lean's side, which made it the
+    // underdog in most games whatever the price.
+    if (!picks.moneyline) {
+      const best = candidates.filter((c) => c.kind === 'moneyline').sort((x, y) => y.offer.ev - x.offer.ev)[0];
+      if (best) {
+        const { side, offer } = best;
+        const team = side === 'home' ? game.teams.home : game.teams.away;
+        const win = offer.probs.win / (offer.probs.win + offer.probs.lose);
+        const fairPrice = probToAmerican(win);
+        const hasValue = offer.ev >= thresholds.thin;
+        const reason = best.hold
+          || (baseReason !== 'no_price_edge' ? baseReason : hasValue ? 'thin_value' : 'no_price_edge');
+        const books = e.consensus?.counts?.moneyline || e.consensus?.books || null;
+        const evText = `${fmtSigned(offer.ev * 100)}% expected value`;
+        const barText = `${(thresholds.tier3 * 100).toFixed(1)}%`;
+        const priceVsFair = `${offer.title} pays ${fmtOdds(offer.price)} on ${team.abbrev}; the fair price is ${fmtOdds(fairPrice)}`;
+        const text = hasValue
+          ? `${priceVsFair}. That is ${evText}${reason === 'thin_value' ? `, under the ${barText} we need to recommend a bet` : ''}.`
+          : offer.ev > 0
+            ? `no real moneyline value. The best price on either side, ${team.abbrev} ${fmtOdds(offer.price)} at ${offer.title}, is within rounding of the fair ${fmtOdds(fairPrice)} (${evText}).`
+            : `no moneyline value. The best price on either side is ${team.abbrev} ${fmtOdds(offer.price)} at ${offer.title}, short of the fair ${fmtOdds(fairPrice)} (${evText}).`;
+        const short = hasValue
+          ? `${priceVsFair}, ${fmtSigned(offer.ev * 100)}%`
+          : `no value: best price ${team.abbrev} ${fmtOdds(offer.price)} at ${offer.title}, fair ${fmtOdds(fairPrice)} (${fmtSigned(offer.ev * 100)}%)`;
+        const score = valueLeanScore(offer.ev, thresholds.tier3);
         picks.moneyline = makePick({
-          game, e, kind: 'moneyline', side, line: null, price: at.price, book: { key: at.book, title: at.title },
-          probs: at.probs, ev: at.ev, tier: null, role: 'tracking', reason, score: leanScore(e.modelGap?.side),
-          headline: `Model lean: ${team.name} to win. Market ${pct(win, 0)}, best price ${fmtOdds(at.price)}`,
-          bullets: leanBullets(reason, `The market gives ${team.abbrev} a ${pct(win)} chance with the vig removed; ${at.title} pays ${fmtOdds(at.price)}, which needs ${pct(at.implied)}.`, side),
-          components: leanComponents(e.modelGap?.side), modelSource: 'nfl_v2_lean',
-          why: leanWhy(reason, `the market gives ${team.abbrev} a ${pct(win, 0)} chance and the best price, ${fmtOdds(at.price)} at ${at.title}, needs ${pct(at.implied, 0)}.`),
-          whyShort: leanShort(reason, `market gives ${team.abbrev} ${pct(win, 0)}; ${fmtOdds(at.price)} needs ${pct(at.implied, 0)}`),
+          game, e, kind: 'moneyline', side, line: null, price: offer.price, book: { key: offer.book, title: offer.title },
+          probs: offer.probs, ev: offer.ev, tier: null, role: 'tracking', reason, score,
+          headline: hasValue
+            ? `Moneyline value: ${team.name} at ${fmtOdds(offer.price)} (${offer.title}), fair price ${fmtOdds(fairPrice)}`
+            : `No moneyline value: best price ${team.name} ${fmtOdds(offer.price)}, fair price ${fmtOdds(fairPrice)}`,
+          bullets: leanBullets(reason, [
+            `${books ? `${books} books give` : 'The market gives'} ${team.abbrev} a ${pct(win)} chance to win with the vig removed, a fair price of ${fmtOdds(fairPrice)}.`,
+            `${offer.title} pays ${fmtOdds(offer.price)}, which needs ${pct(offer.implied)}. That is ${evText}.`,
+          ].join(' '), side),
+          components: {
+            edgeStrength: round3(clamp01(offer.ev / thresholds.tier3)),
+            modelConfidence: round3(clamp01((e.consensus?.books || 0) / 10)),
+            situationalEdge: 0.5,
+            marketQuality: round3(clamp01((e.consensus?.books || 0) / 10)),
+          },
+          modelSource: 'nfl_v2_ml_value',
+          why: reason === 'no_price_edge' && !hasValue
+            ? `Not a bet: ${text}`
+            : `${HOLD_WHY[reason] || 'Tracked, not recommended.'} ${cap(text)}`,
+          whyShort: reason === 'no_price_edge' ? cap(short) : `${HOLD_SHORT[reason] || 'Tracked'}. ${cap(short)}`,
         });
       }
     }

@@ -491,14 +491,16 @@ a.teamName:hover { text-decoration: underline; }
   align-items: flex-start;
   margin: 0 calc(var(--bleed) * -1);
   overflow-x: auto;
+  overflow-y: hidden;
   scroll-snap-type: x mandatory;
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-x: contain;
+  transition: height 0.2s ease;
 }
 .evScroller::-webkit-scrollbar { display: none; }
 .evPanel { flex: 0 0 100%; min-width: 0; padding: 0 var(--bleed); scroll-snap-align: start; scroll-snap-stop: always; }
-.evNote { margin: 0 0 10px; font-size: 0.8125rem; color: var(--ink-3); }
+.evNote { margin: 0 0 10px; max-width: 86ch; font-size: 0.8125rem; line-height: 1.5; color: var(--ink-3); }
 .evList { margin: 0; padding: 0; list-style: none; }
 .evRow {
   display: grid;
@@ -711,5 +713,6 @@ a.raceRow:hover { background: var(--wash); color: var(--ink); }
 
 @media (prefers-reduced-motion: reduce) {
   .skeleton, .spin, .chipLive .dot { animation: none; }
+  .evScroller { transition: none; }
   .rail { scroll-behavior: auto; }
 }
