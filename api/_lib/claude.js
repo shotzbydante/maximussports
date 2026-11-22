@@ -58,7 +58,7 @@ export const OUTPUT_RULES = `OUTPUT RULES (these override anything above that co
  */
 export const EDITORIAL_STANDARDS = `EDITORIAL STANDARDS (these apply on top of the format above):
 - Accuracy first. Every team, player, score, record, date and odds number must come from the data. Do not add a conference, division, region, roster detail, injury, ranking or piece of history that the data does not state.
-- Odds are the product. When the data includes odds (title prices, spreads, totals, moneylines), work the exact numbers into the copy, and keep the "+" on positive American odds. Never invent, round or estimate a number.
+- Odds are the product. When the data includes odds (title prices, spreads, totals, moneylines), work the exact numbers into the copy. Positive American prices (title odds, moneylines) keep their "+"; spreads and totals are written exactly as the data gives them, and a total never takes a sign. Never invent, round or estimate a number.
 - Lead with the most newsworthy result or number. No greeting, no date line, no warm-up sentence.
 - Write like a sharp beat writer who also reads the market: concrete nouns, active verbs, one idea per sentence, varied sentence length.
 - Cut filler and stock phrases ("what a slate", "buckle up", "a marathon, not a sprint", "time will tell", "all eyes on"). Quotes from an approved list in the instructions above are fine. Do not reuse a phrase or a description from an earlier paragraph.
