@@ -13,6 +13,7 @@ import { getNflInjuries, attachInjuries } from './nflInjuries.js';
 import { getNflModelData } from './nflModelData.js';
 import { getWeatherForGames } from './nflWeather.js';
 import { getNflConfig } from './nflConfig.js';
+import { getNflTalent } from './nflTalent.js';
 import { projectNflGame, priceNflGame } from '../../src/features/nfl/picks/nflModel.js';
 import { analyzeGame } from '../../src/features/nfl/picks/v2/engine.js';
 
@@ -88,13 +89,13 @@ export function attachModel(games, ratings) {
  * the briefing and the picks board all quote the same number. Games the
  * engine cannot project keep the v1 numbers from attachModel().
  */
-export function attachEngine(games, { model, weather = {}, config } = {}) {
+export function attachEngine(games, { model, weather = {}, config, talent = null } = {}) {
   return games.map((g) => {
     const s = (g?.status || '').toLowerCase();
     if (!g || s === 'final' || g.gameState?.isFinal) return g;
     let engine;
     try {
-      engine = analyzeGame({ game: g, model, weather: weather[String(g.gameId)] || null, config });
+      engine = analyzeGame({ game: g, model, weather: weather[String(g.gameId)] || null, config, talent });
     } catch (err) {
       console.warn(`[nflSlate] engine failed for ${g.gameId}: ${err?.message}`);
       return g;
@@ -155,7 +156,9 @@ export async function getNflSlate({ modelWaitMs = 6000 } = {}) {
     let weather = {};
     try { weather = await getWeatherForGames(games, { schedule: model?.schedule || {} }); }
     catch (err) { console.warn('[nflSlate] weather failed:', err?.message); }
-    games = attachEngine(games, { model, weather, config });
+    let talent = null;
+    try { talent = await getNflTalent(); } catch { /* context only */ }
+    games = attachEngine(games, { model, weather, config, talent });
 
     return {
       games,

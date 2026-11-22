@@ -31,6 +31,7 @@ import { qbAdjustment, teamQbMix } from './qb.js';
 import { buildConsensus } from './market.js';
 import { gameSituations } from './situations.js';
 import { unitMismatches } from './units.js';
+import { talentMatchups } from './talent.js';
 import { homeWinProb } from './distribution.js';
 import { isGameIndoors, resolveGameVenue } from '../../../../sports/nfl/venues.js';
 
@@ -93,7 +94,7 @@ export function resolveStarter({ team, scheduled, statuses = [], feedOk, mix = [
  * @param {object} [args.config]
  * @returns {object} engine block, JSON-safe
  */
-export function analyzeGame({ game, model, weather = null, config = ENGINE_DEFAULTS }) {
+export function analyzeGame({ game, model, weather = null, config = ENGINE_DEFAULTS, talent = null }) {
   const homeAbbr = game?.teams?.home?.abbrev;
   const awayAbbr = game?.teams?.away?.abbrev;
   const h = toNflverse(homeAbbr);
@@ -248,6 +249,8 @@ export function analyzeGame({ game, model, weather = null, config = ENGINE_DEFAU
       mismatches: unitMismatches({ home: h, away: a, grades }).slice(0, 4),
       source: model?.unitSource || 'nflverse',
     },
+    // Roster talent by position group. Context only: no weight on any fair number.
+    talent: talent ? talentMatchups({ home: homeAbbr, away: awayAbbr, talent }) : null,
     situations: situations.tags,
     flags,
     notes,

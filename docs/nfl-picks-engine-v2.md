@@ -140,3 +140,11 @@ Run `docs/nfl-picks-v2-migration.sql` in Supabase **before merging**. Additive a
 - Tracking picks on the board are the current lean; the graded lean is the one locked a day out. They can differ if a quarterback changes inside the last day.
 - No per-book price history, so price-edge picks cannot be backtested, only measured forward.
 - The NFL emails, Content Studio slides and Instagram autopost still do not exist.
+
+## Roster talent (context only)
+
+`src/features/nfl/picks/v2/talent.js` adds position-group matchups to each game's engine block (`engine.talent`, `byGame[].talent`) and one context bullet on picks. Team grades are Maximus's own blend of Madden NFL 27 overall ratings, PFF position ranks and 2026 production, built in the player workbook (a Google Sheet, not in this repository). Only the blended team grades are loaded, from the active `picks_config` row for sport `nfl_talent` (`api/_lib/nflTalent.js`); the player ratings behind them are not stored in the repository or served by the app.
+
+A matchup edge is the offense unit's distance above league average minus the opposing defense unit's: quarterback v pass defense, pass protection v pass rush, receivers v coverage, run game v run defense. Three points is an edge, six a big one.
+
+It moves no fair number and makes no pick. The blend's weights are judgment, there is one snapshot, and the PFF files held ranks without grades, so it cannot be tested against closing lines yet. To refresh it, rebuild the workbook and insert a new active `nfl_talent` row.
