@@ -91,6 +91,27 @@ export async function setJson(key, value, opts = {}) {
   }
 }
 
+/**
+ * Add one to a counter and return its new value. The counter expires
+ * `exSeconds` after its first increment. Returns null when KV is not
+ * configured or the call fails, so callers can decide to allow or refuse.
+ * @param {string} key
+ * @param {number} exSeconds
+ * @returns {Promise<number|null>}
+ */
+export async function incrWithTtl(key, exSeconds) {
+  const client = await getKv();
+  if (!client) return null;
+  try {
+    const n = Number(await client.incr(key));
+    if (n === 1 && exSeconds > 0) await client.expire(key, exSeconds);
+    return Number.isFinite(n) ? n : null;
+  } catch (err) {
+    console.warn('[globalCache] incrWithTtl error:', err?.message);
+    return null;
+  }
+}
+
 const LOCK_TTL_SECONDS = 60;
 
 /**

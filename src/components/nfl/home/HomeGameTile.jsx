@@ -14,6 +14,7 @@ import { TeamTag } from './NflTeamTag';
 import { getNflTeamBySlug } from '../../../sports/nfl/teams';
 import { fmtLine, fmtOdds, kickoffShort } from './format';
 import h from './home.module.css';
+import VenueFlyover from '../../shared/VenueFlyover';
 
 const WIND_CHIP_MIN = 15; // mph: strong wind. The engine's wind ramp starts at 10 mph and is half way up here.
 
@@ -71,6 +72,7 @@ export default function HomeGameTile({ game }) {
 
   return (
     <article className={h.tile} role="listitem">
+      <VenueFlyover sport="nfl" game={game} variant="tile" surface="nfl_home_tile" />
       <div className={h.gameTop}>
         <Status game={game} />
         {chip || (broadcast?.network && <span>{broadcast.network}</span>)}

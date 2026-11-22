@@ -89,6 +89,11 @@ export function trackTeamPickerOpened({ sport, surface }) {
   track('team_picker_opened', { sport, surface });
 }
 
+/** A stadium flyover started playing in a game module. Once per module. */
+export function trackFlyoverView({ sport, surface, venue }) {
+  track('venue_flyover_view', { sport, surface, venue });
+}
+
 /** A link to another site was followed. */
 export function trackOutboundClick({ sport, surface, destination }) {
   track('outbound_click', { sport, surface, destination });

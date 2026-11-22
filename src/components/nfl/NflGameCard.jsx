@@ -8,6 +8,7 @@ import { useWorkspace } from '../../workspaces/WorkspaceContext';
 import NflLogo from './NflLogo';
 import s from './nfl.module.css';
 import { trackOutboundClick } from '../../analytics/sportEvents';
+import VenueFlyover from '../shared/VenueFlyover';
 
 function fmtLine(v) {
   if (v == null) return '—';
@@ -102,6 +103,7 @@ export default function NflGameCard({ game }) {
 
   return (
     <article className={`${s.gameCard} ${gs.isLive ? s.gameCardLive : ''}`}>
+      <VenueFlyover sport="nfl" game={game} surface="nfl_game_card" />
       <div className={s.gameTop}>
         <StatusPill game={game} />
         <span className={s.gameTopRight}>
