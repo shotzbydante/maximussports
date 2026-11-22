@@ -15,10 +15,13 @@ export function Chevron({ size = 14 }) {
   );
 }
 
-/** Section title. `to` adds the round chevron link; `moreLabel` names it. */
-export function SectionHead({ title, count, to, moreLabel, children }) {
+/**
+ * Section title. `to` adds the round chevron link; `moreLabel` names it.
+ * `countBelow` drops a long count under the title on narrow screens.
+ */
+export function SectionHead({ title, count, countBelow = false, to, moreLabel, children }) {
   return (
-    <div className={h.sectionHead}>
+    <div className={`${h.sectionHead} ${countBelow ? h.sectionHeadWrap : ''}`}>
       <h2 className={h.sectionTitle}>{title}</h2>
       {count != null && <span className={h.sectionCount}>{count}</span>}
       {children}
