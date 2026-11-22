@@ -304,6 +304,7 @@
 .gameInjuriesFlag { display: block; font-weight: 600; color: var(--nfl-warn); }
 .gameFoot { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 0.75rem; }
 .gameFoot a { font-weight: 600; }
+.gameFootLinks { display: inline-flex; align-items: center; gap: 14px; flex-wrap: wrap; justify-content: flex-end; }
 .probBar { height: 4px; border-radius: 2px; background: var(--color-border-light); overflow: hidden; }
 .probFill { display: block; height: 100%; background: var(--nfl-accent); border-radius: 2px; }
 

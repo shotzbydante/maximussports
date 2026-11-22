@@ -116,3 +116,15 @@ export function fetchNflTeamInjuries(team) {
 export function fetchNflScorecard({ days = 9 } = {}) {
   return getJson(`/api/nfl/picks/scorecard?days=${days}`, null);
 }
+
+const TALENT_EMPTY = { available: false, teams: [] };
+
+/** Roster talent for one team: ranks, position groups, units, starters. */
+export function fetchNflTeamTalent(team) {
+  return getJson(`/api/nfl/talent?team=${encodeURIComponent(team)}`, TALENT_EMPTY);
+}
+
+/** Roster talent for both teams in a game, plus the unit matchups each way. */
+export function fetchNflGameTalent({ away, home }) {
+  return getJson(`/api/nfl/talent?away=${encodeURIComponent(away)}&home=${encodeURIComponent(home)}`, TALENT_EMPTY);
+}
