@@ -11,6 +11,7 @@ import { getJson, setJson, tryAcquireLock } from '../_globalCache.js';
 import { getQueryParam } from '../_requestUrl.js';
 import { buildHomeSummaryData } from '../_lib/homeData.js';
 import { claudeComplete, isClaudeConfigured } from '../_lib/claude.js';
+import { findMatchupLine, describeLine } from '../_lib/slateOdds.js';
 
 const FRESH_KEY      = 'chat:home:summary:v1';
 const LASTKNOWN_KEY  = 'chat:home:lastKnown:v1';
@@ -63,7 +64,21 @@ function buildPayload(data) {
   const {
     yesterdayGames, todayGames, tomorrowGames,
     rankings, headlines, atsLeaders, atsMeta, atsWindow, championshipOdds,
+    slateLines = [],
   } = data;
+
+  // Attach the Odds API line to a scheduled game. The scoreboard feed rarely
+  // carries a spread this early in the season; the odds feed does.
+  const withLine = (g) => {
+    const line = describeLine(findMatchupLine(slateLines, g.homeTeam, g.awayTeam));
+    return {
+      away: g.awayTeam || '',
+      home: g.homeTeam || '',
+      spread: line?.spread ?? g.spread ?? null,
+      total: line?.total ?? null,
+      status: g.gameStatus || 'Upcoming',
+    };
+  };
 
   // Top 10 rankings
   const rankingsTop10 = rankings.slice(0, 10).map((r) => ({
@@ -87,20 +102,10 @@ function buildPayload(data) {
   });
 
   // Today games: top 3
-  const todayTop3 = todayGames.slice(0, 3).map((g) => ({
-    away: g.awayTeam || '',
-    home: g.homeTeam || '',
-    spread: g.spread ?? null,
-    status: g.gameStatus || 'Upcoming',
-  }));
+  const todayTop3 = todayGames.slice(0, 3).map(withLine);
 
   // Tomorrow: top 5 (expanded from 3 for better between-rounds previews)
-  const tomorrowTop3 = (tomorrowGames || []).slice(0, 5).map((g) => ({
-    away: g.awayTeam || '',
-    home: g.homeTeam || '',
-    spread: g.spread ?? null,
-    status: g.gameStatus || 'Upcoming',
-  }));
+  const tomorrowTop3 = (tomorrowGames || []).slice(0, 5).map(withLine);
 
   // Championship odds: top 6 (best implied %)
   const champEntries = Object.entries(championshipOdds)
@@ -215,7 +220,7 @@ function buildPrompt(data) {
     // Regular season prompt (unchanged)
     p1 = '¶1 YESTERDAY RECAP: Mention 3–5 completed games from yesterdayGames. State the winner, loser, and final score for each. Be specific and punchy.';
     p2 = '¶2 ODDS PULSE: Reference 2–3 teams from yesterday + their championship odds from champOdds (impliedPct shows probability). ALWAYS preserve the exact odds format from the data — positive odds MUST include the leading "+" sign (e.g. write "+320", never just "320"). Include ONE quote from the approved list only if it fits naturally — no forced quotes.';
-    p3 = '¶3 TODAY + TOMORROW: Cover 1–3 matchups each from todayGames and tomorrowGames. Mention spreads when present.';
+    p3 = '¶3 TODAY + TOMORROW: Cover 1–3 matchups each from todayGames and tomorrowGames. Quote each game\'s spread and total exactly as given whenever they are present.';
     p4 = `¶4 ATS SPOTLIGHT: ${atsInstruction}. Use bettor language: "covering the number", "beating the spread", "market hasn't caught up", "sharp money". Include cover % when available.`;
     p5 = '¶5 NEWS PULSE + CLOSER: 2–3 headlines from headlines[]. Light humor, personality. End with a punchy "what to watch" closer.';
   } else if (tournamentPhase === 'pre_tournament') {
@@ -295,7 +300,7 @@ STYLE RULES:
 - Zero profanity. Clean humor only.
 - APPROVED QUOTES (use at most ONE total, only if it fits): ${APPROVED_QUOTES}
 - NEVER use: "Stay humble. Stay hungry." or anything not in the approved list.
-- If a data section is empty, acknowledge it briefly and move on.${isTournament ? '\n- NEVER say "quiet day on the hardwood" or similar regular-season filler during tournament time.\n- Use tournament language: "bracket", "seed", "upset", "advancing", "eliminated", "Cinderella", "March Madness".' : ''}`;
+- If a data section is empty, skip it and give the space to the sections that have data.${isTournament ? '\n- NEVER say "quiet day on the hardwood" or similar regular-season filler during tournament time.\n- Use tournament language: "bracket", "seed", "upset", "advancing", "eliminated", "Cinderella", "March Madness".' : ''}`;
 
   const userPrompt = `DATA:\n${JSON.stringify(payload, null, 2)}\n\nWrite the briefing now. Exactly 5 paragraphs, no headers.`;
 

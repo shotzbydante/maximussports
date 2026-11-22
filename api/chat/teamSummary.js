@@ -51,7 +51,7 @@ function getPstDate() {
 }
 
 function buildPayload(data) {
-  const { team, schedule, ats, teamNews, rank, tier } = data;
+  const { team, schedule, ats, teamNews, rank, tier, titleOdds = null, nextGameLine = null } = data;
 
   const recentResults = (schedule.recent || []).slice(0, 5).map((g) => {
     const hs = parseInt(g.homeScore ?? g.homeTeamScore, 10);
@@ -85,6 +85,8 @@ function buildPayload(data) {
     recentResults,       // last 5 final games
     upcomingGames,       // next 3
     atsSummary,          // { wl, coverPct, total } or null
+    titleOdds,           // { odds: '+750', impliedPct } or null — national title price
+    nextGameLine,        // { home, away, spread, total } or null — line for the next game
     headlines,           // top 4 team news items
   };
 }
@@ -125,7 +127,7 @@ function buildPrompt(data) {
   const hasAts = payload.atsSummary != null;
   const atsInstruction = hasAts
     ? `ATS record: ${payload.atsSummary.wl}${payload.atsSummary.coverPct != null ? ` (${payload.atsSummary.coverPct}% cover)` : ''}. Use bettor language.`
-    : 'ATS data is not yet available for this team — mention it briefly.';
+    : 'There is no ATS record for this team yet. Use this paragraph for the market view instead: titleOdds and nextGameLine if present, otherwise recent margins from recentResults.';
 
   const isTournament = _isInTournamentWindow();
   const tournamentPhaseLabel = _getTournamentPhaseLabel();
@@ -135,12 +137,12 @@ function buildPrompt(data) {
     : '';
 
   const p1 = isTournament
-    ? '¶1 TOURNAMENT STATUS: Team name, tournament seed (if applicable from bracketTier), conference, and recent form. Frame in tournament context — are they a contender, Cinderella, or early exit risk? Include ONE approved quote if natural.'
-    : '¶1 IDENTITY + FORM: Team name, ranking, conference, bracket tier, and recent results (trend from recentResults). Include ONE quote from the approved list if it fits naturally.';
+    ? '¶1 TOURNAMENT STATUS: Team name, tournament seed (if applicable from bracketTier), conference, and recent form. Frame in tournament context — are they a contender, Cinderella, or early exit risk? If titleOdds is present, state the title price exactly. Include ONE approved quote if natural.'
+    : '¶1 IDENTITY + FORM: Team name, ranking, conference, bracket tier, and recent results (trend from recentResults). If titleOdds is present, state the national title price exactly (e.g. "+750") with its implied probability. Include ONE quote from the approved list if it fits naturally.';
 
   const p3 = isTournament
-    ? '¶3 TOURNAMENT MATCHUP: First opponent from upcomingGames. Frame as a tournament betting setup — seed matchup, historical upset rates for this seed line, spread/line context. If eliminated or no tournament game, note their season is over or discuss NIT/offseason outlook.'
-    : '¶3 NEXT GAME: First opponent from upcomingGames. Frame it as a betting setup (spread/line context if known, otherwise note line is TBD).';
+    ? '¶3 TOURNAMENT MATCHUP: First opponent from upcomingGames. Frame as a tournament betting setup — seed matchup and, if nextGameLine is present for that opponent, its spread and total exactly as given. If eliminated or no tournament game, note their season is over or discuss NIT/offseason outlook.'
+    : '¶3 NEXT GAME: First opponent from upcomingGames. Frame it as a betting setup. If nextGameLine is present and is for that opponent, quote its spread and total exactly as given. If there is no line, preview the matchup without mentioning lines.';
 
   const p4 = isTournament
     ? '¶4 TOURNAMENT CLOSER: 1–3 headlines from headlines[]. End with a tournament-aware hook — bracket implications, upset potential, or what this team needs to do to advance.'

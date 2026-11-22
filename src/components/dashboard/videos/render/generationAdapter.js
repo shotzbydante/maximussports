@@ -111,7 +111,7 @@ export function isLLMAvailable() {
 
 // ─── LLM path ────────────────────────────────────────────────────
 
-const CLIENT_TIMEOUT_MS = 8000;
+const CLIENT_TIMEOUT_MS = 22000; // a little longer than the server's 20s model timeout
 
 async function callLLM(input) {
   const controller = new AbortController();

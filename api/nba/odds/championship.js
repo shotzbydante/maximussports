@@ -98,6 +98,43 @@ function aggregateBookmakers(events) {
   return { odds, unmapped, bookmakerCount: bookmakers.length };
 }
 
+/**
+ * Championship odds for server-side callers (briefings, emails).
+ *
+ * Serves the KV copy while it is fresh. When the cache is cold it fetches from
+ * the Odds API with the current ODDS_API_KEY and re-caches, so a briefing that
+ * regenerates between page views still has prices to write about. The cache
+ * lasts an hour, so this adds at most one Odds API request per hour.
+ * Never throws; returns {} when no odds can be had.
+ */
+export async function loadNbaChampionshipOdds({ timeoutMs = 5000 } = {}) {
+  let cached = null;
+  const cachedOdds = () => (cached?.odds && Object.keys(cached.odds).length > 0 ? cached.odds : {});
+  try {
+    cached = await getJson(KV_KEY).catch(() => null);
+    const age = cached?.updatedAt ? ageSeconds(cached.updatedAt) : null;
+    if (Object.keys(cachedOdds()).length > 0 && age != null && age < TTL_SECONDS) return cached.odds;
+
+    const apiKey = process.env.ODDS_API_KEY;
+    if (!apiKey) return cachedOdds();
+
+    const url = `https://api.the-odds-api.com/v4/sports/${ODDS_API_SPORT}/odds?regions=us&markets=outrights&oddsFormat=american&apiKey=${apiKey}`;
+    const r = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
+    if (!r.ok) {
+      console.warn(`[nba/odds/championship] live fetch for briefing failed: HTTP ${r.status}`);
+      return cachedOdds();
+    }
+    const data = await r.json();
+    const { odds } = aggregateBookmakers(Array.isArray(data) ? data : data?.data ?? []);
+    if (Object.keys(odds).length === 0) return cachedOdds();
+    await setJson(KV_KEY, { odds, updatedAt: new Date().toISOString() }, { exSeconds: TTL_SECONDS }).catch(() => {});
+    return odds;
+  } catch (err) {
+    console.warn('[nba/odds/championship] live fetch for briefing failed:', err?.message);
+    return cachedOdds();
+  }
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
