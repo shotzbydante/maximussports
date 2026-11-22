@@ -34,6 +34,9 @@ const META = {
   image: 'https://maximussports.ai/og.png',
 };
 
+/* Matches --gl-bg in GuestLanding.module.css. */
+const PAGE_BG = '#040a1a';
+
 const NAV_LINKS = [
   { href: '#every-game', label: 'Every game' },
   { href: '#matchups', label: 'Matchups' },
@@ -119,6 +122,19 @@ export default function GuestLanding() {
 
   useEffect(() => {
     track('landing_viewed', { variant: 'guest_v3' });
+  }, []);
+
+  // The app's own background is light. While this dark page is up, paint the
+  // document dark too, so the phone's status bar, the browser's toolbar tint
+  // and the overscroll bounce match the page and do not flash light.
+  useEffect(() => {
+    const { documentElement: html, body } = document;
+    const prev = [html.style.backgroundColor, body.style.backgroundColor];
+    html.style.backgroundColor = PAGE_BG;
+    body.style.backgroundColor = PAGE_BG;
+    return () => {
+      [html.style.backgroundColor, body.style.backgroundColor] = prev;
+    };
   }, []);
 
   useEffect(() => {
@@ -302,7 +318,7 @@ export default function GuestLanding() {
             <div className={styles.split}>
               <div className={styles.splitCopy}>
                 <p className={styles.kicker}>
-                  {WEEK.label}: {WEEK.games} games, {WEEK.calls} calls, {WEEK.recommended} recommended
+                  {WEEK.label}: {WEEK.calls} calls, {WEEK.recommended} recommended
                 </p>
                 <h2 className={styles.h2}>A call on every game. A pick only when the price is right.</h2>
                 <p className={styles.panelBody}>
