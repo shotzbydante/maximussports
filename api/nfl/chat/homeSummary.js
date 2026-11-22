@@ -12,6 +12,7 @@
 import { getJson, setJson, tryAcquireLock } from '../../_globalCache.js';
 import { getQueryParam } from '../../_requestUrl.js';
 import { claudeComplete, isClaudeConfigured } from '../../_lib/claude.js';
+import { fixPositiveOdds } from '../../_lib/oddsText.js';
 import { NFL_TEAMS } from '../../../src/sports/nfl/teams.js';
 import { getNflSlate } from '../../_lib/nflSlate.js';
 import { getNflStandings } from '../../_lib/nflStandings.js';
@@ -152,13 +153,6 @@ STYLE RULES:
 
   const userPrompt = `DATA:\n${JSON.stringify(payload, null, 2)}\n\nWrite the briefing now.`;
   return { systemPrompt, userPrompt };
-}
-
-function fixPositiveOdds(text) {
-  if (!text) return text;
-  return text
-    .replace(/\bat\s+(\d{3,4})(?=[\s.,;!?)\-–—]|$)/g, (m, n) => (+n >= 100 && +n <= 9999 ? `at +${n}` : m))
-    .replace(/\((\d{3,4})\)/g, (m, n) => (+n >= 100 && +n <= 9999 ? `(+${n})` : m));
 }
 
 async function generateWithClaude(systemPrompt, userPrompt) {
