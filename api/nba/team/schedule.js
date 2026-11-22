@@ -11,6 +11,19 @@ const cache = createCache(5 * 60 * 1000);
 const espnIdToSlug = {};
 for (const [slug, eid] of Object.entries(NBA_ESPN_IDS)) espnIdToSlug[eid] = slug;
 
+/**
+ * A competitor's score. ESPN's team schedule sends it as an object
+ * ({ value: 112, displayValue: "112" }); the scoreboard sends a string.
+ * Reading the object as a number gave null for every finished game.
+ */
+export function scoreOf(competitor) {
+  const raw = competitor?.score;
+  if (raw == null) return null;
+  const v = typeof raw === 'object' ? (raw.value ?? raw.displayValue) : raw;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
@@ -60,8 +73,8 @@ export default async function handler(req, res) {
         opponentSlug: oppSlug,
         opponentLogo: them?.team?.logo || (oppEspnId ? `https://a.espncdn.com/i/teamlogos/nba/500/${oppEspnId}.png` : null),
         isHome,
-        ourScore: us?.score != null ? Number(us.score) : null,
-        oppScore: them?.score != null ? Number(them.score) : null,
+        ourScore: scoreOf(us),
+        oppScore: scoreOf(them),
         gameStatus: isFinal ? 'final' : state === 'in' ? 'in_progress' : 'upcoming',
         isFinal,
         network: comp.broadcasts?.[0]?.names?.[0] || null,

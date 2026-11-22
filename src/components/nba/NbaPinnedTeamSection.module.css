@@ -3,12 +3,10 @@
 .section { margin-bottom: var(--space-xl, 32px); }
 
 .eyebrow {
-  font-size: 0.56rem; font-weight: 700; text-transform: uppercase;
-  letter-spacing: 0.12em; color: #1d428a; margin-bottom: 4px;
+  font-size: 0.75rem; font-weight: 700; color: #1d428a; margin-bottom: 4px;
 }
 .heading {
-  font-size: 1.1rem; font-weight: 700; text-transform: uppercase;
-  letter-spacing: 0.04em; color: var(--color-text); margin: 0 0 14px;
+  font-size: 1.1rem; font-weight: 700; color: var(--color-text); margin: 0 0 14px;
 }
 
 /* Empty state: two-column */
@@ -50,11 +48,11 @@
   border-radius: 6px; cursor: pointer; transition: all 0.12s; font-family: inherit;
 }
 .addTeamBtn:hover { border-color: rgba(29,66,138,0.25); color: #1d428a; }
-.explainerHelper { font-size: 0.66rem; color: var(--color-text-muted); margin: 0 0 8px; }
+.explainerHelper { font-size: 0.75rem; color: var(--color-text-muted); margin: 0 0 8px; }
 .popularChips { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-.popularLabel { font-size: 0.56rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--color-text-muted); }
+.popularLabel { font-size: 0.75rem; font-weight: 700; color: var(--color-text-muted); }
 .popularChip {
-  padding: 3px 10px; font-size: 0.66rem; font-weight: 600;
+  padding: 3px 10px; font-size: 0.75rem; font-weight: 600;
   background: rgba(0,0,0,0.03); border: 1px solid rgba(0,0,0,0.08);
   border-radius: 999px; cursor: pointer; font-family: inherit;
   transition: all 0.12s; color: var(--color-text-muted);
@@ -69,7 +67,7 @@
   box-shadow: 0 1px 4px rgba(0,0,0,0.04);
 }
 .previewHeader { display: flex; justify-content: space-between; align-items: center; }
-.previewLabel { font-size: 0.52rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.10em; color: var(--color-text-muted); }
+.previewLabel { font-size: 0.75rem; font-weight: 700; color: var(--color-text-muted); }
 .previewClose { background: none; border: none; cursor: pointer; color: var(--color-text-muted); font-size: 1rem; }
 
 /* Filled state header */
@@ -78,11 +76,10 @@
   margin-bottom: 10px;
 }
 .pinnedLabel {
-  font-size: 0.56rem; font-weight: 700; text-transform: uppercase;
-  letter-spacing: 0.10em; color: var(--color-text-muted);
+  font-size: 0.75rem; font-weight: 700; color: var(--color-text-muted);
 }
 .addTeamCta {
-  font-size: 0.70rem; font-weight: 600; color: #1d428a;
+  font-size: 0.75rem; font-weight: 600; color: #1d428a;
   background: none; padding: 4px 12px; cursor: pointer;
   border: 1px solid rgba(29,66,138,0.18); border-radius: 6px;
   transition: all 0.12s; font-family: inherit;
@@ -93,9 +90,9 @@
   display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
   padding: 8px 14px; margin-bottom: 10px;
   background: rgba(29,66,138,0.04); border: 1px solid rgba(29,66,138,0.10);
-  border-radius: 6px; font-size: 0.72rem; color: var(--color-text-secondary);
+  border-radius: 6px; font-size: 0.75rem; color: var(--color-text-secondary);
 }
-.upgradeLink { font-size: 0.68rem; font-weight: 700; color: #1d428a; text-decoration: none; }
+.upgradeLink { font-size: 0.75rem; font-weight: 700; color: #1d428a; text-decoration: none; }
 .upgradeLink:hover { color: #2451a0; }
 
 /* Pinned cards grid */
@@ -117,7 +114,7 @@
 .cardLogo { width: 32px; height: 32px; object-fit: contain; border-radius: 3px; flex-shrink: 0; }
 .cardName { font-size: 0.82rem; font-weight: 700; color: var(--color-text); text-decoration: none; display: block; transition: color 0.12s; }
 .cardName:hover { color: #1d428a; }
-.cardDiv { font-size: 0.52rem; color: var(--color-text-muted); display: block; }
+.cardDiv { font-size: 0.75rem; color: var(--color-text-muted); display: block; }
 .cardActions { display: flex; gap: 4px; flex-shrink: 0; }
 .cardActionBtn { background: none; border: none; cursor: pointer; padding: 4px; color: var(--color-text-muted); font-size: 0.82rem; transition: color 0.12s; }
 .cardActionBtn:hover { color: var(--color-text); }
@@ -125,16 +122,16 @@
 /* 4 stat boxes */
 .statBoxes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
 .statBox { padding: 6px 8px; background: rgba(0,0,0,0.025); border: 1px solid rgba(0,0,0,0.04); border-radius: 5px; display: flex; flex-direction: column; gap: 2px; }
-.statBoxLabel { font-size: 0.44rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-text-muted); }
-.statBoxValue { font-size: 0.68rem; font-weight: 700; color: var(--color-text); line-height: 1.2; }
+.statBoxLabel { font-size: 0.75rem; font-weight: 700; color: var(--color-text-muted); }
+.statBoxValue { font-size: 0.75rem; font-weight: 700; color: var(--color-text); line-height: 1.2; }
 
 /* Next game */
 .nextGame { padding: 8px 10px; background: rgba(29,66,138,0.03); border: 1px solid rgba(29,66,138,0.08); border-radius: 6px; }
-.nextGameLabel { font-size: 0.48rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #1d428a; display: block; margin-bottom: 3px; }
-.nextGameInfo { font-size: 0.74rem; font-weight: 600; color: var(--color-text); display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-.nextGameTime { font-size: 0.64rem; color: var(--color-text-muted); }
-.nextGameNetwork { font-size: 0.52rem; font-weight: 700; text-transform: uppercase; color: var(--color-text-muted); background: rgba(0,0,0,0.04); padding: 1px 5px; border-radius: 3px; }
-.gamecastLink { font-size: 0.60rem; font-weight: 600; color: #CC0000; text-decoration: none; display: inline-block; margin-top: 3px; }
+.nextGameLabel { font-size: 0.75rem; font-weight: 700; color: #1d428a; display: block; margin-bottom: 3px; }
+.nextGameInfo { font-size: 0.75rem; font-weight: 600; color: var(--color-text); display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.nextGameTime { font-size: 0.75rem; color: var(--color-text-muted); }
+.nextGameNetwork { font-size: 0.75rem; font-weight: 700; color: var(--color-text-muted); background: rgba(0,0,0,0.04); padding: 1px 5px; border-radius: 3px; }
+.gamecastLink { font-size: 0.75rem; font-weight: 600; color: #CC0000; text-decoration: none; display: inline-block; margin-top: 3px; }
 
 /* Intel text */
 .intelText { font-size: 0.76rem; line-height: 1.55; color: var(--color-text-secondary); margin: 0; }
@@ -150,11 +147,11 @@
 .playIcon { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
   width: 24px; height: 24px; display: flex; align-items: center; justify-content: center;
   background: rgba(0,0,0,0.55); color: #fff; border-radius: 50%; font-size: 8px; }
-.heroVideoTitle { font-size: 0.70rem; font-weight: 600; line-height: 1.3; padding: 8px 10px;
+.heroVideoTitle { font-size: 0.75rem; font-weight: 600; line-height: 1.3; padding: 8px 10px;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 
 /* CTA */
-.viewTeamCta { font-size: 0.72rem; font-weight: 600; color: #1d428a; text-decoration: none; display: inline-flex; align-items: center; padding: 6px 14px; border: 1px solid rgba(29,66,138,0.18); border-radius: 6px; transition: all 0.12s; width: fit-content; }
+.viewTeamCta { font-size: 0.75rem; font-weight: 600; color: #1d428a; text-decoration: none; display: inline-flex; align-items: center; padding: 6px 14px; border: 1px solid rgba(29,66,138,0.18); border-radius: 6px; transition: all 0.12s; width: fit-content; }
 .viewTeamCta:hover { background: rgba(29,66,138,0.06); border-color: rgba(29,66,138,0.30); }
 
 /* Responsive */

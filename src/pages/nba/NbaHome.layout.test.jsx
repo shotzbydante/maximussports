@@ -1,22 +1,14 @@
 /**
- * NBA Home — layout order + SEO invariants (v6).
+ * NBA Home — layout order and SEO invariants.
  *
- *   1. The Maximus's Picks board renders BEFORE the scorecard inside the
- *      dark hero shell. (Pre-v6 the order was reversed; the picks board
- *      is the more engaging entry surface.)
- *   2. There is exactly one Maximus's Picks block on the page (no
- *      duplicate copy of `MlbMaximusPicksSectionV2`).
- *   3. SEOHead is wired with the NBA-playoff-betting-picks title +
- *      canonical /nba + a description that names the markets the page
- *      covers (moneyline, spread, totals).
- *   4. The page exposes an <h1> for "NBA Playoff Intelligence" — was
- *      previously an <h2>, missing from the SEO checklist.
- *   5. The responsible-gaming disclaimer is rendered.
+ * The page follows the NFL home: picks, the brief, games, headlines beside
+ * title odds, your teams, videos. Source-level, so it needs no DOM or
+ * fetch mocks.
  *
- * Source-level test so we don't need jsdom + fetch mocks. The
- * MlbMaximusPicksSectionV2 component fetches its picks payload on mount,
- * which static markup can't exercise; instead we assert the structural
- * contract on the page source.
+ *   1. Sections appear in that order, each exactly once.
+ *   2. The copy is about the season in progress, not last spring's playoffs.
+ *   3. SEOHead names the markets the page covers and points at /nba.
+ *   4. The responsible-gaming line is there.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -26,36 +18,28 @@ import { dirname, resolve } from 'node:path';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const SRC = readFileSync(resolve(here, 'NbaHome.jsx'), 'utf8');
+const JSX = SRC.slice(SRC.indexOf('<div className={h.page}>'));
 
-describe('NbaHome — picks above scorecard', () => {
-  it('renders MlbMaximusPicksSectionV2 BEFORE NbaScorecardReport', () => {
-    const picksIdx = SRC.indexOf('<MlbMaximusPicksSectionV2');
-    const scoreIdx = SRC.indexOf('<NbaScorecardReport');
-    expect(picksIdx, 'picks block present').toBeGreaterThan(0);
-    expect(scoreIdx, 'scorecard block present').toBeGreaterThan(0);
-    expect(picksIdx).toBeLessThan(scoreIdx);
+describe('NbaHome — section order', () => {
+  const ORDER = ['<NbaSectionTabs', '<NbaPicks', '<NbaBrief', '<NbaGameTile', '<NbaHeadlines', '<NbaTitleRace', '<NbaPinnedTeamSection', '<NbaVideos'];
+
+  it('renders picks, brief, games, headlines, title odds, teams, videos in that order', () => {
+    const at = ORDER.map((tag) => JSX.indexOf(tag));
+    at.forEach((i, n) => expect(i, `${ORDER[n]} present`).toBeGreaterThan(0));
+    expect([...at].sort((a, b) => a - b)).toEqual(at);
   });
 
-  it('renders the picks block exactly once (no duplicate)', () => {
-    const occurrences = SRC.match(/<MlbMaximusPicksSectionV2/g) || [];
-    expect(occurrences).toHaveLength(1);
+  it('renders each section once', () => {
+    for (const tag of ORDER) expect(JSX.split(tag).length - 1, tag).toBe(1);
   });
 
-  it('renders the scorecard block exactly once', () => {
-    const occurrences = SRC.match(/<NbaScorecardReport/g) || [];
-    expect(occurrences).toHaveLength(1);
+  it('opens with an h1 and uses the shared home layout', () => {
+    expect(JSX).toMatch(/<h1 className=\{h\.title\}>NBA tonight<\/h1>/);
+    expect(SRC).toMatch(/from '\.\.\/\.\.\/components\/nfl\/home\/home\.module\.css'/);
   });
 
-  it('preserves the canonical NBA Home picks props', () => {
-    expect(SRC).toMatch(/sport="nba"/);
-    expect(SRC).toMatch(/endpoint="\/api\/nba\/picks\/built"/);
-    expect(SRC).toMatch(/homeShowAll/);
-    expect(SRC).toMatch(/darkSurface/);
-    expect(SRC).toMatch(/suppressPerformanceBlocks/);
-  });
-
-  it('includes an h1 for NBA Playoff Intelligence', () => {
-    expect(SRC).toMatch(/<h1[^>]*className=\{[^}]*picksHeroTitle[^}]*\}\s*>\s*NBA Playoff Intelligence/);
+  it('does not talk about the playoffs or the bracket', () => {
+    expect(SRC).not.toMatch(/playoff|bracket/i);
   });
 
   it('includes the responsible-gaming disclaimer copy', () => {
@@ -65,13 +49,7 @@ describe('NbaHome — picks above scorecard', () => {
 
 describe('NbaHome — SEO metadata wiring', () => {
   it('imports SEOHead and buildOgImageUrl from the canonical helper', () => {
-    expect(SRC).toMatch(/from\s+['"]\.\.\/\.\.\/components\/seo\/SEOHead['"]/);
-    expect(SRC).toMatch(/SEOHead\s*,?\s*\{?\s*buildOgImageUrl/);
-  });
-
-  it('renders <SEOHead> with NBA-playoff-betting-picks title', () => {
-    expect(SRC).toMatch(/title=\{seoTitle\}/);
-    expect(SRC).toMatch(/seoTitle\s*=\s*['"]NBA Playoff Betting Picks/);
+    expect(SRC).toMatch(/SEOHead\s*,\s*\{\s*buildOgImageUrl\s*\}\s*from\s+['"]\.\.\/\.\.\/components\/seo\/SEOHead['"]/);
   });
 
   it('description names moneyline + spread + totals + model-graded', () => {
@@ -84,17 +62,10 @@ describe('NbaHome — SEO metadata wiring', () => {
     expect(desc).toMatch(/model-graded/i);
   });
 
-  it('canonical path is /nba (not workspace-prefixed)', () => {
+  it('canonical path is /nba with WebPage JSON-LD and a dynamic OG image', () => {
     expect(SRC).toMatch(/canonicalPath=['"]\/nba['"]/);
-  });
-
-  it('passes WebPage JSON-LD with the canonical URL', () => {
     expect(SRC).toMatch(/'@type'\s*:\s*'WebPage'/);
     expect(SRC).toMatch(/url\s*:\s*['"]https:\/\/maximussports\.ai\/nba['"]/);
-  });
-
-  it('builds a dynamic OG image — never hard-codes a static asset', () => {
     expect(SRC).toMatch(/buildOgImageUrl\(\{/);
-    expect(SRC).not.toMatch(/ogImage=\{['"]\/og\.png['"]/);
   });
 });

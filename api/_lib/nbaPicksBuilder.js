@@ -26,7 +26,7 @@ import { normalizeEvent, ESPN_SCOREBOARD, FETCH_TIMEOUT_MS } from '../nba/live/_
 import { enrichGamesWithOdds } from '../nba/live/_odds.js';
 import { buildNbaPicksV2, NBA_DEFAULT_CONFIG, NBA_MODEL_VERSION } from '../../src/features/nba/picks/v2/buildNbaPicksV2.js';
 import { buildNbaPlayoffContext, findSeriesForGame } from '../../src/data/nba/playoffContext.js';
-import { getJson, setJson } from '../_globalCache.js';
+import { getJson, setJson, tryAcquireLock, isKvAvailable } from '../_globalCache.js';
 import { writePicksRun, getActiveConfig, getScorecard, getLatestGradedScorecard } from './picksHistory.js';
 import { yesterdayET } from './dateWindows.js';
 import { resolveFairTotalForGame } from './seriesPaceFairTotal.js';
@@ -127,6 +127,108 @@ async function fetchScoreboardForDate(dateStr) {
     return [];
   } finally {
     clearTimeout(timer);
+  }
+}
+
+const LEDGER_TTL_SEC = 36 * 60 * 60;
+const STARTED_WINDOW_MS = 14 * 60 * 60 * 1000;
+const ledgerKey = (date) => `nba:picks:slate:${date}`;
+
+/** The few fields needed to show a pick beside a live score and say where it stands. */
+export function slimPick(p) {
+  return {
+    id: p.id,
+    gameId: String(p.gameId),
+    market: p.market?.type || null,
+    side: p.selection?.side || null,
+    line: p.market?.line ?? null,
+    price: p.market?.priceAmerican ?? null,
+    label: p.selection?.label || '',
+    conviction: p.conviction?.score ?? Math.round((p.betScore?.total || 0) * 100),
+    away: p.matchup?.awayTeam?.slug || null,
+    home: p.matchup?.homeTeam?.slug || null,
+    startTime: p.matchup?.startTime || null,
+  };
+}
+
+/**
+ * Fold the board's picks into the day's ledger and return the ones whose
+ * games have started. Pure, so it can be tested without KV.
+ *
+ * A game leaves the board at tip-off and takes its pick with it, which made
+ * a pick vanish from the page at the moment people want to see it. The
+ * ledger keeps each of Maximus's picks as last published before tip. A pick
+ * withdrawn while its game is still to be played is dropped, so the ledger
+ * never holds a pick that was not standing at tip-off.
+ */
+export function foldLedger(ledger, board, upcomingIds, now = Date.now()) {
+  const next = { ...(ledger || {}) };
+  const heroes = (board?.fullSlatePicks || []).filter((p) => p.pickRole === 'hero');
+  const heroIds = new Set(heroes.map((p) => p.id));
+  for (const p of heroes) next[p.id] = slimPick(p);
+  for (const [id, p] of Object.entries(next)) {
+    if (upcomingIds.has(String(p.gameId)) && !heroIds.has(id)) delete next[id];
+  }
+  const started = Object.values(next).filter((p) => {
+    if (upcomingIds.has(String(p.gameId))) return false;
+    const t = Date.parse(p.startTime);
+    return Number.isFinite(t) && t <= now && now - t < STARTED_WINDOW_MS;
+  });
+  return { ledger: next, started };
+}
+
+/** Picks from tonight's slate whose games are under way or over. Never throws. */
+async function startedPicksFor(board, upcomingIds) {
+  try {
+    const today = board?.date;
+    if (!today) return [];
+    const [mine, prior] = await Promise.all([
+      getJson(ledgerKey(today)).catch(() => null),
+      // Late West-coast games are still on after the Eastern date has turned.
+      getJson(ledgerKey(yesterdayET())).catch(() => null),
+    ]);
+    const { ledger, started } = foldLedger(mine, board, upcomingIds);
+    await setJson(ledgerKey(today), ledger, { exSeconds: LEDGER_TTL_SEC }).catch(() => {});
+    const carried = foldLedger(prior, null, upcomingIds).started;
+    const seen = new Set(started.map((p) => p.id));
+    return [...started, ...carried.filter((p) => !seen.has(p.id))];
+  } catch (err) {
+    console.warn(`[nbaPicksBuilder] started picks: ${err?.message}`);
+    return [];
+  }
+}
+
+const PERSIST_EVERY_SEC = 20 * 60;
+const PERSIST_WAIT_MS = 8000;
+
+/**
+ * Write the board's picks to Supabase, waited on. Returns a short summary
+ * for `_debug.persisted`; never throws.
+ */
+async function persistBoard(board) {
+  try {
+    const slate = board?.date || 'unknown';
+    // Without KV there is no way to space the saves out, so save every build.
+    if (await isKvAvailable().catch(() => false)) {
+      const first = await tryAcquireLock(`nba:picks:persist:${NBA_MODEL_VERSION}:${slate}`, PERSIST_EVERY_SEC);
+      if (!first) return { skipped: 'saved_recently' };
+    }
+    const r = await Promise.race([
+      writePicksRun(board),
+      new Promise((resolve) => setTimeout(() => resolve({ ok: false, reason: 'timeout' }), PERSIST_WAIT_MS)),
+    ]);
+    if (!r) return { ok: false, reason: 'no_result' };
+    if (!r.ok) {
+      console.error(
+        `[nbaPicksBuilder] persist failed reason=${r.reason} ` +
+        `inserted=${r.picksInserted ?? 0}/${r.picksAttempted ?? 0} ` +
+        `first="${r.failures?.[0]?.message || 'n/a'}"`
+      );
+    }
+    return { ok: !!r.ok, reason: r.reason || null, inserted: r.picksInserted ?? 0, attempted: r.picksAttempted ?? 0 };
+  } catch (err) {
+    console.error(`[nbaPicksBuilder] persist threw: ${err?.message}`);
+    return { ok: false, reason: 'exception' };
   }
 }
 
@@ -320,6 +422,9 @@ export async function buildNbaPicksBoard(opts = {}) {
       _debug: { totalGames: allGames.length, upcoming: upcoming.length, enriched: enriched.length, engine: 'v2' },
     };
 
+    const upcomingIds = new Set(upcoming.map((g) => String(g.gameId)));
+    freshBoard.startedPicks = await startedPicksFor(freshBoard, upcomingIds);
+
     const freshCount = countPicks(freshBoard);
     console.log(
       `[nbaPicksBuilder] fresh V2 build: total=${freshCount} ` +
@@ -338,20 +443,12 @@ export async function buildNbaPicksBoard(opts = {}) {
       setJson(KV_LATEST_LEGACY, freshBoard, { exSeconds: LATEST_TTL_SEC }).catch(() => {});
       setJson(KV_LASTKNOWN_LEGACY, freshBoard, { exSeconds: LASTKNOWN_TTL_SEC }).catch(() => {});
 
-      // Best-effort DB persistence — non-blocking. Any failure just logs.
-      Promise.resolve()
-        .then(() => writePicksRun(freshBoard))
-        .then(r => {
-          if (!r) return;
-          if (!r.ok) {
-            console.error(
-              `[nbaPicksBuilder] ⚠ persist failed reason=${r.reason} ` +
-              `inserted=${r.picksInserted ?? 0}/${r.picksAttempted ?? 0} ` +
-              `first="${r.failures?.[0]?.message || 'n/a'}"`
-            );
-          }
-        })
-        .catch(err => console.error(`[nbaPicksBuilder] persist threw: ${err?.message}`));
+      // Save the board before answering. A write left running after the
+      // response never finishes on Vercel (the function is frozen), which is
+      // why runs were recorded this season with no pick rows under them. The
+      // save is waited on, capped, and taken at most once per window so a
+      // busy night does not write a run on every rebuild.
+      freshBoard._debug.persisted = await persistBoard(freshBoard);
 
       return { board: freshBoard, source: 'fresh', counts: getCounts(freshBoard) };
     }
@@ -366,6 +463,9 @@ export async function buildNbaPicksBoard(opts = {}) {
       const latestCount = countPicks(latest);
       if (latestCount > 0 && isVersionMatch(latest)) {
         console.log(`[nbaPicksBuilder] using KV latest snapshot: total=${latestCount}`);
+        // An older board still lists games that have since tipped off; the
+        // fresh build knows which of tonight's picks are now in play.
+        if (freshBoard?.startedPicks) latest.startedPicks = freshBoard.startedPicks;
         return { board: latest, source: 'kv_latest', counts: getCounts(latest) };
       }
       if (latestCount > 0 && !isVersionMatch(latest)) {
@@ -383,6 +483,7 @@ export async function buildNbaPicksBoard(opts = {}) {
     const lastknownCount = countPicks(lastknown);
     if (lastknownCount > 0 && isVersionMatch(lastknown)) {
       console.log(`[nbaPicksBuilder] using KV last-known-good: total=${lastknownCount}`);
+      if (freshBoard?.startedPicks) lastknown.startedPicks = freshBoard.startedPicks;
       return { board: lastknown, source: 'kv_lastknown', counts: getCounts(lastknown) };
     }
     if (lastknownCount > 0 && !isVersionMatch(lastknown)) {

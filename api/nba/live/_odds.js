@@ -81,6 +81,32 @@ async function fetchOddsApi() {
   } finally { clearTimeout(timer); }
 }
 
+/**
+ * The median of an even number of books can land between two real lines
+ * (226 and 226.5 give 226.25). No book posts a quarter point, so the
+ * consensus snaps to the nearest half, the same rule the NFL feed uses.
+ */
+export function snapHalf(v) {
+  if (v == null || !Number.isFinite(v)) return null;
+  const snapped = Math.round(v * 2) / 2;
+  return snapped === 0 ? 0 : snapped;
+}
+
+/**
+ * The middle moneyline across books, taken on win probability and turned
+ * back into a whole American price. Averaging the prices themselves is
+ * wrong either side of even money (-105 and +105 do not average to 0).
+ */
+export function medianAmerican(prices) {
+  const list = (prices || []).filter((a) => Number.isFinite(a) && a !== 0);
+  if (list.length === 0) return null;
+  const probs = list.map((a) => (a < 0 ? -a / (-a + 100) : 100 / (a + 100))).sort((x, y) => x - y);
+  const mid = Math.floor(probs.length / 2);
+  const p = probs.length % 2 ? probs[mid] : (probs[mid - 1] + probs[mid]) / 2;
+  if (!(p > 0 && p < 1)) return null;
+  return Math.round(p >= 0.5 ? -(p / (1 - p)) * 100 : ((1 - p) / p) * 100);
+}
+
 function parseOddsEvent(ev) {
   const homeSlug = resolveSlug(ev.home_team);
   const awaySlug = resolveSlug(ev.away_team);
@@ -122,8 +148,8 @@ function parseOddsEvent(ev) {
 
   return {
     homeSlug, awaySlug, commenceTime: ev.commence_time,
-    spread: median(spreads), total: median(totals),
-    moneyline: { home: median(homeMls), away: median(awayMls) },
+    spread: snapHalf(median(spreads)), total: snapHalf(median(totals)),
+    moneyline: { home: medianAmerican(homeMls), away: medianAmerican(awayMls) },
     booksCount: bookmakers.length,
   };
 }
@@ -200,7 +226,7 @@ export async function enrichGamesWithOdds(games) {
 
     return {
       ...game,
-      market: { ...game.market, pregameSpread: spread ?? game.market?.pregameSpread, pregameTotal: total ?? game.market?.pregameTotal, moneyline: moneyline ?? game.market?.moneyline },
+      market: { ...game.market, pregameSpread: spread ?? game.market?.pregameSpread, pregameTotal: total ?? game.market?.pregameTotal, moneyline: moneyline ?? game.market?.moneyline, booksCount: match.booksCount || null },
       // `model.fairTotal` is intentionally NOT populated from the market
       // total. There is no fair-total model in the NBA pipeline today
       // (see docs/nba-home-picks-ui-categories-history-and-improvement-audit-v4.md);

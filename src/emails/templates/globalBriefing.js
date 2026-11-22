@@ -29,6 +29,7 @@
 
 import { recommendedPicks, summarizePick } from '../../features/nfl/picks/pickSummary.js';
 import { EmailShell, heroBlock } from '../EmailShell.js';
+import { nbaSeasonPhase } from '../../sports/nba/season.js';
 import {
   stripInlineEmoji, normalizeSpacing, cleanNarrativeText,
   mlbTeamLogoImg, nbaTeamLogoImg, renderPartnerModule,
@@ -52,6 +53,9 @@ const CARD_BG = '#f9fafb';
 
 // ── Brand assets ─────────────────────────────────────────────────
 const NBA_PLAYOFFS_LOGO = 'https://a.espncdn.com/i/teamlogos/leagues/500/nba.png';
+// "NBA PLAYOFFS" from the play-in to the Finals, "NBA" the rest of the year.
+const nbaLabel = () => (nbaSeasonPhase() === 'playoffs' ? 'NBA PLAYOFFS' : 'NBA');
+const nbaLeads = () => (nbaSeasonPhase() === 'playoffs' ? 'NBA Playoffs lead' : 'The NBA leads');
 const MLB_LEAGUE_LOGO = 'https://a.espncdn.com/i/teamlogos/leagues/500/mlb.png';
 const NFL_LEAGUE_LOGO = 'https://a.espncdn.com/i/teamlogos/leagues/500/nfl.png';
 
@@ -512,7 +516,7 @@ ${sectionPill('\u{1F3C0} NBA DAILY INTELLIGENCE', RED)}
 
   return {
     html: `
-${sportHeader({ logoUrl: NBA_PLAYOFFS_LOGO, label: 'NBA PLAYOFFS', accent: RED })}
+${sportHeader({ logoUrl: NBA_PLAYOFFS_LOGO, label: nbaLabel(), accent: RED })}
 ${sections.join('\n')}`,
     hasContent: true,
   };
@@ -747,10 +751,10 @@ export function renderHTML(data = {}) {
   // Lead line follows what the email actually carries: a sport in its
   // offseason has no block (see assembleEmailData), so it is not promised here.
   const leadLine = mlb.hasContent
-    ? 'NBA Playoffs lead today’s board, with MLB right behind.'
+    ? `${nbaLeads()} today’s board, with MLB right behind.`
     : 'The NBA leads today’s board.';
   const previewLine = mlb.hasContent
-    ? '\u{1F4E1} NBA Playoffs lead today’s board — plus MLB intel.'
+    ? `\u{1F4E1} ${nbaLeads()} today’s board, plus MLB intel.`
     : '\u{1F4E1} The NBA leads today’s board.';
   // With NFL picks on the board, say so up front, and that each has its reason.
   const nflLead = nfl.picks > 0
@@ -816,7 +820,7 @@ export function renderText(data = {}) {
   const lines = [
     '\u{1F4E1} MAXIMUS SPORTS — Daily Global Intel Briefing',
     today, '',
-    `Good ${new Date().getHours() < 12 ? 'morning' : 'afternoon'}, ${name}. ${hasMlb ? 'NBA Playoffs lead today, MLB second.' : 'The NBA leads today.'}`, '',
+    `Good ${new Date().getHours() < 12 ? 'morning' : 'afternoon'}, ${name}. ${hasMlb ? `${nbaLeads()} today, MLB second.` : 'The NBA leads today.'}`, '',
   ];
 
   // ─── NFL ───
@@ -838,7 +842,7 @@ export function renderText(data = {}) {
   }
 
   // ─── NBA PLAYOFFS ───
-  lines.push('🏀 NBA PLAYOFFS');
+  lines.push(`🏀 ${nbaLabel()}`);
   lines.push('─────────────');
   const nN = nbaData?.narrativeParagraph || '';
   if (nN) {

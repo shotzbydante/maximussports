@@ -23,6 +23,8 @@ import { NBA_TEAMS } from '../../sports/nba/teams';
 import { fetchNbaChampionshipOdds } from '../../api/nbaChampionshipOdds';
 import { fetchNbaTeamBoard } from '../../api/nbaTeamBoard';
 import NbaTeamPickerModal from './NbaTeamPickerModal';
+import { SectionHead } from '../nfl/home/HomeParts';
+import h from '../nfl/home/home.module.css';
 import styles from './NbaPinnedTeamSection.module.css';
 
 const FREE_PIN_LIMIT = 3;
@@ -100,7 +102,7 @@ function PreviewCard({ slug, odds, boardMap, onPin, buildPath }) {
 
       <div className={styles.previewActions}>
         <button type="button" className={styles.pinBtnPrimary} onClick={() => onPin(slug)}>
-          {'\uD83D\uDCCC'} Pin {team.name.split(' ').pop()}
+          Pin the {team.name.split(' ').pop()}
         </button>
         <Link to={buildPath(`/teams/${slug}`)} className={styles.viewTeamCta}>
           View Team Intel &rarr;
@@ -342,8 +344,9 @@ export default function NbaPinnedTeamSection() {
 
   return (
     <section className={styles.section}>
-      <div className={styles.eyebrow}>Following</div>
-      <h2 className={styles.heading}>Teams You Follow</h2>
+      <div className={h.page} style={{ display: 'block', maxWidth: 'none', marginBottom: 12 }}>
+        <SectionHead title="Your teams" />
+      </div>
 
       {isEmpty ? (
         <div className={styles.emptyLayout}>
@@ -357,7 +360,7 @@ export default function NbaPinnedTeamSection() {
             </ul>
             <div className={styles.explainerActions}>
               <button type="button" className={styles.pinBtnPrimary} onClick={() => handlePin(DEFAULT_SLUG)}>
-                {'\uD83D\uDCCC'} Pin Celtics (example)
+                Pin the Celtics (example)
               </button>
               <button type="button" className={styles.addTeamBtn} onClick={() => {
                 if (!user) { navigate('/settings'); return; }

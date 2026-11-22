@@ -9,6 +9,8 @@
  * from structured projection/odds inputs.
  */
 
+import { nbaSeasonPhase } from '../../sports/nba/season.js';
+
 const TEAM_EMOJI = {
   bos: '\u2618\uFE0F', lal: '\uD83D\uDFE1', gsw: '\uD83D\uDFE1', nyk: '\uD83D\uDDFD',
   mil: '\uD83E\uDD8C', phi: '\uD83D\uDD14', den: '\u26CF\uFE0F', phx: '\u2600\uFE0F',
@@ -20,6 +22,50 @@ const TEAM_EMOJI = {
   uta: '\u26F7\uFE0F', lac: '\u2693',
 };
 
+/** "11-5, 2nd in Eastern" reads better as "11-5, 2nd in the East". */
+function plainStanding(standing) {
+  return String(standing || '').replace(/\bin (Eastern|Western)\b/, (_, c) => `in the ${c === 'Eastern' ? 'East' : 'West'}`);
+}
+
+function titleOddsLine(odds) {
+  const american = odds?.bestChanceAmerican;
+  if (american == null) return null;
+  const price = `${american > 0 ? '+' : ''}${american}`;
+  if (american <= 500) return `At ${price} to win the title, the market prices them as one of the favorites.`;
+  if (american <= 2000) return `At ${price} to win the title, the market has them in the second tier of contenders.`;
+  if (american >= 5000) return `At ${price} to win the title, the market is not counting on this season.`;
+  return `They are ${price} to win the title.`;
+}
+
+/** What the page says from opening night until the play-in. */
+function regularSeasonSummary({ team, odds, record, standing, streak }) {
+  const mascot = team.name.split(' ').pop();
+  const place = plainStanding(standing);
+  const parts = [];
+  const [w, l] = String(record || '').split('-').map(Number);
+  const games = (w || 0) + (l || 0);
+
+  if (games > 0) {
+    const pct = w / games;
+    const where = place ? `, ${place}` : '';
+    if (pct >= 0.65) parts.push(`The ${mascot} are ${record}${where}, one of the best records in the league.`);
+    else if (pct >= 0.55) parts.push(`The ${mascot} are ${record}${where}, comfortably on the right side of the standings.`);
+    else if (pct >= 0.45) parts.push(`The ${mascot} are ${record}${where}, in the middle of the pack with most of the season to play.`);
+    else parts.push(`The ${mascot} are ${record}${where}, and have ground to make up.`);
+  } else {
+    parts.push(`${team.name} have not played yet this season. Record, standing and title odds fill in here as games are played.`);
+  }
+
+  const run = /^([WL])(\d+)$/.exec(String(streak || ''));
+  if (run && Number(run[2]) >= 3) {
+    parts.push(run[1] === 'W' ? `They have won ${run[2]} in a row.` : `They have lost ${run[2]} in a row.`);
+  }
+
+  const price = titleOddsLine(odds);
+  if (price) parts.push(price);
+  return parts.join(' ');
+}
+
 /**
  * @param {Object} opts
  * @param {Object} opts.team - NBA_TEAMS entry
@@ -27,10 +73,14 @@ const TEAM_EMOJI = {
  * @param {string} [opts.record] - e.g. "42-28"
  * @param {string} [opts.standing] - e.g. "2nd in East"
  * @param {string} [opts.streak] - e.g. "W3"
+ * @param {'regular_season'|'playoffs'|'offseason'} [opts.phase] - defaults to today's
  * @returns {string}
  */
-export function buildNbaTeamIntelSummary({ team, odds, record, standing, streak }) {
+export function buildNbaTeamIntelSummary({ team, odds, record, standing, streak, phase = nbaSeasonPhase() }) {
   if (!team) return '';
+  // The playoff copy below talks about seeds, series and brackets, which is
+  // only true from the play-in to the Finals.
+  if (phase !== 'playoffs') return regularSeasonSummary({ team, odds, record, standing, streak });
   const slug = team.slug;
   const emoji = TEAM_EMOJI[slug] || '\uD83C\uDFC0';
   const name = team.name;

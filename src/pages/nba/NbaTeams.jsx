@@ -11,6 +11,7 @@ import { NBA_TEAMS } from '../../sports/nba/teams';
 import { getNbaEspnLogoUrl } from '../../utils/espnNbaLogos';
 import { fetchNbaTeamBoard } from '../../api/nbaTeamBoard';
 import { fetchNbaChampionshipOdds } from '../../api/nbaChampionshipOdds';
+import SEOHead from '../../components/seo/SEOHead';
 import styles from './NbaTeams.module.css';
 
 const EAST_DIVISIONS = ['Atlantic', 'Central', 'Southeast'];
@@ -172,6 +173,7 @@ export default function NbaTeams() {
   return (
     <div className={styles.page}>
       <header className={styles.header}>
+        <SEOHead title="NBA Standings, Records & Title Odds for All 30 Teams" description="Every NBA team’s record, conference standing, last ten and championship odds, by division." />
         <h1 className={styles.pageTitle}>
           <img src="/nba-logo.png" alt="NBA" className={styles.headerLogo} />
           NBA Team Intel

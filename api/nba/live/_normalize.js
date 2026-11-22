@@ -26,7 +26,29 @@ export function resolveTeam(comp) {
     abbrev: meta?.abbrev || t.abbreviation || '',
     logo: t.logo || (eid ? `https://a.espncdn.com/i/teamlogos/nba/500/${eid}.png` : null),
     score: comp?.score != null ? Number(comp.score) : null,
+    record: recordOf(comp),
   };
+}
+
+/** "11-5": the overall record ESPN lists for a team on the scoreboard. */
+function recordOf(comp) {
+  const records = Array.isArray(comp?.records) ? comp.records : [];
+  const overall = records.find((r) => r?.name === 'overall' || r?.type === 'total') || records[0];
+  return overall?.summary || null;
+}
+
+/**
+ * The network a game is on. A national broadcast is named; a game that is
+ * only on a local station is left blank, because a call sign like "KSBI"
+ * means nothing outside that market. The local name is kept separately.
+ */
+export function broadcastOf(comp) {
+  const list = Array.isArray(comp?.broadcasts) ? comp.broadcasts : [];
+  const national = list.find((b) => String(b?.market || '').toLowerCase() === 'national');
+  const geo = (Array.isArray(comp?.geoBroadcasts) ? comp.geoBroadcasts : [])
+    .find((b) => String(b?.market?.type || '').toLowerCase() === 'national');
+  const network = national?.names?.[0] || geo?.media?.shortName || null;
+  return { network, local: network ? null : (list[0]?.names?.[0] || null) };
 }
 
 export function normalizeEvent(ev) {
@@ -42,7 +64,7 @@ export function normalizeEvent(ev) {
   const home = competitors.find((c) => c.homeAway === 'home');
   const away = competitors.find((c) => c.homeAway === 'away');
 
-  const network = comp.broadcasts?.[0]?.names?.[0] || null;
+  const broadcast = broadcastOf(comp);
   let gamecastUrl = null;
   if (Array.isArray(ev.links)) {
     const gc = ev.links.find((l) => l.href && Array.isArray(l.rel) && l.rel.some((r) => r === 'gamecast' || r === 'summary'));
@@ -177,7 +199,7 @@ export function normalizeEvent(ev) {
     signals: null,
     insight: null,
     links: { gamecastUrl },
-    broadcast: { network },
+    broadcast,
     betting: { spreadDisplay, totalDisplay },
   };
 }
