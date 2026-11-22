@@ -21,6 +21,20 @@
 
 import Stripe from 'stripe';
 import { getSupabaseAdmin } from '../_lib/supabaseAdmin.js';
+import { captureEvent } from '../_lib/posthogServer.js';
+
+/**
+ * Record a billing milestone in PostHog. Analytics must never hold up or fail
+ * a Stripe webhook, so this gives up after 1.5 seconds and never throws.
+ */
+async function recordBillingEvent(userId, event, properties = {}) {
+  try {
+    await Promise.race([
+      captureEvent({ distinctId: userId, event, properties: { ...properties, source: 'stripe_webhook' } }),
+      new Promise((resolve) => setTimeout(resolve, 1500)),
+    ]);
+  } catch { /* never affect the webhook */ }
+}
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
   apiVersion: '2024-06-20',
@@ -164,6 +178,7 @@ export default async function handler(req, res) {
           stripe_customer_id: obj.customer,
           ...subscriptionToFields(obj, pmData),
         });
+        await recordBillingEvent(userId, 'subscription_started', { plan: 'pro', status: obj.status });
         break;
       }
 
@@ -209,6 +224,7 @@ export default async function handler(req, res) {
           payment_method_last4:  null,
           payment_method_brand:  null,
         });
+        await recordBillingEvent(userId, 'subscription_cancelled', { plan: 'pro' });
         break;
       }
 

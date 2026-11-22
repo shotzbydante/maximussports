@@ -11,7 +11,7 @@
  *   variant="full"  every recommended pick with its reasons, then every game
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useWorkspace } from '../../../workspaces/WorkspaceContext';
 import { fetchNflGames, fetchNflScorecard } from '../../../api/nfl';
@@ -21,6 +21,7 @@ import { Matchup } from './NflTeamTag';
 import { SectionHead, Rail, ScoreRing, ModelMarketBars, Chevron } from './HomeParts';
 import { fmtOdds, kickoffShort } from './format';
 import h from './home.module.css';
+import { trackPicksBoardView } from '../../../analytics/sportEvents';
 
 const ENDPOINT = '/api/nfl/picks/built';
 const HOME_MAX = 5;
@@ -205,6 +206,19 @@ export default function HomePicks({ variant = 'home', games: gamesProp, weekLabe
   const shown = full ? recommended : recommended.slice(0, HOME_MAX);
   const week = weekLabel || (board?.week ? `Week ${board.week}` : null);
   const title = week ? `Maximus’s picks for ${week}` : 'Maximus’s picks for the week';
+
+  // One picks_board_view per mount, once the board has loaded with something on it.
+  const viewTracked = useRef(false);
+  useEffect(() => {
+    if (viewTracked.current || !board || total === 0) return;
+    viewTracked.current = true;
+    trackPicksBoardView({
+      sport: 'nfl',
+      surface: full ? 'nfl_picks' : 'nfl_home',
+      recommended: recommended.length,
+      leans: leans.length,
+    });
+  }, [board, total, full, recommended.length, leans.length]);
 
   const cards = shown.length > 0 && (
     <div className={`${h.picks} ${shown.length === 1 ? h.picksOne : shown.length === 2 || shown.length === 4 ? h.picksTwo : ''}`} role="list">

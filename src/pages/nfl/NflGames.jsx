@@ -10,6 +10,7 @@ import NflGameCard from '../../components/nfl/NflGameCard';
 import SEOHead from '../../components/seo/SEOHead';
 import { getNflTeamBySlug } from '../../sports/nfl/teams';
 import s from '../../components/nfl/nfl.module.css';
+import { trackFilterChange } from '../../analytics/sportEvents';
 
 const REFRESH_MS = 60_000;
 const FETCH_TIMEOUT_MS = 10_000;
@@ -111,7 +112,10 @@ export default function NflGames() {
                 role="tab"
                 aria-selected={tab === t.key}
                 className={`${s.tab} ${tab === t.key ? s.tabActive : ''}`}
-                onClick={() => setTab(t.key)}
+                onClick={() => {
+                  setTab(t.key);
+                  trackFilterChange({ sport: 'nfl', page: 'games', filter: 'status', value: t.key });
+                }}
               >
                 {t.label}
                 {count > 0 && <span className={s.tabCount}>{count}</span>}
@@ -126,7 +130,10 @@ export default function NflGames() {
               key={o.key}
               type="button"
               className={`${s.sortBtn} ${sort === o.key ? s.sortBtnActive : ''}`}
-              onClick={() => setSort(o.key)}
+              onClick={() => {
+                setSort(o.key);
+                trackFilterChange({ sport: 'nfl', page: 'games', filter: 'sort', value: o.key });
+              }}
               aria-pressed={sort === o.key}
             >
               {o.label}

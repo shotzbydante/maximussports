@@ -7,6 +7,7 @@ import { Link } from 'react-router-dom';
 import { useWorkspace } from '../../workspaces/WorkspaceContext';
 import NflLogo from './NflLogo';
 import s from './nfl.module.css';
+import { trackOutboundClick } from '../../analytics/sportEvents';
 
 function fmtLine(v) {
   if (v == null) return '—';
@@ -162,7 +163,14 @@ export default function NflGameCard({ game }) {
       {links?.gamecastUrl && (
         <div className={s.gameFoot}>
           <span className={s.muted}>{game.venue?.name || ''}</span>
-          <a href={links.gamecastUrl} target="_blank" rel="noopener noreferrer">ESPN Gamecast ↗</a>
+          <a
+            href={links.gamecastUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => trackOutboundClick({ sport: 'nfl', surface: 'nfl_game_card', destination: 'espn_gamecast' })}
+          >
+            ESPN Gamecast ↗
+          </a>
         </div>
       )}
     </article>

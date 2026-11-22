@@ -9,7 +9,8 @@
 import { createContext, useContext, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { track } from '../analytics/index';
+import { track, setAnalyticsContext } from '../analytics/index';
+import { sportFromWorkspace } from '../analytics/routeProps';
 import {
   WORKSPACES,
   WORKSPACE_LIST,
@@ -78,6 +79,9 @@ export function WorkspaceProvider({ children }) {
   // Track workspace entry (fires once per workspace per session)
   const trackedEntryRef = useRef(new Set());
   useEffect(() => {
+    // Every later event carries the active sport, including on pages whose URL
+    // has no sport in it (settings, dashboard).
+    setAnalyticsContext({ sport: sportFromWorkspace(activeId) });
     if (trackedEntryRef.current.has(activeId)) return;
     trackedEntryRef.current.add(activeId);
     track(`enter_${activeId}_workspace`, { workspace: activeId, path: location.pathname });

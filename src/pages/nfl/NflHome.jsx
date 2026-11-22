@@ -22,6 +22,7 @@ import { fetchNflGames } from '../../api/nfl';
 import { mascotFor } from '../../brand/mascots';
 import s from '../../components/nfl/nfl.module.css';
 import h from '../../components/nfl/home/home.module.css';
+import { trackBriefingRefresh, trackBriefingExpand } from '../../analytics/sportEvents';
 
 const SPLASH_MS = 1400;
 const LLM_TTL_MS = 60_000;
@@ -131,6 +132,7 @@ export default function NflHome() {
 
   const handleRefresh = useCallback(() => {
     if (refreshing) return;
+    trackBriefingRefresh({ sport: 'nfl' });
     setRefreshing(true);
     loadSummary(true).then((ok) => {
       setRefreshing(false);
@@ -224,7 +226,7 @@ export default function NflHome() {
             )}
           </div>
           {summary && (
-            <button type="button" className={h.linkBtn} onClick={() => setExpanded((v) => !v)} aria-expanded={expanded}>
+            <button type="button" className={h.linkBtn} onClick={() => { trackBriefingExpand({ sport: 'nfl', expanded: !expanded }); setExpanded((v) => !v); }} aria-expanded={expanded}>
               {expanded ? 'Show less' : 'Read it all'}
             </button>
           )}

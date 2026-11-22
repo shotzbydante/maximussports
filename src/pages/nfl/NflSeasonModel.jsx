@@ -15,6 +15,7 @@ import SEOHead from '../../components/seo/SEOHead';
 import { fetchNflSeasonModel } from '../../api/nfl';
 import NflLogo from '../../components/nfl/NflLogo';
 import s from '../../components/nfl/nfl.module.css';
+import { trackFilterChange } from '../../analytics/sportEvents';
 
 function fmtOdds(v) { return v == null ? '—' : v > 0 ? `+${v}` : `${v}`; }
 function fmtSigned(v, digits = 1) { return v == null ? '—' : `${v > 0 ? '+' : ''}${v.toFixed(digits)}`; }
@@ -178,7 +179,10 @@ export default function NflSeasonModel() {
               </div>
               <div className={s.tabs} role="tablist" aria-label="Conference">
                 {['all', 'AFC', 'NFC'].map((c) => (
-                  <button key={c} type="button" role="tab" aria-selected={conference === c} className={`${s.tab} ${conference === c ? s.tabActive : ''}`} onClick={() => setConference(c)}>
+                  <button key={c} type="button" role="tab" aria-selected={conference === c} className={`${s.tab} ${conference === c ? s.tabActive : ''}`} onClick={() => {
+                    setConference(c);
+                    trackFilterChange({ sport: 'nfl', page: 'season_model', filter: 'conference', value: c });
+                  }}>
                     {c === 'all' ? 'All' : c}
                   </button>
                 ))}
@@ -200,7 +204,10 @@ export default function NflSeasonModel() {
                           <button
                             type="button"
                             className={`${s.thBtn} ${sortKey === c.key ? s.thActive : ''}`}
-                            onClick={() => setSortKey(c.key)}
+                            onClick={() => {
+                              setSortKey(c.key);
+                              trackFilterChange({ sport: 'nfl', page: 'season_model', filter: 'sort', value: c.key });
+                            }}
                             title={c.title}
                           >
                             {c.label}{sortKey === c.key ? ' ↓' : ''}

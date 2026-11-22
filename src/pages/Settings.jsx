@@ -9,7 +9,7 @@ import TeamLogo from '../components/shared/TeamLogo';
 import { addPinnedTeam, removePinnedTeam, setPinnedTeams } from '../utils/pinnedTeams';
 import { addPinnedForSport, removePinnedForSport } from '../hooks/usePinnedTeams';
 import { notifyPinnedChanged, onPinnedChanged, slugArraysEqual } from '../utils/pinnedSync';
-import { track, identify, setUserProperties, analyticsReset } from '../analytics/index';
+import { track, identify, setUserProperties, analyticsReset, flush as flushAnalytics } from '../analytics/index';
 import {
   identifyUser,
   trackOnboardingCompleted,
@@ -2528,6 +2528,9 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('upgrade') === 'success' || params.get('billing') === 'success') {
+      // Back from Stripe with a paid checkout. The Stripe webhook is the record
+      // of the purchase; this marks the moment in the user's own session.
+      track('checkout_completed', { plan: 'pro' });
       startUpgradeFlow();
     }
     return () => { if (pollTimerRef.current) clearTimeout(pollTimerRef.current); };
@@ -2563,6 +2566,7 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
       showToast('You\'re already on Maximus Sports Pro!', { type: 'info' });
       return;
     }
+    track('upgrade_clicked', { plan_tier: planTier || 'free' });
     setUpgradeLoading(true);
     try {
       const sb = getSupabase();
@@ -2578,9 +2582,12 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
       if (!res.ok) throw new Error(json.error || 'Could not start checkout.');
       // Mark as syncing so badge shows ··· while webhook is in flight.
       markSyncing(user.id);
+      track('checkout_started', { plan: 'pro' });
+      flushAnalytics(); // leaving for Stripe; send before the page unloads
       window.location.href = json.url;
     } catch (err) {
       setUpgradeLoading(false);
+      track('checkout_start_failed', { message: (err?.message || '').slice(0, 120) });
       showToast(err.message || 'Could not start upgrade. Please try again.', { type: 'error' });
     }
   }
@@ -2600,6 +2607,8 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || 'Could not open billing portal.');
+      track('billing_portal_opened', {});
+      flushAnalytics();
       window.location.href = json.url;
     } catch (err) {
       setPortalLoading(false);

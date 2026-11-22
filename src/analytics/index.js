@@ -13,6 +13,8 @@
  * Debug mode: append ?debugAnalytics=1 to any URL to console.log all events.
  */
 
+import { describeRoute } from './routeProps.js';
+
 const ENABLED  = import.meta.env.VITE_ANALYTICS_ENABLED !== 'false';
 const PH_KEY   = import.meta.env.VITE_POSTHOG_KEY   ?? '';
 const PH_HOST  = import.meta.env.VITE_POSTHOG_HOST  ?? 'https://app.posthog.com';
@@ -29,14 +31,40 @@ let _posthog    = null;   // set after dynamic import resolves
 let _ga4Ready   = false;  // set after gtag script tag added
 let _sessionId  = '';
 
-/** Events that must be captured even if PostHog hasn't loaded yet. */
+/**
+ * PostHog loads lazily, a second or more after the page renders. Everything
+ * fired before then is buffered and replayed once it is ready — including the
+ * first pageview of the visit, which used to be dropped. Without it a visitor
+ * who read one page and left was never counted at all.
+ *
+ * The buffer is capped so a blocked or failed PostHog load cannot grow it
+ * without bound. Critical events are kept even when the cap is reached.
+ */
 const CRITICAL_EVENTS = new Set([
   'signup_started', 'auth_account_created', 'account_created',
   'onboarding_completed', 'oauth_attempted', 'oauth_blocked_embedded_browser',
 ]);
+const MAX_BUFFERED_EVENTS = 100;
 
-/** Buffer for critical events / identity calls fired before PostHog is ready. */
+/** Buffer for events / identity calls fired before PostHog is ready. */
 const _buffer = { events: [], identifies: [], aliases: [] };
+
+function bufferEvent(eventName, props) {
+  if (_buffer.events.length >= MAX_BUFFERED_EVENTS && !CRITICAL_EVENTS.has(eventName)) return;
+  // Keep the time it happened; replay would otherwise stamp it with the load time.
+  _buffer.events.push({ eventName, props, timestamp: new Date() });
+}
+
+/** Ambient context set by the app (currently the active sport). */
+const _context = { sport: null };
+
+/**
+ * Set ambient properties attached to every later event.
+ * @param {{ sport?: string|null }} ctx
+ */
+export function setAnalyticsContext(ctx = {}) {
+  if ('sport' in ctx) _context.sport = ctx.sport || null;
+}
 
 // ─── Session ID ───────────────────────────────────────────────────────────────
 
@@ -80,6 +108,12 @@ export function sanitizeProps(raw) {
  */
 export function getContextProps() {
   const out = { session_id: _sessionId };
+  try {
+    // Sport: the URL says it on sport pages; elsewhere (settings, dashboard)
+    // fall back to the workspace the user is in.
+    const sport = describeRoute(window.location.pathname).sport || _context.sport;
+    if (sport) out.sport = sport;
+  } catch { /* SSR safety */ }
   try {
     out.vw     = window.innerWidth;
     out.vh     = window.innerHeight;
@@ -161,9 +195,9 @@ function _flushBuffer() {
   }
   _buffer.identifies = [];
 
-  for (const { eventName, props } of _buffer.events) {
+  for (const { eventName, props, timestamp } of _buffer.events) {
     try {
-      _posthog.capture(eventName, props);
+      _posthog.capture(eventName, props, timestamp ? { timestamp } : undefined);
       if (isDebug()) console.log(`[Analytics] flush event: ${eventName}`);
     } catch { /* ignore */ }
   }
@@ -223,8 +257,8 @@ export function track(eventName, props = {}) {
 
     if (_posthog) {
       try { _posthog.capture(eventName, merged); } catch { /* ignore */ }
-    } else if (CRITICAL_EVENTS.has(eventName)) {
-      _buffer.events.push({ eventName, props: merged });
+    } else if (PH_KEY) {
+      bufferEvent(eventName, merged);
     }
 
     if (_ga4Ready && window.gtag) {
@@ -240,7 +274,9 @@ export function track(eventName, props = {}) {
 export function pageview(pathname) {
   if (!ENABLED) return;
   try {
-    const props = sanitizeProps({ pathname, ...getContextProps() });
+    // sport / page_type / team_slug come from the path itself, so a pageview is
+    // labelled correctly even while the workspace context is still switching.
+    const props = sanitizeProps({ pathname, ...getContextProps(), ...describeRoute(pathname) });
 
     if (isDebug()) {
       console.log(`[Analytics] ▶ $pageview ${pathname}`, props);
@@ -248,6 +284,10 @@ export function pageview(pathname) {
 
     if (_posthog) {
       try { _posthog.capture('$pageview', props); } catch { /* ignore */ }
+    } else if (PH_KEY) {
+      // $current_url is read at capture time; pin it so a buffered pageview
+      // keeps the URL it was fired on.
+      bufferEvent('$pageview', { ...props, $current_url: window.location.href });
     }
 
     if (_ga4Ready && window.gtag && GA4_ID) {

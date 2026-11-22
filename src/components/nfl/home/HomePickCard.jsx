@@ -14,6 +14,7 @@ import { TeamTag } from './NflTeamTag';
 import { fmtLine, fmtOdds, kickoffShort, stampShort } from './format';
 import { ticketSummary } from './pickSummary';
 import h from './home.module.css';
+import { trackPickOpen } from '../../../analytics/sportEvents';
 
 const MARKET = { moneyline: 'Moneyline', runline: 'Spread', total: 'Over/under' };
 
@@ -215,7 +216,11 @@ export default function HomePickCard({ pick, game, rank, to, asOf, children }) {
             <span>Locked {stampShort(lock.lockedAt)}{evMoved ? `, now ${evPct(lock.evNow)}` : ''}</span>
           )}
         </span>
-        {to && <Link to={to} className={h.footLink}>Full breakdown</Link>}
+        {to && (
+          <Link to={to} className={h.footLink} onClick={() => trackPickOpen({ sport: 'nfl', surface: 'nfl_home', pick, rank })}>
+            Full breakdown
+          </Link>
+        )}
       </div>
     </article>
   );
