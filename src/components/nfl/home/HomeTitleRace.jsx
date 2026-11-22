@@ -12,7 +12,7 @@ import { useWorkspace } from '../../../workspaces/WorkspaceContext';
 import { fetchNflChampionshipOdds } from '../../../api/nfl';
 import { NFL_TEAMS } from '../../../sports/nfl/teams';
 import NflLogo from '../NflLogo';
-import { SectionHead } from './HomeParts';
+import { SectionHead, Chevron } from './HomeParts';
 import { fmtOdds } from './format';
 import h from './home.module.css';
 import { trackFilterChange } from '../../../analytics/sportEvents';
@@ -46,7 +46,7 @@ export default function HomeTitleRace({ limit = 5 }) {
 
   return (
     <section className={h.section} aria-label="Super Bowl odds">
-      <SectionHead title="Super Bowl odds" to={buildPath('/season-model')} moreLabel="Playoff odds and ratings">
+      <SectionHead title="Super Bowl odds">
         <div className={h.segs} role="group" aria-label="Conference">
           {['AFC', 'NFC'].map((c) => (
             <button
@@ -69,11 +69,17 @@ export default function HomeTitleRace({ limit = 5 }) {
           <Link key={t.slug} to={buildPath(`/teams/${t.slug}`)} className={h.raceRow}>
             <NflLogo slug={t.slug} size={26} />
             <span className={h.raceName}>{t.nickname || t.name}</span>
+            <span className={h.raceTrack} aria-hidden="true">
+              <span className={h.raceFill} style={{ width: `${Math.round((t.share / top) * 100)}%` }} />
+            </span>
             <span className={h.raceShare}>{(t.share * 100).toFixed(1)}%</span>
             <span className={h.racePrice}>{fmtOdds(t.price)}</span>
-            <span className={h.raceBar} style={{ width: `${Math.round((t.share / top) * 100)}%` }} aria-hidden="true" />
           </Link>
         ))}
+        <Link to={buildPath('/season-model')} className={h.cardFoot}>
+          <span>Playoff odds and power ratings</span>
+          <Chevron size={12} />
+        </Link>
       </div>
     </section>
   );

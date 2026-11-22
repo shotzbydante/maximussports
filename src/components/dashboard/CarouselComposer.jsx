@@ -58,6 +58,9 @@ import NbaDailySlide2 from './slides/NbaDailySlide2';
 import NbaDailySlide3 from './slides/NbaDailySlide3';
 import NbaTeamIntelSlide from './slides/NbaTeamIntelSlide';
 
+// NFL: slate briefing, picks, game breakdown, receipts
+import { getNflSlides } from './slides/nfl';
+
 import styles from './CarouselComposer.module.css';
 
 /** Error boundary that prevents a single broken slide from crashing the whole Dashboard. */
@@ -117,6 +120,13 @@ function getSlides(template, slideCount, options = {}) {
     const msg = `[NBA_RENDER_FALLBACK] Unknown NBA template "${template}" — refusing to fall back to NCAAM/default. Known NBA templates: ${[...allowedNba].join(', ')}.`;
     console.error(msg);
     throw new Error(msg);
+  }
+
+  // ── NFL: its own registry; an unknown nfl-* id must never render another sport ──
+  if (typeof template === 'string' && template.startsWith('nfl-')) {
+    const nflSlides = getNflSlides(template, { pickCount: options?.nflPickCount ?? 0 });
+    if (!nflSlides) throw new Error(`Unknown NFL template "${template}"`);
+    return nflSlides;
   }
 
   switch (template) {
@@ -197,6 +207,10 @@ const TEMPLATE_LABELS = {
   'mlb-picks':     "MLB Maximus's Picks",
   'nba-daily':     'NBA Daily Briefing',
   'nba-team':      'NBA Team Intel',
+  'nfl-slate':     'NFL Slate Briefing',
+  'nfl-picks':     "NFL Maximus's Picks",
+  'nfl-game':      'NFL Game Breakdown',
+  'nfl-receipts':  'NFL Receipts',
 };
 
 /**
@@ -255,7 +269,7 @@ export default function CarouselComposer({
       nbaNewsCount: Array.isArray(data?.nbaNews) ? data.nbaNews.length : 0,
       hasTeam: !!teamData?.team,
     };
-    console.log('[NBA_RENDER_TEMPLATE]', diag);
+    if (import.meta.env?.DEV) console.log('[NBA_RENDER_TEMPLATE]', diag);
     if (!nbaStarts) {
       console.error('[NBA_RENDER_FALLBACK] Non-NBA components resolved for NBA template', {
         template,

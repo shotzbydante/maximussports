@@ -73,6 +73,18 @@ export function trackPicksBoardView({ sport, surface, recommended, leans }) {
   });
 }
 
+/** A pick ticket's "Full breakdown" link. `rank` is its position on the board. */
+export function trackPickOpen({ sport, surface, pick, rank }) {
+  track('pick_card_click', {
+    sport,
+    surface,
+    rank,
+    market: pick?.market?.type,
+    selection: pick?.selection?.label,
+    game_id: pick?.gameId != null ? String(pick.gameId) : undefined,
+  });
+}
+
 export function trackTeamPickerOpened({ sport, surface }) {
   track('team_picker_opened', { sport, surface });
 }

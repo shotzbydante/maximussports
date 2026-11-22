@@ -37,6 +37,7 @@
 
 import { getSupabaseAdmin } from '../../_lib/supabaseAdmin.js';
 import { requireAdminOrCron } from '../../_lib/requireAuth.js';
+import { getInstagramCredentials } from '../../_lib/instagramAuth.js';
 import { randomUUID } from 'node:crypto';
 
 // ── Constants ───────────────────────────────────────────────────────────────
@@ -57,15 +58,6 @@ function createLogger(requestId) {
 }
 
 // ── Env sanitization ────────────────────────────────────────────────────────
-
-function sanitizeEnv(value) {
-  if (value == null) return '';
-  let s = String(value).trim();
-  if ((s.startsWith('"') && s.endsWith('"')) || (s.startsWith("'") && s.endsWith("'"))) {
-    s = s.slice(1, -1).trim();
-  }
-  return s;
-}
 
 // ── Safe Meta error extractor ────────────────────────────────────────────────
 
@@ -402,8 +394,7 @@ export default async function handler(req, res) {
     });
   }
 
-  const accountId   = sanitizeEnv(process.env.INSTAGRAM_ACCOUNT_ID);
-  const accessToken = sanitizeEnv(process.env.INSTAGRAM_ACCESS_TOKEN);
+  const { accountId, accessToken } = await getInstagramCredentials();
 
   const debug = {
     requestId,

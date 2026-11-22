@@ -10,6 +10,7 @@
 import { Link } from 'react-router-dom';
 import { useWorkspace } from '../../../workspaces/WorkspaceContext';
 import NflLogo from '../NflLogo';
+import { TeamTag } from './NflTeamTag';
 import { getNflTeamBySlug } from '../../../sports/nfl/teams';
 import { fmtLine, fmtOdds, kickoffShort } from './format';
 import h from './home.module.css';
@@ -22,7 +23,7 @@ function qbFlag(game) {
   const side = ['away', 'home'].find((k) => (injuries[k]?.quarterbacks || []).length > 0);
   if (!side) return null;
   const q = injuries[side].quarterbacks[0];
-  return `${teams[side].abbrev} QB ${String(q.status || 'out').toLowerCase()}`;
+  return { team: teams[side], text: `QB ${String(q.status || 'out').toLowerCase()}` };
 }
 
 function Status({ game }) {
@@ -65,7 +66,7 @@ export default function HomeGameTile({ game }) {
   const windy = !showScore && env && !env.indoor && env.wind >= WIND_CHIP_MIN;
 
   let chip = null;
-  if (qb) chip = <span className={`${h.chip} ${h.chipWarn}`}>{qb}</span>;
+  if (qb) chip = <span className={`${h.chip} ${h.chipWarn}`}><TeamTag slug={qb.team?.slug} logo={qb.team?.logo} label="abbrev" size={14} /> {qb.text}</span>;
   else if (windy) chip = <span className={h.chip}>Wind {Math.round(env.wind)} mph</span>;
 
   return (
@@ -103,10 +104,10 @@ export default function HomeGameTile({ game }) {
           <span>{market.pregameTotal != null ? <>Total <b>{market.pregameTotal}</b></> : 'No total posted'}</span>
         )}
         {showScore ? (
-          spread != null && <span>Closed <b>{home?.abbrev} {fmtLine(spread)}</b></span>
+          spread != null && <span>Closed <b><TeamTag slug={home?.slug} logo={home?.logo} label="abbrev" size={14} /> {fmtLine(spread)}</b></span>
         ) : (
           model.fairSpread != null && (
-            <span>Ratings <b>{home?.abbrev} {fmtLine(Math.round(model.fairSpread * 10) / 10)}</b>{model.fairTotal != null ? <>, <b>{model.fairTotal.toFixed(1)}</b></> : null}</span>
+            <span>Ratings <b><TeamTag slug={home?.slug} logo={home?.logo} label="abbrev" size={14} /> {fmtLine(Math.round(model.fairSpread * 10) / 10)}</b>{model.fairTotal != null ? <>, <b>{model.fairTotal.toFixed(1)}</b></> : null}</span>
           )
         )}
       </div>

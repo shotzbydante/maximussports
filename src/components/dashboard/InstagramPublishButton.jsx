@@ -141,6 +141,7 @@ export default function InstagramPublishButton({
   metadata   = {},
   onSuccess,
   template,
+  slideCount = 1,
 }) {
   const [stage,        setStage]       = useState('idle');
   const [errorMessage, setErrorMessage] = useState(null);
@@ -466,7 +467,7 @@ export default function InstagramPublishButton({
         className={`${styles.btn} ${styles[`btn_${stage}`] ?? ''}`}
         onClick={stage === 'error' ? handleReset : handleClick}
         disabled={disabled}
-        aria-label="Post slide 1 to Instagram"
+        aria-label={slideCount > 1 ? `Post ${slideCount}-slide carousel to Instagram` : 'Post this slide to Instagram'}
         title={!canPublish ? 'Generate content first' : undefined}
       >
         <span className={styles.icon} aria-hidden="true">
@@ -515,7 +516,7 @@ export default function InstagramPublishButton({
       {/* Idle hint */}
       {stage === 'idle' && (
         <p className={styles.hint}>
-          Posts slide&nbsp;1 · short caption
+          {slideCount > 1 ? `Posts all ${slideCount} slides as a carousel` : 'Posts this slide'} · short caption
         </p>
       )}
 

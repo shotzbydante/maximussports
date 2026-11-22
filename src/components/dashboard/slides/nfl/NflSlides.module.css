@@ -1,0 +1,199 @@
+/* NFL Content Studio slides. Artboard is 1080 x 1350; nothing below 24px. */
+
+.artboard {
+  --navy-0: #030a1a;
+  --navy-1: #071630;
+  --navy-2: #0c2148;
+  --ink: #ffffff;
+  --mute: #9db2d3;
+  --line: rgba(130, 175, 255, 0.2);
+  --cyan: #2bc4ff;
+  --teal: #2fe3c2;
+  --good: #3ddc97;
+  --bad: #ff6b6b;
+  --card: rgba(255, 255, 255, 0.055);
+
+  position: relative;
+  width: 1080px;
+  height: 1350px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding: 56px 64px 44px;
+  box-sizing: border-box;
+  color: var(--ink);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+.artboard * { box-sizing: border-box; }
+
+.bg, .bgGlow, .bgLines { position: absolute; inset: 0; pointer-events: none; }
+.bg { background: linear-gradient(168deg, var(--navy-2) 0%, var(--navy-1) 42%, var(--navy-0) 100%); }
+.bgGlow {
+  background:
+    radial-gradient(ellipse 900px 520px at 82% 4%, rgba(43, 196, 255, 0.2) 0%, transparent 62%),
+    radial-gradient(ellipse 760px 520px at 8% 100%, rgba(47, 227, 194, 0.1) 0%, transparent 60%);
+}
+/* Faint yard lines: the only decoration, and it says "football" without art. */
+.bgLines {
+  background: repeating-linear-gradient(180deg, transparent 0 134px, rgba(255, 255, 255, 0.028) 134px 136px);
+}
+
+.header, .body, .footer { position: relative; z-index: 1; }
+
+.header { display: flex; align-items: center; justify-content: space-between; height: 92px; flex-shrink: 0; }
+.brand { height: 92px; width: auto; margin-left: -14px; }
+.pill {
+  font-size: 24px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--cyan); padding: 12px 22px; border: 2px solid var(--line); border-radius: 999px;
+  background: rgba(43, 196, 255, 0.08);
+}
+
+.body { flex: 1; min-height: 0; display: flex; flex-direction: column; padding-top: 30px; }
+
+.footer {
+  display: flex; align-items: center; gap: 24px; flex-shrink: 0;
+  padding-top: 22px; border-top: 2px solid var(--line);
+  font-size: 24px;
+}
+.site { font-weight: 800; letter-spacing: 0.01em; }
+.legal { color: var(--mute); }
+.dots { margin-left: auto; display: inline-flex; gap: 10px; }
+.dot, .dotOn { width: 12px; height: 12px; border-radius: 50%; background: rgba(255, 255, 255, 0.22); display: block; }
+.dotOn { background: var(--cyan); width: 30px; border-radius: 6px; }
+
+/* ── Type ── */
+.kicker { font-size: 26px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--mute); }
+.h1, .h2, .pickLabel, .record, .topPick, .gameScore {
+  font-family: 'Manrope', 'Inter', sans-serif; font-weight: 800; letter-spacing: -0.03em; margin: 0;
+}
+.h1 { font-size: 128px; line-height: 0.98; margin-top: 18px; white-space: nowrap; }
+.h1Cover { font-size: 104px; }
+.h1Cover + .mascot { height: 232px; }
+.h2 { font-size: 88px; line-height: 1; margin: 14px 0 26px; }
+.h2Tight { font-size: 72px; margin-bottom: 14px; }
+.accent { background: linear-gradient(92deg, var(--cyan), var(--teal)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.lede { font-size: 32px; line-height: 1.35; color: #d5e2f7; margin: 22px 0 0; max-width: 900px; }
+.note { font-size: 24px; line-height: 1.4; color: var(--mute); margin: auto 0 20px; padding-top: 14px; }
+.muted { color: var(--mute); }
+.good { color: var(--good); }
+.bad { color: var(--bad); }
+
+.heroRow { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
+.mascot { height: 290px; width: auto; flex-shrink: 0; margin: 0 -12px -8px 0; filter: drop-shadow(0 18px 26px rgba(0, 6, 24, 0.6)); }
+
+.logo { object-fit: contain; flex-shrink: 0; }
+.logoGap { display: inline-block; flex-shrink: 0; }
+
+/* ── Cards and stats ── */
+.card { margin-top: 30px; padding: 30px 34px 32px; background: var(--card); border: 2px solid var(--line); border-radius: 28px; }
+.cardLabel { font-size: 24px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--cyan); }
+.topPick { font-size: 92px; line-height: 1.05; margin-top: 10px; }
+.topMeta { display: flex; align-items: center; gap: 22px; margin-top: 10px; }
+.topWhen { font-size: 28px; color: var(--mute); }
+.passNote { font-size: 34px; line-height: 1.35; margin-top: 14px; }
+
+.matchup { display: inline-flex; align-items: center; gap: 14px; }
+.matchupText { font-size: 34px; font-weight: 800; }
+.at { font-size: 28px; color: var(--mute); }
+
+.stats { display: flex; gap: 18px; margin-top: 26px; }
+.stat { flex: 1; padding: 20px 22px; background: rgba(4, 12, 32, 0.55); border: 2px solid var(--line); border-radius: 20px; }
+.statValue { font-family: 'Manrope', 'Inter', sans-serif; font-size: 52px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.1; }
+.statLabel { font-size: 24px; color: var(--mute); margin-top: 6px; }
+
+.facts { list-style: none; margin: auto 0 22px; padding: 0; }
+.facts li { display: flex; justify-content: space-between; align-items: baseline; gap: 24px; padding: 15px 0; white-space: nowrap; border-top: 2px solid var(--line); font-size: 30px; }
+.factsFlow { margin: 18px 0 auto; }
+.factsFlow li:first-child { border-top: 0; }
+.facts li span { color: var(--mute); flex-shrink: 0; }
+.facts li b { font-weight: 700; text-align: right; }
+
+/* ── Board ── */
+.board { display: flex; flex-direction: column; }
+.boardRow {
+  display: grid; grid-template-columns: 258px 172px 150px 100px 1fr; align-items: center; gap: 12px;
+  height: var(--row-h); padding: 0 14px; white-space: nowrap; border-top: 2px solid var(--line); font-size: 27px; font-weight: 600;
+}
+.boardHead { height: 46px; border-top: 0; font-size: 24px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--mute); }
+.boardRowPick { background: linear-gradient(90deg, rgba(43, 196, 255, 0.16), rgba(47, 227, 194, 0.06)); border-radius: 14px; border-top-color: transparent; }
+.boardTeams { display: inline-flex; align-items: center; gap: 10px; }
+.boardTeams b { font-weight: 800; }
+.boardTeams i { font-style: normal; color: var(--mute); font-size: 24px; }
+.boardPick { color: var(--teal); font-weight: 800; }
+.boardFinal { font-weight: 800; }
+
+/* ── Title race ── */
+.race { display: flex; flex-direction: column; }
+.raceRow { display: grid; grid-template-columns: 40px 62px 290px 1fr 130px; align-items: center; gap: 18px; height: 92px; border-top: 2px solid var(--line); }
+.raceRank { font-size: 28px; font-weight: 800; color: var(--mute); }
+.raceName b { display: block; font-size: 34px; font-weight: 800; line-height: 1.1; }
+.raceName i { display: block; font-style: normal; font-size: 24px; color: var(--mute); margin-top: 3px; }
+.raceBar { height: 18px; border-radius: 9px; background: rgba(255, 255, 255, 0.08); overflow: hidden; }
+.raceBar em { display: block; height: 100%; border-radius: 9px; background: linear-gradient(90deg, var(--cyan), var(--teal)); }
+.raceOdds { font-family: 'Manrope', 'Inter', sans-serif; font-size: 40px; font-weight: 800; text-align: right; }
+.bubble { margin: auto 0 22px; padding-top: 22px; }
+.bubbleRow { display: flex; gap: 14px; margin-top: 14px; }
+.bubbleChip { display: inline-flex; align-items: center; gap: 10px; padding: 10px 16px; border: 2px solid var(--line); border-radius: 16px; background: var(--card); font-size: 26px; color: var(--mute); }
+.bubbleChip b { color: var(--ink); font-weight: 800; }
+
+/* ── Picks cover ── */
+.coverList { margin-top: 26px; display: flex; flex-direction: column; gap: 14px; }
+.coverPick { display: flex; align-items: center; gap: 22px; padding: 18px 28px; background: var(--card); border: 2px solid var(--line); border-radius: 24px; }
+.coverNum { width: 58px; height: 58px; border-radius: 50%; display: grid; place-items: center; font-size: 30px; font-weight: 800; color: var(--navy-0); background: linear-gradient(135deg, var(--cyan), var(--teal)); flex-shrink: 0; }
+.coverMain { flex: 1; min-width: 0; }
+.coverMain b { display: block; font-family: 'Manrope', 'Inter', sans-serif; font-size: 48px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.1; }
+.coverMain i, .coverPrice i { display: block; font-style: normal; font-size: 26px; color: var(--mute); margin-top: 4px; }
+.coverPrice { text-align: right; flex-shrink: 0; }
+.coverPrice b { display: block; font-size: 40px; font-weight: 800; }
+.promise { margin: auto 0 22px; padding-top: 22px; display: flex; flex-direction: column; gap: 6px; font-size: 30px; }
+.promise b { font-weight: 800; }
+.promise span { color: var(--mute); }
+
+/* ── Single pick ── */
+.pickMatch { display: flex; align-items: center; justify-content: space-between; margin-top: 26px; }
+.pickMatch .matchupText { font-size: 46px; }
+.pickWhen { font-size: 28px; color: var(--mute); text-align: right; }
+.pickLabel { font-size: 150px; line-height: 0.98; margin-top: 26px; background: linear-gradient(92deg, #ffffff 30%, #bfe9ff); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.why { margin-top: 28px; }
+.why ol { margin: 12px 0 0; padding: 0; list-style: none; counter-reset: why; }
+.why li { counter-increment: why; position: relative; padding: 14px 0 14px 54px; border-top: 2px solid var(--line); font-size: 31px; line-height: 1.38; color: #e3ecfb; }
+.why li::before { content: counter(why); position: absolute; left: 0; top: 14px; width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; font-size: 24px; font-weight: 800; color: var(--cyan); border: 2px solid var(--line); }
+
+/* ── Game breakdown ── */
+.gameHead { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; margin-top: 26px; }
+.gameTeam { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.gameTeam b { font-family: 'Manrope', 'Inter', sans-serif; font-size: 54px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.05; }
+.gameTeam i { font-style: normal; font-size: 28px; color: var(--mute); }
+.gameMid { display: flex; flex-direction: column; align-items: center; }
+.gameMid i { font-style: normal; font-size: 24px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--cyan); margin-top: 6px; }
+.gameScore { font-size: 104px; line-height: 1; }
+.gameAt { font-size: 72px; color: var(--mute); }
+.prob { display: flex; align-items: center; gap: 18px; margin-top: 20px; font-size: 30px; font-weight: 800; }
+.probBar { flex: 1; height: 18px; border-radius: 9px; background: var(--teal); overflow: hidden; }
+.probBar em { display: block; height: 100%; background: var(--cyan); border-right: 4px solid var(--navy-0); }
+.verdict { margin-top: 0; margin-bottom: 22px; padding-top: 24px; padding-bottom: 24px; }
+.verdictPick { font-family: 'Manrope', 'Inter', sans-serif; font-size: 62px; font-weight: 800; letter-spacing: -0.02em; margin-top: 8px; }
+.verdictPick span { font-family: 'Inter', sans-serif; font-size: 30px; font-weight: 600; letter-spacing: 0; color: var(--mute); margin-left: 12px; }
+.verdictNote { font-size: 28px; color: #d5e2f7; margin-top: 6px; }
+
+/* ── Receipts ── */
+.record + .mascot { height: 236px; }
+.record { font-size: 216px; line-height: 0.92; margin-top: 14px; background: linear-gradient(92deg, var(--cyan), var(--teal)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.ledger { margin-top: 22px; display: flex; flex-direction: column; }
+.ledgerRow { display: flex; align-items: center; gap: 20px; height: 76px; border-top: 2px solid var(--line); }
+.mark { width: 50px; height: 50px; border-radius: 12px; display: grid; place-items: center; font-size: 28px; font-weight: 800; color: var(--navy-0); flex-shrink: 0; }
+.won { background: var(--good); }
+.lost { background: var(--bad); }
+.push { background: var(--mute); }
+.ledgerMain { flex: 1; min-width: 0; }
+.ledgerMain b { display: block; font-size: 32px; font-weight: 800; line-height: 1.1; }
+.ledgerMain i { display: block; font-style: normal; font-size: 24px; color: var(--mute); margin-top: 2px; }
+.ledgerScore { font-size: 26px; color: #d5e2f7; text-align: right; flex-shrink: 0; }
+
+/* ── Empty state ── */
+.empty { margin: auto 0; padding: 48px 40px; text-align: center; border: 2px dashed var(--line); border-radius: 28px; }
+.emptyTitle { font-family: 'Manrope', 'Inter', sans-serif; font-size: 64px; font-weight: 800; letter-spacing: -0.02em; }
+.emptyNote { font-size: 30px; line-height: 1.4; color: var(--mute); margin-top: 14px; }

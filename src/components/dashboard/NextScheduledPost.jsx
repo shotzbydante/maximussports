@@ -9,6 +9,8 @@
  */
 
 import { useState, useEffect, useMemo } from 'react';
+import { getAuthHeaders } from '../../lib/authHeaders';
+import { WORKSPACES, WorkspaceId, SeasonState } from '../../workspaces/config';
 import styles from './NextScheduledPost.module.css';
 
 // ── Schedule config (mirrors vercel.json cron: "0 13 * * *") ──────────────
@@ -35,10 +37,6 @@ function computeNextRun(utcHour, utcMinute) {
   }
 
   return next;
-}
-
-function formatInTimezone(date, tz, opts = {}) {
-  return date.toLocaleString('en-US', { timeZone: tz, ...opts });
 }
 
 function formatScheduleTime(date) {
@@ -87,7 +85,7 @@ export default function NextScheduledPost({ refreshKey = 0 }) {
     async function fetchLast() {
       setLoading(true);
       try {
-        const res = await fetch('/api/social/posts?platform=instagram&limit=10');
+        const res = await fetch('/api/social/posts?platform=instagram&limit=10', { headers: await getAuthHeaders() });
         if (!res.ok) throw new Error('fetch failed');
         const data = await res.json();
         if (cancelled) return;
@@ -125,7 +123,11 @@ export default function NextScheduledPost({ refreshKey = 0 }) {
   const countdown = timeUntil(nextRun);
 
   // Determine readiness state
+  // The only scheduled post is the MLB daily briefing; it has nothing to post out of season.
+  const offSeason = WORKSPACES[WorkspaceId.MLB]?.seasonState !== SeasonState.ACTIVE;
+
   const readiness = useMemo(() => {
+    if (offSeason) return { label: 'Paused for the offseason', color: 'amber', icon: '⏸' };
     if (lastAutopost) {
       const effectiveStatus =
         lastAutopost.lifecycle_status === 'pending' && (lastAutopost.published_media_id || lastAutopost.permalink)
@@ -136,7 +138,7 @@ export default function NextScheduledPost({ refreshKey = 0 }) {
     }
     // Default: scheduled/ready
     return { label: 'Scheduled', color: 'green', icon: '◆' };
-  }, [lastAutopost]);
+  }, [lastAutopost, offSeason]);
 
   // Last run info
   const lastRunLabel = useMemo(() => {
@@ -181,7 +183,7 @@ export default function NextScheduledPost({ refreshKey = 0 }) {
               <span className={styles.timeDivider}>/</span>
               <span className={styles.timeSecondary}>{schedule.et}</span>
             </div>
-            <span className={styles.countdown}>{countdown}</span>
+            <span className={styles.countdown}>{offSeason ? 'Runs daily but skips: no MLB slate' : countdown}</span>
           </div>
         </div>
 

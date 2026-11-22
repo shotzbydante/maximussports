@@ -848,6 +848,25 @@
   margin-bottom: 2px;
 }
 
+/* S / M / L sit on one line beside the label; the default chip grid would stack them. */
+.previewSizeRow .chipGroup {
+  display: flex;
+  gap: 4px;
+}
+.previewSizeRow .chip {
+  min-width: 34px;
+}
+
+/* A read-only chip that states the output format. Spans the row so it never truncates. */
+.chipStatic {
+  grid-column: 1 / -1;
+  white-space: normal;
+  overflow: visible;
+  text-align: left;
+  cursor: default;
+  opacity: 0.7;
+}
+
 .previewSizeLabel {
   font-size: 10px;
   font-weight: 700;

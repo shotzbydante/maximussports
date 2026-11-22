@@ -1,14 +1,13 @@
 /**
  * NFL Home — the briefing page for the NFL workspace.
  *
- * Order: picks → games → written briefing → your teams → Super Bowl
- * odds and headlines → videos. Sections are rails on phones and grids
+ * Order: Maximus's picks for the week → written commentary → games →
+ * headlines beside your teams and Super Bowl odds → videos. Sections are rails on phones and grids
  * on wide screens; the detail lives on the pages each section links to.
  */
 
 import { useState, useEffect, useCallback } from 'react';
 import { useWorkspace } from '../../workspaces/WorkspaceContext';
-import FormattedSummary from '../../components/shared/FormattedSummary';
 import SEOHead, { buildOgImageUrl } from '../../components/seo/SEOHead';
 import NflPinnedTeamSection from '../../components/nfl/NflPinnedTeamSection';
 import HomeGameTile from '../../components/nfl/home/HomeGameTile';
@@ -17,8 +16,9 @@ import HomePicks from '../../components/nfl/home/HomePicks';
 import HomeTitleRace from '../../components/nfl/home/HomeTitleRace';
 import { HomeVideos, HomeHeadlines } from '../../components/nfl/home/HomeFeed';
 import { SectionHead, Rail } from '../../components/nfl/home/HomeParts';
+import { TeamTag, TeamText } from '../../components/nfl/home/NflTeamTag';
+import NflProse from '../../components/nfl/home/NflProse';
 import { fetchNflGames } from '../../api/nfl';
-import { getNflTeamBySlug } from '../../sports/nfl/teams';
 import { mascotFor } from '../../brand/mascots';
 import s from '../../components/nfl/nfl.module.css';
 import h from '../../components/nfl/home/home.module.css';
@@ -196,7 +196,42 @@ export default function NflHome() {
 
       <NflSectionTabs />
 
-      <HomePicks />
+      <HomePicks games={slate ? games : undefined} weekLabel={weekLabel || undefined} />
+
+      <section className={h.section} aria-label="Commentary for the week">
+        <SectionHead title={weekLabel ? `${weekLabel} commentary` : 'This week’s commentary'}>
+          <button
+            type="button"
+            className={h.iconBtn}
+            onClick={handleRefresh}
+            disabled={refreshing}
+            aria-label="Refresh the commentary"
+            title="Refresh the commentary"
+          >
+            <svg className={refreshing ? h.spin : undefined} width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9M13.5 2.5v3h-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+        </SectionHead>
+        <div className={h.card}>
+          <div className={`${h.briefBody} ${!expanded && summary ? h.briefClamp : ''}`}>
+            {summary ? (
+              <NflProse text={summary} />
+            ) : summaryState === 'loading' ? (
+              <p className={s.muted}>Writing this week’s commentary…</p>
+            ) : fallback ? (
+              <p><TeamText text={fallback} /></p>
+            ) : (
+              <p className={s.muted}>The commentary can’t load right now. Picks and games on this page are still current.</p>
+            )}
+          </div>
+          {summary && (
+            <button type="button" className={h.linkBtn} onClick={() => { trackBriefingExpand({ sport: 'nfl', expanded: !expanded }); setExpanded((v) => !v); }} aria-expanded={expanded}>
+              {expanded ? 'Show less' : 'Read it all'}
+            </button>
+          )}
+        </div>
+      </section>
 
       <section className={h.section} aria-label="This week's games">
         <SectionHead
@@ -218,50 +253,19 @@ export default function NflHome() {
           </Rail>
         )}
         {slate?.byeTeams?.length > 0 && (
-          <p className={h.fine}>On bye: {slate.byeTeams.map((t) => getNflTeamBySlug(t)?.nickname || t).join(', ')}.</p>
+          <p className={h.byes}>
+            <span>On bye</span>
+            {slate.byeTeams.map((t) => <TeamTag key={t} slug={t} size={16} />)}
+          </p>
         )}
       </section>
 
-      <section className={h.section} aria-label="Weekly briefing">
-        <SectionHead title="The briefing">
-          <button
-            type="button"
-            className={h.iconBtn}
-            onClick={handleRefresh}
-            disabled={refreshing}
-            aria-label="Refresh the briefing"
-            title="Refresh the briefing"
-          >
-            <svg className={refreshing ? h.spin : undefined} width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-              <path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9M13.5 2.5v3h-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </button>
-        </SectionHead>
-        <div className={h.card}>
-          <div className={`${h.briefBody} ${!expanded && summary ? h.briefClamp : ''}`}>
-            {summary ? (
-              <FormattedSummary text={summary} />
-            ) : summaryState === 'loading' ? (
-              <p className={s.muted}>Writing this week’s briefing…</p>
-            ) : fallback ? (
-              <p>{fallback}</p>
-            ) : (
-              <p className={s.muted}>The briefing can’t load right now. Picks and games on this page are still current.</p>
-            )}
-          </div>
-          {summary && (
-            <button type="button" className={h.linkBtn} onClick={() => { trackBriefingExpand({ sport: 'nfl', expanded: !expanded }); setExpanded((v) => !v); }} aria-expanded={expanded}>
-              {expanded ? 'Show less' : 'Read it all'}
-            </button>
-          )}
-        </div>
-      </section>
-
-      <NflPinnedTeamSection />
-
       <div className={h.split}>
-        <HomeTitleRace limit={5} />
-        <HomeHeadlines max={5} />
+        <HomeHeadlines max={7} />
+        <div className={h.sideCol}>
+          <NflPinnedTeamSection />
+          <HomeTitleRace limit={5} />
+        </div>
       </div>
 
       <HomeVideos max={6} />

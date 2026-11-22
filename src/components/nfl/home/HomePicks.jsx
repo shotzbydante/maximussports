@@ -1,29 +1,31 @@
 /**
- * HomePicks — this week's picks on the NFL home page.
+ * HomePicks — Maximus's picks for the week.
  *
  * A recommended pick is a specific book's line and price that beats the
- * market's fair number, so each one shows that price, the chance the bet
- * wins at the fair number next to the chance the price needs, and its
- * expected value. Everything else on the board is a lean: tracked and
- * graded, never recommended.
+ * market's fair number. The section shows the highest-conviction ones as
+ * tickets (see HomePickCard). It never pads the list: if the engine
+ * recommends two picks, two are shown. Everything else on the board is a
+ * lean: tracked and graded, never recommended.
  *
- *   variant="home"  top play, a rail of the rest, one line for the record
- *   variant="full"  every recommended pick with reasons, then every game
+ *   variant="home"  up to five tickets and one line for the record
+ *   variant="full"  every recommended pick with its reasons, then every game
  */
 
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useWorkspace } from '../../../workspaces/WorkspaceContext';
-import { fetchNflScorecard } from '../../../api/nfl';
-import { getNflTeamBySlug } from '../../../sports/nfl/teams';
+import { fetchNflGames, fetchNflScorecard } from '../../../api/nfl';
 import NflLogo from '../NflLogo';
+import HomePickCard from './HomePickCard';
+import { Matchup } from './NflTeamTag';
 import { SectionHead, Rail, ScoreRing, ModelMarketBars, Chevron } from './HomeParts';
-import { kickoffShort } from './format';
+import { fmtOdds, kickoffShort } from './format';
 import h from './home.module.css';
 import { trackPicksBoardView } from '../../../analytics/sportEvents';
 
 const ENDPOINT = '/api/nfl/picks/built';
-const RAIL_MAX = 6;
+const HOME_MAX = 5;
+const LEAN_MAX = 6;
 const MARKET = { moneyline: 'To win', runline: 'Spread', total: 'Total' };
 /** Why a game is held to tracking. A plain "no price edge" needs no chip. */
 const HELD_BACK = {
@@ -37,31 +39,27 @@ const HELD_BACK = {
   data_gap: 'Thin data',
 };
 
-const fmtOdds = (v) => (typeof v === 'number' ? (v > 0 ? `+${v}` : `${v}`) : '');
-
-const nick = (t) => getNflTeamBySlug(t?.slug)?.nickname || t?.shortName || t?.name || '';
 const score = (p) => p?.conviction?.score ?? Math.round((p?.betScore?.total || 0) * 100);
+/** Highest conviction first; expected value breaks ties. */
+const byConviction = (a, b) => (score(b) - score(a)) || ((b.ev || 0) - (a.ev || 0));
 
-function matchupText(p) {
+function pickedTeam(p) {
   const m = p.matchup || {};
-  const when = kickoffShort(m.startTime);
-  return `${nick(m.awayTeam)} at ${nick(m.homeTeam)}${when ? `, ${when}` : ''}`;
+  return p.selection?.side === 'home' ? m.homeTeam : p.selection?.side === 'away' ? m.awayTeam : null;
 }
 
 /**
  * Why this pick, in the engine's own words. Every pick carries a full
- * sentence (`why`) and a few words (`whyShort`) for small tiles. Picks
- * locked before those fields existed fall back to their headline.
+ * sentence (`why`) and a few words (`whyShort`). Picks locked before those
+ * fields existed fall back to what the headline says after the pick label.
  */
-const whyOf = (p) => p?.why || p?.rationale?.why || p?.rationale?.headline || '';
+function headlineReason(p) {
+  const lean = (p.rationale?.headline || '').match(/^Model lean: .*?\. (.+)$/);
+  return lean ? lean[1] : '';
+}
+const whyOf = (p) => p?.why || p?.rationale?.why || headlineReason(p);
 const whyShortOf = (p) => p?.whyShort || p?.rationale?.whyShort || whyOf(p);
 const sentence = (t) => (t && !/[.!?]$/.test(t) ? `${t}.` : t);
-
-/** "-110 at Circa" for spreads and totals; the book alone for a moneyline, whose label is the price. */
-function priceText(p) {
-  if (p.market?.type === 'moneyline') return p.book?.title ? `At ${p.book.title}` : '';
-  return p.selection?.priceLabel || '';
-}
 
 function recordText(r) {
   if (!r) return null;
@@ -74,69 +72,25 @@ function Reasons({ pick }) {
   const bullets = pick.rationale?.bullets || [];
   if (bullets.length === 0) return null;
   return (
-    <details className={h.why}>
-      <summary>More on this pick</summary>
+    <details className={`${h.why} ${h.whyInCard}`}>
+      <summary>All the numbers behind it</summary>
+      {(pick.why || pick.rationale?.why) && <p>{pick.why || pick.rationale.why}</p>}
       <ul>{bullets.map((b) => <li key={b}>{b}</li>)}</ul>
     </details>
   );
 }
 
-function TopPlay({ pick, to }) {
+/** A lean, shown on the home page only when nothing is recommended. */
+function LeanTile({ pick, to }) {
   const m = pick.matchup || {};
-  const Tag = to ? Link : 'div';
-  const tagProps = to
-    ? { to, 'aria-label': `Top play: ${pick.selection?.label}. Open all picks and results` }
-    : {};
+  const team = pickedTeam(pick);
   return (
-    <Tag className={h.top} {...tagProps}>
-      <div className={h.topHead}>
-        <span className={h.chipRow}>
-          <span className={`${h.chip} ${h.chipInk}`}>Top play</span>
-          <span className={h.chip}>{MARKET[pick.market?.type] || 'Pick'}</span>
-          {pick.displayMetrics?.edgeValue && (
-            <span className={`${h.chip} ${h.chipUp}`}>{pick.displayMetrics.edgeValue} expected value</span>
-          )}
-        </span>
-        <span>{kickoffShort(m.startTime)}</span>
-      </div>
-      <div className={h.topMain}>
-        <div>
-          <p className={h.topPick}>{pick.selection?.label}</p>
-          {pick.selection?.priceLabel && pick.market?.type !== 'moneyline' && (
-            <p className={h.topPrice}>{pick.selection.priceLabel}</p>
-          )}
-          {pick.market?.type === 'moneyline' && pick.book?.title && (
-            <p className={h.topPrice}>at {pick.book.title}</p>
-          )}
-          <p className={h.topGame}>{nick(m.awayTeam)} at {nick(m.homeTeam)}{pick.environment?.label ? `. ${pick.environment.label}` : ''}</p>
-          {whyOf(pick) && <p className={h.topWhy}><b>Why: </b>{whyOf(pick)}</p>}
-        </div>
-        <div>
-          <ScoreRing value={score(pick)} />
-          <div className={h.ringCaption}>Conviction</div>
-        </div>
-      </div>
-      <ModelMarketBars model={pick.modelProb} market={pick.impliedProb} />
-      {!to && <Reasons pick={pick} />}
-    </Tag>
-  );
-}
-
-function PickTile({ pick, to, lean }) {
-  const m = pick.matchup || {};
-  const side = pick.selection?.side;
-  const logoTeam = side === 'home' ? m.homeTeam : side === 'away' ? m.awayTeam : null;
-  const Tag = to ? Link : 'article';
-  return (
-    <Tag {...(to ? { to } : {})} className={h.tile} role="listitem">
+    <Link to={to} className={h.tile} role="listitem">
       <div className={h.pickTop}>
         <span className={h.chipRow}>
           <span className={h.chip}>{MARKET[pick.market?.type] || 'Pick'}</span>
-          {!lean && pick.displayMetrics?.edgeValue && (
-            <span className={`${h.chip} ${h.chipUp}`}>{pick.displayMetrics.edgeValue}</span>
-          )}
-          {lean && <span className={h.chip}>Lean</span>}
-          {lean && HELD_BACK[pick.lowSignalReason] && (
+          <span className={h.chip}>Lean</span>
+          {HELD_BACK[pick.lowSignalReason] && (
             <span className={`${h.chip} ${h.chipWarn}`}>{HELD_BACK[pick.lowSignalReason]}</span>
           )}
         </span>
@@ -144,28 +98,21 @@ function PickTile({ pick, to, lean }) {
       </div>
       <div>
         <div className={h.team}>
-          {logoTeam && <NflLogo slug={logoTeam.slug} src={logoTeam.logo} size={24} />}
+          {team && <NflLogo slug={team.slug} src={team.logo} size={24} />}
           <span className={h.pickLabel}>{pick.selection?.label}</span>
         </div>
         <div className={h.pickGame}>
-          {priceText(pick) && <b>{priceText(pick)}</b>}
-          {priceText(pick) ? '. ' : ''}{matchupText(pick)}
+          <Matchup away={m.awayTeam} home={m.homeTeam} size={14} />
+          <span>{kickoffShort(m.startTime)}</span>
         </div>
       </div>
       <ModelMarketBars model={pick.modelProb} market={pick.impliedProb} />
-      {to
-        ? whyShortOf(pick) && <p className={h.pickWhy}><b>Why: </b>{sentence(whyShortOf(pick))}</p>
-        : (
-          <>
-            {whyOf(pick) && <p className={h.pickWhyFull}><b>Why: </b>{whyOf(pick)}</p>}
-            <Reasons pick={pick} />
-          </>
-        )}
-    </Tag>
+      {whyShortOf(pick) && <p className={h.pickWhy}>{sentence(whyShortOf(pick))}</p>}
+    </Link>
   );
 }
 
-/** Every lean on the board, one block per game. */
+/** Every market on the board, one expandable block per game. */
 function EveryGame({ picks, recommendedIds }) {
   const games = new Map();
   for (const p of picks) {
@@ -182,12 +129,12 @@ function EveryGame({ picks, recommendedIds }) {
         const flag = HELD_BACK[rows.find((r) => r.lowSignalReason)?.lowSignalReason];
         const picked = rows.some((r) => recommendedIds.has(r.id));
         const best = [...rows].sort((a, b) =>
-          (recommendedIds.has(b.id) - recommendedIds.has(a.id)) || (score(b) - score(a)))[0];
+          (recommendedIds.has(b.id) - recommendedIds.has(a.id)) || byConviction(a, b))[0];
         return (
           <details key={rows[0].gameId} className={`${h.card} ${h.cardFlush}`}>
             <summary className={h.leanHead}>
               <span>
-                <span className={h.teamName}>{nick(m.awayTeam)} at {nick(m.homeTeam)}</span>
+                <span className={h.teamName}><Matchup away={m.awayTeam} home={m.homeTeam} size={18} /></span>
                 <span className={h.leanSub}>
                   <span className={h.small}>{kickoffShort(m.startTime)}</span>
                   {picked && <span className={`${h.chip} ${h.chipUp}`}>Recommended</span>}
@@ -199,21 +146,25 @@ function EveryGame({ picks, recommendedIds }) {
                 : <span className={h.leanNone}>Leans only</span>}
               <span className={h.leanCaret}><Chevron size={12} /></span>
             </summary>
-            {[...rows].sort((a, b) => (order[a.market?.type] ?? 9) - (order[b.market?.type] ?? 9)).map((p) => (
-              <div key={p.id} className={h.leanRow}>
-                <span className={h.small}>{MARKET[p.market?.type]}</span>
-                <span className={h.leanPick}>
-                  {p.selection?.label}
-                  {recommendedIds.has(p.id) && <span className={`${h.chip} ${h.chipUp}`}>{p.displayMetrics?.edgeValue || 'Recommended'}</span>}
-                </span>
-                <span className={h.leanNum}>
-                  {p.market?.type !== 'moneyline' && fmtOdds(p.market?.priceAmerican)}
-                  {p.book?.title && <span className={h.small}> {p.book.title}</span>}
-                </span>
-                <span className={h.leanScore} aria-label={`Conviction ${score(p)}`}>{score(p)}</span>
-                {whyOf(p) && <span className={h.leanWhy}>{whyOf(p)}</span>}
-              </div>
-            ))}
+            {[...rows].sort((a, b) => (order[a.market?.type] ?? 9) - (order[b.market?.type] ?? 9)).map((p) => {
+              const team = pickedTeam(p);
+              return (
+                <div key={p.id} className={h.leanRow}>
+                  <span className={h.small}>{MARKET[p.market?.type]}</span>
+                  <span className={h.leanPick}>
+                    {team && <NflLogo slug={team.slug} src={team.logo} size={18} />}
+                    {p.selection?.label}
+                    {recommendedIds.has(p.id) && <span className={`${h.chip} ${h.chipUp}`}>{p.displayMetrics?.edgeValue || 'Recommended'}</span>}
+                  </span>
+                  <span className={h.leanNum}>
+                    {p.market?.type !== 'moneyline' && fmtOdds(p.market?.priceAmerican)}
+                    {p.book?.title && <span className={h.small}> {p.book.title}</span>}
+                  </span>
+                  <span className={h.leanScore} aria-label={`Conviction ${score(p)}`}>{score(p)}</span>
+                  {whyOf(p) && <span className={h.leanWhy}>{sentence(whyOf(p))}</span>}
+                </div>
+              );
+            })}
           </details>
         );
       })}
@@ -221,12 +172,14 @@ function EveryGame({ picks, recommendedIds }) {
   );
 }
 
-export default function HomePicks({ variant = 'home' }) {
+export default function HomePicks({ variant = 'home', games: gamesProp, weekLabel }) {
   const full = variant === 'full';
   const { buildPath } = useWorkspace();
   const [board, setBoard] = useState(undefined);
   const [card, setCard] = useState(null);
+  const [ownGames, setOwnGames] = useState(null);
   const insights = buildPath('/insights');
+  const needGames = gamesProp === undefined;
 
   useEffect(() => {
     let cancelled = false;
@@ -235,21 +188,24 @@ export default function HomePicks({ variant = 'home' }) {
       .then((d) => { if (!cancelled) setBoard(d || null); })
       .catch(() => { if (!cancelled) setBoard(null); });
     fetchNflScorecard().then((d) => { if (!cancelled) setCard(d); });
+    if (needGames) fetchNflGames().then((d) => { if (!cancelled) setOwnGames(d?.games || []); });
     return () => { cancelled = true; };
-  }, []);
+  }, [needGames]);
+
+  const games = gamesProp ?? ownGames ?? [];
+  const gameById = new Map(games.map((g) => [String(g.gameId), g]));
+  const gameFor = (p) => gameById.get(String(p.gameId)) || null;
 
   const tiers = board?.tiers || {};
-  const recommended = [...(tiers.tier1 || []), ...(tiers.tier2 || []), ...(tiers.tier3 || [])]
-    .sort((a, b) => score(b) - score(a));
+  const recommended = [...(tiers.tier1 || []), ...(tiers.tier2 || []), ...(tiers.tier3 || [])].sort(byConviction);
   const recommendedIds = new Set(recommended.map((p) => p.id));
   const leans = (board?.fullSlatePicks || board?.coverage || [])
     .filter((p) => !recommendedIds.has(p.id))
-    .sort((a, b) => score(b) - score(a));
-
-  const top = recommended[0] || null;
-  const rest = recommended.slice(1, 1 + RAIL_MAX);
-  const showLeans = recommended.length === 0 && leans.length > 0;
+    .sort(byConviction);
   const total = recommended.length + leans.length;
+  const shown = full ? recommended : recommended.slice(0, HOME_MAX);
+  const week = weekLabel || (board?.week ? `Week ${board.week}` : null);
+  const title = week ? `Maximus’s picks for ${week}` : 'Maximus’s picks for the week';
 
   // One picks_board_view per mount, once the board has loaded with something on it.
   const viewTracked = useRef(false);
@@ -264,41 +220,45 @@ export default function HomePicks({ variant = 'home' }) {
     });
   }, [board, total, full, recommended.length, leans.length]);
 
-  const season = recordText(card?.season?.record);
-  const recent = recordText(card?.record);
-  const picked = recordText(card?.byPickRole?.hero);
+  const cards = shown.length > 0 && (
+    <div className={`${h.picks} ${shown.length === 1 ? h.picksOne : shown.length === 2 || shown.length === 4 ? h.picksTwo : ''}`} role="list">
+      {shown.map((p, i) => (
+        <HomePickCard
+          key={p.id}
+          pick={p}
+          game={gameFor(p)}
+          rank={i + 1}
+          to={full ? undefined : insights}
+          asOf={board?.generatedAt}
+        >
+          {full && <Reasons pick={p} />}
+        </HomePickCard>
+      ))}
+    </div>
+  );
+
+  const nothingYet = (
+    <div className={h.empty}>
+      <b>{total === 0 ? `No picks yet for ${week || 'this week'}` : 'Nothing recommended right now'}</b>
+      {total === 0
+        ? 'Picks are recommended and locked inside three days of kickoff, once enough books have posted lines.'
+        : 'No book is beating the market’s fair price by enough to recommend a bet. A pick shows up here the moment one does.'}
+    </div>
+  );
 
   if (full) {
     return (
       <>
         <section className={h.section} aria-label="Recommended picks">
-          <SectionHead title="Recommended" count={recommended.length > 0 ? recommended.length : null} />
-          {board === undefined ? (
-            <div className={h.skeleton} aria-busy="true" />
-          ) : recommended.length === 0 ? (
-            <div className={h.empty}>
-              <b>{total === 0 ? 'No picks yet this week' : 'Nothing recommended right now'}</b>
-              {total === 0
-                ? 'Picks are recommended and locked inside three days of kickoff, once enough books have posted lines.'
-                : 'No book is beating the market’s fair price by enough. Every game’s leans are below, tracked and graded.'}
-            </div>
-          ) : (
-            <>
-              <TopPlay pick={top} />
-              {recommended.length > 1 && (
-                <div className={h.stack} role="list">
-                  {recommended.slice(1).map((p) => <PickTile key={p.id} pick={p} />)}
-                </div>
-              )}
-            </>
-          )}
+          <SectionHead title={title} countBelow count={recommended.length > 0 ? `${recommended.length} ${recommended.length === 1 ? 'pick' : 'picks'}, ranked by conviction` : null} />
+          {board === undefined ? <div className={h.skeleton} aria-busy="true" /> : (cards || nothingYet)}
         </section>
 
         {total > 0 && (
           <section className={h.section} aria-label="Every game">
             <SectionHead title="Every game" />
             <p className={h.sectionNote}>
-Open a game for its spread, winner and total, each with the best price on the board and
+              Open a game for its spread, winner and total, each with the best price on the board and
               a conviction score out of 100. Only the picks marked with an expected value beat the market’s
               fair price. The rest are the ratings’ leans: saved and graded, never recommended.
             </p>
@@ -309,42 +269,39 @@ Open a game for its spread, winner and total, each with the best price on the bo
     );
   }
 
+  const season = recordText(card?.season?.record);
+  const recent = recordText(card?.record);
+  const picked = recordText(card?.byPickRole?.hero);
+  const showLeans = recommended.length === 0 && leans.length > 0;
+
   return (
-    <section className={h.section} aria-label="This week's picks">
+    <section className={h.section} aria-label={title}>
       <SectionHead
-        title="Picks"
-        count={recommended.length > 0 ? `${recommended.length} recommended` : null}
+        title={title}
+        countBelow
+        count={recommended.length > 0 ? `${shown.length} ${shown.length === 1 ? 'pick' : 'picks'}, ranked by conviction` : null}
         to={insights}
         moreLabel="All picks and results"
       />
 
-      {board === undefined ? (
-        <div className={h.skeleton} aria-busy="true" />
-      ) : total === 0 ? (
-        <div className={h.empty}>
-          <b>No picks yet this week</b>
-          Picks are recommended and locked inside three days of kickoff, once enough books have posted lines.
-        </div>
-      ) : (
+      {board === undefined ? <div className={h.skeleton} aria-busy="true" /> : (cards || nothingYet)}
+
+      {showLeans && (
         <>
-          {top && <TopPlay pick={top} to={insights} />}
-          {rest.length > 0 && (
-            <Rail label="More recommended picks" cap={6}>
-              {rest.map((p) => <PickTile key={p.id} pick={p} to={insights} />)}
-            </Rail>
-          )}
-          {showLeans && (
-            <>
-              <p className={h.sectionNote}>
-                No book is beating the market’s fair price by enough to recommend a bet right now.
-                These are the ratings’ strongest leans. They are tracked and graded, not recommended.
-              </p>
-              <Rail label="Model leans" cap={6}>
-                {leans.slice(0, RAIL_MAX).map((p) => <PickTile key={p.id} pick={p} to={insights} lean />)}
-              </Rail>
-            </>
-          )}
+          <p className={h.sectionNote}>
+            These are the ratings’ strongest leans in the meantime. They are tracked and graded, not recommended.
+          </p>
+          <Rail label="Leans" cap={6}>
+            {leans.slice(0, LEAN_MAX).map((p) => <LeanTile key={p.id} pick={p} to={insights} />)}
+          </Rail>
         </>
+      )}
+
+      {recommended.length > 0 && recommended.length < 3 && (
+        <p className={h.sectionNote}>
+          {recommended.length === 1 ? 'One pick clears' : 'Two picks clear'} the bar this week. A pick is only
+          recommended when a book’s price beats the market’s fair price by 1.5% or more, so some weeks are short.
+        </p>
       )}
 
       {(season || recent) ? (
@@ -353,18 +310,11 @@ Open a game for its spread, winner and total, each with the best price on the bo
           {picked && <span><b>{picked}</b> recommended</span>}
           {season && <span><b>{season}</b> season</span>}
         </Link>
-      ) : card !== null && total > 0 ? (
+      ) : card !== null && recommended.length > 0 ? (
         <p className={h.fine}>
-          No results yet. A recommended pick is locked at its line, price and book, then graded against the final score.
+          No results yet. Each pick is locked at its line, price and book, then graded against the final score and the closing line.
         </p>
       ) : null}
-
-      {!showLeans && leans.length > 0 && (
-        <Link to={insights} className={h.more} style={{ marginLeft: 0, alignSelf: 'flex-start' }}>
-          <span>See every game’s leans and prices</span>
-          <span className={h.moreIcon}><Chevron /></span>
-        </Link>
-      )}
     </section>
   );
 }

@@ -99,6 +99,7 @@
     {"path": "/api/cron/nba/run-audit",                            "schedule": "0 9 * * *"},
     {"path": "/api/cron/nfl/settle-yesterday",                     "schedule": "30 9 * * *"},
     {"path": "/api/cron/nfl/build-scorecard",                      "schedule": "45 9 * * *"},
-    {"path": "/api/cron/nfl/build-picks",                          "schedule": "*/10 * * * *"}
+    {"path": "/api/cron/nfl/build-picks",                          "schedule": "*/10 * * * *"},
+    {"path": "/api/cron/instagram/refresh-token",                          "schedule": "17 11 * * 1"}
   ]
 }
