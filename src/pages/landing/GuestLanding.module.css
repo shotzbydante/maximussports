@@ -55,7 +55,7 @@
   border-radius: 8px;
 }
 .page section[id],
-.signal { scroll-margin-top: 96px; }
+.shot { scroll-margin-top: 96px; }
 
 .skipLink {
   position: absolute;
@@ -257,181 +257,50 @@
 }
 .metaDot { width: 4px; height: 4px; border-radius: 50%; background: var(--gl-blue); }
 
-/* ── Signal preview ── */
-.signal {
+/* ── Hero: a real pick in an app window ── */
+.shot {
   position: relative;
-  margin-top: 120px; /* room for the mascot standing on the card */
-  padding: 22px;
-  border-radius: 22px;
-  border: 1px solid var(--gl-line-strong);
-  background: linear-gradient(165deg, rgba(13, 32, 64, 0.92) 0%, rgba(6, 16, 36, 0.96) 100%);
-  box-shadow: 0 30px 80px rgba(0, 8, 30, 0.6), 0 0 0 1px rgba(56, 189, 248, 0.05), inset 0 1px 0 rgba(160, 205, 255, 0.1);
+  margin-top: 120px; /* room for the mascot standing on the window */
 }
 .heroMascot {
   position: absolute;
   right: 30px;
-  bottom: calc(100% - 12px); /* cleats overlap the card's top edge */
+  bottom: calc(100% - 12px); /* cleats overlap the window's top edge */
+  z-index: 1;
   height: 184px;
   width: auto;
   pointer-events: none;
   filter: drop-shadow(0 16px 22px rgba(0, 8, 30, 0.55)) drop-shadow(0 0 26px rgba(56, 189, 248, 0.16));
 }
-.signalTop { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.signalTitle {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-family: var(--gl-body);
-  font-size: 0.75rem;
-  font-weight: 800;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--gl-text);
-}
-.signalTag {
-  flex-shrink: 0;
-  padding: 5px 10px;
-  border-radius: 7px;
-  border: 1px solid var(--gl-line-strong);
-  background: rgba(29, 139, 255, 0.12);
-  font-size: 0.5625rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--gl-text-2);
-}
-.tabs { display: flex; gap: 8px; margin-top: 16px; }
-.tab {
-  min-height: 44px;
-  min-width: 56px;
-  padding: 0 14px;
-  border-radius: 9px;
-  border: 1px solid var(--gl-line);
-  background: transparent;
-  color: var(--gl-text-2);
-  font-family: var(--gl-body);
-  font-size: 0.6875rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
-}
-.tab:hover { border-color: var(--gl-line-strong); color: var(--gl-text); }
-.tab[aria-selected='true'] {
-  background: rgba(29, 139, 255, 0.3);
-  border-color: rgba(96, 175, 255, 0.7);
-  color: #fff;
-}
-.signalCard {
-  margin-top: 14px;
-  padding: 18px;
-  border-radius: 14px;
-  border: 1px solid var(--gl-line);
-  background: rgba(4, 12, 28, 0.55);
-}
-.matchup {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding-bottom: 16px;
-  margin-bottom: 18px;
-  border-bottom: 1px solid var(--gl-line);
-}
-.teams { display: flex; align-items: center; gap: 10px; }
-.team {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 38px;
-  height: 38px;
-  padding: 0 8px;
-  border-radius: 999px;
-  background: linear-gradient(180deg, #1f4f96, #143568);
-  border: 1px solid rgba(125, 180, 255, 0.4);
-  font-size: 0.6875rem;
-  font-weight: 800;
-  letter-spacing: 0.02em;
-}
-.vs { font-size: 0.6875rem; font-weight: 700; text-transform: uppercase; color: var(--gl-text-3); }
-.matchupMeta { font-size: 0.6875rem; line-height: 1.5; text-align: right; color: var(--gl-text-3); }
+.shotNote { margin-top: 14px !important; font-size: 0.75rem; line-height: 1.5; color: var(--gl-text-3); }
+.shotNote a,
+.afterShot a { color: var(--gl-sky) !important; font-weight: 600; }
+.shotNote a:hover,
+.afterShot a:hover { text-decoration: underline !important; }
+.afterShot { margin-top: 20px !important; font-size: 0.9375rem; color: var(--gl-text-2); }
+.afterShot a { display: inline-flex; align-items: center; gap: 6px; }
 
-.probRow + .probRow { margin-top: 16px; }
-.probHead {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  font-size: 0.8125rem;
-  color: var(--gl-text-2);
+/* ── Copy beside an app window ── */
+.split {
+  display: grid;
+  grid-template-columns: minmax(0, 0.86fr) minmax(0, 1fr);
+  gap: 56px;
+  align-items: start;
 }
-.probValue {
-  font-family: var(--gl-display);
-  font-size: 1.75rem;
-  font-weight: 800;
-  letter-spacing: -0.03em;
-  line-height: 1;
-  color: var(--gl-text);
-  font-variant-numeric: tabular-nums;
-}
-.bar {
-  height: 8px;
-  margin-top: 8px;
-  border-radius: 999px;
-  background: rgba(110, 168, 255, 0.16);
-  overflow: hidden;
-}
-.barModel,
-.barMarket {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  transition: width 0.45s cubic-bezier(0.22, 1, 0.36, 1);
-}
-.barModel { background: linear-gradient(90deg, #38bdf8, #1d7dff); }
-.barMarket { background: linear-gradient(90deg, #7dd3fc, #5aaef0); }
-
-.diverge {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+.splitCopy { position: sticky; top: 104px; }
+.framework { margin: 28px 0 0; display: grid; gap: 0; }
+.framework > div {
+  display: grid;
+  grid-template-columns: 9.5rem minmax(0, 1fr);
   gap: 16px;
-  margin-top: 20px;
-  padding-top: 18px;
+  padding: 14px 0;
   border-top: 1px solid var(--gl-line);
 }
-.divergeTitle { font-family: var(--gl-body); font-size: 0.8125rem; font-weight: 700; color: var(--gl-text); }
-.divergeBody { margin-top: 4px !important; font-size: 0.75rem; line-height: 1.5; color: var(--gl-text-2); }
-.gap {
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  padding: 10px 14px;
-  border-radius: 12px;
-  border: 1px solid rgba(52, 211, 153, 0.5);
-  background: rgba(52, 211, 153, 0.08);
-}
-.gapValue {
-  font-family: var(--gl-display);
-  font-size: 1.25rem;
-  font-weight: 800;
-  line-height: 1;
-  color: var(--gl-green);
-  font-variant-numeric: tabular-nums;
-}
-.gapLabel { font-size: 0.5625rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #a7f3d0; }
-.drivers { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px !important; }
-.drivers li {
-  padding: 6px 10px;
-  border-radius: 7px;
-  border: 1px solid var(--gl-line);
-  background: rgba(29, 139, 255, 0.08);
-  font-size: 0.6875rem;
-  font-weight: 600;
-  color: var(--gl-text-2);
-}
-.signalNote { margin-top: 12px !important; font-size: 0.6875rem; color: var(--gl-text-3); }
+.framework dt { font-family: var(--gl-display); font-size: 0.9375rem; font-weight: 800; color: var(--gl-text); }
+.framework dd,
+.also dd { margin: 0; font-size: 0.875rem; line-height: 1.55; color: var(--gl-text-2); }
+.also { margin: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px 28px; }
+.also dt { margin-bottom: 4px; font-size: 0.9375rem; font-weight: 700; color: var(--gl-text); }
 
 /* ── Sections ── */
 .section { max-width: var(--gl-max); margin: 0 auto; padding: 72px var(--gl-pad) 0; }
@@ -468,18 +337,6 @@
   background: linear-gradient(165deg, rgba(13, 32, 64, 0.75), rgba(8, 20, 42, 0.75));
 }
 .cardPlain { gap: 0; }
-.cardIcon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 44px;
-  height: 44px;
-  flex-shrink: 0;
-  border-radius: 11px;
-  border: 1px solid var(--gl-line-strong);
-  background: rgba(29, 139, 255, 0.16);
-  color: var(--gl-sky);
-}
 .cardTitle {
   font-family: var(--gl-display);
   font-size: 1.0625rem;
@@ -503,31 +360,6 @@
 }
 .panelBody { margin-top: 14px !important; max-width: 30rem; font-size: 0.9375rem; color: var(--gl-text-2); }
 .panelCopy .btn { margin-top: 24px; }
-.steps { display: flex; flex-direction: column; gap: 12px; }
-.step {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 16px 18px;
-  border-radius: 12px;
-  border: 1px solid var(--gl-line);
-  background: rgba(4, 12, 28, 0.4);
-}
-.stepNum {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 30px;
-  flex-shrink: 0;
-  border-radius: 50%;
-  border: 1px solid rgba(96, 175, 255, 0.7);
-  background: rgba(29, 139, 255, 0.28);
-  font-size: 0.625rem;
-  font-weight: 800;
-}
-.stepTitle { font-family: var(--gl-body); font-size: 0.875rem; font-weight: 600; color: var(--gl-text); }
-.stepBody { margin-top: 2px !important; font-size: 0.75rem; color: var(--gl-text-2); }
 
 .league {
   display: flex;
@@ -609,7 +441,9 @@
   .menuBtn { display: inline-flex; }
   .mobileMenu { display: flex; }
   .hero { grid-template-columns: 1fr; gap: 36px; padding: 40px var(--gl-pad) 56px; }
-  .signal { margin-top: 112px; }
+  .shot { margin-top: 112px; }
+  .split { grid-template-columns: 1fr; gap: 28px; }
+  .splitCopy { position: static; }
   .heroMascot { height: 164px; }
   .panel { grid-template-columns: 1fr; gap: 28px; padding: 32px; }
   .grid3 { grid-template-columns: 1fr; }
@@ -625,7 +459,9 @@
   .headerInner { min-height: 64px; gap: 12px; }
   .brand img { width: 112px; }
   .hero { padding-top: 28px; }
-  .signal { margin-top: 96px; }
+  .shot { margin-top: 96px; }
+  .framework > div { grid-template-columns: 1fr; gap: 2px; }
+  .also { grid-template-columns: 1fr; }
   .heroMascot { height: 136px; right: 18px; }
   .closingMascot { height: 132px; }
   .footerMark { width: 148px; }
@@ -633,9 +469,6 @@
   .heroCtas { flex-direction: column; margin-top: 24px; }
   .heroCtas .btn { width: 100%; }
   .heroMeta { justify-content: center; margin-top: 16px !important; }
-  .signal { padding: 16px; border-radius: 18px; }
-  .signalCard { padding: 14px; }
-  .diverge { align-items: flex-start; }
   .section { padding-top: 56px; }
   .panel { padding: 24px 18px; }
   .card { padding: 20px; }

@@ -2,20 +2,24 @@
  * GuestLanding — logged-out homepage for maximussports.ai
  *
  * Positioning: sports intelligence for prediction markets and betting.
- * Leads with the problem solved (model vs. market), shows one sample
- * signal above the fold, and keeps a single primary CTA.
+ * The page shows the product instead of describing it: one real NFL pick
+ * above the fold, then the every-game board, a position-group matchup and
+ * the weekly clock, all filled with a dated snapshot from the app
+ * (showcase/week11.js). It says what the app does and how often, and
+ * leaves out how the numbers are made.
  *
  * Renders its own header and footer; Layout drops the app chrome for
- * guests on "/". All numbers in the signal preview are illustrative
- * placeholders and are labelled as such.
+ * guests on "/".
  */
 
-import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { MASCOTS } from '../../brand/mascots';
 import { Link, useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { track } from '../../analytics/index';
 import { trackAccountCreateSkipped } from '../../lib/analytics/posthog';
+import { PickTicket, EveryGame, MatchupWindow, WeekClock } from './showcase/NflShowcase';
+import { WEEK, ALSO } from './showcase/week11';
 import styles from './GuestLanding.module.css';
 
 const WelcomeModal = lazy(() => import('../../components/marketing/WelcomeModal'));
@@ -25,59 +29,25 @@ const SIGNUP_ROUTE = '/settings';
 const META = {
   title: 'Maximus Sports — Sports Intelligence for Prediction Markets and Betting',
   description:
-    'Model-driven probabilities, market context, and clear analysis to help you read sports markets and make more informed decisions across the NFL, NBA, MLB, and college basketball.',
+    'A call on every NFL game against the spread, the total and the moneyline, picks locked at a real price and graded in public, and matchups broken down to the position group. Plus NBA, MLB and college basketball.',
   url: 'https://maximussports.ai',
   image: 'https://maximussports.ai/og.png',
 };
 
 const NAV_LINKS = [
-  { href: '#platform', label: 'Platform' },
-  { href: '#signal', label: 'Market intelligence' },
-  { href: '#how-it-works', label: 'How it works' },
+  { href: '#every-game', label: 'Every game' },
+  { href: '#matchups', label: 'Matchups' },
+  { href: '#week', label: 'The week' },
+  { href: '#methodology', label: 'Reading a signal' },
   { href: '#sports', label: 'Sports' },
-  { href: '#methodology', label: 'Methodology' },
 ];
 
-/* Illustrative placeholders only — not Maximus predictions or market data. */
-const SAMPLES = [
-  { id: 'nba', label: 'NBA', home: 'BOS', away: 'NYK', model: 62, market: 55 },
-  { id: 'mlb', label: 'MLB', home: 'LAD', away: 'SD', model: 57, market: 53 },
-  { id: 'ncaam', label: 'NCAAM', home: 'DUKE', away: 'UNC', model: 64, market: 59 },
-];
-
-const DRIVERS = ['Recent performance', 'Injuries & availability', 'Market movement'];
-
-const ADVANTAGES = [
-  {
-    icon: 'diamond',
-    title: 'Model probabilities',
-    body: 'Analyze game outcome estimates and matchup-specific signals through a consistent, data-driven framework.',
-  },
-  {
-    icon: 'arrow',
-    title: 'Market intelligence',
-    body: 'Understand how implied probabilities and odds evolve, and where model and market views differ.',
-  },
-  {
-    icon: 'waves',
-    title: 'The why behind it',
-    body: 'Contextualize every signal with team form, injuries, situational factors, and concise AI-powered analysis.',
-  },
-];
-
-const STEPS = [
-  {
-    title: 'Start with the matchup',
-    body: 'Game outlook, teams, form, injuries, and current context.',
-  },
-  {
-    title: 'Understand the probabilities',
-    body: 'Compare model estimates with market-implied probabilities.',
-  },
-  {
-    title: 'Decide with better information',
-    body: 'See the rationale, important changes, and remaining uncertainty.',
-  },
+/* How each market is handled. What we do, not how the numbers are made. */
+const FRAMEWORK = [
+  ['Spreads', 'A side on every game, ranked by conviction.'],
+  ['Over/under', 'Over or under on every game, with the kickoff forecast at that stadium.'],
+  ['Moneyline', 'Listed only when a sportsbook pays more than the fair price. Most weeks that is very few.'],
+  ['Recommended or lean', 'A recommended pick beats the market’s fair price. A lean has no price edge: it is saved and graded, never recommended.'],
 ];
 
 const LEAGUES = [
@@ -114,23 +84,6 @@ function Icon({ name }) {
     strokeLinejoin: 'round',
     'aria-hidden': true,
   };
-  if (name === 'diamond') {
-    return (
-      <svg {...common}>
-        <path d="M12 3l9 9-9 9-9-9 9-9z" />
-        <path d="M12 8.5l3.5 3.5-3.5 3.5L8.5 12 12 8.5z" fill="currentColor" stroke="none" />
-      </svg>
-    );
-  }
-  if (name === 'waves') {
-    return (
-      <svg {...common}>
-        <path d="M3 8c2-2.5 4-2.5 6 0s4 2.5 6 0 4-2.5 6 0" />
-        <path d="M3 13c2-2.5 4-2.5 6 0s4 2.5 6 0 4-2.5 6 0" />
-        <path d="M3 18c2-2.5 4-2.5 6 0s4 2.5 6 0 4-2.5 6 0" />
-      </svg>
-    );
-  }
   if (name === 'right') {
     return (
       <svg {...common} width={16} height={16}>
@@ -147,20 +100,14 @@ function Icon({ name }) {
 }
 
 function trackCta(cta, location) {
-  track('landing_cta_clicked', { cta, location, variant: 'guest_v2' });
+  track('landing_cta_clicked', { cta, location, variant: 'guest_v3' });
 }
 
 export default function GuestLanding() {
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [sampleId, setSampleId] = useState(SAMPLES[0].id);
-  const tabRefs = useRef({});
-
-  const sample = SAMPLES.find((s) => s.id === sampleId) || SAMPLES[0];
-  const gap = sample.model - sample.market;
-
-  // Welcome modal is opt-in here (?welcome=1) so the hero and the sample
-  // signal are the first thing a new visitor sees.
+  // Welcome modal is opt-in here (?welcome=1) so the hero and the example
+  // pick are the first thing a new visitor sees.
   const [welcomeOpen, setWelcomeOpen] = useState(() => {
     try {
       return new URLSearchParams(window.location.search).get('welcome') === '1';
@@ -171,7 +118,7 @@ export default function GuestLanding() {
   const closeWelcome = useCallback(() => setWelcomeOpen(false), []);
 
   useEffect(() => {
-    track('landing_viewed', { variant: 'guest_v2' });
+    track('landing_viewed', { variant: 'guest_v3' });
   }, []);
 
   useEffect(() => {
@@ -182,20 +129,6 @@ export default function GuestLanding() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [menuOpen]);
-
-  const selectSample = (id) => {
-    setSampleId(id);
-    track('landing_sample_selected', { league: id, variant: 'guest_v2' });
-  };
-
-  const onTabKeyDown = (e) => {
-    if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
-    e.preventDefault();
-    const i = SAMPLES.findIndex((s) => s.id === sampleId);
-    const next = SAMPLES[(i + (e.key === 'ArrowRight' ? 1 : SAMPLES.length - 1)) % SAMPLES.length];
-    selectSample(next.id);
-    tabRefs.current[next.id]?.focus();
-  };
 
   return (
     <>
@@ -318,8 +251,9 @@ export default function GuestLanding() {
                 <span className={styles.headlineAccent}>Read the market.</span>
               </h1>
               <p className={styles.lede}>
-                Model-driven probabilities, market context, and clear analysis for smarter
-                decisions in <strong>prediction markets and sports betting.</strong>
+                A call on every NFL game against the spread, the total and the moneyline.
+                Picks locked at a real price and graded in public. Matchups broken down to
+                the position group. For <strong>prediction markets and sports betting.</strong>
               </p>
               <div className={styles.heroCtas}>
                 <Link
@@ -329,13 +263,13 @@ export default function GuestLanding() {
                 >
                   Explore free intelligence <Icon name="arrowSm" />
                 </Link>
-                <a
-                  href="#how-it-works"
+                <Link
+                  to="/nfl"
                   className={`${styles.btn} ${styles.btnGhost}`}
-                  onClick={() => trackCta('see_how_it_works', 'hero')}
+                  onClick={() => trackCta('see_nfl_board', 'hero')}
                 >
-                  See how it works <Icon name="right" />
-                </a>
+                  See this week&rsquo;s NFL picks <Icon name="right" />
+                </Link>
               </div>
               <p className={styles.heroMeta}>
                 No credit card required
@@ -344,8 +278,8 @@ export default function GuestLanding() {
               </p>
             </div>
 
-            {/* ── Sample signal ── */}
-            <div id="signal" className={styles.signal}>
+            {/* ── A real pick, as the app shows it ── */}
+            <div id="pick" className={styles.shot}>
               <img
                 src="/brand/mascots/football-3d.webp"
                 alt=""
@@ -354,152 +288,107 @@ export default function GuestLanding() {
                 width={487}
                 height={900}
               />
-              <div className={styles.signalTop}>
-                <h2 className={styles.signalTitle}>
-                  <svg width="42" height="18" viewBox="0 0 42 18" aria-hidden="true">
-                    <rect x="0" y="12" width="12" height="6" fill="#38bdf8" />
-                    <rect x="13" y="8" width="12" height="10" fill="#2f9bff" />
-                    <rect x="26" y="2" width="16" height="16" fill="#1d8bff" />
-                  </svg>
-                  Model signal preview
-                </h2>
-                <span className={styles.signalTag}>Illustrative example</span>
-              </div>
-
-              <div className={styles.tabs} role="tablist" aria-label="Sample league">
-                {SAMPLES.map((s) => (
-                  <button
-                    key={s.id}
-                    ref={(el) => { tabRefs.current[s.id] = el; }}
-                    type="button"
-                    role="tab"
-                    id={`sample-tab-${s.id}`}
-                    aria-selected={s.id === sampleId}
-                    aria-controls="sample-panel"
-                    tabIndex={s.id === sampleId ? 0 : -1}
-                    className={styles.tab}
-                    onClick={() => selectSample(s.id)}
-                    onKeyDown={onTabKeyDown}
-                  >
-                    {s.label}
-                  </button>
-                ))}
-              </div>
-
-              <div
-                id="sample-panel"
-                role="tabpanel"
-                aria-labelledby={`sample-tab-${sample.id}`}
-                className={styles.signalCard}
-              >
-                <div className={styles.matchup}>
-                  <div className={styles.teams}>
-                    <span className={styles.team}>{sample.home}</span>
-                    <span className={styles.vs}>vs</span>
-                    <span className={styles.team}>{sample.away}</span>
-                  </div>
-                  <p className={styles.matchupMeta}>
-                    Sample matchup<br />Moneyline · {sample.home} win
-                  </p>
-                </div>
-
-                <div className={styles.probRow}>
-                  <div className={styles.probHead}>
-                    <span>Maximus model probability</span>
-                    <span className={styles.probValue}>{sample.model}%</span>
-                  </div>
-                  <div className={styles.bar} aria-hidden="true">
-                    <span className={styles.barModel} style={{ width: `${sample.model}%` }} />
-                  </div>
-                </div>
-                <div className={styles.probRow}>
-                  <div className={styles.probHead}>
-                    <span>Market-implied probability</span>
-                    <span className={styles.probValue}>{sample.market}%</span>
-                  </div>
-                  <div className={styles.bar} aria-hidden="true">
-                    <span className={styles.barMarket} style={{ width: `${sample.market}%` }} />
-                  </div>
-                </div>
-
-                <div className={styles.diverge}>
-                  <div>
-                    <h3 className={styles.divergeTitle}>See where projections diverge</h3>
-                    <p className={styles.divergeBody}>
-                      Compare model estimates with market pricing and explore the drivers
-                      behind the difference.
-                    </p>
-                  </div>
-                  <div className={styles.gap}>
-                    <span className={styles.gapValue}>+{gap.toFixed(1)} pp</span>
-                    <span className={styles.gapLabel}>Probability gap</span>
-                  </div>
-                </div>
-
-                <ul className={styles.drivers} aria-label="Signal drivers">
-                  {DRIVERS.map((d) => <li key={d}>{d}</li>)}
-                </ul>
-              </div>
-
-              <p className={styles.signalNote}>
-                Concept preview only. Not live market data or a betting recommendation.
+              <PickTicket />
+              <p className={styles.shotNote}>
+                A real pick from {WEEK.label}, shown as it was locked on November 21, 2026.
+                One example is not a record: every result, win or lose, is on{' '}
+                <Link to="/record" onClick={() => trackCta('public_record', 'hero')}>the public record</Link>.
               </p>
             </div>
           </section>
 
-          {/* ── Advantage ── */}
-          <section id="platform" className={styles.section}>
+          {/* ── Every game, three markets ── */}
+          <section id="every-game" className={styles.section}>
+            <div className={styles.split}>
+              <div className={styles.splitCopy}>
+                <p className={styles.kicker}>
+                  {WEEK.label}: {WEEK.games} games, {WEEK.calls} calls, {WEEK.recommended} recommended
+                </p>
+                <h2 className={styles.h2}>A call on every game. A pick only when the price is right.</h2>
+                <p className={styles.panelBody}>
+                  Most games are not worth a bet, and the board says so. Every game gets a call
+                  in each market, ranked from strongest to weakest, with one line on why.
+                </p>
+                <dl className={styles.framework}>
+                  {FRAMEWORK.map(([term, body]) => (
+                    <div key={term}>
+                      <dt>{term}</dt>
+                      <dd>{body}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </div>
+              <EveryGame />
+            </div>
+          </section>
+
+          {/* ── Matchups ── */}
+          <section id="matchups" className={styles.section}>
             <div className={styles.sectionHead}>
               <div>
-                <p className={styles.kicker}>The Maximus advantage</p>
-                <h2 className={styles.h2}>More than picks.<br />The intelligence behind them.</h2>
+                <p className={styles.kicker}>Player and position-group matchups</p>
+                <h2 className={styles.h2}>See where a game is won,<br />down to the position group.</h2>
               </div>
               <p className={styles.sectionAside}>
-                Get the context to understand an opportunity, not just another number on a screen.
+                Every starter is rated. Starters roll up to position groups, and position
+                groups to the units that line up against each other on Sunday.
               </p>
             </div>
-            <div className={styles.grid3}>
-              {ADVANTAGES.map((a) => (
-                <article key={a.title} className={styles.card}>
-                  <span className={styles.cardIcon}><Icon name={a.icon} /></span>
-                  <div>
-                    <h3 className={styles.cardTitle}>{a.title}</h3>
-                    <p className={styles.cardBody}>{a.body}</p>
-                  </div>
-                </article>
-              ))}
-            </div>
+            <MatchupWindow />
+            <p className={styles.afterShot}>
+              Built for every game on the slate and every team in the league.{' '}
+              <Link to="/nfl/teams" onClick={() => trackCta('nfl_teams', 'matchups')}>
+                Browse the 32 team pages <Icon name="right" />
+              </Link>
+            </p>
           </section>
 
-          {/* ── How it works ── */}
-          <section id="how-it-works" className={styles.section}>
+          {/* ── The week ── */}
+          <section id="week" className={styles.section}>
+            <div className={styles.sectionHead}>
+              <div>
+                <p className={styles.kicker}>How often the board moves</p>
+                <h2 className={styles.h2}>The football week, on a clock.</h2>
+              </div>
+              <p className={styles.sectionAside}>
+                Lines move all week. The board keeps up, and it keeps the receipts.
+              </p>
+            </div>
+            <WeekClock />
+            <p className={styles.afterShot}>
+              Every pick, price and result is public.{' '}
+              <Link to="/record" onClick={() => trackCta('public_record', 'week')}>
+                Read the record <Icon name="right" />
+              </Link>
+            </p>
+          </section>
+
+          {/* ── The rest of the NFL section ── */}
+          <section id="platform" className={styles.section}>
             <div className={styles.panel}>
               <div className={styles.panelCopy}>
-                <p className={styles.kicker}>From data to conviction</p>
-                <h2 className={styles.h2}>One clear view.<br />Every signal in context.</h2>
+                <p className={styles.kicker}>Also in the NFL section</p>
+                <h2 className={styles.h2}>Everything around the pick.</h2>
                 <p className={styles.panelBody}>
-                  A premium research workspace for people who follow sports and sports
-                  markets seriously.
+                  The pick is one line. The reading that gets you there is the rest of the
+                  section, and it is free to explore.
                 </p>
                 <Link
-                  to="/nba/insights"
+                  to="/nfl"
                   className={`${styles.btn} ${styles.btnGhost} ${styles.btnSm}`}
-                  onClick={() => trackCta('explore_sample_insight', 'how_it_works')}
+                  onClick={() => trackCta('open_nfl', 'platform')}
                 >
-                  Explore a sample insight <Icon name="right" />
+                  Open the NFL section <Icon name="right" />
                 </Link>
               </div>
-              <ol className={styles.steps}>
-                {STEPS.map((s, i) => (
-                  <li key={s.title} className={styles.step}>
-                    <span className={styles.stepNum} aria-hidden="true">0{i + 1}</span>
-                    <div>
-                      <h3 className={styles.stepTitle}>{s.title}</h3>
-                      <p className={styles.stepBody}>{s.body}</p>
-                    </div>
-                  </li>
+              <dl className={styles.also}>
+                {ALSO.map(([term, body]) => (
+                  <div key={term}>
+                    <dt>{term}</dt>
+                    <dd>{body}</dd>
+                  </div>
                 ))}
-              </ol>
+              </dl>
             </div>
           </section>
 
@@ -532,7 +421,8 @@ export default function GuestLanding() {
                 <h2 className={styles.h2}>Go deeper on the sports you follow.</h2>
               </div>
               <p className={styles.sectionAside}>
-                Access dedicated models, coverage, briefings, and markets by league.
+                The NFL is in season. Baseball, basketball and college basketball each have
+                their own briefings, picks and markets.
               </p>
             </div>
             <div className={styles.gridLeagues}>
@@ -604,13 +494,15 @@ export default function GuestLanding() {
               decoding="async"
             />
             <p className={styles.footerNote}>
-              © {new Date().getFullYear()} Maximus Sports. Sample probabilities on this page are
-              illustrative only.<br />
-              Analysis is informational and does not guarantee outcomes.
+              © {new Date().getFullYear()} Maximus Sports. Examples on this page are real picks and
+              ratings from {WEEK.label} of the 2026 season, shown as they appeared in the app.<br />
+              Analysis is informational and does not guarantee outcomes. 21+. Gambling problem?
+              Call 1-800-GAMBLER.
             </p>
             <nav className={styles.footerLinks} aria-label="Footer">
-              <a href="#how-it-works">How it works</a>
-              <a href="#methodology">Methodology</a>
+              <a href="#every-game">Every game</a>
+              <a href="#methodology">Reading a signal</a>
+              <Link to="/record">The record</Link>
               <Link to="/privacy">Privacy</Link>
               <Link to="/terms">Terms</Link>
               <Link to="/contact">Contact</Link>
