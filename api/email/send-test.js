@@ -47,6 +47,7 @@ const TEMPLATE_IMPORTS = {
   odds:           () => import('../../src/emails/templates/oddsIntel.js'),
   news:           () => import('../../src/emails/templates/breakingNews.js'),
   teamDigest:     () => import('../../src/emails/templates/teamDigest.js'),
+  nflPicks:       () => import('../../src/emails/templates/nflPicks.js'),
   mlbBriefing:    () => import('../../src/emails/templates/mlbBriefing.js'),
   mlbPicks:       () => import('../../src/emails/templates/mlbPicks.js'),
   mlbTeamDigest:  () => import('../../src/emails/templates/mlbTeamDigest.js'),

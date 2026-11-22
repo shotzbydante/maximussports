@@ -45,6 +45,7 @@ import { getSubject as getMlbBriefingSubject, renderHTML as renderMlbBriefingHTM
 import { getSubject as getMlbPicksSubject, renderHTML as renderMlbPicksHTML, renderText as renderMlbPicksText } from '../../src/emails/templates/mlbPicks.js';
 import { getSubject as getMlbDigestSubject, renderHTML as renderMlbDigestHTML, renderText as renderMlbDigestText } from '../../src/emails/templates/mlbTeamDigest.js';
 import { getSubject as getGlobalSubject, renderHTML as renderGlobalHTML, renderText as renderGlobalText } from '../../src/emails/templates/globalBriefing.js';
+import { getSubject as getNflPicksSubject, renderHTML as renderNflPicksHTML, renderText as renderNflPicksText, hasNflPicksContent } from '../../src/emails/templates/nflPicks.js';
 import { assembleTeamDigestPayload, TEAM_DIGEST_MAX_TEAMS } from '../_lib/teamDigest.js';
 import { getProfileEntitlements } from '../_lib/entitlements.js';
 import { fetchUserTeamsBatch, resolveTeamRows, getPinnedTeamSlugs } from '../_lib/getUserPinnedTeams.js';
@@ -100,11 +101,20 @@ async function fetchAllProfiles(sb) {
 
 // fetchUserTeams replaced by shared fetchUserTeamsBatch from getUserPinnedTeams.js
 
-async function fetchAlreadySent(sb, dateKey) {
+/**
+ * Who already got this email type today (UTC). email_send_log has no date_key
+ * or type column, so the guard reads the columns the table does have:
+ * digest_type and sent_at. Before this, both the read and the insert failed
+ * quietly and a second run on the same day would have mailed everyone again.
+ */
+async function fetchAlreadySent(sb, type) {
+  const dayStart = `${new Date().toISOString().slice(0, 10)}T00:00:00.000Z`;
   const { data, error } = await sb
     .from('email_send_log')
     .select('user_id')
-    .eq('date_key', dateKey);
+    .eq('digest_type', type)
+    .gte('sent_at', dayStart)
+    .limit(10000);
   if (error) {
     console.warn('[run-daily] email_send_log read error:', error.message);
     return new Set();
@@ -115,11 +125,12 @@ async function fetchAlreadySent(sb, dateKey) {
 async function logEmailSend(sb, { userId, email, type, dateKey }) {
   try {
     const { error } = await sb.from('email_send_log').insert({
-      user_id:  userId,
-      email:    email,
-      type:     type,
-      date_key: dateKey,
-      sent_at:  new Date().toISOString(),
+      user_id:     userId,
+      email:       email,
+      digest_type: type,
+      sent_at:     new Date().toISOString(),
+      run_mode:    'scheduled',
+      metadata:    { date_key: dateKey },
     });
     if (error) {
       console.warn(`[run-daily] email_send_log insert failed for ${userId}: ${error.message} (code=${error.code})`);
@@ -330,7 +341,7 @@ export default async function handler(req, res) {
   }
 
   // Track skip reasons for the summary
-  const skipCounts = { opted_out: 0, no_email: 0, no_profile: 0, already_sent: 0, no_digest_teams: 0 };
+  const skipCounts = { opted_out: 0, no_email: 0, no_profile: 0, already_sent: 0, no_digest_teams: 0, no_content: 0 };
 
   try {
     // ── 1. Get all users from auth (paginated)
@@ -406,7 +417,7 @@ export default async function handler(req, res) {
     }
 
     // ── 4. Check already-sent for today
-    const alreadySent = await fetchAlreadySent(sb, dateKey);
+    const alreadySent = await fetchAlreadySent(sb, type);
     skipCounts.already_sent = alreadySent.size;
 
     // ── 5. Determine who still needs to receive
@@ -466,6 +477,12 @@ export default async function handler(req, res) {
       oddsGames = canonicalAssembled.oddsGames;
       botIntelBullets = canonicalAssembled.botIntelBullets || [];
       mlbData = canonicalAssembled.mlbData;
+
+    } else if (tplType === 'nflPicks') {
+      // ── NFL picks: the board is the whole payload ──
+      const host = req.headers.host || 'localhost:3000';
+      const proto = host.includes('localhost') ? 'http' : 'https';
+      canonicalAssembled = await assembleEmailData(type, `${proto}://${host}`);
 
     } else if (isMLB) {
       // ── MLB-specific: use CANONICAL assembleEmailData pipeline ──
@@ -779,6 +796,19 @@ export default async function handler(req, res) {
             text    = renderDigestText(digestEmailData);
             break;
           }
+          case 'nflPicks':
+            // Nothing upcoming on the board (every game has kicked off, or the
+            // board did not build): say nothing instead of sending an empty email.
+            if (!hasNflPicksContent(emailData)) {
+              skipCounts.no_content++;
+              if (i === 0) console.warn('[run-daily] nfl_picks: no upcoming picks or leans on the board, skipping the run');
+              continue;
+            }
+            emailData.userId = userId;
+            subject = getNflPicksSubject(emailData);
+            html    = renderNflPicksHTML(emailData);
+            text    = renderNflPicksText(emailData);
+            break;
           case 'mlbBriefing':
             subject = getMlbBriefingSubject(emailData);
             html    = renderMlbBriefingHTML(emailData);
@@ -902,6 +932,7 @@ export default async function handler(req, res) {
       `    no_profile:       ${skipCounts.no_profile} (used defaults)`,
       `    already_sent:     ${skipCounts.already_sent}`,
       `    no_digest_teams:  ${skipCounts.no_digest_teams}`,
+      `    no_content:       ${skipCounts.no_content}`,
       `  started_at:   ${startedAtISO}`,
       `  completed_at: ${completedAtISO}`,
       `  elapsed:      ${elapsed}s`,

@@ -56,7 +56,8 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: 'Invalid token' });
   }
 
-  const query = (getQueryParam(req, 'q') || '').trim();
+  // People paste handles with the @; it is not part of a username.
+  const query = (getQueryParam(req, 'q') || '').trim().replace(/^@+/, '');
   if (!query || query.length < 2) {
     return res.status(200).json({ results: [] });
   }
@@ -71,11 +72,14 @@ export default async function handler(req, res) {
       .neq('id', user.id)
       .ilike('username', pattern)
       .limit(15);
+    // (a null username never matches ilike, so every hit here has a handle)
 
     const displayNameSearch = sb
       .from('profiles')
       .select(PROFILE_SELECT)
       .neq('id', user.id)
+      // A profile with no username cannot be shown as a handle or found again.
+      .not('username', 'is', null)
       .ilike('display_name', pattern)
       .limit(15);
 

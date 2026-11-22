@@ -5,7 +5,8 @@
  * Always renders the Maximus robot mascot, customized if config is available,
  * otherwise using defaults. Sizes: 'sm' (28px), 'md' (36px), 'lg' (48px)
  */
-import RobotAvatar, { DEFAULT_ROBOT_CONFIG } from './RobotAvatar';
+import MaximusAvatar from './MaximusAvatar';
+import { normalizeAvatar } from '../../brand/avatar';
 import styles from './ProfileAvatar.module.css';
 
 const SIZE_MAP = { sm: 28, md: 36, lg: 48, xl: 72 };
@@ -26,11 +27,7 @@ export function VerifiedBadge({ className = '' }) {
 export default function ProfileAvatar({ username, favoriteNumber, isPro, avatarConfig, size = 'md' }) {
   const px = SIZE_MAP[size] || SIZE_MAP.md;
 
-  const cfg = avatarConfig || {};
-  const jerseyNumber = cfg.jerseyNumber || favoriteNumber || '';
-  const jerseyColor = cfg.jerseyColor || DEFAULT_ROBOT_CONFIG.jerseyColor;
-  const robotColor = cfg.robotColor || DEFAULT_ROBOT_CONFIG.robotColor;
-  const mascotType = cfg.mascotType || 'basketball';
+  const a = normalizeAvatar(avatarConfig, favoriteNumber != null ? String(favoriteNumber) : '');
 
   return (
     <span
@@ -38,13 +35,7 @@ export default function ProfileAvatar({ username, favoriteNumber, isPro, avatarC
       style={{ width: px, height: px }}
       aria-label={`${username || 'User'} avatar`}
     >
-      <RobotAvatar
-        jerseyNumber={jerseyNumber}
-        jerseyColor={jerseyColor}
-        robotColor={robotColor}
-        mascotType={mascotType}
-        size={px}
-      />
+      <MaximusAvatar sport={a.sport} skin={a.skin} number={a.number} size={px} title={`${username || 'User'} avatar`} />
       {isPro && <span className={styles.proBadge}>PRO</span>}
     </span>
   );

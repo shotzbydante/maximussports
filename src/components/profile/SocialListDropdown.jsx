@@ -45,8 +45,8 @@ function DropdownUserRow({ user: u, onFollow, onUnfollow }) {
       <div className={styles.userAvatar}>
         <RobotAvatar
           jerseyNumber={u.avatarConfig?.jerseyNumber || ''}
-          jerseyColor={u.avatarConfig?.jerseyColor}
           robotColor={u.avatarConfig?.robotColor}
+          mascotType={u.avatarConfig?.mascotType}
           size={40}
         />
       </div>
