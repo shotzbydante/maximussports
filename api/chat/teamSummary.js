@@ -53,18 +53,27 @@ function getPstDate() {
 function buildPayload(data) {
   const { team, schedule, ats, teamNews, rank, tier, titleOdds = null, nextGameLine = null } = data;
 
+  // Results are stated from this team's side (W/L, its score first) so the
+  // model never has to guess who won from a bare "99–78".
   const recentResults = (schedule.recent || []).slice(0, 5).map((g) => {
-    const hs = parseInt(g.homeScore ?? g.homeTeamScore, 10);
-    const as = parseInt(g.awayScore ?? g.awayTeamScore, 10);
-    const opp = g.opponent || g.awayTeam || g.homeTeam || 'Unknown';
-    const score = !isNaN(hs) && !isNaN(as) ? `${as}–${hs}` : null;
-    return { opponent: opp, result: g.result ?? null, score };
+    const opp = g.opponent || 'Unknown';
+    const us = parseInt(g.ourScore, 10);
+    const them = parseInt(g.oppScore, 10);
+    if (isNaN(us) || isNaN(them)) return { opponent: opp, result: null, score: null };
+    return {
+      opponent: opp,
+      result: us > them ? 'W' : us < them ? 'L' : 'T',
+      teamScore: us,
+      opponentScore: them,
+      site: g.homeAway === 'home' ? 'home' : g.homeAway === 'away' ? 'away' : null,
+    };
   });
 
-  const upcomingGames = (schedule.upcoming || []).slice(0, 3).map((g) => {
-    const opp = g.opponent || g.awayTeam || g.homeTeam || 'TBD';
-    return { opponent: opp, date: g.gameDate?.slice(0, 10) ?? null };
-  });
+  const upcomingGames = (schedule.upcoming || []).slice(0, 3).map((g) => ({
+    opponent: g.opponent || 'TBD',
+    date: (g.date || g.gameDate || '').slice(0, 10) || null,
+    site: g.homeAway === 'home' ? 'home' : g.homeAway === 'away' ? 'away' : null,
+  }));
 
   const atsRec = ats?.last7 || ats?.last30 || ats?.season || null;
   const atsSummary = atsRec
@@ -80,9 +89,9 @@ function buildPayload(data) {
     dateNow: getPstDate(),
     team: team?.name ?? 'Unknown',
     conference: team?.conference ?? null,
-    rank: rank != null ? `#${rank}` : 'Unranked',
+    nationalRank: rank != null ? `#${rank}` : 'Unranked',   // national poll, not conference standing
     bracketTier: tier ?? null,
-    recentResults,       // last 5 final games
+    recentResults,       // last 5 finals, newest first: { opponent, result: W|L, teamScore, opponentScore, site }
     upcomingGames,       // next 3
     atsSummary,          // { wl, coverPct, total } or null
     titleOdds,           // { odds: '+750', impliedPct } or null — national title price
@@ -138,7 +147,7 @@ function buildPrompt(data) {
 
   const p1 = isTournament
     ? '¶1 TOURNAMENT STATUS: Team name, tournament seed (if applicable from bracketTier), conference, and recent form. Frame in tournament context — are they a contender, Cinderella, or early exit risk? If titleOdds is present, state the title price exactly. Include ONE approved quote if natural.'
-    : '¶1 IDENTITY + FORM: Team name, ranking, conference, bracket tier, and recent results (trend from recentResults). If titleOdds is present, state the national title price exactly (e.g. "+750") with its implied probability. Include ONE quote from the approved list if it fits naturally.';
+    : '¶1 IDENTITY + FORM: Team name, national ranking (nationalRank is the national poll, not a conference position), conference, bracket tier, and recent results (recentResults is newest first; result is W or L from this team\'s side, with teamScore listed before opponentScore). If titleOdds is present, state the national title price exactly (e.g. "+750") with its implied probability. Include ONE quote from the approved list if it fits naturally.';
 
   const p3 = isTournament
     ? '¶3 TOURNAMENT MATCHUP: First opponent from upcomingGames. Frame as a tournament betting setup — seed matchup and, if nextGameLine is present for that opponent, its spread and total exactly as given. If eliminated or no tournament game, note their season is over or discuss NIT/offseason outlook.'
