@@ -11,7 +11,9 @@ import { useWorkspace } from '../../workspaces/WorkspaceContext';
 import SEOHead from '../../components/seo/SEOHead';
 import NflGameCard from '../../components/nfl/NflGameCard';
 import NflIntelFeed from '../../components/nfl/NflIntelFeed';
-import { TeamTalent } from '../../components/nfl/NflTalent';
+import { TalentSnapshot, WeekTalent, RosterTalent } from '../../components/nfl/NflTalent';
+import useNflTeamTalent from '../../hooks/useNflTeamTalent';
+import t from '../../components/nfl/talent.module.css';
 import usePinnedTeams, { getAllPinnedSlugs } from '../../hooks/usePinnedTeams';
 import { useTeamPin } from '../../hooks/useTeamPin';
 import { usePlan } from '../../hooks/usePlan';
@@ -243,6 +245,7 @@ function TeamDetail({ team }) {
     [team, board, odds, model],
   );
 
+  const talent = useNflTeamTalent(team.slug, game);
   const pinned = isPinned(team.slug);
 
   const togglePin = async () => {
@@ -329,17 +332,30 @@ function TeamDetail({ team }) {
         </div>
       )}
 
-      {summary && (
-        <section className={`${s.card} ${s.cardAccent} ${s.briefing}`}>
-          <h2 className={s.sectionTitle}>Intel briefing</h2>
-          <p className={s.briefingBody}>{summary}</p>
-        </section>
+      {(summary || talent.me) && (
+        <div className={talent.me && summary ? t.topGrid : undefined}>
+          {summary && (
+            <section className={`${s.card} ${s.cardAccent} ${s.briefing}`}>
+              <h2 className={s.sectionTitle}>Intel briefing</h2>
+              <p className={s.briefingBody}>{summary}</p>
+            </section>
+          )}
+          {talent.me && <TalentSnapshot me={talent.me} name={`The ${team.nickname}`} teamCount={talent.data.teamCount} />}
+        </div>
       )}
 
       <section className={s.section}>
         <h2 className={s.sectionTitle}>This week</h2>
         {game ? (
-          <div className={s.gridGames}><NflGameCard game={game} /></div>
+          <div className={talent.week ? t.weekGrid : s.gridGames}>
+            <NflGameCard game={game} />
+            {talent.week && (
+              <WeekTalent
+                week={talent.week}
+                matchupPath={buildPath(`/games/${game.teams.away.slug}-at-${game.teams.home.slug}`)}
+              />
+            )}
+          </div>
         ) : onBye ? (
           <div className={s.empty}><span className={s.emptyTitle}>Bye week</span>The {team.nickname} are off this week.</div>
         ) : (
@@ -347,7 +363,7 @@ function TeamDetail({ team }) {
         )}
       </section>
 
-      <TeamTalent team={team} game={game} />
+      {talent.me && <RosterTalent me={talent.me} data={talent.data} />}
 
       {injuries?.injuries?.length > 0 && <InjuryReport report={injuries} />}
 

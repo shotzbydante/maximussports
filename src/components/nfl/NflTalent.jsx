@@ -1,21 +1,21 @@
 /**
- * Roster talent sections for the team page and the game matchup page.
+ * Roster talent for the team page and the game matchup page.
  *
- * Shows where a roster is strong and thin: position-group grades with
- * league ranks, the counted starters with each rating behind their
- * Maximus score, and the unit-against-unit edges for a game.
+ * Team page: a snapshot near the top (ranks and a strip of position
+ * groups), the week's unit matchups beside the game, and lower down
+ * every group with its starters and ratings. Game page: unit against
+ * unit with the players behind each grade.
  * Context only: none of it moves a fair price.
  */
 
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useWorkspace } from '../../workspaces/WorkspaceContext';
 import NflLogo from './NflLogo';
 import s from './nfl.module.css';
 import t from './talent.module.css';
-import { fetchNflTeamTalent, fetchNflGameTalent } from '../../api/nfl';
+import { fetchNflGameTalent } from '../../api/nfl';
 import {
-  ordinal, unitPlayers, talentSentence, OFFENSE_GROUPS, DEFENSE_GROUPS, OFFENSE_UNITS,
+  ordinal, unitPlayers, OFFENSE_GROUPS, DEFENSE_GROUPS, OFFENSE_UNITS,
 } from '../../features/nfl/talent/talentView';
 
 const UNIT_KEY = {
@@ -48,19 +48,6 @@ function GradeBar({ grade, average, rank }) {
       <span className={`${t.barFill} ${tone(rank)}`} style={{ width: typeof grade === 'number' ? at(grade) : 0 }} />
       {typeof average === 'number' && <span className={t.barTick} style={{ left: at(average) }} />}
     </span>
-  );
-}
-
-function GroupTile({ row }) {
-  return (
-    <div className={t.tile}>
-      <div className={t.tileTop}>
-        <span className={t.tileLabel}>{row.label}</span>
-        <span className={`${t.tileRank} ${tone(row.rank)}`}>{row.rank ? ordinal(row.rank) : '—'}</span>
-      </div>
-      <span className={`${t.tileGrade} ${s.num}`}>{fmt(row.grade)}</span>
-      <GradeBar grade={row.grade} average={row.average} rank={row.rank} />
-    </div>
   );
 }
 
@@ -151,24 +138,29 @@ function EdgeRow({ m, teams, showPlayers }) {
   );
 }
 
-function Matchups({ data, showPlayers = false }) {
-  const { matchup } = data;
-  if (!matchup) return null;
-  const teams = Object.fromEntries(data.teams.map((x) => [x.abbrev, x]));
+/** Each team's four offense-side matchups, in a fixed order. */
+function matchupSides(data) {
   const order = OFFENSE_UNITS.map((u) => Object.keys(UNIT_KEY).find((k) => UNIT_KEY[k] === u));
-  const side = (code) => matchup.matchups
-    .filter((m) => m.offenseTeam === code)
-    .sort((a, b) => order.indexOf(a.offense) - order.indexOf(b.offense));
-  const [away, home] = data.teams;
+  return data.teams.map((x) => ({
+    team: x,
+    rows: data.matchup.matchups
+      .filter((m) => m.offenseTeam === x.abbrev)
+      .sort((p, q) => order.indexOf(p.offense) - order.indexOf(q.offense)),
+  }));
+}
+
+function Matchups({ data, showPlayers = false }) {
+  if (!data.matchup) return null;
+  const teams = Object.fromEntries(data.teams.map((x) => [x.abbrev, x]));
   return (
     <div className={t.matchGrid}>
-      {[away, home].map((x) => (
+      {matchupSides(data).map(({ team: x, rows }) => (
         <div key={x.abbrev} className={s.card}>
           <div className={t.matchHead}>
             <NflLogo slug={x.slug} size={22} />
             <span>When {x.nickname} have the ball</span>
           </div>
-          {side(x.abbrev).map((m) => <EdgeRow key={m.offense} m={m} teams={teams} showPlayers={showPlayers} />)}
+          {rows.map((m) => <EdgeRow key={m.offense} m={m} teams={teams} showPlayers={showPlayers} />)}
         </div>
       ))}
     </div>
@@ -187,80 +179,129 @@ function leanLine(data) {
   return `Roster talent leans to the ${name(matchup.leansTo)} by ${Math.abs(matchup.netHome).toFixed(1)} points across the eight unit matchups.${biggest}`;
 }
 
-/** Team page: ranks, position groups, starters, and this week's unit edges. */
-export function TeamTalent({ team, game }) {
-  const { buildPath } = useWorkspace();
-  const [data, setData] = useState(null);
-  const [week, setWeek] = useState(null);
-  const away = game?.teams?.away?.slug;
-  const home = game?.teams?.home?.slug;
-  const upcoming = Boolean(away && home && !game?.gameState?.isFinal);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetchNflTeamTalent(team.slug).then((d) => { if (!cancelled) setData(d); });
-    return () => { cancelled = true; };
-  }, [team.slug]);
-
-  useEffect(() => {
-    if (!upcoming) return undefined;
-    let cancelled = false;
-    fetchNflGameTalent({ away, home }).then((d) => { if (!cancelled) setWeek(d); });
-    return () => { cancelled = true; };
-  }, [upcoming, away, home]);
-
-  if (data === null) return <section className={s.section}><h2 className={s.sectionTitle}>Roster talent</h2><div className={s.skeleton} /></section>;
-  const me = data.available ? data.teams[0] : null;
-  if (!me) return null;
-  const offense = me.players.filter((p) => OFFENSE_GROUPS.includes(p.group));
-  const defense = me.players.filter((p) => DEFENSE_GROUPS.includes(p.group));
-
+function GroupCell({ row }) {
   return (
-    <section className={s.section}>
-      <div className={s.sectionHead}>
-        <h2 className={s.sectionTitle}>Roster talent</h2>
-        <span className={s.sectionSub}>Position groups, starters and ratings</span>
-      </div>
+    <span className={`${t.cell} ${row.rank <= 10 ? t.cellStrong : row.rank > 22 ? t.cellWeak : ''}`} title={`${row.label}: ${fmt(row.grade)}, ${ordinal(row.rank)} of 32`}>
+      <span className={t.cellLabel}>{row.group}</span>
+      <span className={t.cellRank}>{ordinal(row.rank)}</span>
+    </span>
+  );
+}
 
-      <div className={s.stats}>
-        {[['Overall talent', me.overall], ['Offense', me.offense], ['Defense', me.defense]].map(([label, v]) => (
-          <div key={label} className={s.stat}>
-            <span className={s.statLabel}>{label}</span>
-            <span className={s.statValue}>{fmt(v.grade)}</span>
-            <span className={`${s.statSub} ${tone(v.rank)}`}>{v.rank ? `${ordinal(v.rank)} of ${data.teamCount}` : ''}</span>
+/** Top of the team page: where the roster ranks and where it is strong or thin, at a glance. */
+export function TalentSnapshot({ me, name, teamCount = 32 }) {
+  const side = (groups) => me.groups.filter((r) => groups.includes(r.group));
+  return (
+    <section className={`${s.card} ${t.snap}`}>
+      <div className={t.snapHead}>
+        <h2 className={s.sectionTitle}>Roster talent</h2>
+        <a href="#roster-talent" className={t.snapLink}>Starters and ratings</a>
+      </div>
+      <div className={t.snapNums}>
+        {[['Overall', me.overall], ['Offense', me.offense], ['Defense', me.defense]].map(([label, v]) => (
+          <div key={label} className={t.snapNum}>
+            <span className={`${t.snapRank} ${tone(v.rank)}`}>{ordinal(v.rank)}</span>
+            <span className={t.snapLabel}>{label} · {fmt(v.grade)}</span>
           </div>
         ))}
-        <div className={s.stat}>
-          <span className={s.statLabel}>Strongest</span>
-          <span className={s.statValue}>{me.strengths[0]?.label}</span>
-          <span className={`${s.statSub} ${t.strong}`}>{me.strengths.map((r) => `${r.group} ${ordinal(r.rank)}`).join(' · ')}</span>
+      </div>
+      <div className={t.strips}>
+        <div>
+          <span className={t.stripLabel}>Offense</span>
+          <div className={t.strip}>{side(OFFENSE_GROUPS).map((r) => <GroupCell key={r.group} row={r} />)}</div>
         </div>
-        <div className={s.stat}>
-          <span className={s.statLabel}>Thinnest</span>
-          <span className={s.statValue}>{me.weaknesses[0]?.label}</span>
-          <span className={`${s.statSub} ${t.weak}`}>{me.weaknesses.map((r) => `${r.group} ${ordinal(r.rank)}`).join(' · ')}</span>
+        <div>
+          <span className={t.stripLabel}>Defense</span>
+          <div className={t.strip}>{side(DEFENSE_GROUPS).map((r) => <GroupCell key={r.group} row={r} />)}</div>
         </div>
       </div>
+      <p className={t.snapText}>
+        {name} are strongest at {me.strengths.map((r) => r.label.toLowerCase()).join(', ')} and thinnest at {me.weaknesses.map((r) => r.label.toLowerCase()).join(', ')}.
+      </p>
+      <p className={s.footnote}>Position-group rank of {teamCount}. Blue is top ten, orange is bottom ten.</p>
+    </section>
+  );
+}
 
-      <p className={t.sentence}>{talentSentence(me, `The ${team.nickname}`)}</p>
-
-      <div className={t.tiles}>{me.groups.map((row) => <GroupTile key={row.group} row={row} />)}</div>
-      <p className={s.footnote}>Grade and league rank for each position group. The tick marks the league average. Blue is top ten, orange is bottom ten.</p>
-
-      {week?.available && week.matchup && (
-        <>
-          <div className={s.sectionHead}>
-            <h3 className={t.subTitle}>This week&rsquo;s talent matchup</h3>
-            <Link to={buildPath(`/games/${away}-at-${home}`)}>Full matchup</Link>
+/** Beside this week's game: the eight unit matchups in one card. */
+export function WeekTalent({ week, matchupPath }) {
+  const teams = Object.fromEntries(week.teams.map((x) => [x.abbrev, x]));
+  return (
+    <div className={`${s.card} ${t.weekCard}`}>
+      <div className={t.snapHead}>
+        <h3 className={t.subTitle}>Talent matchup</h3>
+        {matchupPath && <Link to={matchupPath} className={t.snapLink}>Full matchup</Link>}
+      </div>
+      <p className={t.sentence}>{leanLine(week)}</p>
+      {matchupSides(week).map(({ team: x, rows }) => (
+        <div key={x.abbrev}>
+          <div className={t.matchHead}>
+            <NflLogo slug={x.slug} size={20} />
+            <span>When {x.nickname} have the ball</span>
           </div>
-          <p className={t.sentence}>{leanLine(week)}</p>
-          <Matchups data={week} />
-        </>
-      )}
+          {rows.map((m) => <EdgeRow key={m.offense} m={m} teams={teams} />)}
+        </div>
+      ))}
+    </div>
+  );
+}
 
-      <h3 className={t.subTitle}>Starters and ratings</h3>
-      <PlayersTable players={offense} title="Offense" />
-      <PlayersTable players={defense} title="Defense" />
+function PlayerRow({ p }) {
+  return (
+    <div className={t.player}>
+      <span className={t.playerName}>
+        {p.name}{p.xFactor && <span className={t.xf} title="Madden X-Factor">X</span>}
+        <span className={t.playerPos}>{p.pos}</span>
+      </span>
+      <span className={s.num}>{fmt(p.madden)}</span>
+      <span className={`${s.num} ${t.hideXs}`}>{p.pffRank != null ? `#${p.pffRank}` : '—'}</span>
+      <span className={`${s.num} ${t.hideXs}`}>{fmt(p.production)}</span>
+      <span><span className={`${t.scorePill} ${t[TIER_CLASS[p.tier]] || ''} ${s.num}`} title={p.tier || undefined}>{fmt(p.score)}</span></span>
+    </div>
+  );
+}
+
+/** Lower on the team page: every position group with its grade, rank and the starters behind it. */
+export function RosterTalent({ me, data }) {
+  const sides = [['Offense', OFFENSE_GROUPS, me.offense], ['Defense', DEFENSE_GROUPS, me.defense]];
+  return (
+    <section id="roster-talent" className={`${s.section} ${t.anchor}`}>
+      <div className={s.sectionHead}>
+        <h2 className={s.sectionTitle}>Starters and ratings</h2>
+        <span className={s.sectionSub}>Each position group&rsquo;s grade, league rank and the players behind it</span>
+      </div>
+      <div className={t.depthGrid}>
+        {sides.map(([title, groups, v]) => (
+          <div key={title} className={`${s.card} ${s.cardFlush}`}>
+            <div className={t.depthHead}>
+              <span>{title}</span>
+              <span className={tone(v.rank)}>{fmt(v.grade)} · {ordinal(v.rank)} of {data.teamCount}</span>
+            </div>
+            <div className={`${t.player} ${t.playerCols}`}>
+              <span>Player</span><span>Madden</span><span className={t.hideXs}>PFF</span><span className={t.hideXs}>Prod.</span><span>Maximus</span>
+            </div>
+            {groups.map((g) => {
+              const row = me.groups.find((r) => r.group === g);
+              const players = me.players.filter((p) => p.group === g);
+              if (!row) return null;
+              return (
+                <div key={g} className={t.group}>
+                  <div className={t.groupHead}>
+                    <span className={t.groupLabel}>{row.label}</span>
+                    <GradeBar grade={row.grade} average={row.average} rank={row.rank} />
+                    <span className={`${t.groupGrade} ${s.num}`}>{fmt(row.grade)}</span>
+                    <span className={`${t.tileRank} ${tone(row.rank)}`}>{ordinal(row.rank)}</span>
+                  </div>
+                  {players.map((p) => <PlayerRow key={p.name} p={p} />)}
+                </div>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+      <p className={s.footnote}>
+        Madden is the overall rating. PFF is the rank on its position list. Prod. is a 60 to 99 score from 2026 production. The Maximus score is shaded by tier: 90 and up elite, 80 and up good, under 70 below average. Each bar shows the group grade against the league average (the tick).
+      </p>
       <Method data={data} />
     </section>
   );
