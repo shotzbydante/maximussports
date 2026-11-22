@@ -302,5 +302,15 @@ describe('the reason on every pick', () => {
       payload: { ...p, why: undefined, whyShort: undefined } };
     const locked = applyLocks(out, [row]).heroPicks[0];
     expect(locked.why).toBe(p.why);                // from the stored rationale
+
+    // Locked before the field existed: rebuilt from the stored ticket, in the past tense.
+    const old = { ...row, payload: { ...p, why: undefined, whyShort: undefined, rationale: { headline: p.rationale.headline, bullets: [], pickRole: 'hero' } } };
+    const legacy = applyLocks(out, [old]).heroPicks[0];
+    expect(legacy.why).toMatch(/^BetMGM was paying -110 on LV \+3\.5 when this pick was locked; the market’s fair price was -\d+\. That gap was \+\d\.\d% expected value\.$/);
+    const windOld = { ...old, market_type: 'total', selection_side: 'under', line_value: 40.5, price_american: -105, book: 'DraftKings', expected_value: 0.047,
+      payload: { ...old.payload, modelSource: 'nfl_v2_wind', market: { type: 'total', line: 40.5, priceAmerican: -105 }, selection: { side: 'under', label: 'Under 40.5' },
+        rationale: { headline: 'Under 40.5: 15 mph wind and -105 at DraftKings', bullets: [], pickRole: 'hero' } } };
+    const windLegacy = applyLocks(out, [windOld]).heroPicks[0];
+    expect(windLegacy.why).toBe('15 mph wind was forecast when this pick was locked, and unders have won 57% of the time in wind that strong since 2003. DraftKings’s -105 on Under 40.5 was +4.7% expected value.');
   });
 });

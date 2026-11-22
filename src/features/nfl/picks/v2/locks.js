@@ -13,6 +13,7 @@
  */
 
 import { spreadProbs, totalProbs, expectedValue, probToAmerican } from './distribution.js';
+import { SITUATION_RECORDS } from './situations.js';
 
 function isNum(v) { return typeof v === 'number' && Number.isFinite(v); }
 const r3 = (v) => (isNum(v) ? Math.round(v * 1000) / 1000 : null);
@@ -105,9 +106,8 @@ export function applyLocks(board, rows = [], { maxPerTier = { tier1: 3, tier2: 5
     const winShare = now && now.win + now.lose > 0 ? now.win / (now.win + now.lose) : null;
     const pick = {
       ...r.payload,
-      // Picks locked before the "why" line existed fall back to their headline.
-      why: r.payload.why || r.payload.rationale?.why || r.payload.rationale?.headline || null,
-      whyShort: r.payload.whyShort || r.payload.why || r.payload.rationale?.headline || null,
+      // Picks locked before the "why" line existed get one rebuilt from what was stored.
+      ...storedWhy(r),
       tier: r.tier,
       pickRole: 'hero',
       isLowConviction: false,
@@ -190,6 +190,40 @@ export function applyLocks(board, rows = [], { maxPerTier = { tier1: 3, tier2: 5
     categories,
     legacy: { categories },
     meta: { ...board.meta, picksPublished: published.length, lockedPicks: lockedPicks.length },
+  };
+}
+
+const fmtOdds = (v) => (isNum(v) ? (v > 0 ? `+${v}` : `${v}`) : '');
+const WIND_UNDER_PCT = Math.round((SITUATION_RECORDS.windUnder.won / (SITUATION_RECORDS.windUnder.won + SITUATION_RECORDS.windUnder.lost)) * 100);
+
+/**
+ * The reason on a locked pick. New locks store it. A pick locked before the
+ * field existed has it rebuilt from its stored price, book and fair price,
+ * in the past tense: it describes the board when the pick was made.
+ */
+function storedWhy(r) {
+  const p = r.payload || {};
+  const why = p.why || p.rationale?.why;
+  if (why) return { why, whyShort: p.whyShort || p.rationale?.whyShort || why };
+  const headline = p.rationale?.headline || null;
+  const book = r.book || p.book?.title;
+  const price = fmtOdds(r.price_american == null ? p.market?.priceAmerican : Number(r.price_american));
+  const fairPrice = fmtOdds(p.fair?.priceAmerican);
+  const ev = r.expected_value == null ? p.ev : Number(r.expected_value);
+  const what = p.market?.type === 'moneyline' && p.selection?.team ? `${p.selection.team} to win` : p.selection?.label;
+  if (!book || !price || !what || !isNum(ev)) return { why: headline, whyShort: headline };
+  const evText = `${ev >= 0 ? '+' : ''}${(ev * 100).toFixed(1)}% expected value`;
+  const wind = p.modelSource === 'nfl_v2_wind' ? String(headline || '').match(/(\d+) mph wind/) : null;
+  if (wind) {
+    return {
+      why: `${wind[1]} mph wind was forecast when this pick was locked, and unders have won ${WIND_UNDER_PCT}% of the time in wind that strong since ${SITUATION_RECORDS.windUnder.since}. ${book}’s ${price} on ${what} was ${evText}.`,
+      whyShort: `${wind[1]} mph wind forecast at lock; unders win ${WIND_UNDER_PCT}% in wind that strong`,
+    };
+  }
+  if (!fairPrice) return { why: headline, whyShort: headline };
+  return {
+    why: `${book} was paying ${price} on ${what} when this pick was locked; the market’s fair price was ${fairPrice}. That gap was ${evText}.`,
+    whyShort: `${book} paid ${price}; the fair price was ${fairPrice}`,
   };
 }
 
