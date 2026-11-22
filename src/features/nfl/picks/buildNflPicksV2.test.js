@@ -98,6 +98,7 @@ describe('buildNflPicksV2', () => {
     expect(crowded.conviction.score).toBe(alone.conviction.score);
     expect(convictionFromEv(0.015)).toBeCloseTo(0.62, 2);
     expect(convictionFromEv(0.04)).toBeCloseTo(0.82, 2);
+    expect(convictionFromEv(0.2)).toBe(0.89);            // never "Elite" on expected value alone
   });
 
   it('recommends one side bet per game: the moneyline and spread are the same opinion', () => {
@@ -158,6 +159,12 @@ describe('buildNflPicksV2', () => {
     expect(total.rationale.headline).toContain('21 mph wind');
     expect(total.rationale.bullets.join(' ')).toContain('312-235');
     expect(total.betScore.components.situationalEdge).toBe(1);
+    // A pick that needs the wind estimate can be recommended, never a top play.
+    const offMarket = withEngine(game('g1', LV, KC, { market: { books: books({ betmgm: { total: 45.5 } }) } }), { weather: { tempF: 34, windMph: 21, hoursOut: 20, source: 'nws' } });
+    const capped = build([offMarket]).heroPicks.find((p) => p.market.type === 'total');
+    expect(capped.ev).toBeGreaterThan(0.04);
+    expect(capped.tier).toBe('tier2');
+    expect(capped.conviction.score).toBeLessThanOrEqual(79);
   });
 
   it('still prices the market when model data is missing, and says so', () => {

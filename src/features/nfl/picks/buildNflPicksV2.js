@@ -96,9 +96,16 @@ function teamShape(t) {
   };
 }
 
-/** Conviction shown in the UI. Recommended picks start at 62; leans stay under 50. */
+/**
+ * Conviction shown in the UI: a function of expected value and nothing
+ * else. Recommended picks start at 62; leans stay under 50. It tops out at
+ * 89 ("Strong"). The top band is left for a record that has earned it.
+ */
+const MAX_CONVICTION = 0.89;
+/** A pick that only clears the bar because of a situational adjustment cannot be a top-tier play. */
+const SITUATIONAL_MAX = Object.freeze({ tier: 'tier2', score: 0.79 });
 export function convictionFromEv(ev) {
-  return clamp01(0.5 + 8 * ev);
+  return Math.min(MAX_CONVICTION, clamp01(0.5 + 8 * ev));
 }
 function leanScore(gap) {
   return Math.min(0.49, 0.25 + 0.05 * Math.abs(isNum(gap) ? gap : 0));
@@ -372,7 +379,13 @@ export function buildNflPicksV2({
       const hold = c.hold || (shadowed ? 'same_side' : null);
       if (hold) bullets.unshift(HOLD_REASONS[hold]);
       const role = hold ? 'tracking' : 'hero';
-      const score = hold ? Math.min(0.49, convictionFromEv(offer.ev) - 0.2) : convictionFromEv(offer.ev);
+      let score = hold ? Math.min(0.49, convictionFromEv(offer.ev) - 0.2) : convictionFromEv(offer.ev);
+      if (wind && !hold) {
+        // The wind shift is an estimate, shrunk from a 23-year sample and
+        // applied to a forecast. It can make a pick; it cannot make a top play.
+        if (c.tier === 'tier1') c.tier = SITUATIONAL_MAX.tier;
+        score = Math.min(score, SITUATIONAL_MAX.score);
+      }
       return makePick({
         game, e, kind, side, line: kind === 'moneyline' ? null : offer.line, price: offer.price,
         book: { key: offer.book, title: offer.title }, probs: offer.probs, ev: offer.ev,

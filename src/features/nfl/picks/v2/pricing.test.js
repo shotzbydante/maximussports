@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  impliedProb, payout, devig, probToAmerican, spreadProbs, totalProbs, homeWinProb,
+  impliedProb, payout, devig, devigPower, probToAmerican, spreadProbs, totalProbs, homeWinProb,
   fairMarginFromSpread, fairTotalFromLine, fairMarginFromMoneyline, expectedValue, unitsFor,
 } from './distribution.js';
 import { buildConsensus, priceOffers, bestOffer } from './market.js';
@@ -20,6 +20,17 @@ describe('odds helpers', () => {
     expect(f.hold).toBeCloseTo(0.0476, 4);
     expect(devig(-150, 130).a).toBeCloseTo(0.58, 2);
     expect(devig(null, -110)).toBeNull();
+  });
+  it('takes more of the margin from the long shot than a proportional split does', () => {
+    const flat = devig(-1600, 900), power = devigPower(-1600, 900);
+    expect(power.a + power.b).toBeCloseTo(1, 9);
+    expect(power.b).toBeLessThan(flat.b - 0.015);          // +900 is not a 9.6% shot
+    expect(power.b).toBeGreaterThan(0.05);
+    const even = devigPower(-110, -110);
+    expect(even.a).toBeCloseTo(0.5, 6);
+    expect(Math.abs(devigPower(-173, 145).b - devig(-173, 145).b)).toBeLessThan(0.012);
+    expect(devigPower(null, 100)).toBeNull();
+    expect(devigPower(110, 110).a).toBeCloseTo(0.5, 6);     // no margin to remove
   });
   it('round-trips probability to a price', () => {
     expect(probToAmerican(0.6)).toBe(-150);
@@ -107,7 +118,7 @@ describe('buildConsensus', () => {
     expect(c.fairMargin).toBeGreaterThan(3);
     expect(c.fairMargin).toBeLessThan(3.6);
     expect(c.fairTotal).toBeCloseTo(44.5, 0);
-    expect(c.fairHomeWin).toBeCloseTo(devig(-160, 140).a, 3);
+    expect(c.fairHomeWin).toBeCloseTo(devigPower(-160, 140).a, 3);
   });
   it('refuses to call four books a consensus', () => {
     const c = buildConsensus(books().slice(0, 4));

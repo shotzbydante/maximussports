@@ -13,7 +13,7 @@
  */
 
 import {
-  fairMarginFromSpread, fairTotalFromLine, devig, spreadProbs, totalProbs,
+  fairMarginFromSpread, fairTotalFromLine, devigPower, spreadProbs, totalProbs,
   expectedValue, impliedProb,
 } from './distribution.js';
 
@@ -57,7 +57,7 @@ export function buildConsensus(books = [], params = MARKET_PARAMS) {
       if (isNum(t)) { totals.push(t); totalLines.push(b.total.line); }
     }
     if (b?.h2h) {
-      const f = devig(b.h2h.home, b.h2h.away);
+      const f = devigPower(b.h2h.home, b.h2h.away);
       if (f) homeWins.push(f.a);
     }
   }

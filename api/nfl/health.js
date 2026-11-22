@@ -137,7 +137,7 @@ export default async function handler(req, res) {
     };
   } catch (e) { storage.detail = e?.message || storage.detail; }
 
-  const weather = { name: 'weather', provider: weatherProvider(), ...getWeatherStatus(), detail: `provider: ${weatherProvider() === 'google' ? 'Google Weather API' : 'National Weather Service'}` };
+  const weather = { name: 'weather', ...getWeatherStatus(), provider: weatherProvider(), detail: `provider: ${weatherProvider() === 'google' ? 'Google Weather API' : 'National Weather Service'}` };
   const checks = { scoreboard, injuries, standings, teamSchedule, odds, nflverse: { ...nflverse, lastPull: getNflverseStatus() }, engine, weather, storage };
   const espnOk = scoreboard.ok && injuries.ok && standings.ok && teamSchedule.ok;
   const body = {

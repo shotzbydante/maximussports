@@ -145,7 +145,9 @@ export function buildModelFromRows({ games, teamWeeks, qbWeeks, coachGames = {},
     ratings, qbTable, qbIndex, unitGrades, unitSource: 'nflverse',
     schedule, nextDivisional, coachGames,
     lastPlayedWeek,
-    behind: asOf.week - 1 - lastPlayedWeek,
+    // Weeks of finished games the files have not caught up with. Zero when
+    // this week's Thursday game is already in.
+    behind: Math.max(0, asOf.week - 1 - lastPlayedWeek),
     reasons,
   };
 }

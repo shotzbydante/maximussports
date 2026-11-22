@@ -46,6 +46,27 @@ export function devig(priceA, priceB) {
   return { a: a / (a + b), b: b / (a + b), hold: a + b - 1 };
 }
 
+/**
+ * Remove the margin from a two-way moneyline by the power method: find k
+ * with a^k + b^k = 1. Splitting the margin in proportion (as `devig` does)
+ * hands too much of it back to the long shot, which makes every big
+ * underdog look like value; the power method takes more from the long
+ * shot, the way books actually load their margin.
+ */
+export function devigPower(priceA, priceB) {
+  const a = impliedProb(priceA), b = impliedProb(priceB);
+  if (!isNum(a) || !isNum(b) || a <= 0 || b <= 0) return null;
+  if (a + b <= 1) return { a: a / (a + b), b: b / (a + b), hold: a + b - 1 };
+  let lo = 1, hi = 3;
+  for (let i = 0; i < 50; i++) {
+    const k = (lo + hi) / 2;
+    if (a ** k + b ** k > 1) lo = k; else hi = k;
+  }
+  const k = (lo + hi) / 2;
+  const fa = a ** k, fb = b ** k;
+  return { a: fa / (fa + fb), b: fb / (fa + fb), hold: a + b - 1 };
+}
+
 /** Probability → American odds (rounded). */
 export function probToAmerican(p) {
   if (!isNum(p) || p <= 0 || p >= 1) return null;
