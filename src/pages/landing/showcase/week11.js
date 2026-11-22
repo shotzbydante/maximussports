@@ -1,12 +1,17 @@
 /**
- * Real examples for the guest landing page, captured from production on
- * Sunday, November 22, 2026 (NFL Week 11, model nfl-picks-v2.2.0).
+ * Real examples for the guest landing page, from NFL Week 11 of the 2026
+ * season (games of November 19 to 23).
  *
- * Everything here was on screen in the app that morning: the pick as it was
- * locked, the calls as the "Every game" tabs ranked them, and the roster
- * talent matchup for Arizona at Kansas City. It is a snapshot, so the page
- * labels it with the week. Refresh it from /api/nfl/picks/built and
- * /api/nfl/talent when the examples get old.
+ * The board (EVERY_GAME) is the "Every game" tabs as production ranked
+ * them on Sunday morning, November 22, before the early kickoffs.
+ *
+ * The ticket and the matchup are Baltimore at Carolina, which finished
+ * 35-33 to the Panthers. The ticket shows the two calls locked on that
+ * game Saturday night, with how each was graded: both were leans (tracked,
+ * not recommended), and both won. The matchup is the roster talent view
+ * for the same game. It is a snapshot, so the page labels it with the
+ * week. Refresh it from the picks table and /api/nfl/talent when the
+ * examples get old.
  *
  * Left out on purpose: thresholds, weights, tiers, how a fair price is
  * built, and the Madden and PFF inputs behind a talent score.
@@ -15,6 +20,8 @@
 const logo = (code) => `https://a.espncdn.com/i/teamlogos/nfl/500/${code}.png`;
 
 export const TEAMS = {
+  BAL: { abbrev: 'BAL', nickname: 'Ravens', logo: logo('bal') },
+  CAR: { abbrev: 'CAR', nickname: 'Panthers', logo: logo('car') },
   ARI: { abbrev: 'ARI', nickname: 'Cardinals', logo: logo('ari') },
   KC: { abbrev: 'KC', nickname: 'Chiefs', logo: logo('kc') },
   NO: { abbrev: 'NO', nickname: 'Saints', logo: logo('no') },
@@ -33,27 +40,40 @@ export const TEAMS = {
 
 export const WEEK = { label: 'Week 11', games: 12, calls: 36, recommended: 3, books: 12 };
 
-/** The pick ticket, as locked. */
+/**
+ * The ticket: two calls on one game, as locked, then as graded.
+ * Final: Panthers 35, Ravens 33. Baltimore lost by 2 and covered +2.5;
+ * 68 points went over 43.5.
+ */
 export const TICKET = {
-  away: { ...TEAMS.ARI, record: '3-7' },
-  home: { ...TEAMS.KC, record: '7-2' },
+  away: { ...TEAMS.BAL, score: 33 },
+  home: { ...TEAMS.CAR, score: 35 },
+  status: 'Final',
   kickoff: 'Sun 1:00 PM ET',
-  network: 'CBS',
-  venue: 'GEHA Field at Arrowhead Stadium',
-  city: 'Kansas City, MO',
-  conditions: 'Outdoors, 15 mph wind, 47°F',
+  network: 'Fox',
+  venue: 'Bank of America Stadium',
+  city: 'Charlotte, NC',
   lines: [
-    { market: 'Spread', value: 'KC -15.5' },
-    { market: 'Moneyline', value: 'KC -1500', sub: 'ARI +900' },
-    { market: 'Over/under', value: '40.5', picked: true },
+    { market: 'Spread', value: 'BAL +2.5', picked: true },
+    { market: 'Moneyline', value: 'CAR -149', sub: 'BAL +127' },
+    { market: 'Over/under', value: '43.5', picked: true },
   ],
-  pick: 'Under 40.5',
-  price: '-105',
-  book: 'DraftKings',
-  conviction: 79,
-  locked: 'Locked Sat 11:02 PM ET',
-  value: '+4.7%',
-  why: 'DraftKings paid -105 on the under. Across 12 sportsbooks, the fair price was -116.',
+  calls: [
+    {
+      pick: 'Ravens +2.5', team: 'BAL', market: 'Spread', price: '+100', book: 'Caesars',
+      result: 'won',
+      graded: 'Baltimore lost by 2, inside the 2.5.',
+      why: 'Ratings made it Carolina by 2.4; the market said 2.5.',
+    },
+    {
+      pick: 'Over 43.5', team: null, market: 'Over/under', price: '-112', book: 'BetMGM',
+      result: 'won',
+      graded: '68 points, 24.5 over the number.',
+      why: 'Ratings projected 45.8 points against a total of 43.5.',
+    },
+  ],
+  locked: 'Both locked Sat 11:02 PM ET',
+  graded: 'Graded Sunday: 2 for 2',
 };
 
 /** The four "Every game" tabs, top of each list. `chip` is the label the app shows. */
@@ -104,41 +124,52 @@ export const EVERY_GAME = [
   },
 ];
 
-/** Arizona at Kansas City: unit against unit when the Chiefs have the ball. */
+/**
+ * Baltimore at Carolina: unit against unit when the Panthers have the ball.
+ *
+ * `edge` is from the offense's side: positive favours the offense, negative
+ * the defense. Under three points the app calls a matchup even.
+ *
+ * The players named for Baltimore are the top-rated ones in each unit who
+ * were active on Sunday. Nnamdi Madubuike and Marlon Humphrey were
+ * inactive, and Lamar Jackson is on injured reserve; the grades and ranks
+ * below are season roster ratings and still count all three (see `note`).
+ */
 export const MATCHUP = {
-  away: TEAMS.ARI,
-  home: TEAMS.KC,
-  lean: 'Roster talent leans to the Chiefs. The biggest gap: Kansas City’s quarterback against Arizona’s pass defense.',
-  offense: TEAMS.KC,
-  defense: TEAMS.ARI,
+  away: TEAMS.BAL,
+  home: TEAMS.CAR,
+  lean: 'With Carolina on offense, every unit graded within three points of the Baltimore unit across from it. The game was decided by two.',
+  offense: TEAMS.CAR,
+  defense: TEAMS.BAL,
   rows: [
     {
-      unit: 'Quarterback', grade: 89.8, players: [['Patrick Mahomes', 89.8]],
-      against: 'Pass defense', againstGrade: 76.9, againstPlayers: [['Josh Sweat', 83.4], ['Budda Baker', 81.3]],
-      edge: 13.9, size: 'big',
+      unit: 'Run game', grade: 81.8, players: [['Chuba Hubbard', 90.4], ['Damien Lewis', 89.9]],
+      against: 'Run defense', againstGrade: 85.6, againstPlayers: [['Roquan Smith', 87.5], ['Trenton Simpson', 84.2]],
+      edge: -2.5, size: 'even',
     },
     {
-      unit: 'Receivers', grade: 86.1, players: [['Travis Kelce', 93.4], ['Rashee Rice', 86.9]],
-      against: 'Coverage', againstGrade: 73.5, againstPlayers: [['Budda Baker', 81.3], ['Will Johnson', 77.0]],
-      edge: 12.5, size: 'big',
+      unit: 'Quarterback', grade: 83.0, players: [['Bryce Young', 83.0]],
+      against: 'Pass defense', againstGrade: 83.1, againstPlayers: [['Kyle Hamilton', 92.6], ['Trey Hendrickson', 85.7]],
+      edge: 0.9, size: 'even',
     },
     {
-      unit: 'Run game', grade: 83.1, players: [['Kenneth Walker', 97.4], ['Trey Smith', 92.9]],
-      against: 'Run defense', againstGrade: 75.0, againstPlayers: [['Andrew Billings', 77.5], ['Mack Wilson Sr', 73.4]],
-      edge: 9.4, size: 'big',
+      unit: 'Receivers', grade: 81.5, players: [['Tetairoa McMillan', 88.6], ['Darren Waller', 83.4]],
+      against: 'Coverage', againstGrade: 81.9, againstPlayers: [['Kyle Hamilton', 92.6], ['Nate Wiggins', 79.3]],
+      edge: -0.5, size: 'even',
     },
     {
-      unit: 'Pass protection', grade: 80.3, players: [['Creed Humphrey', 91.5], ['Josh Simmons', 80.0]],
-      against: 'Pass rush', againstGrade: 80.2, againstPlayers: [['Josh Sweat', 83.4], ['Zaven Collins', 80.7]],
-      edge: 3.2, size: 'edge',
+      unit: 'Pass protection', grade: 81.3, players: [['Damien Lewis', 89.9], ['Taylor Moton', 84.0]],
+      against: 'Pass rush', againstGrade: 84.2, againstPlayers: [['Trey Hendrickson', 85.7], ['Calais Campbell', 81.5]],
+      edge: 0.2, size: 'even',
     },
   ],
-  /** League rank of 32 at each position group. */
+  /** League rank of 32 at each position group: [group, home, away]. */
   groups: [
-    { side: 'Offense', cells: [['QB', 6, 27], ['RB', 1, 22], ['WR', 11, 26], ['TE', 4, 3], ['OT', 29, 16], ['IOL', 2, 14]] },
-    { side: 'Defense', cells: [['EDGE', 20, 23], ['IDL', 19, 28], ['LB', 3, 32], ['CB', 5, 32], ['S', 27, 21]] },
+    { side: 'Offense', cells: [['QB', 15, 3], ['RB', 12, 16], ['WR', 18, 27], ['TE', 12, 17], ['OT', 14, 28], ['IOL', 13, 17]] },
+    { side: 'Defense', cells: [['EDGE', 26, 17], ['IDL', 22, 10], ['LB', 8, 6], ['CB', 22, 16], ['S', 17, 10]] },
   ],
-  overall: { home: [5, 84.1], away: [28, 77.1] },
+  overall: { home: [20, 81.4], away: [10, 83.6] },
+  note: 'Ranks rate each team’s season roster, so Baltimore’s still count Lamar Jackson, who is on injured reserve, and two defensive starters who were inactive on Sunday.',
 };
 
 /** The football week as the board runs it. */

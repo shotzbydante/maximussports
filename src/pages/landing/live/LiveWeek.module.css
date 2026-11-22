@@ -1,0 +1,381 @@
+/* ═══════════════════════════════════════════════════════════════
+   LiveWeek — this week's games on the dark landing page.
+   Tiles are the app's own light surface (same inks as Showcase), so a
+   visitor sees the game tile they get after signing in.
+   ═══════════════════════════════════════════════════════════════ */
+
+.kicker { display: flex; align-items: center; gap: 10px; }
+.liveDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ff5a4d;
+  box-shadow: 0 0 0 0 rgba(255, 90, 77, 0.6);
+  animation: weekPulse 1.8s ease-out infinite;
+}
+@keyframes weekPulse {
+  0% { box-shadow: 0 0 0 0 rgba(255, 90, 77, 0.55); }
+  100% { box-shadow: 0 0 0 9px rgba(255, 90, 77, 0); }
+}
+
+.grid {
+  --ink: #0b1b33;
+  --ink-2: #3b4d68;
+  --ink-3: #5d6f8a;
+  --hair: rgba(22, 104, 227, 0.14);
+  --wash: #eef3fa;
+  --blue: #1668e3;
+  --up: #0b8a5c;
+  --up-soft: rgba(11, 138, 92, 0.1);
+  --down: #b83227;
+  --down-soft: rgba(184, 50, 39, 0.09);
+  --warn: #a86a12;
+  --warn-soft: rgba(168, 106, 18, 0.13);
+
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  align-items: stretch;
+  font-variant-numeric: tabular-nums;
+}
+/* Wide screens open on two rows; "Show all" brings in the rest. */
+.gridClosed > :nth-child(n + 7) { display: none; }
+
+.tile {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  padding: 14px 12px 12px;
+  border-radius: 16px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 0.875rem;
+  line-height: 1.45;
+  box-shadow: 0 0 0 1px rgba(125, 211, 252, 0.2), 0 24px 60px -34px rgba(29, 139, 255, 0.5);
+}
+.tileOpen { box-shadow: 0 0 0 1px rgba(125, 211, 252, 0.42), 0 28px 70px -30px rgba(29, 139, 255, 0.7); }
+.skeleton {
+  min-height: 360px;
+  border-radius: 16px;
+  background: linear-gradient(90deg, rgba(13, 32, 64, 0.8), rgba(24, 52, 96, 0.8), rgba(13, 32, 64, 0.8));
+  background-size: 200% 100%;
+  animation: weekShimmer 1.4s ease-in-out infinite;
+}
+@keyframes weekShimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+.logo { flex: none; object-fit: contain; vertical-align: -0.2em; }
+
+/* ── Game ── */
+.gameTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 24px;
+  padding: 0 2px;
+  font-size: 0.75rem;
+  color: var(--ink-3);
+}
+.gameGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 56px 60px;
+  align-items: center;
+  column-gap: 6px;
+  row-gap: 8px;
+  padding: 0 2px;
+}
+.gameGridScore { grid-template-columns: minmax(0, 1fr) 44px; }
+.colHead { font-size: 0.75rem; color: var(--ink-3); text-align: center; }
+.team { display: flex; align-items: center; gap: 9px; min-width: 0; }
+.teamName { font-size: 0.9375rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.teamRecord { flex: none; font-size: 0.75rem; color: var(--ink-3); }
+.ball { flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--warn); }
+.cellBox {
+  padding: 5px 0;
+  border-radius: 8px;
+  background: var(--wash);
+  text-align: center;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+.score {
+  text-align: right;
+  font-family: 'Manrope', 'Inter', system-ui, sans-serif;
+  font-size: 1.375rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+.scoreLose { color: var(--ink-3); font-weight: 600; }
+.gameFoot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 2px;
+  padding-top: 10px;
+  border-top: 1px solid var(--hair);
+  font-size: 0.8125rem;
+  color: var(--ink-2);
+}
+.gameFoot b { font-weight: 600; color: var(--ink); white-space: nowrap; }
+
+/* ── Position-group matchups ── */
+.matchups { display: flex; flex-direction: column; gap: 6px; margin: 0 2px; }
+.matchupsHead { font-size: 0.6875rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); }
+.matchupList { display: grid; gap: 5px; }
+.matchupRow { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 24px; }
+.matchupUnits { display: flex; flex-wrap: wrap; align-items: center; gap: 1px 5px; min-width: 0; font-size: 0.78125rem; line-height: 1.35; color: var(--ink-2); }
+.unit { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.unit:first-child { font-weight: 600; color: var(--ink); }
+.vs { color: var(--ink-3); }
+.edgeChip {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(22, 104, 227, 0.12);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  line-height: 1.5;
+  color: var(--blue);
+  white-space: nowrap;
+}
+.edgeChipBig { background: var(--ink); color: #fff; }
+.edgeChipEven { background: var(--wash); color: var(--ink-2); }
+
+.chips { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--wash);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  line-height: 1.5;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+.chipInk { background: var(--ink); color: #fff; }
+.chipUp { background: var(--up-soft); color: var(--up); }
+.chipWarn { background: var(--warn-soft); color: var(--warn); }
+.chipLive { background: var(--down-soft); color: var(--down); font-size: 0.75rem; }
+.dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; animation: weekBlink 1.5s ease-in-out infinite; }
+@keyframes weekBlink { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+
+/* ── An open pick ── */
+.pick {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: auto;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--wash);
+}
+.pickWon { background: var(--up-soft); box-shadow: inset 0 0 0 1.5px rgba(11, 138, 92, 0.45); }
+.pickLost { background: var(--down-soft); }
+.pickTop { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.pickMain { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: -4px; }
+.pickLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  font-family: 'Manrope', 'Inter', system-ui, sans-serif;
+  font-size: 1.375rem;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  line-height: 1.15;
+}
+.pickMeta { font-size: 0.8125rem; color: var(--ink-2); }
+.pickWhy { font-size: 0.8125rem; line-height: 1.45; color: var(--ink-2); }
+.pickStand { font-size: 0.75rem; line-height: 1.45; color: var(--ink-3); }
+.pickWon .pickStand { color: var(--up); font-weight: 600; }
+.pickLost .pickStand { color: var(--down); font-weight: 600; }
+
+.verdict {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px 4px 8px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+.verdict_up { background: var(--up); color: #fff; }
+.verdict_down { background: var(--down); color: #fff; }
+.verdict_flat { background: var(--ink-3); color: #fff; padding-left: 10px; }
+/* Still being played: an outline, so only a settled result gets the solid pill. */
+.verdictLive { padding-left: 10px; background: transparent; box-shadow: inset 0 0 0 1.5px currentColor; }
+.verdictLive.verdict_up { color: var(--up); }
+.verdictLive.verdict_down { color: var(--down); }
+.verdictLive.verdict_flat { color: var(--ink-2); }
+
+.ring { position: relative; display: inline-grid; place-items: center; flex: none; width: 42px; height: 42px; }
+.ring svg { transform: rotate(-90deg); }
+.ringTrack { stroke: rgba(11, 27, 51, 0.12); }
+.ringFill { stroke: var(--ink); stroke-linecap: round; }
+.ringValue { position: absolute; font-size: 0.8125rem; font-weight: 800; }
+
+/* ── A locked pick: a faded drawing of one, with the way in underneath ── */
+.locked {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  margin-top: auto;
+  min-height: 128px;
+  border-radius: 12px;
+  background: var(--wash);
+  overflow: hidden;
+  color: var(--ink) !important;
+  transition: box-shadow 0.15s ease;
+}
+.locked:hover { box-shadow: inset 0 0 0 1.5px var(--blue); }
+.grid .locked:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; border-radius: 12px; }
+/* Shapes only: there is no pick in the page to read through the blur. */
+.lockedGhost {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: auto auto 1fr auto;
+  align-content: start;
+  align-items: center;
+  gap: 10px 6px;
+  padding: 12px;
+  opacity: 0.55;
+  filter: blur(3px);
+  -webkit-mask-image: linear-gradient(to bottom, #000 45%, transparent 82%);
+  mask-image: linear-gradient(to bottom, #000 45%, transparent 82%);
+}
+.ghostChip { width: 68px; height: 20px; border-radius: 999px; background: rgba(11, 27, 51, 0.5); }
+.ghostChip + .ghostChip { width: 92px; background: rgba(11, 138, 92, 0.4); }
+.ghostRing { grid-column: 4; width: 38px; height: 38px; border-radius: 50%; box-shadow: inset 0 0 0 4px rgba(11, 27, 51, 0.45); }
+.ghostLabel { grid-column: 1 / -1; width: 56%; height: 24px; margin-top: -8px; border-radius: 6px; background: rgba(11, 27, 51, 0.55); }
+.lockedCopy {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px 12px;
+  font-size: 0.8125rem;
+  line-height: 1.35;
+}
+.lockedCopy b { display: block; font-weight: 700; }
+.lockedSub { display: block; font-weight: 600; color: var(--blue); }
+.lockBadge {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--ink);
+  color: #fff;
+}
+
+/* ── Under the tiles ── */
+.showAll {
+  display: block;
+  width: 100%;
+  min-height: 48px;
+  margin-top: 14px;
+  border: 1px solid rgba(110, 168, 255, 0.34);
+  border-radius: 12px;
+  background: rgba(10, 24, 48, 0.9);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #f3f7ff;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.showAll:hover { border-color: rgba(160, 205, 255, 0.6); background: rgba(13, 32, 64, 0.9); }
+
+.unlock {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 14px;
+  padding: 18px 20px;
+  border-radius: 16px;
+  border: 1px solid rgba(110, 168, 255, 0.34);
+  background:
+    radial-gradient(520px 200px at 0% 0%, rgba(29, 139, 255, 0.18), transparent 70%),
+    linear-gradient(165deg, #0c2244 0%, #08172f 100%);
+}
+.unlockBadge {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(125, 211, 252, 0.14);
+  color: #7dd3fc;
+}
+.unlockCopy { flex: 1; min-width: 0; font-size: 0.875rem; line-height: 1.5; color: #b4c4de; }
+.unlockCopy b {
+  display: block;
+  font-family: 'Manrope', 'Inter', system-ui, sans-serif;
+  font-size: 1.0625rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #f3f7ff;
+}
+.unlock a { flex: none; }
+
+.byes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+  margin-top: 16px !important;
+  font-size: 0.8125rem;
+  color: #b4c4de;
+}
+.byes > :first-child { color: #8296b6; }
+.bye { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.fine { margin-top: 10px !important; max-width: 46rem; font-size: 0.75rem; line-height: 1.5; color: #8296b6; }
+
+@media (max-width: 1020px) {
+  .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* Phone: a rail, like the app's. Every game is in it, and "Show all" is not needed. */
+@media (max-width: 680px) {
+  .grid {
+    grid-template-columns: none;
+    grid-auto-flow: column;
+    grid-auto-columns: min(86%, 320px);
+    gap: 10px;
+    margin: 0 calc(var(--gl-pad) * -1);
+    padding: 2px var(--gl-pad) 8px;
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+    scroll-padding-inline: var(--gl-pad);
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .grid::-webkit-scrollbar { display: none; }
+  .grid > * { scroll-snap-align: start; }
+  .gridClosed > :nth-child(n + 7) { display: flex; }
+  .gridClosed > .skeleton:nth-child(n + 2) { display: none; }
+  .showAll { display: none; }
+  .unlock { flex-direction: column; align-items: flex-start; gap: 12px; padding: 18px; }
+  .unlock a { width: 100%; }
+  .unlockBadge { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .liveDot, .dot, .skeleton { animation: none; }
+}

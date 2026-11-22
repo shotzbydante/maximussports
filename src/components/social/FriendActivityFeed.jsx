@@ -93,6 +93,7 @@ export default function FriendActivityFeed({ limit = 20 }) {
             <RobotAvatar
               jerseyNumber={activity.user?.avatarConfig?.jerseyNumber || ''}
               robotColor={activity.user?.avatarConfig?.robotColor}
+              uniformColor={activity.user?.avatarConfig?.uniformColor}
               mascotType={activity.user?.avatarConfig?.mascotType}
               size={36}
             />
