@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { pickSummary } from './pickSummary.js';
+import { pickSummary, ticketSummary, firstSentence } from './pickSummary.js';
 import { splitTeamMentions, teamsMentioned } from './format.js';
 
 const game = {
@@ -63,5 +63,26 @@ describe('splitTeamMentions', () => {
 
   it('handles the 49ers', () => {
     expect(teamsMentioned('The 49ers are 8-1.')).toEqual(['49ers']);
+  });
+});
+
+describe('ticketSummary', () => {
+  const stored = '15 mph wind was forecast when this pick was locked, and unders have won 57% of the time in wind that strong since 2003. DraftKings’s -105 on Under 40.5 was +4.7% expected value.';
+
+  it('leads with the first sentence of the reason stored with the pick', () => {
+    expect(ticketSummary({ ...under, why: stored }, game)).toBe(
+      '15 mph wind was forecast when this pick was locked, and unders have won 57% of the time in wind that strong since 2003.',
+    );
+  });
+
+  it('does not cut a sentence at a decimal or a price', () => {
+    expect(firstSentence('BetRivers was paying -107 on Over 54.5 when this pick was locked; the fair price was -112. That gap was +2.1%.')).toBe(
+      'BetRivers was paying -107 on Over 54.5 when this pick was locked; the fair price was -112.',
+    );
+  });
+
+  it('falls back to the live sentence when the stored reason is only the headline', () => {
+    const p = { ...under, why: 'Under 49: 15 mph wind', rationale: { headline: 'Under 49: 15 mph wind' } };
+    expect(ticketSummary(p, game)).toBe(pickSummary(p, game));
   });
 });

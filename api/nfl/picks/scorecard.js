@@ -161,6 +161,7 @@ export default async function handler(req, res) {
         awayAbbrev: away?.abbrev || null,
         homeAbbrev: home?.abbrev || null,
         market: p.market_type,
+        why: p.rationale?.whyShort || p.rationale?.why || p.rationale?.headline || null,
         side: p.selection_side,
         line: p.line_value,
         price: p.price_american,

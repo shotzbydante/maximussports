@@ -12,7 +12,7 @@ import { getNflTeamBySlug } from '../../../sports/nfl/teams';
 import NflLogo from '../NflLogo';
 import { TeamTag } from './NflTeamTag';
 import { fmtLine, fmtOdds, kickoffShort, stampShort } from './format';
-import { pickSummary } from './pickSummary';
+import { ticketSummary } from './pickSummary';
 import h from './home.module.css';
 
 const MARKET = { moneyline: 'Moneyline', runline: 'Spread', total: 'Over/under' };
@@ -135,7 +135,7 @@ export default function HomePickCard({ pick, game, rank, to, asOf, children }) {
   const venue = game?.venue || {};
   // The engine's own venue wins when it has one: it knows where a neutral-site game is really played.
   const env = game?.engine?.env || {};
-  const place = [env.venue || venue.name || m.venue, env.city || [venue.city, venue.state].filter(Boolean).join(', ')]
+  const place = [env.venue || venue.name || m.venue, [venue.city || env.city, venue.state].filter(Boolean).join(', ')]
     .filter(Boolean).join(', ');
   const side = pick.selection?.side;
   const pickedTeam = side === 'home' ? home : side === 'away' ? away : null;
@@ -146,8 +146,20 @@ export default function HomePickCard({ pick, game, rank, to, asOf, children }) {
     : [fmtOdds(price), book ? `at ${book}` : ''].filter(Boolean).join(' ');
   const score = pick.conviction?.score ?? Math.round((pick.betScore?.total || 0) * 100);
   const ev = pick.displayMetrics?.edgeValue;
-  // A reason stored with the pick by the engine is the one that was locked; otherwise build it from the same numbers.
-  const summary = pick.why || pickSummary(pick, game);
+  // One sentence, always. The engine's longer stored reason is shown with the full numbers on the picks page.
+  const summary = ticketSummary(pick, game);
+  // A locked pick keeps the value it had when it was locked; say so, and show where it stands now if that has moved.
+  const lock = pick.lock || null;
+  const evPct = (v) => `${v >= 0 ? '+' : ''}${(v * 100).toFixed(1)}%`;
+  const evMoved = lock && typeof lock.evNow === 'number' && typeof lock.evAtLock === 'number'
+    && Math.abs(lock.evNow - lock.evAtLock) >= 0.005;
+  // Roof and forecast, when the engine has them for this game.
+  const conditions = env.indoor === true
+    ? 'Indoors'
+    : env.indoor === false
+      ? ['Outdoors', env.wind != null ? `${Math.round(env.wind)} mph wind` : null, env.temp != null ? `${Math.round(env.temp)}°F` : null]
+        .filter(Boolean).join(', ')
+      : '';
 
   return (
     <article className={h.pick} role="listitem">
@@ -174,6 +186,8 @@ export default function HomePickCard({ pick, game, rank, to, asOf, children }) {
         </p>
       )}
 
+      {conditions && <p className={h.conditions}>{conditions}</p>}
+
       <Lines pick={pick} game={game} away={away} home={home} asOf={asOf} />
 
       <div className={h.call}>
@@ -196,8 +210,10 @@ export default function HomePickCard({ pick, game, rank, to, asOf, children }) {
 
       <div className={h.pickFoot}>
         <span className={h.footFacts}>
-          {ev && <b>{ev} expected value</b>}
-          {pick.lock?.lockedAt && <span>Locked {stampShort(pick.lock.lockedAt)}</span>}
+          {ev && <b>{ev} expected value{lock ? ' when locked' : ''}</b>}
+          {lock?.lockedAt && (
+            <span>Locked {stampShort(lock.lockedAt)}{evMoved ? `, now ${evPct(lock.evNow)}` : ''}</span>
+          )}
         </span>
         {to && <Link to={to} className={h.footLink}>Full breakdown</Link>}
       </div>

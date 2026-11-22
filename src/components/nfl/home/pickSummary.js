@@ -46,3 +46,23 @@ export function pickSummary(pick, game) {
 
   return `${offer.charAt(0).toUpperCase()}${offer.slice(1)}${versusFair}.`;
 }
+
+/** The first sentence of a longer passage. Decimals and prices ("40.5", "-105") are not sentence ends. */
+export function firstSentence(text) {
+  if (!text) return '';
+  const m = String(text).trim().match(/^.*?[.!?](?=\s+[A-Z0-9“"]|$)/s);
+  return (m ? m[0] : String(text)).trim();
+}
+
+/**
+ * The one sentence a ticket shows. The engine stores a reason with every
+ * pick, and for a locked pick that reason is written as of the moment it
+ * was locked, so it leads. The sentence built here from live numbers is the
+ * fallback for picks that predate the stored reason.
+ */
+export function ticketSummary(pick, game) {
+  const stored = pick?.why || pick?.rationale?.why;
+  const headline = pick?.rationale?.headline;
+  if (stored && stored !== headline) return firstSentence(stored);
+  return pickSummary(pick, game);
+}

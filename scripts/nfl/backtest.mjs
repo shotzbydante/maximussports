@@ -162,6 +162,18 @@ function situations() {
   const tot = rows.filter((x) => x.totalLine != null && x.total != null && ['outdoors', 'open'].includes(x.roof) && x.wind != null);
   line('Under, sustained wind 15 mph or more', tot.filter((x) => x.wind >= 15).map((x) => [x.s, x.totalLine - x.total]));
   line('Under, wind below 10 mph', tot.filter((x) => x.wind < 10).map((x) => [x.s, x.totalLine - x.total]));
+  line('Under, sustained wind 10 to 15 mph', tot.filter((x) => x.wind >= 10 && x.wind < 15).map((x) => [x.s, x.totalLine - x.total]));
+  // The wind ramp: points to the under per mph above 10, levelling off at 20,
+  // with nothing below 10. Fitted through zero on games with wind of 10+.
+  {
+    const windy = tot.filter((x) => x.wind >= 10);
+    const xs = windy.map((x) => Math.min(x.wind, 20) - 10), ys = windy.map((x) => x.totalLine - x.total);
+    const sxx = xs.reduce((a, x) => a + x * x, 0);
+    const b = xs.reduce((a, x, i) => a + x * ys[i], 0) / sxx;
+    const rss = ys.reduce((a, y, i) => a + (y - b * xs[i]) ** 2, 0);
+    const se = Math.sqrt(rss / (xs.length - 1) / sxx);
+    console.log(`  ${'Wind ramp: points to the under per mph above 10 (cap 20)'.padEnd(52)} 2003-${to}  ${f(b, 3)} ± ${f(se, 3)}  n=${xs.length}`);
+  }
   console.log('');
 }
 

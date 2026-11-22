@@ -1,6 +1,6 @@
 # NFL picks engine v2
 
-Model `nfl-picks-v2.0.0`, config `nfl-picks-v2-2026-11-21a`. Replaces `nfl-picks-v1.0.0`.
+Model `nfl-picks-v2.1.0`, config `nfl-picks-v2-2026-11-22a` (v2.1.0 turned the wind rule from a 15 mph switch into a ramp; see below). Replaces `nfl-picks-v1.0.0`.
 
 ## What a pick is now
 
@@ -63,9 +63,28 @@ Measured on 6,232 games, 2003–2025, against closing lines (`--situations`).
 | Favorite of 6+ with a division game next | 283-291 (49.3%) | 101-107 (48.6%) | No |
 | Favorite of 3+ after an upset win | 229-247 (48.1%) | 73-67 (52.1%) | No |
 | First-year head coach vs a 48-game veteran | 488-503 (49.2%) | 191-211 (47.5%) | No |
-| Under in sustained wind of 15+ mph | 312-235 (57.0%) | 91-68 (57.2%) | Yes: fair total −1.2 |
+| Under in sustained wind of 15+ mph | 312-235 (57.0%) | 91-68 (57.2%) | Yes: see the wind ramp below |
+| Under in sustained wind of 10 to 15 mph | 535-456 (54.0%) | 191-129 (59.7%) | Yes: see the wind ramp below |
 
 Coach career cover margin predicts future cover margin with slope 0.39 ± 0.17 over the full period and 0.11 ± 0.27 since 2018. The spots that matter to the game are already in the line. They are shown on each game with their record; only wind earns a weight. Division road underdogs are the nearest miss and worth re-measuring each season. Unders also ran 56.6% in 10–15 mph wind from 2011 to 2025; the threshold stays at 15 until that holds up on forecast wind.
+
+### The wind ramp (v2.1.0)
+
+v2.0.0 took a flat 1.2 points off the fair total at 15 mph or more and nothing at 14.9. That made a pick depend on a tenth of a mile per hour, or on which forecaster was asked, and it gave a 15 mph game the same credit as a 25 mph one.
+
+The rule is now proportional. Fitted through zero on the 1,560 outdoor games since 2003 with sustained wind of 10 mph or more, each mph above 10 was worth **0.176 ± 0.069 points** to the under against the closing total, levelling off at 20 mph (`node scripts/nfl/backtest.mjs --situations`). Below 10 mph wind shows nothing. The slope is cut by 0.7, the same factor the flat rule used, because the history is measured wind and we act on a forecast.
+
+| Forecast wind | Off the fair total |
+| --- | --- |
+| 10 mph or less | 0 |
+| 12 mph | 0.24 |
+| 15 mph | 0.60 |
+| 18 mph | 0.96 |
+| 20 mph or more | 1.20 |
+
+`windTotalShift()` in `src/features/nfl/picks/v2/situations.js`; parameters `windStartMph`, `windFullMph`, `windShiftPerMph`. The forecast must still be inside 48 hours. It is more cautious than the old rule at 15 mph (0.6 against 1.2) and the same at 20. At ordinary prices a wind under now needs about 19 mph to be recommended on wind alone; at lower speeds the wind adds to a price edge instead of making the pick by itself.
+
+An under counts as a wind pick (capped at tier 2 and conviction 79) only if it would not clear the bar without the wind shift. One that qualifies on price alone is a price pick, with the wind shown as context.
 
 ## Locking, closing lines, units
 
@@ -91,7 +110,7 @@ Coach career cover margin predicts future cover margin with slope 0.39 ± 0.17 o
 
 **Odds API budget.** A pull costs three credits. The cron makes roughly 190 pulls a week (about 2,500 credits a month) on top of page traffic, which now shares one pull across instances through KV. `NFL_BUILD_INTERVAL_MIN` (default 60) widens the hourly interval.
 
-**Weather.** Forecasts are requested for home stadiums only; a neutral-site game (this week's Minnesota at San Francisco in Mexico City, for one) gets none, so no wind adjustment. Set `GOOGLE_WEATHER_API_KEY` (or `GOOGLE_MAPS_API_KEY`) with the Weather API enabled to use Google's hourly forecast; without it the engine uses api.weather.gov, which is free and covers US stadiums only.
+**Weather.** Forecasts are requested for the stadium the game is played in, including neutral sites on file in `src/sports/nfl/venues.js` (Mexico City, London, Germany, Madrid and others). International sites need the Google provider; the National Weather Service only covers the United States. Set `GOOGLE_WEATHER_API_KEY` (or `GOOGLE_MAPS_API_KEY`) with the Weather API enabled to use Google's hourly forecast; without it the engine uses api.weather.gov, which is free and covers US stadiums only.
 
 ## Position-group grades from PFF
 

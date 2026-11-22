@@ -18,8 +18,10 @@ import { getNflSlate } from '../../_lib/nflSlate.js';
 import { getNflStandings } from '../../_lib/nflStandings.js';
 import { loadNflHeadlines } from '../news/headlines.js';
 import { getNflChampionshipOdds } from '../odds/championship.js';
+import { getLatestNflPicksBoard } from '../../_lib/nflPicksBuilder.js';
+import { recommendedPicks, summarizePick } from '../../../src/features/nfl/picks/pickSummary.js';
 
-const FRESH_KEY      = 'chat:nfl:home:summary:v1';
+const FRESH_KEY      = 'chat:nfl:home:summary:v2';
 const LASTKNOWN_KEY  = 'chat:nfl:home:lastKnown:v1';
 const GEN_LOCK_KEY   = 'chat:nfl:home:genLock';
 const FORCE_LOCK_KEY = 'chat:nfl:home:forceLock';
@@ -51,12 +53,22 @@ function kickoffLabel(iso) {
 }
 
 async function buildPayload() {
-  const [slateR, standingsR, headlinesR, champR] = await Promise.allSettled([
+  const [slateR, standingsR, headlinesR, champR, boardR] = await Promise.allSettled([
     getNflSlate(),
     getNflStandings(),
     loadNflHeadlines(),
     getNflChampionshipOdds(),
+    getLatestNflPicksBoard(),
   ]);
+  const board = boardR.status === 'fulfilled' ? boardR.value : null;
+  const upcomingPick = (p) => Date.parse(p.matchup?.startTime || 0) > Date.now();
+  const picks = recommendedPicks(board).filter(upcomingPick).slice(0, 4).map((p) => {
+    const x = summarizePick(p);
+    return {
+      game: x.matchup, pick: x.pick, price: x.price || undefined, book: x.book || undefined,
+      expectedValue: x.expectedValue || undefined, conditions: x.conditions || undefined, why: x.why,
+    };
+  });
   const slate = slateR.status === 'fulfilled' ? slateR.value : null;
   const standings = standingsR.status === 'fulfilled' ? standingsR.value?.teams || {} : {};
   const headlines = headlinesR.status === 'fulfilled' ? headlinesR.value?.headlines || [] : [];
@@ -87,9 +99,12 @@ async function buildPayload() {
     if (g.model?.fairSpread != null && g.market?.pregameSpread != null) {
       const gap = g.model.fairSpread - g.market.pregameSpread;
       if (Math.abs(gap) >= 1.5) {
+        const line = (v) => (v > 0 ? `+${v}` : `${v}`);
         out.modelLean = `${gap < 0 ? home.abbrev : away.abbrev} by ${Math.abs(gap).toFixed(1)} points against the spread`;
+        out.modelLeanWhy = `the ratings make it ${home.abbrev} ${line(Math.round(g.model.fairSpread * 10) / 10)} and the market has ${home.abbrev} ${line(g.market.pregameSpread)}`;
       }
     }
+    if (g.engine?.env?.label) out.conditions = g.engine.env.label;
     if (g.market?.openSpread != null && g.market?.pregameSpread != null) {
       const move = g.market.pregameSpread - g.market.openSpread;
       if (Math.abs(move) >= 1) out.lineMove = `${Math.abs(move).toFixed(1)} points toward ${move < 0 ? home.abbrev : away.abbrev} since open`;
@@ -123,6 +138,7 @@ async function buildPayload() {
     seasonPhase: SEASON_PHASE[slate?.seasonType] || 'regular_season',
     week: slate?.week ?? null,
     byeTeams: (slate?.byeTeams || []).map((s) => slugToName[s] || s),
+    recommendedPicks: picks,
     games,
     playoffPicture: { AFC: seeds('AFC'), NFC: seeds('NFC') },
     superBowlOdds: champEntries.slice(0, 8),
@@ -139,7 +155,7 @@ Write the home-page briefing using ONLY the JSON data provided. Do NOT invent sc
 FORMAT: 4 or 5 paragraphs, no headers, no bullet lists.
 
 P1 THE WEEK: Open on the biggest stories in headlines[] and where the slate stands (use week, and any finalScore or liveScore in games[]).
-P2 THE BOARD: Walk through 3 or 4 games still to be played from games[]. Quote the spread and total exactly as given. Where a game has modelLean or lineMove, say so in plain terms. Where a game has quarterbackInjuries, mention it and note that the model lean does not account for it.
+P2 THE BOARD: If recommendedPicks[] is not empty, lead with those picks: name each pick with its price and book exactly as given, and in the same sentence or the next give the reason from its why field in plain words. Then walk through 2 or 3 other games still to be played from games[]. Quote the spread and total exactly as given. Where a game has modelLean, say so and give its reason from modelLeanWhy; where it has lineMove, say so in plain terms. Where a game has quarterbackInjuries, mention it and note that the model lean does not account for it.
 P3 PLAYOFF PICTURE: Use playoffPicture to say who holds the top seeds in each conference and who is on a streak.
 P4 SUPER BOWL MARKET: Reference 3 or 4 teams from superBowlOdds with exact odds (positive odds MUST include "+"), and one from superBowlSleepers if present.
 P5 CLOSER: One or two sentences on what to watch next. Mention byeTeams if any.
@@ -149,7 +165,9 @@ STYLE RULES:
 - Bold (**text**) team names on first mention.
 - Football language only: spread, total, moneyline, cover, key numbers, bye, short week, division, wild card, seed.
 - No profanity. No guarantees, no "lock", no "can't lose".
-- Model leans are leans, not predictions of the result.`;
+- Model leans are leans, not predictions of the result.
+- Never state a pick or a lean without its reason. Use only the reason given in the data ("why" or "modelLeanWhy"); do not invent one.
+- Only the picks in recommendedPicks[] are recommended bets. Do not call a modelLean a pick or a recommendation.`;
 
   const userPrompt = `DATA:\n${JSON.stringify(payload, null, 2)}\n\nWrite the briefing now.`;
   return { systemPrompt, userPrompt };

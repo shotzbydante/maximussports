@@ -47,11 +47,18 @@ function pickedTeam(p) {
   return p.selection?.side === 'home' ? m.homeTeam : p.selection?.side === 'away' ? m.awayTeam : null;
 }
 
-/** Where the ratings sit against the market, from a lean's headline. */
-function leanReason(p) {
+/**
+ * Why this pick, in the engine's own words. Every pick carries a full
+ * sentence (`why`) and a few words (`whyShort`). Picks locked before those
+ * fields existed fall back to what the headline says after the pick label.
+ */
+function headlineReason(p) {
   const lean = (p.rationale?.headline || '').match(/^Model lean: .*?\. (.+)$/);
   return lean ? lean[1] : '';
 }
+const whyOf = (p) => p?.why || p?.rationale?.why || headlineReason(p);
+const whyShortOf = (p) => p?.whyShort || p?.rationale?.whyShort || whyOf(p);
+const sentence = (t) => (t && !/[.!?]$/.test(t) ? `${t}.` : t);
 
 function recordText(r) {
   if (!r) return null;
@@ -66,6 +73,7 @@ function Reasons({ pick }) {
   return (
     <details className={`${h.why} ${h.whyInCard}`}>
       <summary>All the numbers behind it</summary>
+      {(pick.why || pick.rationale?.why) && <p>{pick.why || pick.rationale.why}</p>}
       <ul>{bullets.map((b) => <li key={b}>{b}</li>)}</ul>
     </details>
   );
@@ -98,7 +106,7 @@ function LeanTile({ pick, to }) {
         </div>
       </div>
       <ModelMarketBars model={pick.modelProb} market={pick.impliedProb} />
-      {leanReason(pick) && <p className={h.pickWhy}>{leanReason(pick)}.</p>}
+      {whyShortOf(pick) && <p className={h.pickWhy}>{sentence(whyShortOf(pick))}</p>}
     </Link>
   );
 }
@@ -152,6 +160,7 @@ function EveryGame({ picks, recommendedIds }) {
                     {p.book?.title && <span className={h.small}> {p.book.title}</span>}
                   </span>
                   <span className={h.leanScore} aria-label={`Conviction ${score(p)}`}>{score(p)}</span>
+                  {whyOf(p) && <span className={h.leanWhy}>{sentence(whyOf(p))}</span>}
                 </div>
               );
             })}

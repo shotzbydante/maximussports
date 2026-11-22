@@ -27,6 +27,7 @@
  * canonicalAssembled payload — zero parallel logic.
  */
 
+import { recommendedPicks, summarizePick } from '../../features/nfl/picks/pickSummary.js';
 import { EmailShell, heroBlock } from '../EmailShell.js';
 import {
   stripInlineEmoji, normalizeSpacing, cleanNarrativeText,
@@ -52,6 +53,7 @@ const CARD_BG = '#f9fafb';
 // ── Brand assets ─────────────────────────────────────────────────
 const NBA_PLAYOFFS_LOGO = 'https://a.espncdn.com/i/teamlogos/leagues/500/nba.png';
 const MLB_LEAGUE_LOGO = 'https://a.espncdn.com/i/teamlogos/leagues/500/mlb.png';
+const NFL_LEAGUE_LOGO = 'https://a.espncdn.com/i/teamlogos/leagues/500/nfl.png';
 
 // NBA team metadata for name lookup in odds rows
 const NBA_TEAM_INFO = {
@@ -255,7 +257,7 @@ function renderTodaysPicks(picksBoard, max = 3) {
     const selection = p.pick?.label || '—';
     const conviction = fmtConviction(p.confidence);
     const rationale = p.pick?.explanation
-      ? (p.pick.explanation.length > 80 ? p.pick.explanation.slice(0, 80).replace(/\s+\S*$/, '') + '.' : p.pick.explanation)
+      ? (p.pick.explanation.length > 140 ? p.pick.explanation.slice(0, 140).replace(/\s+\S*$/, '') + '.' : p.pick.explanation)
       : '';
     const isLast = i === unique.length - 1;
     return `
@@ -276,7 +278,7 @@ function renderTodaysPicks(picksBoard, max = 3) {
               </td>
             </tr>
           </table>
-          ${rationale ? `<p style="margin:3px 0 0;font-size:11px;color:${DIM};line-height:15px;font-family:${F};">${normalizeSpacing(stripInlineEmoji(rationale))}</p>` : ''}
+          ${rationale ? `<p style="margin:3px 0 0;font-size:11px;color:#6b7280;line-height:15px;font-family:${F};"><span style="font-weight:700;color:${NAVY};">Why:</span> ${normalizeSpacing(stripInlineEmoji(rationale))}</p>` : ''}
         </td>
       </tr>
     </table>`;
@@ -516,6 +518,75 @@ ${sections.join('\n')}`,
   };
 }
 
+const escapeHtml = (t) => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+function nflKickoff(iso) {
+  if (!iso) return '';
+  try {
+    return new Date(iso).toLocaleString('en-US', { timeZone: 'America/New_York', weekday: 'short', hour: 'numeric', minute: '2-digit' }) + ' ET';
+  } catch { return ''; }
+}
+
+/** Upcoming recommended NFL picks, and how many games the board covers. */
+function nflPicksForEmail(board, max = 3) {
+  const now = Date.now();
+  const picks = recommendedPicks(board)
+    .filter((p) => !p.matchup?.startTime || Date.parse(p.matchup.startTime) > now)
+    .slice(0, max)
+    .map(summarizePick);
+  const games = new Set((board?.fullSlatePicks || [])
+    .filter((p) => !p.matchup?.startTime || Date.parse(p.matchup.startTime) > now)
+    .map((p) => p.gameId)).size;
+  return { picks, games };
+}
+
+/**
+ * NFL block: this week's recommended picks. Every pick is stated with its
+ * price, its book and the reason for it. With nothing recommended, the
+ * block says so and says why, instead of filling the space with leans.
+ */
+function buildNflBlock(data) {
+  const { picks, games } = nflPicksForEmail(data.nflPicksBoard);
+  if (picks.length === 0 && games === 0) return { html: '', hasContent: false, picks: 0 };
+
+  const rows = picks.map((p, i) => {
+    const isLast = i === picks.length - 1;
+    const where = [p.price, p.book ? `at ${p.book}` : ''].filter(Boolean).join(' ');
+    return `
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;${isLast ? '' : `border-bottom:1px solid ${ROW_BORDER};`}">
+      <tr>
+        <td style="padding:9px 0;font-family:${F};">
+          <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">
+            <tr>
+              <td style="vertical-align:top;">
+                <p style="margin:0 0 2px;font-size:11px;font-weight:500;color:${DIM};font-family:${F};">${escapeHtml(p.matchup)}${p.kickoff ? ` &middot; ${escapeHtml(nflKickoff(p.kickoff))}` : ''}</p>
+                <p style="margin:0;font-size:14px;font-weight:800;color:${NAVY};line-height:18px;font-family:${F};">${escapeHtml(p.pick)}${where ? ` <span style="font-size:12px;font-weight:600;color:#4b5563;">${escapeHtml(where)}</span>` : ''}</p>
+              </td>
+              <td style="width:92px;text-align:right;vertical-align:top;padding-top:2px;">
+                ${p.expectedValue ? `<span style="display:inline-block;font-size:9px;font-weight:700;color:#166534;background:#ecfdf3;border-radius:3px;padding:2px 6px;letter-spacing:0.04em;text-transform:uppercase;font-family:${F};">${escapeHtml(p.expectedValue)} EV</span>` : ''}
+              </td>
+            </tr>
+          </table>
+          ${p.why ? `<p style="margin:4px 0 0;font-size:12px;color:#4b5563;line-height:17px;font-family:${F};"><span style="font-weight:700;color:${NAVY};">Why:</span> ${escapeHtml(p.why)}</p>` : ''}
+        </td>
+      </tr>
+    </table>`;
+  }).join('');
+
+  const body = picks.length > 0
+    ? `${rows}<p style="margin:8px 0 0;font-size:10px;color:${DIM};font-style:italic;font-family:${F};">A recommended pick is one book’s price that beats the market’s fair price. Each is locked at that line, price and book, then graded.</p>`
+    : `<p style="margin:0;font-size:13px;line-height:19px;color:#4b5563;font-family:${F};"><span style="font-weight:700;color:${NAVY};">No recommended NFL bets right now.</span> Why: no sportsbook is paying more than the market’s fair price by enough to clear our bar on any of the ${games} games on the board. Every game’s lean is in the app, tracked and graded.</p>`;
+
+  return {
+    html: `
+${sportHeader({ logoUrl: NFL_LEAGUE_LOGO, label: 'NFL', accent: RED })}
+${sectionCard({ label: picks.length > 0 ? 'THIS WEEK’S NFL PICKS' : 'NFL PICKS', body, accent: RED })}
+<tr><td style="padding:0 24px 8px;"><a href="https://maximussports.ai/nfl/insights" style="font-size:12px;color:${RED};text-decoration:none;font-weight:600;font-family:${F};">All NFL picks and results &rarr;</a></td></tr>`,
+    hasContent: true,
+    picks: picks.length,
+  };
+}
+
 function buildMlbBlock(data) {
   const mlbData = data.mlbData;
   const narrative = mlbData?.narrativeParagraph || '';
@@ -618,6 +689,7 @@ export function renderHTML(data = {}) {
   const crossSportHook = buildCrossSportHook({ nbaData, mlbData });
 
   // Build NBA-first, then MLB
+  const nfl = buildNflBlock(data);
   const nba = buildNbaBlock(data);
   const mlb = buildMlbBlock(data);
 
@@ -642,6 +714,8 @@ export function renderHTML(data = {}) {
     ? `picksSource=${data.nbaPicksSource || 'unknown'}`
     : 'not_used';
   console.log('[globalBriefing] sections:', {
+    nfl: nfl.hasContent,
+    nflPicks: nfl.picks || 0,
     nba: nba.hasContent,
     mlb: mlb.hasContent,
     crossSportHook: !!crossSportHook,
@@ -668,7 +742,7 @@ export function renderHTML(data = {}) {
     mlbNarrative: !!(data.mlbData?.narrativeParagraph),
   });
 
-  const hasAnyContent = nba.hasContent || mlb.hasContent;
+  const hasAnyContent = nfl.hasContent || nba.hasContent || mlb.hasContent;
 
   // Lead line follows what the email actually carries: a sport in its
   // offseason has no block (see assembleEmailData), so it is not promised here.
@@ -678,6 +752,10 @@ export function renderHTML(data = {}) {
   const previewLine = mlb.hasContent
     ? '\u{1F4E1} NBA Playoffs lead today’s board — plus MLB intel.'
     : '\u{1F4E1} The NBA leads today’s board.';
+  // With NFL picks on the board, say so up front, and that each has its reason.
+  const nflLead = nfl.picks > 0
+    ? ` This week’s NFL picks are below, each with the reason for it.`
+    : '';
 
   const emptyState = !hasAnyContent ? `
 <tr><td style="padding:14px 24px 6px;">
@@ -689,6 +767,7 @@ export function renderHTML(data = {}) {
 </td></tr>` : '';
 
   const sportBlocks = [
+    nfl.hasContent ? nfl.html : '',
     nba.hasContent ? nba.html : '',
     mlb.hasContent ? mlb.html : '',
   ].filter(Boolean).join('\n' + divider() + '\n');
@@ -706,7 +785,7 @@ export function renderHTML(data = {}) {
   const content = `
 ${heroBlock({ line: 'Your daily cross-sport intelligence briefing.', sublabel: today })}
 <tr><td style="padding:8px 24px 14px;">
-  <p style="margin:0;font-size:14px;color:#4b5563;line-height:1.55;font-family:${F};">Good ${partOfDay}, ${greetingName}. ${leadLine}</p>
+  <p style="margin:0;font-size:14px;color:#4b5563;line-height:1.55;font-family:${F};">Good ${partOfDay}, ${greetingName}. ${leadLine}${nflLead}</p>
 </td></tr>
 ${hookBlock}
 ${compactDivider()}
@@ -739,6 +818,24 @@ export function renderText(data = {}) {
     today, '',
     `Good ${new Date().getHours() < 12 ? 'morning' : 'afternoon'}, ${name}. ${hasMlb ? 'NBA Playoffs lead today, MLB second.' : 'The NBA leads today.'}`, '',
   ];
+
+  // ─── NFL ───
+  const nfl = nflPicksForEmail(data.nflPicksBoard);
+  if (nfl.picks.length > 0 || nfl.games > 0) {
+    lines.push('🏈 NFL');
+    lines.push('─────────────');
+    if (nfl.picks.length > 0) {
+      lines.push("THIS WEEK'S NFL PICKS:");
+      nfl.picks.forEach((p) => {
+        const where = [p.price, p.book ? `at ${p.book}` : ''].filter(Boolean).join(' ');
+        lines.push(`  • ${p.matchup}: ${p.pick}${where ? ` (${where})` : ''}`);
+        if (p.why) lines.push(`    Why: ${p.why}`);
+      });
+    } else {
+      lines.push(`No recommended NFL bets right now. Why: no sportsbook is paying more than the market's fair price by enough to clear our bar on any of the ${nfl.games} games on the board.`);
+    }
+    lines.push('');
+  }
 
   // ─── NBA PLAYOFFS ───
   lines.push('🏀 NBA PLAYOFFS');
@@ -783,6 +880,7 @@ export function renderText(data = {}) {
         const a = p.matchup?.awayTeam?.shortName || '?';
         const h = p.matchup?.homeTeam?.shortName || '?';
         lines.push(`  • ${a} vs ${h}: ${p.pick?.label || '—'} (${p.confidence || 'edge'})`);
+        if (p.pick?.explanation) lines.push(`    Why: ${p.pick.explanation}`);
       });
       lines.push('');
     }
