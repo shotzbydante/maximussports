@@ -1,56 +1,57 @@
 /**
- * /nfl/insights — NFL Odds Insights.
+ * /nfl/insights — NFL picks.
  *
- * Same building blocks as /mlb/insights and /nba/insights: the shared picks
- * container (Top Play, tiers, coverage) and the full-slate board, with the
- * NFL scorecard in place of the daily one because football is graded by
- * the week.
+ * Recommended picks first, then the model's lean on every game, then the
+ * record. Built from the same light pieces as the NFL home page; football
+ * is graded by the week, so the scorecard is the NFL one.
  */
 
-import MlbMaximusPicksSectionV2 from '../../components/mlb/picks/MlbMaximusPicksSectionV2';
-import NbaFullSlateBoard from '../../components/nba/picks/NbaFullSlateBoard';
+import HomePicks from '../../components/nfl/home/HomePicks';
+import NflSectionTabs from '../../components/nfl/home/NflSectionTabs';
 import NflScorecardReport from '../../components/nfl/NflScorecardReport';
+import { SectionHead } from '../../components/nfl/home/HomeParts';
 import SEOHead from '../../components/seo/SEOHead';
-import s from '../../components/nfl/nfl.module.css';
-
-const ENDPOINT = '/api/nfl/picks/built';
-
-const FULL_SLATE_COPY = {
-  title: 'Every game · every market',
-  sub: 'A spread, moneyline and total lean on every game left this week. Recommended picks are the strongest edges on the board; tracking picks are recorded and graded so the model’s full record stays visible.',
-  empty: 'No games left on this week’s board. Next week’s slate appears here once lines post.',
-  bannerKicker: 'This week’s edges',
-  bannerScope: 'this week',
-};
+import h from '../../components/nfl/home/home.module.css';
 
 export default function NflPicks() {
   return (
-    <div className={s.page}>
+    <div className={h.page}>
       <SEOHead
         title="NFL Odds Insights: Picks Against the Spread, Moneylines & Totals"
         description="Model-scored NFL picks for every game this week across spreads, moneylines and totals, tiered by conviction and graded against final scores."
       />
-      <MlbMaximusPicksSectionV2
-        mode="page"
-        sport="nfl"
-        endpoint={ENDPOINT}
-        suppressPerformanceBlocks
-      />
-      <NbaFullSlateBoard endpoint={ENDPOINT} sport="nfl" copy={FULL_SLATE_COPY} />
+      <header className={h.header}>
+        <div>
+          <h1 className={h.title}>NFL picks</h1>
+          <p className={h.meta}>Spreads, winners and totals for this week, scored by the model.</p>
+        </div>
+      </header>
+      <NflSectionTabs />
+
+      <HomePicks variant="full" />
+
       <NflScorecardReport />
-      <section className={s.card}>
-        <h2 className={s.sectionTitle}>How the NFL model works</h2>
-        <p className={s.note} style={{ marginTop: 8 }}>
-          Each team gets an offense and a defense rating in points per game, solved from every final score this
-          season and adjusted for the opponents it has played. A game’s projection is the rating difference plus
-          1.7 points of home field. The model then moves most of the way to the betting line, because the market
-          already prices injuries and other news the ratings cannot see, and a pick’s edge is what is left.
-        </p>
-        <p className={s.note} style={{ marginTop: 8 }}>
-          When the ratings and the market disagree by a touchdown or more, the pick is tracked but never
-          recommended. There is no injury or weather feed behind these numbers.
-        </p>
+
+      <section className={h.section} aria-label="How the model works">
+        <SectionHead title="How the model works" />
+        <div className={h.card}>
+          <p className={h.prose}>
+            Each team gets an offense and a defense rating in points per game, worked out from every final
+            score this season and adjusted for who it has played. A game’s projection is the difference in
+            ratings plus 1.7 points for home field. The model then moves most of the way to the betting line,
+            because the market already prices in news the ratings can’t see. What’s left is the edge.
+          </p>
+          <p className={h.prose}>
+            A pick is tracked but never recommended when the ratings and the market disagree by a touchdown
+            or more, when a starting quarterback is ruled out, or when the price to win is a very heavy
+            favorite or a long shot. The bet score runs from 0 to 100 and combines the size of the edge, how
+            much data sits behind the ratings, the game situation and the quality of the market. Weather is
+            not part of the model.
+          </p>
+        </div>
       </section>
+
+      <p className={h.fine}>For entertainment only. Please bet responsibly. 21+.</p>
     </div>
   );
 }

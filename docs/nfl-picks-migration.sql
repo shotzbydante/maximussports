@@ -10,9 +10,13 @@
 -- 'coverage' and 'tracking' since the NBA full-slate work, but the database
 -- was never widened: on Nov 21, 2026 production rejected NFL tracking rows
 -- with `violates check constraint "picks_tier_check"` (the same applies to
--- NBA tracking rows). Until this script is run, recommended picks save and
--- are graded as normal, tracking picks are not recorded, and the NFL
--- builder logs one reminder every six hours.
+-- NBA tracking rows).
+--
+-- Applied to production on Nov 21, 2026 as the migration
+-- widen_picks_tier_check_for_tracking. Kept here for new environments:
+-- without it, recommended picks save and are graded as normal, tracking
+-- picks are not recorded, and the NFL builder logs one reminder every six
+-- hours.
 --
 -- This script is idempotent and safe to run either way: it replaces the
 -- tier check with the set the application code validates against.
