@@ -91,7 +91,7 @@ Coach career cover margin predicts future cover margin with slope 0.39 ± 0.17 o
 
 **Odds API budget.** A pull costs three credits. The cron makes roughly 190 pulls a week (about 2,500 credits a month) on top of page traffic, which now shares one pull across instances through KV. `NFL_BUILD_INTERVAL_MIN` (default 60) widens the hourly interval.
 
-**Weather.** Set `GOOGLE_WEATHER_API_KEY` (or `GOOGLE_MAPS_API_KEY`) with the Weather API enabled to use Google's hourly forecast; without it the engine uses api.weather.gov, which is free and covers US stadiums only.
+**Weather.** Forecasts are requested for home stadiums only; a neutral-site game (this week's Minnesota at San Francisco in Mexico City, for one) gets none, so no wind adjustment. Set `GOOGLE_WEATHER_API_KEY` (or `GOOGLE_MAPS_API_KEY`) with the Weather API enabled to use Google's hourly forecast; without it the engine uses api.weather.gov, which is free and covers US stadiums only.
 
 ## Position-group grades from PFF
 

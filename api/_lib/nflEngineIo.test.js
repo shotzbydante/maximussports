@@ -70,6 +70,8 @@ describe('venues', () => {
     expect(isGameIndoors({ homeAbbrev: 'DAL', nflverseRoof: 'closed' })).toBe(true);
     expect(isGameIndoors({ homeAbbrev: 'DAL' })).toBeNull();                         // retractable, nothing known
     expect(isGameIndoors({ homeAbbrev: 'DET' })).toBe(true);
+    expect(isGameIndoors({ homeAbbrev: 'LAC', espnIndoor: false })).toBe(true);      // SoFi: fixed roof, flagged outdoors
+    expect(isGameIndoors({ homeAbbrev: 'LAC', espnIndoor: false, neutralSite: true })).toBe(false);
     expect(isGameIndoors({ homeAbbrev: 'GB' })).toBe(false);
     expect(isGameIndoors({ homeAbbrev: 'GB', neutralSite: true })).toBeNull();       // not played at Lambeau
   });

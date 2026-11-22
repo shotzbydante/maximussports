@@ -48,12 +48,16 @@ export function getNflVenue(abbrev) {
 
 /**
  * Is this game played under a roof?
- * ESPN's per-game `indoor` flag wins when present (it reflects a closed
- * retractable roof); otherwise the home venue decides, and a retractable
- * roof with no flag is unknown.
+ * A fixed-roof home stadium is always indoors. Otherwise ESPN's `indoor`
+ * flag wins when present, then the nflverse roof field, then the home
+ * venue; a retractable roof with nothing known is unknown. A neutral-site
+ * game is judged on the flags alone, since it is not at the home stadium.
  * @returns {true|false|null}
  */
 export function isGameIndoors({ homeAbbrev, espnIndoor = null, nflverseRoof = null, neutralSite = false }) {
+  // A fixed roof is a fixed roof. ESPN flags SoFi Stadium as outdoors (the
+  // sides are open), but wind and rain do not reach the field.
+  if (!neutralSite && getNflVenue(homeAbbrev)?.roof === 'dome') return true;
   if (espnIndoor === true || espnIndoor === false) return espnIndoor;
   const r = String(nflverseRoof || '').toLowerCase();
   if (r === 'dome' || r === 'closed') return true;
