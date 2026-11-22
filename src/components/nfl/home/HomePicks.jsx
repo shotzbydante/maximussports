@@ -15,9 +15,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useWorkspace } from '../../../workspaces/WorkspaceContext';
-import { fetchNflGames, fetchNflScorecard } from '../../../api/nfl';
+import { fetchNflGames, fetchNflPicksInPlay, fetchNflScorecard } from '../../../api/nfl';
 import NflLogo from '../NflLogo';
 import HomePickCard from './HomePickCard';
+import HomeInPlay from './HomeInPlay';
 import { Matchup } from './NflTeamTag';
 import { SectionHead, Rail, ScoreRing, ModelMarketBars } from './HomeParts';
 import { kickoffShort } from './format';
@@ -85,6 +86,7 @@ export default function HomePicks({ variant = 'home', games: gamesProp, weekLabe
   const { buildPath } = useWorkspace();
   const [board, setBoard] = useState(undefined);
   const [card, setCard] = useState(null);
+  const [inPlay, setInPlay] = useState([]);
   const [ownGames, setOwnGames] = useState(null);
   const insights = buildPath('/insights');
   const needGames = gamesProp === undefined;
@@ -96,9 +98,10 @@ export default function HomePicks({ variant = 'home', games: gamesProp, weekLabe
       .then((d) => { if (!cancelled) setBoard(d || null); })
       .catch(() => { if (!cancelled) setBoard(null); });
     fetchNflScorecard().then((d) => { if (!cancelled) setCard(d); });
+    if (!full) fetchNflPicksInPlay().then((d) => { if (!cancelled) setInPlay(d?.picks || []); });
     if (needGames) fetchNflGames().then((d) => { if (!cancelled) setOwnGames(d?.games || []); });
     return () => { cancelled = true; };
-  }, [needGames]);
+  }, [needGames, full]);
 
   const games = gamesProp ?? ownGames ?? [];
   const gameById = new Map(games.map((g) => [String(g.gameId), g]));
@@ -176,19 +179,35 @@ export default function HomePicks({ variant = 'home', games: gamesProp, weekLabe
   const season = recordText(card?.season?.record);
   const recent = recordText(card?.record);
   const picked = recordText(card?.byPickRole?.hero);
-  const showLeans = recommended.length === 0 && leans.length > 0;
+  const showLeans = recommended.length === 0 && leans.length > 0 && inPlay.length === 0;
+  // A pick leaves the board at kickoff, so the week's count is the board plus what has kicked off.
+  const liveCount = inPlay.filter((p) => p.gameStatus === 'live').length;
+  const doneCount = inPlay.length - liveCount;
+  const weekCount = recommended.length + inPlay.length;
+  const countText = weekCount === 0 ? null : [
+    `${weekCount} ${weekCount === 1 ? 'pick' : 'picks'} this week`,
+    [recommended.length ? `${recommended.length} to play` : null, liveCount ? `${liveCount} live` : null, doneCount ? `${doneCount} final` : null]
+      .filter(Boolean).join(', '),
+  ].filter(Boolean).join(': ');
+  const inPlayFirst = liveCount > 0;
 
   return (
     <section className={h.section} aria-label={title}>
       <SectionHead
         title={title}
         countBelow
-        count={recommended.length > 0 ? `${shown.length} ${shown.length === 1 ? 'pick' : 'picks'}, ranked by conviction` : null}
+        count={countText}
         to={insights}
         moreLabel="All picks and results"
       />
 
-      {board === undefined ? <div className={h.skeleton} aria-busy="true" /> : (cards || nothingYet)}
+      {inPlayFirst && <HomeInPlay picks={inPlay} />}
+
+      {board === undefined
+        ? <div className={h.skeleton} aria-busy="true" />
+        : (cards || (inPlay.length > 0 ? null : nothingYet))}
+
+      {!inPlayFirst && <HomeInPlay picks={inPlay} />}
 
       {showLeans && (
         <>
@@ -201,9 +220,9 @@ export default function HomePicks({ variant = 'home', games: gamesProp, weekLabe
         </>
       )}
 
-      {recommended.length > 0 && recommended.length < 3 && (
+      {weekCount > 0 && weekCount < 3 && (
         <p className={h.sectionNote}>
-          {recommended.length === 1 ? 'One pick clears' : 'Two picks clear'} the bar this week. A pick is only
+          {weekCount === 1 ? 'One pick clears' : 'Two picks clear'} the bar this week. A pick is only
           recommended when a book’s price beats the market’s fair price by 1.5% or more, so some weeks are short.
         </p>
       )}
@@ -214,7 +233,7 @@ export default function HomePicks({ variant = 'home', games: gamesProp, weekLabe
           {picked && <span><b>{picked}</b> recommended</span>}
           {season && <span><b>{season}</b> season</span>}
         </Link>
-      ) : card !== null && recommended.length > 0 ? (
+      ) : card !== null && recommended.length > 0 && inPlay.length === 0 ? (
         <p className={h.fine}>
           No results yet. Each pick is locked at its line, price and book, then graded against the final score and the closing line.
         </p>

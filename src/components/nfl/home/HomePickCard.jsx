@@ -1,22 +1,28 @@
 /**
  * HomePickCard — one of Maximus's picks for the week, laid out like a ticket.
  *
- * Top to bottom: who is playing (away on the left, home on the right) and
- * where; the spread, price to win and total as quoted by the book the pick
- * is at, with the time of that quote; the pick itself; and one sentence on
- * why, written from the picks engine's numbers.
+ * Built to fit on a phone screen with room to spare. Top to bottom: the two
+ * teams as rows (away first, home marked) with the spread, moneyline and
+ * over/under beside them, as quoted by the book the pick is at; one line
+ * for where and in what weather; the pick itself; and one sentence on why,
+ * from the picks engine.
  */
 
+import { Fragment } from 'react';
 import { Link } from 'react-router-dom';
 import { getNflTeamBySlug } from '../../../sports/nfl/teams';
 import NflLogo from '../NflLogo';
-import { TeamTag } from './NflTeamTag';
 import { fmtLine, fmtOdds, kickoffShort, stampShort } from './format';
 import { ticketSummary } from './pickSummary';
 import h from './home.module.css';
 import { trackPickOpen } from '../../../analytics/sportEvents';
 
 const MARKET = { moneyline: 'Moneyline', runline: 'Spread', total: 'Over/under' };
+
+/** "Sat 8:02 PM": the lock time, short enough to share a line with what the value is now. */
+function lockStamp(iso) {
+  try { return new Date(iso).toLocaleString('en-US', { weekday: 'short', hour: 'numeric', minute: '2-digit' }).replace(',', ''); } catch { return ''; }
+}
 
 function Check() {
   return (
@@ -28,22 +34,24 @@ function Check() {
   );
 }
 
-function Side({ team, role }) {
+function TeamCell({ team, role }) {
   const info = getNflTeamBySlug(team?.slug);
   return (
-    <div className={h.side}>
-      <NflLogo slug={team?.slug} src={team?.logo} size={48} />
-      <span className={h.sideName}>{info?.nickname || team?.name || 'TBD'}</span>
-      {team?.record && <span className={h.sideMeta}>{team.record}</span>}
-      <span className={`${h.role} ${role === 'home' ? h.roleHome : ''}`}>
-        {role === 'home' && (
-          <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-            <path d="M1.5 5.5 6 1.75l4.5 3.75V10.5h-3V7.5h-3v3h-3z" fill="currentColor" />
-          </svg>
-        )}
-        {role === 'home' ? 'Home' : 'Away'}
+    <span className={h.tTeam}>
+      <NflLogo slug={team?.slug} src={team?.logo} size={26} />
+      <span className={h.tTeamText}>
+        <span className={h.tName}>{info?.nickname || team?.name || 'TBD'}</span>
+        <span className={`${h.tSub} ${role === 'home' ? h.tSubHome : ''}`}>
+          {role === 'home' && (
+            <svg width="10" height="10" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+              <path d="M1.5 5.5 6 1.75l4.5 3.75V10.5h-3V7.5h-3v3h-3z" fill="currentColor" />
+            </svg>
+          )}
+          <span className={h.tRole}>{role === 'home' ? 'Home' : 'Away'}</span>
+          {team?.record && <span>{team.record}</span>}
+        </span>
       </span>
-    </div>
+    </span>
   );
 }
 
@@ -68,7 +76,7 @@ function quoteFor(pick, game) {
   }
   if (market.pregameSpread == null && market.pregameTotal == null && !market.moneyline) return null;
   return {
-    source: market.booksCount ? `Consensus of ${market.booksCount} books` : 'Consensus',
+    source: market.booksCount ? `a consensus of ${market.booksCount} books` : 'the market consensus',
     at: null,
     spreadHome: market.pregameSpread ?? null,
     spreadPrice: null,
@@ -78,54 +86,35 @@ function quoteFor(pick, game) {
   };
 }
 
-function Lines({ pick, game, away, home, asOf }) {
-  const q = quoteFor(pick, game);
-  if (!q) return null;
+/**
+ * Two team rows against three columns of lines, the way a sportsbook lays
+ * a game out. The one cell the pick is on is outlined.
+ */
+function Board({ pick, q, away, home }) {
   const on = pick.market?.type;
-  const favHome = (q.spreadHome ?? 0) <= 0;
-  const fav = favHome ? home : away;
-  const favLine = q.spreadHome == null ? null : (favHome ? q.spreadHome : -q.spreadHome);
-  const favPrice = q.spreadPrice ? (favHome ? q.spreadPrice.home : q.spreadPrice.away) : null;
-  const cell = (type) => `${h.line} ${on === type ? h.lineOn : ''}`;
-  const stamp = stampShort(q.at || asOf);
-
+  const side = pick.selection?.side;
+  const cell = (type, rowSide) => {
+    const picked = on === type && (type === 'total' ? (rowSide === 'away' ? side === 'over' : side === 'under') : side === rowSide);
+    return `${h.tCell} ${picked ? h.tCellOn : ''}`;
+  };
+  const spread = (rowSide) => (q?.spreadHome == null ? '–' : fmtLine(rowSide === 'home' ? q.spreadHome : -q.spreadHome));
+  const ml = (rowSide) => (q?.moneyline ? fmtOdds(q.moneyline[rowSide]) || '–' : '–');
+  const total = (rowSide) => (q?.total == null ? '–' : `${rowSide === 'away' ? 'O' : 'U'} ${q.total}`);
   return (
-    <>
-      <div className={h.lines}>
-        <div className={cell('runline')}>
-          <span className={h.lineLabel}>Spread</span>
-          {favLine != null ? (
-            <>
-              <span className={h.lineValue}><TeamTag slug={fav?.slug} logo={fav?.logo} label="abbrev" size={14} /> {fmtLine(favLine)}</span>
-              {favPrice != null && <span className={h.lineSub}>{fmtOdds(favPrice)}</span>}
-            </>
-          ) : <span className={h.lineSub}>Not posted</span>}
-        </div>
-        <div className={cell('moneyline')}>
-          <span className={h.lineLabel}>Moneyline</span>
-          {q.moneyline ? (
-            <>
-              <span className={h.lineValue}><TeamTag slug={away?.slug} logo={away?.logo} label="abbrev" size={14} /> {fmtOdds(q.moneyline.away)}</span>
-              <span className={h.lineValue}><TeamTag slug={home?.slug} logo={home?.logo} label="abbrev" size={14} /> {fmtOdds(q.moneyline.home)}</span>
-            </>
-          ) : <span className={h.lineSub}>Not posted</span>}
-        </div>
-        <div className={cell('total')}>
-          <span className={h.lineLabel}>Over/under</span>
-          {q.total != null ? (
-            <>
-              <span className={h.lineValue}>{q.total}</span>
-              {q.totalPrice && (
-                <span className={h.lineSub}>O {fmtOdds(q.totalPrice.over)}<br />U {fmtOdds(q.totalPrice.under)}</span>
-              )}
-            </>
-          ) : <span className={h.lineSub}>Not posted</span>}
-        </div>
-      </div>
-      <p className={h.source}>
-        Lines from {q.source}{stamp ? `, ${q.at ? 'updated' : 'as of'} ${stamp}` : ''}.
-      </p>
-    </>
+    <div className={h.tBoard}>
+      <span />
+      <span className={h.tHead}>Spread</span>
+      <span className={h.tHead}>Moneyline</span>
+      <span className={h.tHead}>Total</span>
+      {[['away', away], ['home', home]].map(([rowSide, team]) => (
+        <Fragment key={rowSide}>
+          <TeamCell team={team} role={rowSide} />
+          <span className={cell('runline', rowSide)}>{spread(rowSide)}</span>
+          <span className={cell('moneyline', rowSide)}>{ml(rowSide)}</span>
+          <span className={cell('total', rowSide)}>{total(rowSide)}</span>
+        </Fragment>
+      ))}
+    </div>
   );
 }
 
@@ -151,6 +140,8 @@ export default function HomePickCard({ pick, game, rank, to, asOf, children }) {
   const summary = ticketSummary(pick, game);
   // A locked pick keeps the value it had when it was locked; say so, and show where it stands now if that has moved.
   const lock = pick.lock || null;
+  const q = quoteFor(pick, game);
+  const stamp = stampShort(q?.at || asOf);
   const evPct = (v) => `${v >= 0 ? '+' : ''}${(v * 100).toFixed(1)}%`;
   const evMoved = lock && typeof lock.evNow === 'number' && typeof lock.evAtLock === 'number'
     && Math.abs(lock.evNow - lock.evAtLock) >= 0.005;
@@ -172,24 +163,13 @@ export default function HomePickCard({ pick, game, rank, to, asOf, children }) {
         <span>{[kickoffShort(m.startTime), m.network || game?.broadcast?.network].filter(Boolean).join(', ')}</span>
       </div>
 
-      <div className={h.matchup}>
-        <Side team={away} role="away" />
-        <span className={h.at}>at</span>
-        <Side team={home} role="home" />
-      </div>
-      {place && (
-        <p className={h.venue}>
-          <svg width="11" height="13" viewBox="0 0 11 13" fill="none" aria-hidden="true">
-            <path d="M5.5 12.25s4.25-3.6 4.25-7A4.25 4.25 0 0 0 1.25 5.25c0 3.4 4.25 7 4.25 7Z" stroke="currentColor" strokeWidth="1.25" />
-            <circle cx="5.5" cy="5.25" r="1.5" fill="currentColor" />
-          </svg>
-          {place}
-        </p>
-      )}
+      <Board pick={pick} q={q} away={away} home={home} />
 
-      {conditions && <p className={h.conditions}>{conditions}</p>}
-
-      <Lines pick={pick} game={game} away={away} home={home} asOf={asOf} />
+      <p className={h.tMeta}>
+        {[place, conditions].filter(Boolean).join('. ')}
+        {(place || conditions) && q ? '. ' : ''}
+        {q ? `Lines from ${q.source}${stamp ? `, ${q.at ? 'updated' : 'as of'} ${stamp}` : ''}.` : ''}
+      </p>
 
       <div className={h.call}>
         <Check />
@@ -211,9 +191,9 @@ export default function HomePickCard({ pick, game, rank, to, asOf, children }) {
 
       <div className={h.pickFoot}>
         <span className={h.footFacts}>
-          {ev && <b>{ev} expected value{lock ? ' when locked' : ''}</b>}
+          {ev && <b>{ev} expected value{lock ? ' at lock' : ''}</b>}
           {lock?.lockedAt && (
-            <span>Locked {stampShort(lock.lockedAt)}{evMoved ? `, now ${evPct(lock.evNow)}` : ''}</span>
+            <span>Locked {lockStamp(lock.lockedAt)}{evMoved ? `, now ${evPct(lock.evNow)}` : ''}</span>
           )}
         </span>
         {to && (

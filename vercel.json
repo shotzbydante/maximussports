@@ -25,6 +25,9 @@
     "api/venues/aerial.js": {
       "maxDuration": 30
     },
+    "api/nfl/chat/homeSummary.js": {
+      "maxDuration": 60
+    },
     "api/nfl/picks/built.js": {
       "maxDuration": 60
     },
