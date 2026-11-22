@@ -112,7 +112,7 @@ The engine is ready for one: every unit grade carries a `source`, and `buildUnit
 
 ## Migration
 
-`docs/nfl-picks-v2-migration.sql` (applied as `nfl_picks_engine_v2`). Additive: lock and closing-line columns on `picks`, `units` on `pick_results`, `nfl_line_snapshots`, and `by_pick_role` and `performance` on `picks_daily_scorecards`.
+Run `docs/nfl-picks-v2-migration.sql` in Supabase **before merging**. Additive and safe to run twice: lock and closing-line columns on `picks`, `units` on `pick_results`, `nfl_line_snapshots`, and `by_pick_role` and `performance` on `picks_daily_scorecards`. Until it is run the board works but nothing is locked or graded; `/api/nfl/health` reports `storage.ok: false`.
 
 `by_pick_role` fixes an older fault in every sport: the shared scorecard builder has written that field since the hero/tracking split, the column never existed, and each scorecard carrying it was rejected. Only empty "no picks" rows were being saved.
 

@@ -162,7 +162,11 @@ export async function buildNflPicksBoard({ preferFresh = false, modelWaitMs = 25
     );
 
     if (freshCount > 0) {
-      if (canPersist()) {
+      // Until docs/nfl-picks-v2-migration.sql has been run there is nowhere
+      // to store a lock, and trying would leave an empty run row per build.
+      const storageReady = locks.reason !== 'migration_missing';
+      if (!storageReady) freshBoard._debug.persisted = { hero: 0, tracking: 0, snapshots: 0, reason: 'migration_missing' };
+      if (canPersist() && storageReady) {
         // Waited on, with a cap. A serverless function can be frozen the
         // moment it responds, and a write left running in the background
         // was observed never to finish.
