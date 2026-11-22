@@ -1,112 +1,100 @@
 /**
  * Confirm Signup email template.
- * Sent via /api/auth/send-confirm-signup when a user submits their email.
+ * Sent via /api/auth/send-confirm-signup when a user submits their email,
+ * and via /api/auth/send-welcome (isWelcome) once the account exists.
  *
- * Updated to match editorial newsletter shell (light theme).
+ * Order matters here: the one thing the reader has to do is confirm, so the
+ * button comes first, right under the headline. What they get comes after it,
+ * football first. The raw link is the fallback and sits last, small.
  *
  * @param {{ confirmUrl: string, isWelcome?: boolean }} opts
  */
 
 import { EmailShell, spacerRow, sectionLabel } from '../EmailShell.js';
 
+const F = "'DM Sans',Arial,Helvetica,sans-serif";
+const SITE = 'https://maximussports.ai';
+
+/** What an account gets. Football leads; every line is something in the app today. */
+export const BENEFITS = [
+  ['A call on every NFL game.', 'Spread, total and moneyline, with picks locked at a real price and graded in public.'],
+  ['Matchups down to the position group.', 'Every starter rated, for every game and all 32 teams.'],
+  ['Your teams on your home page.', 'Follow teams in the NFL, college basketball and MLB.'],
+  ['Emails worth opening.', 'The Daily Brief every morning, and NFL Picks on Thursday and Sunday.'],
+];
+
 export function getSubject({ isWelcome = false } = {}) {
   return isWelcome
     ? 'Welcome to Maximus Sports'
-    : 'Maximus Sports: confirm your email';
+    : 'Confirm your email for Maximus Sports';
+}
+
+const esc = (t) => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+function benefitRow([title, text], last) {
+  return `
+              <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;${last ? '' : 'margin-bottom:10px;'}">
+                <tr>
+                  <td valign="top" width="22" style="width:22px;padding-top:1px;font-size:14px;line-height:21px;color:#16a34a;font-weight:700;font-family:${F};">&#10003;</td>
+                  <td valign="top" style="font-size:14px;color:#4a5568;font-family:${F};line-height:21px;"><span style="font-weight:700;color:#1a1a2e;">${title}</span> ${text}</td>
+                </tr>
+              </table>`;
 }
 
 export function renderHTML({ confirmUrl = '#', isWelcome = false } = {}) {
+  const url = esc(confirmUrl);
+  const headline = isWelcome ? 'Welcome to Maximus Sports' : 'Confirm your email';
   const subhead = isWelcome
-    ? 'Your account is ready. Here&#8217;s what Maximus Sports brings to your game.'
-    : 'Confirm your email below to unlock personalized college basketball intelligence.';
+    ? 'Your account is ready. Here is what is inside.'
+    : 'One tap and your account is ready.';
+  const actionUrl = isWelcome ? `${SITE}/nfl` : url;
+  const actionLabel = isWelcome ? 'See this week&rsquo;s NFL picks' : 'Confirm email';
 
   const content = `
     ${spacerRow(8)}
 
-    <!-- HERO -->
+    <!-- HERO: headline, then the one action -->
     <tr>
-      <td style="padding:0 0 4px;font-size:0;line-height:0;">
+      <td style="padding:22px 24px 8px;text-align:center;" class="hero-td">
         <img
-          src="https://maximussports.ai/brand/header-banner.jpg"
-          alt="Maximus Sports"
-          width="560"
-          style="width:100%;max-width:560px;height:auto;display:block;border:0;outline:none;"
-        />
-      </td>
-    </tr>
-    <tr>
-      <td style="padding:28px 24px 22px;text-align:center;" class="hero-td">
-        <img
-          src="https://maximussports.ai/mascot.png"
-          alt="Maximus robot"
-          width="80"
-          style="width:80px;height:auto;max-width:80px;display:block;margin:0 auto 16px;border:0;outline:none;"
+          src="${SITE}/mascot.png"
+          alt="Maximus, the Maximus Sports mascot"
+          width="112"
+          style="width:112px;height:auto;max-width:112px;display:block;margin:0 auto 14px;border:0;outline:none;"
         />
         <h1 class="hero-h1"
-            style="margin:0 0 10px;font-size:24px;font-weight:800;color:#1a1a2e;letter-spacing:-0.02em;font-family:'DM Sans',Arial,Helvetica,sans-serif;line-height:1.2;">
-          Welcome to Maximus Sports
+            style="margin:0 0 8px;font-size:26px;font-weight:800;color:#1a1a2e;letter-spacing:-0.02em;font-family:${F};line-height:1.2;">
+          ${headline}
         </h1>
-        <p style="margin:0 auto;font-size:15px;color:#4a5568;font-family:'DM Sans',Arial,Helvetica,sans-serif;line-height:1.6;max-width:400px;">
+        <p style="margin:0 auto;font-size:15px;color:#4a5568;font-family:${F};line-height:1.6;max-width:400px;">
           ${subhead}
         </p>
       </td>
     </tr>
+    <tr>
+      <td align="center" style="padding:14px 24px 26px;" class="section-td">
+        <table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:separate;">
+          <tr>
+            <td align="center" bgcolor="#1668e3" style="background-color:#1668e3;border-radius:8px;">
+              <a href="${actionUrl}" target="_blank"
+                 style="display:inline-block;padding:14px 34px;font-size:16px;font-weight:700;color:#ffffff;text-decoration:none;font-family:${F};line-height:1;border-radius:8px;">
+                ${actionLabel}
+              </a>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
 
-    ${spacerRow(12)}
-
-    <!-- VALUE BULLETS -->
+    <!-- WHAT YOU GET -->
     <tr>
       <td style="padding:0 24px 4px;" class="section-td">
         <table role="presentation" cellpadding="0" cellspacing="0" width="100%"
-               style="background-color:#f9fafb;border:1px solid #e8ecf0;border-radius:6px;border-collapse:collapse;">
+               style="background-color:#f9fafb;border:1px solid #e8ecf0;border-radius:8px;border-collapse:separate;">
           <tr>
-            <td style="padding:16px 18px 14px;" class="card-td">
+            <td style="padding:16px 18px 16px;" class="card-td">
               <div style="margin-bottom:12px;">${sectionLabel('WHAT YOU GET')}</div>
-
-              <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;margin-bottom:7px;">
-                <tr>
-                  <td valign="top" style="width:18px;padding-top:3px;">
-                    <span style="display:inline-block;color:#2d6ca8;font-size:11px;font-weight:700;font-family:'DM Sans',Arial,Helvetica,sans-serif;line-height:1;">&#x2726;</span>
-                  </td>
-                  <td valign="top">
-                    <span style="font-size:14px;color:#4a5568;font-family:'DM Sans',Arial,Helvetica,sans-serif;line-height:1.55;">Pin your favorite teams and get a personalized AI briefing every morning</span>
-                  </td>
-                </tr>
-              </table>
-
-              <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;margin-bottom:7px;">
-                <tr>
-                  <td valign="top" style="width:18px;padding-top:3px;">
-                    <span style="display:inline-block;color:#2d6ca8;font-size:11px;font-weight:700;font-family:'DM Sans',Arial,Helvetica,sans-serif;line-height:1;">&#x2726;</span>
-                  </td>
-                  <td valign="top">
-                    <span style="font-size:14px;color:#4a5568;font-family:'DM Sans',Arial,Helvetica,sans-serif;line-height:1.55;">Track ATS edges, line movement, and spread context across the board</span>
-                  </td>
-                </tr>
-              </table>
-
-              <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;margin-bottom:7px;">
-                <tr>
-                  <td valign="top" style="width:18px;padding-top:3px;">
-                    <span style="display:inline-block;color:#2d6ca8;font-size:11px;font-weight:700;font-family:'DM Sans',Arial,Helvetica,sans-serif;line-height:1;">&#x2726;</span>
-                  </td>
-                  <td valign="top">
-                    <span style="font-size:14px;color:#4a5568;font-family:'DM Sans',Arial,Helvetica,sans-serif;line-height:1.55;">See market sentiment and public betting indicators before tip-off</span>
-                  </td>
-                </tr>
-              </table>
-
-              <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">
-                <tr>
-                  <td valign="top" style="width:18px;padding-top:3px;">
-                    <span style="display:inline-block;color:#2d6ca8;font-size:11px;font-weight:700;font-family:'DM Sans',Arial,Helvetica,sans-serif;line-height:1;">&#x2726;</span>
-                  </td>
-                  <td valign="top">
-                    <span style="font-size:14px;color:#4a5568;font-family:'DM Sans',Arial,Helvetica,sans-serif;line-height:1.55;">Breaking news and video highlights for every team you follow</span>
-                  </td>
-                </tr>
-              </table>
-
+${BENEFITS.map((b, i) => benefitRow(b, i === BENEFITS.length - 1)).join('')}
             </td>
           </tr>
         </table>
@@ -121,34 +109,26 @@ export function renderHTML({ confirmUrl = '#', isWelcome = false } = {}) {
         <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">
           <tr>
             <td width="48%" valign="top"
-                style="background-color:#f9fafb;border:1px solid #e8ecf0;border-radius:6px;padding:14px 15px;">
-              <div style="margin-bottom:9px;">
-                <span style="display:inline-block;font-size:10px;font-weight:700;color:#8a94a6;letter-spacing:0.1em;text-transform:uppercase;font-family:'DM Sans',Arial,Helvetica,sans-serif;">Free</span>
-              </div>
-              <p style="margin:0 0 7px;font-size:13px;font-weight:700;color:#1a1a2e;font-family:'DM Sans',Arial,Helvetica,sans-serif;line-height:1.3;">Start for free</p>
-              <p style="margin:0;font-size:12px;color:#8a94a6;font-family:'DM Sans',Arial,Helvetica,sans-serif;line-height:1.65;">
-                Up to 3 pinned teams<br/>
+                style="background-color:#f9fafb;border:1px solid #e8ecf0;border-radius:8px;padding:14px 15px;">
+              <p style="margin:0 0 6px;font-size:13px;font-weight:700;color:#1a1a2e;font-family:${F};line-height:1.3;">Free</p>
+              <p style="margin:0;font-size:12px;color:#6b7280;font-family:${F};line-height:1.65;">
+                Follow up to 3 teams<br/>
                 Standard AI intel<br/>
-                News &amp; highlights
+                News and highlights
               </p>
             </td>
-
             <td width="4%" style="font-size:0;line-height:0;" aria-hidden="true">&nbsp;</td>
-
             <td width="48%" valign="top"
-                style="background-color:#eef4fb;border:1px solid #c6daf0;border-radius:6px;padding:14px 15px;">
-              <div style="margin-bottom:9px;">
-                <span style="display:inline-block;font-size:10px;font-weight:700;color:#2d6ca8;letter-spacing:0.1em;text-transform:uppercase;font-family:'DM Sans',Arial,Helvetica,sans-serif;">Pro</span>
-              </div>
-              <p style="margin:0 0 7px;font-size:13px;font-weight:700;color:#1a1a2e;font-family:'DM Sans',Arial,Helvetica,sans-serif;line-height:1.3;">Unlock full depth</p>
-              <p style="margin:0 0 10px;font-size:12px;color:#4a5568;font-family:'DM Sans',Arial,Helvetica,sans-serif;line-height:1.65;">
-                Unlimited pinned teams<br/>
-                Full odds &amp; ATS insights<br/>
+                style="background-color:#eef4fb;border:1px solid #c6daf0;border-radius:8px;padding:14px 15px;">
+              <p style="margin:0 0 6px;font-size:13px;font-weight:700;color:#1a1a2e;font-family:${F};line-height:1.3;">Pro</p>
+              <p style="margin:0 0 8px;font-size:12px;color:#4a5568;font-family:${F};line-height:1.65;">
+                Unlimited teams<br/>
+                Full odds and ATS insights<br/>
                 Premium AI intel
               </p>
-              <a href="https://maximussports.ai/settings?openBilling=1"
-                 style="font-size:12px;color:#2d6ca8;text-decoration:none;font-weight:600;font-family:'DM Sans',Arial,Helvetica,sans-serif;">
-                See Pro benefits &#x2192;
+              <a href="${SITE}/settings?openBilling=1"
+                 style="font-size:12px;color:#2d6ca8;text-decoration:none;font-weight:600;font-family:${F};">
+                See what Pro adds
               </a>
             </td>
           </tr>
@@ -156,73 +136,65 @@ export function renderHTML({ confirmUrl = '#', isWelcome = false } = {}) {
       </td>
     </tr>
 
-    ${spacerRow(20)}
-
     ${!isWelcome ? `
+    <!-- FALLBACK LINK: last, for mail apps that block buttons -->
     <tr>
-      <td style="padding:0 24px 6px;text-align:center;" class="section-td">
-        <p style="margin:0;font-size:12px;color:#8a94a6;font-family:'DM Sans',Arial,Helvetica,sans-serif;line-height:1.65;">
-          If the button below doesn&apos;t work, confirm here:
+      <td style="padding:22px 24px 4px;" class="section-td">
+        <p style="margin:0;font-size:12px;color:#8a94a6;font-family:${F};line-height:1.6;">
+          Button not working? Paste this link into your browser:
         </p>
-        <p style="margin:4px 0 0;font-size:11px;font-family:'DM Sans',Arial,Helvetica,sans-serif;line-height:1.5;word-break:break-all;">
-          <a href="${confirmUrl}" style="color:#2d6ca8;text-decoration:underline;">${confirmUrl}</a>
+        <p style="margin:4px 0 0;font-size:11px;font-family:${F};line-height:1.5;word-break:break-all;">
+          <a href="${url}" style="color:#8a94a6;text-decoration:underline;">${url}</a>
+        </p>
+        <p style="margin:12px 0 0;font-size:12px;color:#8a94a6;font-family:${F};line-height:1.6;">
+          Did not sign up? Ignore this email and nothing happens.
         </p>
       </td>
     </tr>` : ''}
 
-    ${spacerRow(4)}
-  `;
+    ${spacerRow(12)}`;
 
   const previewText = isWelcome
-    ? 'Your Maximus Sports account is ready. Personalized college basketball intelligence awaits.'
-    : 'Confirm your email to unlock personalized college basketball intelligence.';
+    ? 'Your account is ready: a call on every NFL game, matchups down to the position group, and your teams on your home page.'
+    : 'One tap to confirm and your Maximus Sports account is ready.';
 
   return EmailShell({
     content,
     previewText,
-    ctaUrl: isWelcome ? 'https://maximussports.ai' : confirmUrl,
+    ctaUrl: isWelcome ? SITE : confirmUrl,
     ctaLabel: isWelcome ? 'Open Maximus Sports &rarr;' : 'Confirm email &rarr;',
   });
 }
 
 export function renderText({ confirmUrl = '', isWelcome = false } = {}) {
   const year = new Date().getFullYear();
-  const lines = [
-    'Welcome to Maximus Sports',
-    '='.repeat(40),
-    '',
-  ];
+  const lines = [isWelcome ? 'Welcome to Maximus Sports' : 'Confirm your email for Maximus Sports', '='.repeat(40), ''];
 
   if (isWelcome) {
-    lines.push('Your account is ready. Here\'s what Maximus Sports brings to your game.');
+    lines.push('Your account is ready. Here is what is inside.');
   } else {
-    lines.push('Confirm your email to unlock personalized college basketball intelligence.');
-    lines.push('');
-    lines.push('Confirm here: ' + confirmUrl);
+    lines.push('One tap and your account is ready. Confirm here:', '', confirmUrl);
   }
 
   lines.push(
     '',
     '-'.repeat(40),
-    'What you get with Maximus Sports:',
+    'What you get:',
     '',
-    '+ Pin your favorite teams and get a personalized AI briefing every morning',
-    '+ Track ATS edges, line movement, and spread context',
-    '+ See market sentiment and public betting indicators before tip-off',
-    '+ Breaking news and video highlights for every team you follow',
+    ...BENEFITS.map(([title, text]) => `+ ${title} ${text}`),
     '',
     '-'.repeat(40),
-    'Free plan:  Up to 3 pinned teams · standard AI intel · news & highlights',
-    'Pro plan:   Unlimited teams · full odds & ATS insights · premium AI intel',
+    'Free: follow up to 3 teams, standard AI intel, news and highlights',
+    'Pro:  unlimited teams, full odds and ATS insights, premium AI intel',
     '',
-    'See Pro benefits: https://maximussports.ai/settings?openBilling=1',
+    `See what Pro adds: ${SITE}/settings?openBilling=1`,
     '',
     '='.repeat(40),
     isWelcome
       ? "You're receiving this because you created an account at maximussports.ai."
-      : "You're receiving this because you started signing up at maximussports.ai.",
+      : "You're receiving this because you started signing up at maximussports.ai. Did not sign up? Ignore this email.",
     'Not betting advice. For informational purposes only.',
-    `\u00A9 ${year} Maximus Sports \u00B7 winning@maximussports.ai`,
+    `© ${year} Maximus Sports · winning@maximussports.ai`,
   );
   return lines.join('\n');
 }

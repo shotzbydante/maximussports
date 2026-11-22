@@ -86,7 +86,7 @@ const logo = (url, alt) => (url
   ? `<img src="${esc(url)}" alt="${esc(alt)}" width="22" height="22" style="display:inline-block;width:22px;height:22px;vertical-align:middle;border:0;" />`
   : '');
 
-function pickCard(p) {
+export function pickCard(p) {
   const where = [p.price, p.book ? `at ${p.book}` : ''].filter(Boolean).join(' ');
   return `
 <tr>
@@ -112,7 +112,7 @@ function pickCard(p) {
 </tr>`;
 }
 
-function leanCard(p) {
+export function leanCard(p) {
   const where = [p.price, p.book ? `at ${p.book}` : ''].filter(Boolean).join(' ');
   return `
 <tr>
@@ -137,7 +137,7 @@ function leanCard(p) {
 </tr>`;
 }
 
-function sectionTitle(kicker, title) {
+export function sectionTitle(kicker, title) {
   return `
 <tr>
   <td style="padding:22px 24px 10px;" class="section-td">

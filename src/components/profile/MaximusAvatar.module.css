@@ -1,0 +1,30 @@
+.avatar {
+  position: relative;
+  display: inline-block;
+  flex: none;
+  line-height: 0;
+  isolation: isolate;
+}
+.cropped { overflow: hidden; border-radius: 22%; background: linear-gradient(160deg, #eaf2fe 0%, #d6e6fb 100%); }
+.stage { position: absolute; display: block; }
+.layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  user-select: none;
+  pointer-events: none;
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+}
+.number {
+  font-family: 'Manrope', 'Inter', system-ui, sans-serif;
+  font-weight: 800;
+  text-anchor: middle;
+  dominant-baseline: central;
+  paint-order: stroke;
+  stroke-linejoin: round;
+}

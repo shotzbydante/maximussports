@@ -1,12 +1,15 @@
 /* ─── Page shell ──────────────────────────────────────────────────────────── */
 .page {
-  max-width: 680px;
+  max-width: 1120px;
   margin: 0 auto;
-  padding: var(--space-2xl) var(--space-lg);
+  padding: var(--space-xl) var(--space-lg) var(--space-2xl);
 }
+/* Sign-in and the setup steps read best as one column. */
+.pageNarrow { max-width: 780px; margin-left: auto; margin-right: auto; }
+.pageNarrow .pageHeader { margin-bottom: var(--space-lg); }
 
 .pageHeader {
-  margin-bottom: var(--space-2xl);
+  margin-bottom: var(--space-lg);
 }
 
 .pageTitle {
@@ -3620,4 +3623,99 @@
   color: var(--color-text);
   background: var(--color-bg-elevated);
   box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+
+/* ═══════════════ Settings layout: who you are beside what you follow ═══════════════ */
+.profileLayout {
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr);
+  gap: var(--space-xl);
+  align-items: start;
+}
+.profileAside { position: sticky; top: 88px; display: flex; flex-direction: column; gap: 12px; }
+.profileMain { display: flex; flex-direction: column; gap: var(--space-lg); min-width: 0; }
+.asideAccount { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 4px; }
+.asideEmail { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.8125rem; color: var(--color-text-secondary); }
+.asideActions { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+.asideActions > button { justify-content: center; }
+.sectionHeaderActions { display: inline-flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; }
+
+@media (max-width: 960px) {
+  .profileLayout { grid-template-columns: 1fr; gap: var(--space-lg); }
+  .profileAside { position: static; }
+  .profileAside > :first-child { max-width: 340px; width: 100%; margin: 0 auto; }
+}
+
+/* ═══════════════ Setup steps ═══════════════ */
+.sportTabCount {
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  margin-left: 6px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--color-primary);
+  color: #fff;
+  font-size: 0.6875rem;
+  font-weight: 700;
+}
+.sportTab { font-size: 0.8125rem; padding: 8px 16px; }
+.chosenRow { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.chosenChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 6px 5px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-bg-elevated);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+.chosenChipPrimary { border-color: var(--color-primary); background: rgba(22, 104, 227, 0.06); }
+.chosenPrimary { font-size: 0.6875rem; font-weight: 700; color: var(--color-primary); }
+.chosenRemove {
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(11, 27, 51, 0.07);
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.chosenRemove:hover { background: rgba(11, 27, 51, 0.14); color: var(--color-text); }
+.teamPickGroup {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 6px 12px;
+  background: var(--color-bg, #f6f8fc);
+  border-bottom: 1px solid var(--color-border-light);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: var(--color-text-muted);
+}
+.teamMarkFallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  background: var(--color-bg-muted, #eef3fa);
+  font-size: 0.5rem;
+  font-weight: 700;
+  color: var(--color-text-muted);
+}
+.teamPickList { max-height: 380px; }
+.primaryBadge { text-transform: none; letter-spacing: 0; font-size: 0.6875rem; padding: 2px 8px; border-radius: 999px; }
+.usernameField { max-width: 420px; }
+.doneCard { width: 240px; max-width: 100%; text-align: left; }
+.sportTabs { max-width: 100%; }
+.sportTab { display: inline-flex; align-items: center; white-space: nowrap; }
+@media (max-width: 480px) {
+  .sportTab { padding: 8px 10px; font-size: 0.75rem; }
 }
