@@ -133,7 +133,10 @@ export default function HomePickCard({ pick, game, rank, to, asOf, children }) {
   const away = m.awayTeam;
   const home = m.homeTeam;
   const venue = game?.venue || {};
-  const place = [venue.name || m.venue, [venue.city, venue.state].filter(Boolean).join(', ')].filter(Boolean).join(', ');
+  // The engine's own venue wins when it has one: it knows where a neutral-site game is really played.
+  const env = game?.engine?.env || {};
+  const place = [env.venue || venue.name || m.venue, env.city || [venue.city, venue.state].filter(Boolean).join(', ')]
+    .filter(Boolean).join(', ');
   const side = pick.selection?.side;
   const pickedTeam = side === 'home' ? home : side === 'away' ? away : null;
   const price = pick.lock?.price ?? pick.market?.priceAmerican;
@@ -143,7 +146,8 @@ export default function HomePickCard({ pick, game, rank, to, asOf, children }) {
     : [fmtOdds(price), book ? `at ${book}` : ''].filter(Boolean).join(' ');
   const score = pick.conviction?.score ?? Math.round((pick.betScore?.total || 0) * 100);
   const ev = pick.displayMetrics?.edgeValue;
-  const summary = pickSummary(pick, game);
+  // A reason stored with the pick by the engine is the one that was locked; otherwise build it from the same numbers.
+  const summary = pick.why || pickSummary(pick, game);
 
   return (
     <article className={h.pick} role="listitem">
