@@ -2,9 +2,9 @@
  * HomeGameTile — one game in the home page rail.
  *
  * Before kickoff: each team with its spread and moneyline, then the total
- * and the model's own line. Live and final: the score, with the closing
- * line underneath. A chip appears only when there is something to act on:
- * the model disagreeing with the market, or a quarterback ruled out.
+ * and the ratings' own line. Live and final: the score, with the closing
+ * line underneath. A chip appears only for what moves a price: a
+ * quarterback ruled out, or strong wind at an outdoor stadium.
  */
 
 import { Link } from 'react-router-dom';
@@ -14,7 +14,7 @@ import { getNflTeamBySlug } from '../../../sports/nfl/teams';
 import { fmtLine, fmtOdds, kickoffShort } from './format';
 import h from './home.module.css';
 
-const EDGE_CHIP_MIN = 2; // points of disagreement before the tile calls it out
+const WIND_CHIP_MIN = 15; // mph, the level at which the engine adjusts a total
 
 function qbFlag(game) {
   const { injuries, teams } = game;
@@ -57,14 +57,16 @@ export default function HomeGameTile({ game }) {
   const showScore = gs.isLive || gs.isFinal;
   const spread = market.pregameSpread;
   const ml = market.moneyline || {};
-  const edge = model.pregameEdge;
   const qb = !gs.isFinal ? qbFlag(game) : null;
-  const leanTeam = edge != null && Math.abs(edge) >= EDGE_CHIP_MIN ? (edge > 0 ? home : away) : null;
   const teamPath = (t) => (t?.slug ? buildPath(`/teams/${t.slug}`) : null);
+
+  // Wind is the one condition the picks engine lets move a fair total.
+  const env = game.engine?.env;
+  const windy = !showScore && env && !env.indoor && env.wind >= WIND_CHIP_MIN;
 
   let chip = null;
   if (qb) chip = <span className={`${h.chip} ${h.chipWarn}`}>{qb}</span>;
-  else if (leanTeam && !showScore) chip = <span className={`${h.chip} ${h.chipUp}`}>Model likes {leanTeam.abbrev} by {Math.abs(edge).toFixed(1)}</span>;
+  else if (windy) chip = <span className={h.chip}>Wind {Math.round(env.wind)} mph</span>;
 
   return (
     <article className={h.tile} role="listitem">
@@ -104,7 +106,7 @@ export default function HomeGameTile({ game }) {
           spread != null && <span>Closed <b>{home?.abbrev} {fmtLine(spread)}</b></span>
         ) : (
           model.fairSpread != null && (
-            <span>Model <b>{home?.abbrev} {fmtLine(model.fairSpread)}</b>{model.fairTotal != null ? <>, <b>{model.fairTotal.toFixed(1)}</b></> : null}</span>
+            <span>Ratings <b>{home?.abbrev} {fmtLine(Math.round(model.fairSpread * 10) / 10)}</b>{model.fairTotal != null ? <>, <b>{model.fairTotal.toFixed(1)}</b></> : null}</span>
           )
         )}
       </div>

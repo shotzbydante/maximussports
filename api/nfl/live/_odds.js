@@ -11,6 +11,7 @@
  */
 
 import { createCache, coalesce } from '../../_cache.js';
+import { getJson, setJson } from '../../_globalCache.js';
 import { resolveNflTeam } from '../../../src/sports/nfl/teams.js';
 
 const ODDS_SPORT = 'americanfootball_nfl';
@@ -18,8 +19,17 @@ const ODDS_BASE = `https://api.the-odds-api.com/v4/sports/${ODDS_SPORT}/odds`;
 const FETCH_TIMEOUT_MS = 6000;
 
 // NFL lines move slowly outside of injury news; five minutes keeps the
-// request count low across a full week of traffic.
+// request count low across a full week of traffic. The KV copy lets every
+// serverless instance share one pull, which matters now that a cron builds
+// the board around the clock: each pull costs three Odds API credits.
 const cache = createCache(5 * 60 * 1000);
+const KV_KEY = 'nfl:odds:week:v2';
+const KV_FRESH_MS = 4 * 60 * 1000;
+const KV_TTL_SEC = 6 * 3600;
+
+/** Credits left on the Odds API key, as of the last call this instance made. */
+let quota = { remaining: null, used: null, at: null };
+export function getOddsQuota() { return quota; }
 
 function median(arr) {
   if (!arr || arr.length === 0) return null;
@@ -54,6 +64,13 @@ async function fetchOddsApi() {
       oddsFormat: 'american', dateFormat: 'iso',
     });
     const r = await fetch(`${ODDS_BASE}?${params}`, { signal: controller.signal });
+    const remaining = Number(r.headers?.get?.('x-requests-remaining'));
+    const used = Number(r.headers?.get?.('x-requests-used'));
+    quota = {
+      remaining: Number.isFinite(remaining) ? remaining : null,
+      used: Number.isFinite(used) ? used : null,
+      at: new Date().toISOString(),
+    };
     if (!r.ok) { console.warn(`[nfl/_odds] Odds API ${r.status}`); return null; }
     const data = await r.json();
     return Array.isArray(data) ? data : [];
@@ -72,22 +89,45 @@ export function parseOddsEvent(ev) {
 
   const spreads = [], totals = [], homeMls = [], awayMls = [];
   const bookmakers = ev.bookmakers || [];
+  // One entry per book with its own line and both prices. The consensus
+  // fields below are kept for display; the picks engine prices each book.
+  const books = [];
+  const price = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
 
   for (const bm of bookmakers) {
+    const book = { key: bm.key, title: bm.title || bm.key, lastUpdate: bm.last_update || null };
     for (const mkt of bm.markets || []) {
       if (mkt.key === 'spreads') {
         const homeOut = (mkt.outcomes || []).find((o) => resolveNflTeam(o.name)?.slug === home.slug);
-        if (homeOut?.point != null) spreads.push(homeOut.point);
+        const awayOut = (mkt.outcomes || []).find((o) => resolveNflTeam(o.name)?.slug === away.slug);
+        if (homeOut?.point != null) {
+          spreads.push(homeOut.point);
+          book.spread = {
+            homeLine: homeOut.point, homePrice: price(homeOut.price), awayPrice: price(awayOut?.price),
+            lastUpdate: mkt.last_update || book.lastUpdate,
+          };
+        }
       } else if (mkt.key === 'totals') {
         const over = (mkt.outcomes || []).find((o) => o.name === 'Over');
-        if (over?.point != null) totals.push(over.point);
+        const under = (mkt.outcomes || []).find((o) => o.name === 'Under');
+        if (over?.point != null) {
+          totals.push(over.point);
+          book.total = {
+            line: over.point, overPrice: price(over.price), underPrice: price(under?.price),
+            lastUpdate: mkt.last_update || book.lastUpdate,
+          };
+        }
       } else if (mkt.key === 'h2h') {
         const homeOut = (mkt.outcomes || []).find((o) => resolveNflTeam(o.name)?.slug === home.slug);
         const awayOut = (mkt.outcomes || []).find((o) => resolveNflTeam(o.name)?.slug === away.slug);
         if (homeOut?.price != null) homeMls.push(homeOut.price);
         if (awayOut?.price != null) awayMls.push(awayOut.price);
+        if (homeOut?.price != null && awayOut?.price != null) {
+          book.h2h = { home: homeOut.price, away: awayOut.price, lastUpdate: mkt.last_update || book.lastUpdate };
+        }
       }
     }
+    if (book.spread || book.total || book.h2h) books.push(book);
   }
 
   return {
@@ -100,6 +140,7 @@ export function parseOddsEvent(ev) {
     total: roundHalf(median(totals)),
     moneyline: { home: medianAmerican(homeMls), away: medianAmerican(awayMls) },
     booksCount: bookmakers.length,
+    books,
   };
 }
 
@@ -145,6 +186,7 @@ export function mergeOdds(games, oddsEvents) {
         pregameTotal: total,
         moneyline,
         booksCount: match.booksCount || 0,
+        books: match.books || [],
         source: 'consensus',
       },
       betting: { spreadDisplay, totalDisplay },
@@ -160,13 +202,28 @@ export async function enrichGamesWithOdds(games) {
   let oddsEvents = cache.get(cacheKey);
 
   if (!oddsEvents) {
+    const shared = await getJson(KV_KEY).catch(() => null);
+    if (Array.isArray(shared?.events) && Date.now() - (shared.at || 0) < KV_FRESH_MS) {
+      oddsEvents = shared.events;
+      cache.set(cacheKey, oddsEvents);
+    }
+  }
+
+  if (!oddsEvents) {
     const raw = await coalesce(cacheKey, fetchOddsApi);
     if (raw && raw.length > 0) {
       oddsEvents = raw.map(parseOddsEvent).filter(Boolean);
       cache.set(cacheKey, oddsEvents);
+      setJson(KV_KEY, { at: Date.now(), events: oddsEvents }, { exSeconds: KV_TTL_SEC }).catch(() => {});
     } else {
+      // The API failed or is out of credits: serve the last pull, marked
+      // stale by its own timestamps, instead of falling back to one book.
       const stale = cache.getMaybeStale(cacheKey);
       if (stale?.value) oddsEvents = stale.value;
+      else {
+        const lastKnown = await getJson(KV_KEY).catch(() => null);
+        if (Array.isArray(lastKnown?.events)) oddsEvents = lastKnown.events;
+      }
     }
   }
 

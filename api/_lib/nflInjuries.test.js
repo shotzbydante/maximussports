@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest';
 import {
   parseInjuries, summarizeTeamInjuries, normalizeInjuryStatus, attachInjuries,
 } from './nflInjuries.js';
-import { buildNflPicksV2 } from '../../src/features/nfl/picks/buildNflPicksV2.js';
 
 // Shaped like ESPN's /sports/football/nfl/injuries response (Nov 2026).
 const item = (id, name, pos, typeName, status, details) => ({
@@ -98,57 +97,28 @@ describe('attachInjuries', () => {
     expect(g.injuries.away.quarterbacks).toHaveLength(1);
   });
 
-  it('leaves finished games and unknown teams alone', () => {
+  it('leaves finished games alone and gives a team with nobody listed an empty summary', () => {
     const [done] = attachInjuries([game({ status: 'final', gameState: { isFinal: true } })], injuries);
     expect(done.injuries).toBeUndefined();
+    // "No injuries" and "no report" must not look the same: the engine holds picks on a missing report.
     const [other] = attachInjuries([game({ teams: { away: { slug: 'jets' }, home: { slug: 'bills' } } })], injuries);
-    expect(other.injuries).toBeUndefined();
+    expect(other.injuries.ok).toBe(true);
+    expect(other.injuries.away).toMatchObject({ out: 0, total: 0, quarterbackStatuses: [] });
+  });
+
+  it('lists every quarterback with a raw status for the picks engine', () => {
+    const summary = summarizeTeamInjuries([
+      { name: 'Starter', position: 'QB', status: 'questionable', statusLabel: 'Questionable' },
+      { name: 'Backup', position: 'QB', status: 'ir', statusLabel: 'Injured reserve' },
+      { name: 'Guard', position: 'G', status: 'out', statusLabel: 'Out' },
+    ]);
+    expect(summary.quarterbackStatuses).toEqual([{ name: 'Starter', status: 'questionable' }, { name: 'Backup', status: 'ir' }]);
+    expect(summary.quarterbacks).toEqual([]);
   });
 
   it('returns the games untouched when there is no report', () => {
     const games = [game()];
     expect(attachInjuries(games, null)).toBe(games);
     expect(attachInjuries(games, { teams: {} })).toBe(games);
-  });
-});
-
-describe('quarterback flag in the picks builder', () => {
-  const rating = (r, off, def) => ({ rating: r, offense: off, defense: def, games: 10, pointsFor: 240, pointsAgainst: 200, formTrend: 0 });
-  const ratings = {
-    source: 'results', games: 150, leagueAvgPoints: 22.5,
-    teams: { chiefs: rating(8, 5, 3), lions: rating(-2, -1, -1) },
-  };
-  const baseGame = {
-    gameId: 'g1', status: 'upcoming', gameState: {}, week: 12, seasonType: 2,
-    startTime: new Date(Date.now() + 24 * 3600 * 1000).toISOString(),
-    teams: {
-      away: { slug: 'chiefs', name: 'Kansas City Chiefs', abbrev: 'KC' },
-      home: { slug: 'lions', name: 'Detroit Lions', abbrev: 'DET' },
-    },
-    venue: {},
-    market: { pregameSpread: 3, pregameTotal: 45.5, moneyline: { home: 140, away: -160 }, booksCount: 6 },
-  };
-  const all = (board) => [board.topPick, ...Object.values(board.tiers).flat(), ...(board.fullSlatePicks || [])].filter(Boolean);
-
-  it('holds every pick on the game to tracking and says why', () => {
-    const injuries = { away: { quarterbacks: [{ name: 'Starting Passer', status: 'Out' }] }, home: { quarterbacks: [] } };
-    const board = buildNflPicksV2({ games: [{ ...baseGame, injuries }], ratings });
-    const picks = all(board);
-    expect(picks.length).toBeGreaterThan(0);
-    for (const p of picks) {
-      expect(p.lowSignalReason).toBe('qb_injury');
-      expect(p.betScore.total).toBeLessThanOrEqual(0.5);
-      expect(p.rationale.bullets[0]).toContain('KC QB Starting Passer (out)');
-    }
-    expect(Object.values(board.tiers).flat()).toHaveLength(0);
-    expect(board.meta.qbInjuryGames).toBe(1);
-  });
-
-  it('does not touch picks when no quarterback is flagged', () => {
-    const injuries = { away: { quarterbacks: [], out: 4 }, home: { quarterbacks: [], out: 2 } };
-    const withReport = all(buildNflPicksV2({ games: [{ ...baseGame, injuries }], ratings }));
-    const without = all(buildNflPicksV2({ games: [baseGame], ratings }));
-    expect(withReport.map((p) => [p.id, p.betScore.total])).toEqual(without.map((p) => [p.id, p.betScore.total]));
-    expect(withReport.every((p) => p.lowSignalReason !== 'qb_injury')).toBe(true);
   });
 });

@@ -1,34 +1,34 @@
 /**
  * nflPicksBuilder — direct in-process NFL picks board builder.
  *
- * Mirrors mlbPicksBuilder / nbaPicksBuilder: the HTTP handler and any
- * in-process caller (briefing, email, content studio) call this function
- * rather than HTTP self-fetching the endpoint.
+ * Mirrors mlbPicksBuilder / nbaPicksBuilder: the HTTP handler, the cron and
+ * any in-process caller (briefing, email, content studio) call this
+ * function rather than HTTP self-fetching the endpoint.
  *
- * Fallback precedence:
- *   1. Fresh build from the current-week slate (ESPN + consensus odds) and
- *      the season power ratings
- *   2. KV latest snapshot (15 min)
- *   3. KV last-known-good snapshot (72 h — covers the Tuesday gap before
- *      next week's lines are posted)
- *   4. Empty board
+ * Each fresh build:
+ *   1. loads the slate (ESPN schedule and injuries, per-book odds, nflverse
+ *      model data, kickoff weather) and prices every market
+ *   2. lays stored locks over the board, so a pick published earlier shows
+ *      the ticket it was published at
+ *   3. in production, locks any newly recommended pick, locks the model's
+ *      lean on each remaining market a day before kickoff, and snapshots
+ *      every game's consensus line (the last one before kickoff is the close)
  *
- * Persistence
- * -----------
- * The picks tables are keyed by one calendar date per slate, and the
- * settlement cron grades one date at a time. An NFL week spans Thursday to
- * Monday, so picks are written per kickoff date (ET), not per build date:
- * Sunday's picks land on Sunday's slate and are graded Monday morning.
- * A game is only persisted once kickoff is within PERSIST_WINDOW_HOURS, so
- * the number that gets graded is close to the closing line rather than a
- * Tuesday opener, and writes are throttled to one run per slate per
- * PERSIST_THROTTLE_MS.
+ * Fallback precedence: fresh build, then the KV latest snapshot (15 min),
+ * then the KV last-known-good snapshot (72 h), then an empty board.
+ *
+ * Writes happen only in production. Preview deployments share the
+ * production database, and a preview that locked picks would be writing
+ * the public record from unreleased code. Set NFL_PICKS_PERSIST=1 to
+ * override (for example on a staging project with its own database).
  */
 
 import { getNflSlate } from './nflSlate.js';
+import { getNflConfig } from './nflConfig.js';
 import { getJson, setJson } from '../_globalCache.js';
-import { writePicksRun, getActiveConfig, getLatestGradedScorecard } from './picksHistory.js';
-import { etDayFromISO } from './dateWindows.js';
+import { getLatestGradedScorecard } from './picksHistory.js';
+import { getLockedPicks, lockPicks, saveLineSnapshots } from './nflPicksStore.js';
+import { applyLocks } from '../../src/features/nfl/picks/v2/locks.js';
 import {
   buildNflPicksV2, NFL_DEFAULT_CONFIG, NFL_MODEL_VERSION,
 } from '../../src/features/nfl/picks/buildNflPicksV2.js';
@@ -38,13 +38,15 @@ const KV_LASTKNOWN = `nfl:picks:built:lastknown:${NFL_MODEL_VERSION}`;
 const LATEST_TTL_SEC = 15 * 60;
 const LASTKNOWN_TTL_SEC = 72 * 60 * 60;
 
-export const PERSIST_WINDOW_HOURS = 36;
-const PERSIST_THROTTLE_MS = 30 * 60 * 1000;
-const PERSIST_WAIT_MS = 8000;
-const TRACKING_BLOCK_KEY = 'nfl:picks:trackingBlocked:v1';
-const TRACKING_BLOCK_TTL_SEC = 6 * 3600;
-let trackingBlockedUntil = 0;
-const lastPersistAt = new Map(); // slateDate → epoch ms
+/** Hours before kickoff at which the model's lean on a market is locked for grading. */
+export const TRACKING_LOCK_HOURS = 24;
+const PERSIST_WAIT_MS = 9000;
+const SNAPSHOT_THROTTLE_MS = 4 * 60 * 1000;
+let lastSnapshotAt = 0;
+
+export function canPersist() {
+  return process.env.VERCEL_ENV === 'production' || process.env.NFL_PICKS_PERSIST === '1';
+}
 
 function countPicks(board) {
   return Array.isArray(board?.fullSlatePicks) ? board.fullSlatePicks.length : 0;
@@ -58,137 +60,53 @@ function getCounts(board) {
     leans: c.leans?.length || 0,
     totals: c.totals?.length || 0,
     hero: board?.heroPicks?.length || 0,
+    locked: board?.meta?.lockedPicks || 0,
     fullSlate: countPicks(board),
   };
 }
 
 /**
- * Split a board into one persistable payload per kickoff date.
- * Exported for tests.
- *
- * @returns {Array<{ date: string, payload: object }>}
+ * Which picks on a board should be locked now. Exported for tests.
+ * @returns {{ hero: Array, tracking: Array }}
  */
-export function splitBoardBySlateDate(board, { now = Date.now(), windowHours = PERSIST_WINDOW_HOURS } = {}) {
-  const horizon = now + windowHours * 3_600_000;
-  const groups = new Map();
-
-  for (const pick of board?.fullSlatePicks || []) {
-    const kick = Date.parse(pick?.matchup?.startTime || '');
-    if (!Number.isFinite(kick) || kick <= now || kick > horizon) continue;
-    const date = etDayFromISO(pick.matchup.startTime);
-    if (!date) continue;
-    if (!groups.has(date)) groups.set(date, []);
-    groups.get(date).push(pick);
+export function picksToLock(board, lockedRows = [], { now = Date.now(), trackingLockHours = TRACKING_LOCK_HOURS } = {}) {
+  const lockedHero = new Set();
+  const lockedTracking = new Set();
+  for (const r of lockedRows) {
+    if (!r?.locked_at) continue;
+    (r.tier === 'tracking' ? lockedTracking : lockedHero).add(`${r.game_id}|${r.market_type}`);
   }
-
-  return [...groups.entries()].map(([date, picks]) => {
-    const ids = new Set(picks.map((p) => p.id));
-    const inDate = (arr) => (arr || []).filter((p) => ids.has(p.id));
-    return {
-      date,
-      payload: {
-        sport: 'nfl',
-        date,
-        week: board.week ?? null,
-        modelVersion: board.modelVersion,
-        configVersion: board.configVersion,
-        generatedAt: board.generatedAt,
-        meta: { ...(board.meta || {}), week: board.week ?? null, persistedPicks: picks.length },
-        tiers: {
-          tier1: inDate(board.tiers?.tier1),
-          tier2: inDate(board.tiers?.tier2),
-          tier3: inDate(board.tiers?.tier3),
-        },
-        fullSlatePicks: picks,
-      },
-    };
+  const future = (p) => Date.parse(p?.matchup?.startTime || '') > now;
+  const hero = (board?.heroPicks || []).filter((p) => !p.lock && future(p) && !lockedHero.has(`${p.gameId}|${p.market.type}`));
+  const heroNow = new Set([...lockedHero, ...hero.map((p) => `${p.gameId}|${p.market.type}`)]);
+  const horizon = now + trackingLockHours * 3_600_000;
+  const tracking = (board?.trackingPicks || []).filter((p) => {
+    const k = `${p.gameId}|${p.market.type}`;
+    const kick = Date.parse(p?.matchup?.startTime || '');
+    return future(p) && kick <= horizon && !lockedTracking.has(k) && !heroNow.has(k);
   });
+  return { hero, tracking };
 }
 
-const VALID_HERO_TIERS = new Set(['tier1', 'tier2', 'tier3']);
-const isHero = (p) => VALID_HERO_TIERS.has(p?.tier) && p?.pickRole !== 'tracking';
-
-function withPicks(payload, picks, part) {
-  return {
-    ...payload,
-    meta: { ...(payload.meta || {}), persistedPicks: picks.length, part },
-    fullSlatePicks: picks,
-  };
-}
-
-async function trackingBlocked(now) {
-  if (now < trackingBlockedUntil) return true;
-  const stored = await getJson(TRACKING_BLOCK_KEY).catch(() => null);
-  if (stored?.until > now) { trackingBlockedUntil = stored.until; return true; }
-  return false;
-}
-
-function isTierConstraintFailure(r) {
-  return (r?.failures || []).some((f) => f?.code === '23514' || /picks_tier_check/.test(f?.message || ''));
-}
-
-/**
- * Save one slate. Recommended picks and tracking picks go in separate
- * runs: the recommended picks fit the original picks.tier constraint and
- * must never be held up by it, while a database that has not had
- * docs/nfl-picks-migration.sql applied rejects every tracking row. When
- * that happens the tracking write is skipped for a few hours instead of
- * failing row by row on every build.
- */
-async function persistSlate(date, payload, now) {
-  const hero = payload.fullSlatePicks.filter(isHero);
-  const tracking = payload.fullSlatePicks.filter((p) => !isHero(p));
-  let ok = true;
-
+async function persist(board, lockedRows, season) {
+  const now = new Date();
+  const { hero, tracking } = picksToLock(board, lockedRows, { now: now.getTime() });
+  const result = { hero: null, tracking: null, snapshots: null };
   if (hero.length > 0) {
-    const r = await writePicksRun(withPicks(payload, hero, 'recommended'));
-    if (r && !r.ok && r.reason !== 'no_supabase') {
-      ok = false;
-      console.error(
-        `[nflPicksBuilder] persist failed slate=${date} part=recommended reason=${r.reason} ` +
-        `inserted=${r.picksInserted ?? 0}/${r.picksAttempted ?? 0} first="${r.failures?.[0]?.message || 'n/a'}"`
-      );
-    }
-    if (r?.reason === 'no_supabase') return true;
-  }
-
-  if (tracking.length > 0 && !(await trackingBlocked(now))) {
-    const r = await writePicksRun(withPicks(payload, tracking, 'tracking'));
-    if (r && !r.ok && isTierConstraintFailure(r)) {
-      trackingBlockedUntil = now + TRACKING_BLOCK_TTL_SEC * 1000;
-      setJson(TRACKING_BLOCK_KEY, { until: trackingBlockedUntil }, { exSeconds: TRACKING_BLOCK_TTL_SEC }).catch(() => {});
-      console.error(
-        '[nflPicksBuilder] tracking picks rejected by picks_tier_check. ' +
-        'Run docs/nfl-picks-migration.sql in Supabase; recommended picks are unaffected. ' +
-        `Skipping tracking writes for ${TRACKING_BLOCK_TTL_SEC / 3600}h.`
-      );
-    } else if (r && !r.ok && r.reason !== 'no_supabase') {
-      ok = false;
-      console.error(
-        `[nflPicksBuilder] persist failed slate=${date} part=tracking reason=${r.reason} ` +
-        `inserted=${r.picksInserted ?? 0}/${r.picksAttempted ?? 0} first="${r.failures?.[0]?.message || 'n/a'}"`
-      );
+    result.hero = await lockPicks({ picks: hero, role: 'hero', board, now });
+    const done = new Set(result.hero.locked);
+    for (const p of hero) {
+      if (!done.has(p.id)) continue;
+      p.lock = { lockedAt: now.toISOString(), line: p.market.line, price: p.market.priceAmerican, book: p.book?.title || null, evAtLock: p.ev, evNow: p.ev, fairPriceNow: p.fair?.priceAmerican ?? null };
     }
   }
-  return ok;
-}
-
-/** Exported for tests. */
-export async function persistBoard(board) {
-  const now = Date.now();
-  for (const { date, payload } of splitBoardBySlateDate(board, { now })) {
-    const last = lastPersistAt.get(date) || 0;
-    if (now - last < PERSIST_THROTTLE_MS) continue;
-    lastPersistAt.set(date, now);
-    try {
-      const ok = await persistSlate(date, payload, now);
-      // Let the next build retry instead of waiting out the throttle.
-      if (!ok) lastPersistAt.delete(date);
-    } catch (err) {
-      console.error(`[nflPicksBuilder] persist threw slate=${date}: ${err?.message}`);
-      lastPersistAt.delete(date);
-    }
+  if (tracking.length > 0) result.tracking = await lockPicks({ picks: tracking, role: 'tracking', board, now });
+  if (now.getTime() - lastSnapshotAt > SNAPSHOT_THROTTLE_MS) {
+    lastSnapshotAt = now.getTime();
+    result.snapshots = await saveLineSnapshots(board.byGame, { now, week: board.week, season });
+    if (!result.snapshots.ok) lastSnapshotAt = 0;
   }
+  return result;
 }
 
 /**
@@ -196,18 +114,12 @@ export async function persistBoard(board) {
  * @param {boolean} [opts.preferFresh=false] — ignore the KV latest snapshot
  * @returns {Promise<{ board, source, counts }>}
  */
-export async function buildNflPicksBoard({ preferFresh = false } = {}) {
+export async function buildNflPicksBoard({ preferFresh = false, modelWaitMs = 25_000 } = {}) {
   let freshBoard = null;
   let freshError = null;
 
   try {
-    const slate = await getNflSlate();
-
-    let config = NFL_DEFAULT_CONFIG;
-    try {
-      const dbCfg = await getActiveConfig({ sport: 'nfl' });
-      if (dbCfg) config = { ...NFL_DEFAULT_CONFIG, ...dbCfg };
-    } catch (e) { console.warn(`[nflPicksBuilder] getActiveConfig failed: ${e?.message}`); }
+    const [slate, config] = await Promise.all([getNflSlate({ modelWaitMs }), getNflConfig()]);
 
     let scorecardSummary = null;
     try {
@@ -226,13 +138,19 @@ export async function buildNflPicksBoard({ preferFresh = false } = {}) {
       }
     } catch { /* non-fatal */ }
 
+    const built = buildNflPicksV2({ games: slate.games, config: config || NFL_DEFAULT_CONFIG, scorecardSummary });
+    const gameIds = (built.byGame || []).map((g) => g.gameId);
+    const locks = await getLockedPicks(gameIds);
     freshBoard = {
-      ...buildNflPicksV2({ games: slate.games, ratings: slate.ratings, config, scorecardSummary }),
+      ...applyLocks(built, locks.rows, { maxPerTier: config?.maxPerTier, maxPerGame: config?.maxPerGame }),
       byeTeams: slate.byeTeams || [],
+      engine: slate.engine || null,
       _debug: {
         totalGames: slate.games.length,
-        ratingSource: slate.ratings?.source || 'none',
-        ratingCache: slate.ratings?.cache || null,
+        engineOk: !!slate.engine?.ok,
+        engineReasons: slate.engine?.reasons || [],
+        locksRead: locks.ok,
+        persist: canPersist(),
       },
     };
 
@@ -240,20 +158,31 @@ export async function buildNflPicksBoard({ preferFresh = false } = {}) {
     console.log(
       `[nflPicksBuilder] fresh build: week=${freshBoard.week} fullSlate=${freshCount} ` +
       `t1=${freshBoard.tiers.tier1.length} t2=${freshBoard.tiers.tier2.length} t3=${freshBoard.tiers.tier3.length} ` +
-      `ratings=${slate.ratings?.source || 'none'}`
+      `locked=${freshBoard.meta?.lockedPicks || 0} engine=${slate.engine?.ok ? 'ok' : 'degraded'}`
     );
 
     if (freshCount > 0) {
-      setJson(KV_LATEST, freshBoard, { exSeconds: LATEST_TTL_SEC }).catch(() => {});
-      setJson(KV_LASTKNOWN, freshBoard, { exSeconds: LASTKNOWN_TTL_SEC }).catch(() => {});
-      // Waited on, with a cap. A serverless function can be frozen the
-      // moment it responds, and a write left running in the background was
-      // observed never to finish. Writes are throttled to one per slate
-      // per half hour, so almost every request skips this entirely.
-      await Promise.race([
-        persistBoard(freshBoard),
-        new Promise((resolve) => setTimeout(resolve, PERSIST_WAIT_MS)),
-      ]).catch((err) => console.error(`[nflPicksBuilder] persist: ${err?.message}`));
+      // Until docs/nfl-picks-v2-migration.sql has been run there is nowhere
+      // to store a lock, and trying would leave an empty run row per build.
+      const storageReady = locks.reason !== 'migration_missing';
+      if (!storageReady) freshBoard._debug.persisted = { hero: 0, tracking: 0, snapshots: 0, reason: 'migration_missing' };
+      if (canPersist() && storageReady) {
+        // Waited on, with a cap. A serverless function can be frozen the
+        // moment it responds, and a write left running in the background
+        // was observed never to finish.
+        const outcome = await Promise.race([
+          persist(freshBoard, locks.rows, slate.seasonYear),
+          new Promise((resolve) => setTimeout(() => resolve({ timedOut: true }), PERSIST_WAIT_MS)),
+        ]).catch((err) => { console.error(`[nflPicksBuilder] persist: ${err?.message}`); return { error: err?.message }; });
+        freshBoard._debug.persisted = {
+          hero: outcome?.hero?.locked?.length ?? 0,
+          tracking: outcome?.tracking?.locked?.length ?? 0,
+          snapshots: outcome?.snapshots?.saved ?? 0,
+          reason: outcome?.hero?.reason || outcome?.tracking?.reason || outcome?.snapshots?.reason || outcome?.error || (outcome?.timedOut ? 'timed_out' : null),
+        };
+        setJson(KV_LATEST, freshBoard, { exSeconds: LATEST_TTL_SEC }).catch(() => {});
+        setJson(KV_LASTKNOWN, freshBoard, { exSeconds: LASTKNOWN_TTL_SEC }).catch(() => {});
+      }
       return { board: freshBoard, source: 'fresh', counts: getCounts(freshBoard) };
     }
   } catch (err) {

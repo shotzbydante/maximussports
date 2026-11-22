@@ -1,231 +1,226 @@
 import { describe, it, expect } from 'vitest';
-import { buildNflPicksV2, NFL_DEFAULT_CONFIG, NFL_MODEL_VERSION } from './buildNflPicksV2.js';
+import { buildNflPicksV2, NFL_MODEL_VERSION, NFL_DEFAULT_CONFIG, convictionFromEv } from './buildNflPicksV2.js';
+import { analyzeGame } from './v2/engine.js';
+import { buildRatings } from './v2/ratings.js';
+import { buildQbTable, indexQbWeeks } from './v2/qb.js';
+import { buildUnitGrades } from './v2/units.js';
+import { league, game, books, KC, LV, BUF, SF, CHI, DET } from './v2/fixtures.js';
 
-const NOW = new Date('2026-11-21T20:00:00Z');
-const DAY = 86_400_000;
-
-function team(slug, abbrev, record = '5-5') {
-  return { slug, name: `${abbrev} Team`, abbrev, logo: null, score: null, record };
-}
-
-function game(id, away, home, market, extra = {}) {
-  return {
-    gameId: id,
-    sport: 'nfl',
-    status: 'upcoming',
-    startTime: new Date(NOW.getTime() + DAY).toISOString(),
-    week: 11,
-    seasonType: 2,
-    teams: { away, home },
-    gameState: { isLive: false, isFinal: false },
-    market: { booksCount: 6, ...market },
-    venue: { neutralSite: false },
-    broadcast: { network: 'CBS' },
-    ...extra,
-  };
-}
-
-function rating(slug, offense, defense, extra = {}) {
-  return {
-    slug, games: 10, rating: offense + defense, offense, defense,
-    formTrend: 0, lastGameAt: NOW.getTime() - 6 * DAY, ...extra,
-  };
-}
-
-const ratings = {
-  source: 'results',
-  games: 160,
-  leaguePpg: 22,
-  teams: {
-    chiefs: rating('chiefs', 4, 3),
-    raiders: rating('raiders', -3, -2),
-    bills: rating('bills', 5, 2),
-    jets: rating('jets', -1, 0),
-    lions: rating('lions', 1, 0),
-    bears: rating('bears', 0.5, 0.5),
-  },
+const NOW = new Date('2026-11-22T12:00:00Z');
+const asOf = { season: 2026, week: 9 };
+const data = league({ strengths: { KC: 6, BUF: 4, SF: 2, DET: 0, CHI: -2, LV: -4, NYJ: -6, MIA: 0 }, weeks: 8 });
+const model = {
+  ok: true, version: 'v2', asOf,
+  ratings: buildRatings({ ...data, asOf }),
+  qbTable: buildQbTable({ qbWeeks: data.qbWeeks, asOf }),
+  qbIndex: indexQbWeeks(data.qbWeeks),
+  unitGrades: buildUnitGrades({ teamWeeks: data.teamWeeks, asOf }),
+  schedule: {}, nextDivisional: {}, coachGames: {},
 };
+const starters = (g) => ({
+  [g.gameId]: {
+    homeQbId: `qb-${g.teams.home.abbrev}`, homeQbName: `${g.teams.home.abbrev} Starter`,
+    awayQbId: `qb-${g.teams.away.abbrev}`, awayQbName: `${g.teams.away.abbrev} Starter`,
+    roof: 'outdoors', homeRest: 7, awayRest: 7,
+  },
+});
+function withEngine(g, { weather = null, config, m = model } = {}) {
+  const withSchedule = m.ok ? { ...m, schedule: starters(g) } : m;
+  return { ...g, engine: analyzeGame({ game: g, model: withSchedule, weather, config }) };
+}
+const build = (games, opts = {}) => buildNflPicksV2({ games, now: NOW, ...opts });
 
-const KC = team('chiefs', 'KC');
-const LV = team('raiders', 'LV');
-const BUF = team('bills', 'BUF');
-const NYJ = team('jets', 'NYJ');
-const DET = team('lions', 'DET');
-const CHI = team('bears', 'CHI');
+// One book hanging LV +3.5 when everyone else has +3.
+const hook = () => withEngine(game('g1', LV, KC, { market: { books: books({ betmgm: { spread: -3.5 } }) } }));
+const flat = (id = 'g2', away = SF, home = BUF) => withEngine(game(id, away, home));
 
 describe('buildNflPicksV2', () => {
   it('returns the canonical contract the shared picks UI and persistence expect', () => {
-    const out = buildNflPicksV2({
-      games: [game('1', LV, KC, { pregameSpread: -9.5, pregameTotal: 44.5, moneyline: { home: -450, away: 340 } })],
-      ratings, now: NOW,
-    });
-    expect(out.sport).toBe('nfl');
-    expect(out.modelVersion).toBe(NFL_MODEL_VERSION);
-    expect(out.configVersion).toBe(NFL_DEFAULT_CONFIG.version);
-    expect(out.date).toBe('2026-11-21');
-    expect(out.week).toBe(11);
-    expect(out.slateLabel).toBe('Week 11');
-    for (const key of ['tier1', 'tier2', 'tier3']) expect(Array.isArray(out.tiers[key])).toBe(true);
-    for (const key of ['coverage', 'fullSlatePicks', 'heroPicks', 'trackingPicks', 'byGame']) {
-      expect(Array.isArray(out[key])).toBe(true);
+    const out = build([hook(), flat()]);
+    expect(out).toMatchObject({ sport: 'nfl', week: 12, slateLabel: 'Week 12', modelVersion: NFL_MODEL_VERSION, configVersion: NFL_DEFAULT_CONFIG.version });
+    for (const k of ['topPick', 'tiers', 'coverage', 'fullSlatePicks', 'heroPicks', 'trackingPicks', 'byGame', 'meta', 'categories', 'legacy']) {
+      expect(out).toHaveProperty(k);
     }
-    expect(Object.keys(out.categories)).toEqual(['pickEms', 'ats', 'leans', 'totals']);
-    expect(out.byGame).toHaveLength(1);
-    expect(Object.keys(out.byGame[0].picks)).toEqual(['moneyline', 'runline', 'total']);
+    expect(out.byGame).toHaveLength(2);
+    expect(out.fullSlatePicks).toHaveLength(6);      // three markets on each game
+    expect(NFL_MODEL_VERSION).toBe('nfl-picks-v2.0.0');
   });
 
-  it('shapes each pick for the picks table: id, market, side, line, slugs and a positive bet score', () => {
-    const out = buildNflPicksV2({
-      games: [game('g1', LV, KC, { pregameSpread: -6.5, pregameTotal: 41, moneyline: { home: -280, away: 230 } })],
-      ratings, now: NOW,
+  it('recommends the off-market number, at that book and price, and nothing else', () => {
+    const out = build([hook(), flat()]);
+    expect(out.heroPicks).toHaveLength(1);
+    const p = out.heroPicks[0];
+    expect(p).toMatchObject({
+      id: 'g1-runline-away', gameId: 'g1', pickRole: 'hero',
+      market: { type: 'runline', line: 3.5, priceAmerican: -110 },
+      selection: { side: 'away', team: 'LV', label: 'LV +3.5' },
+      book: { key: 'betmgm' },
+      lowSignalReason: null, modelSource: 'nfl_v2_price',
     });
-    const spread = out.byGame[0].picks.runline;
-    // Ratings: KC by 12 + 1.7; market KC -6.5. Model likes KC.
-    expect(spread.id).toBe('g1-runline-home');
-    expect(spread.market).toEqual({ type: 'runline', line: -6.5, priceAmerican: null });
-    expect(spread.selection).toMatchObject({ side: 'home', team: 'KC', label: 'KC -6.5' });
-    expect(spread.matchup.awayTeam.slug).toBe('raiders');
-    expect(spread.matchup.homeTeam.slug).toBe('chiefs');
-    expect(spread.betScore.total).toBeGreaterThan(0);
-    expect(spread.betScore.total).toBeLessThanOrEqual(1);
-    expect(Object.keys(spread.betScore.components)).toEqual(['edgeStrength', 'modelConfidence', 'situationalEdge', 'marketQuality']);
-    expect(spread.conviction.score).toBe(Math.round(spread.betScore.total * 100));
-    expect(spread.rawEdge).toBeGreaterThan(0);
-    expect(spread.rationale.headline).toContain('KC Team -6.5');
-
-    const total = out.byGame[0].picks.total;
-    expect(['over', 'under']).toContain(total.selection.side);
-    expect(total.market.line).toBe(41);
+    expect(p.ev).toBeGreaterThan(NFL_DEFAULT_CONFIG.evThresholds.tier3);
+    expect(['tier1', 'tier2', 'tier3']).toContain(p.tier);
+    expect(p.rationale.headline).toContain('betmgm');
+    expect(p.displayMetrics).toMatchObject({ edgeLabel: 'Expected value', signalQualityLabel: 'Price' });
+    expect(out.topPick.id).toBe(p.id);
+    expect(out.categories.ats).toHaveLength(1);
   });
 
-  it('takes the road team and flips the line when the market overrates the home side', () => {
-    const out = buildNflPicksV2({
-      // Ratings: DET by 0 + 1.7 at home. Market DET -6.5 → value on CHI +6.5.
-      games: [game('g2', CHI, DET, { pregameSpread: -6.5 })],
-      ratings, now: NOW,
-    });
-    const spread = out.byGame[0].picks.runline;
-    expect(spread.selection.side).toBe('away');
-    expect(spread.market.line).toBe(6.5);
-    expect(spread.selection.label).toBe('CHI +6.5');
+  it('prices at the real number: the same hook at -125 is not a pick', () => {
+    const g = withEngine(game('g1', LV, KC, { market: { books: books({ betmgm: { spread: -3.5, spreadPrices: [105, -125] } }) } }));
+    const out = build([g]);
+    expect(out.heroPicks).toHaveLength(0);
+    expect(out.meta.flags).toContain('no_qualified_edges');
   });
 
-  it('never promotes a pick when model and market are a touchdown apart', () => {
-    const out = buildNflPicksV2({
-      // Ratings make KC a 13.7-point favourite; the market says pick'em.
-      games: [game('g3', LV, KC, { pregameSpread: 0, moneyline: { home: -110, away: -110 } })],
-      ratings, now: NOW,
-    });
-    const spread = out.byGame[0].picks.runline;
-    expect(spread.flags.informationGap).toBe(true);
-    expect(spread.pickRole).toBe('tracking');
-    expect(spread.tier).toBe('tracking');
-    expect(spread.lowSignalReason).toBe('information_gap');
-    expect(out.heroPicks.find((p) => p.gameId === 'g3' && p.market.type !== 'total')).toBeUndefined();
-    expect(spread.rationale.bullets[0]).toMatch(/touchdown apart/);
-    // A guarded pick cannot also carry a high conviction number.
-    expect(spread.betScore.total).toBeLessThanOrEqual(0.5);
-    expect(out.byGame[0].picks.moneyline.betScore.total).toBeLessThanOrEqual(0.5);
-  });
-
-  it('puts the moneyline on the same team as the spread pick', () => {
-    const out = buildNflPicksV2({
-      games: [
-        game('a', LV, KC, { pregameSpread: -9.5, moneyline: { home: -420, away: 330 } }),
-        game('c', CHI, DET, { pregameSpread: -5.5, moneyline: { home: -240, away: 200 } }),
-      ],
-      ratings, now: NOW,
-    });
-    for (const g of out.byGame) {
-      expect(g.picks.moneyline.selection.side).toBe(g.picks.runline.selection.side);
+  it('publishes nothing when every book agrees, and tracks the model lean on each market instead', () => {
+    const out = build([flat()]);
+    expect(out.heroPicks).toHaveLength(0);
+    expect(out.trackingPicks).toHaveLength(3);
+    for (const p of out.trackingPicks) {
+      expect(p).toMatchObject({ tier: 'tracking', pickRole: 'tracking', isLowConviction: true, lowSignalReason: 'no_price_edge', modelSource: 'nfl_v2_lean' });
+      expect(p.conviction.score).toBeLessThan(50);
+      expect(p.ev).toBeLessThan(0);                  // the consensus price always costs the vig
+      expect(p.rationale.bullets[0]).toContain('Tracked, not recommended');
     }
+  });
+
+  it('leans the way the ratings point: the stronger road team when the market has it too short', () => {
+    const g = withEngine(game('g3', KC, LV, { market: { books: books({}, { spread: 1, ml: [100, -120] }) } }));
+    const lean = build([g]).byGame[0].picks.runline;
+    expect(lean.selection).toMatchObject({ side: 'away', team: 'KC', label: 'KC -1' });
+    expect(lean.edgePoints).toBeLessThan(0);          // model likes the road side more than the market
+  });
+
+  it('assigns tiers from fixed expected-value thresholds, not from the rest of the slate', () => {
+    const alone = build([hook()]).heroPicks[0];
+    const crowded = build([hook(), flat('g2'), flat('g4', CHI, DET), flat('g5', SF, DET)]).heroPicks[0];
+    expect(crowded.tier).toBe(alone.tier);
+    expect(crowded.conviction.score).toBe(alone.conviction.score);
+    expect(convictionFromEv(0.015)).toBeCloseTo(0.62, 2);
+    expect(convictionFromEv(0.04)).toBeCloseTo(0.82, 2);
+    expect(convictionFromEv(0.2)).toBe(0.89);            // never "Elite" on expected value alone
+  });
+
+  it('recommends one side bet per game: the moneyline and spread are the same opinion', () => {
+    const g = withEngine(game('g1', LV, KC, { market: { books: books({ betmgm: { spread: -3.5 }, fanatics: { ml: [-160, 165] } }) } }));
+    const out = build([g]);
+    const sides = out.heroPicks.filter((p) => p.market.type !== 'total');
+    expect(sides).toHaveLength(1);
+    const other = out.byGame[0].picks[sides[0].market.type === 'runline' ? 'moneyline' : 'runline'];
+    expect(other).toMatchObject({ pickRole: 'tracking', lowSignalReason: 'same_side' });
+  });
+
+  it('holds the game to tracking when a quarterback is in doubt', () => {
+    const base = game('g1', LV, KC, {
+      market: { books: books({ betmgm: { spread: -3.5 } }) },
+      injuries: { ok: true, away: { quarterbackStatuses: [{ name: 'LV Starter', status: 'questionable' }] }, home: { quarterbackStatuses: [] } },
+    });
+    const out = build([withEngine(base)]);
+    expect(out.heroPicks).toHaveLength(0);
+    const p = out.byGame[0].picks.runline;
+    expect(p).toMatchObject({ pickRole: 'tracking', lowSignalReason: 'qb_uncertain' });
+    expect(p.flags.qbInjury).toBe(true);
+    expect(p.rationale.bullets.join(' ')).toContain('LV Starter is listed questionable');
+  });
+
+  it('fails closed when the injury report is missing', () => {
+    const out = build([withEngine(game('g1', LV, KC, { market: { books: books({ betmgm: { spread: -3.5 } }) }, injuries: undefined }))]);
+    expect(out.heroPicks).toHaveLength(0);
+    expect(out.byGame[0].picks.runline.lowSignalReason).toBe('injury_feed_down');
+    expect(out.meta.flags).toContain('injury_feed_down');
+  });
+
+  it('holds a price that is stale or too good to be true', () => {
+    const stale = withEngine(game('g1', LV, KC, { market: { books: books({ betmgm: { spread: -3.5, lastUpdate: '2026-11-22T08:00:00Z' } }) } }));
+    expect(build([stale]).byGame[0].picks.runline).toMatchObject({ pickRole: 'tracking', lowSignalReason: 'stale_price' });
+    const gift = withEngine(game('g1', LV, KC, { market: { books: books({ betmgm: { ml: [-160, 240] } }) } }));
+    expect(build([gift]).byGame[0].picks.moneyline).toMatchObject({ pickRole: 'tracking', lowSignalReason: 'price_outlier' });
+  });
+
+  it('does not recommend a game more than three days out', () => {
+    const early = withEngine(game('g1', LV, KC, { hoursOut: 100, now: NOW.getTime(), market: { books: books({ betmgm: { spread: -3.5 } }) } }));
+    const out = build([early]);
+    expect(out.heroPicks).toHaveLength(0);
+    expect(out.byGame[0].picks.runline.lowSignalReason).toBe('outside_window');
   });
 
   it('tracks but does not promote moneylines outside the price band', () => {
-    const out = buildNflPicksV2({
-      games: [game('g4', NYJ, BUF, { pregameSpread: -7, moneyline: { home: -900, away: 600 } })],
-      ratings, now: NOW,
-    });
-    const ml = out.byGame[0].picks.moneyline;
-    expect(ml).not.toBeNull();
-    expect(ml.flags.priceGuard).toBe(true);
+    const g = withEngine(game('g6', LV, KC, { market: { books: books({ fanatics: { ml: [-900, 650] } }, { spread: -14, ml: [-900, 600] }) } }));
+    const ml = build([g]).byGame[0].picks.moneyline;
     expect(ml.pickRole).toBe('tracking');
-    expect(out.heroPicks.some((p) => p.id === ml.id)).toBe(false);
+    expect(ml.flags.priceGuard).toBe(true);
   });
 
-  it('marks promoted picks as hero and everything else as tracking, with no overlap', () => {
-    const out = buildNflPicksV2({
-      games: [
-        game('a', LV, KC, { pregameSpread: -9.5, pregameTotal: 44.5, moneyline: { home: -420, away: 330 } }),
-        game('b', NYJ, BUF, { pregameSpread: -4.5, pregameTotal: 47, moneyline: { home: -210, away: 175 } }),
-        game('c', CHI, DET, { pregameSpread: -5.5, pregameTotal: 40, moneyline: { home: -240, away: 200 } }),
-      ],
-      ratings, now: NOW,
-    });
+  it('recommends an under in strong wind and says why', () => {
+    const g = withEngine(game('g1', LV, KC), { weather: { tempF: 34, windMph: 21, hoursOut: 20, source: 'nws' } });
+    const out = build([g]);
+    const total = out.heroPicks.find((p) => p.market.type === 'total');
+    expect(total).toMatchObject({ selection: { side: 'under' }, modelSource: 'nfl_v2_wind' });
+    expect(total.rationale.headline).toContain('21 mph wind');
+    expect(total.rationale.bullets.join(' ')).toContain('312-235');
+    expect(total.betScore.components.situationalEdge).toBe(1);
+    // A pick that needs the wind estimate can be recommended, never a top play.
+    const offMarket = withEngine(game('g1', LV, KC, { market: { books: books({ betmgm: { total: 45.5 } }) } }), { weather: { tempF: 34, windMph: 21, hoursOut: 20, source: 'nws' } });
+    const capped = build([offMarket]).heroPicks.find((p) => p.market.type === 'total');
+    expect(capped.ev).toBeGreaterThan(0.04);
+    expect(capped.tier).toBe('tier2');
+    expect(capped.conviction.score).toBeLessThanOrEqual(79);
+  });
+
+  it('still prices the market when model data is missing, and says so', () => {
+    const g = withEngine(game('g1', LV, KC, { market: { books: books({ betmgm: { spread: -3.5 } }) } }), { m: { ok: false, reasons: ['nflverse unavailable'] } });
+    const out = build([g]);
+    expect(out.meta.flags).toContain('model_data_gap');
+    expect(out.byGame[0].projection).toBeNull();
+    expect(out.fullSlatePicks.length).toBeGreaterThan(0);
+    // Without the schedule file there is no named starter to check against the
+    // injury report, so the quarterback guard cannot clear the game.
+    expect(out.heroPicks).toHaveLength(0);
+    expect(out.byGame[0].picks.runline.lowSignalReason).toBe('qb_uncertain');
+  });
+
+  it('shapes each pick for the picks table: id, market, side, line, price, slugs and a positive score', () => {
+    const out = build([hook(), flat()]);
+    for (const p of out.fullSlatePicks) {
+      expect(p.id).toBe(`${p.gameId}-${p.market.type}-${p.selection.side}`);
+      expect(['moneyline', 'runline', 'total']).toContain(p.market.type);
+      expect(['home', 'away', 'over', 'under']).toContain(p.selection.side);
+      if (p.market.type !== 'moneyline') expect(typeof p.market.line).toBe('number');
+      expect(typeof p.market.priceAmerican).toBe('number');
+      expect(p.matchup.awayTeam.slug).toBeTruthy();
+      expect(p.matchup.homeTeam.slug).toBeTruthy();
+      expect(p.betScore.total).toBeGreaterThan(0);
+      expect(p.betScore.total).toBeLessThanOrEqual(1);
+      expect(p.rationale.pickRole).toBe(p.pickRole);
+    }
     const heroIds = new Set(out.heroPicks.map((p) => p.id));
     const trackIds = new Set(out.trackingPicks.map((p) => p.id));
-    expect(out.heroPicks.length).toBeGreaterThan(0);
     expect(out.fullSlatePicks.length).toBe(heroIds.size + trackIds.size);
     for (const id of heroIds) expect(trackIds.has(id)).toBe(false);
-    for (const p of out.heroPicks) {
-      expect(p.pickRole).toBe('hero');
-      expect(p.rationale.pickRole).toBe('hero');
-      expect(['tier1', 'tier2', 'tier3']).toContain(p.tier);
-    }
-    for (const p of out.trackingPicks) expect(p.tier).toBe('tracking');
-    // No game contributes more picks than the per-game cap.
-    const perGame = {};
-    for (const p of out.heroPicks) perGame[p.gameId] = (perGame[p.gameId] || 0) + 1;
-    for (const n of Object.values(perGame)) expect(n).toBeLessThanOrEqual(NFL_DEFAULT_CONFIG.maxPerGame);
-    expect(out.meta.picksPublished).toBe(out.heroPicks.length);
-    expect(out.topPick === null || heroIds.has(out.topPick.id)).toBe(true);
   });
 
-  it('skips markets with no posted number instead of inventing a line', () => {
-    const out = buildNflPicksV2({ games: [game('g5', LV, KC, {})], ratings, now: NOW });
-    expect(out.byGame[0].picks).toEqual({ moneyline: null, runline: null, total: null });
-    expect(out.fullSlatePicks).toHaveLength(0);
-  });
-
-  it('ignores live and final games, and games whose teams have no rating', () => {
-    const live = game('l', LV, KC, { pregameSpread: -7 }, { status: 'live', gameState: { isLive: true, isFinal: false } });
-    const final = game('f', NYJ, BUF, { pregameSpread: -7 }, { status: 'final', gameState: { isLive: false, isFinal: true } });
-    const unknown = game('u', team('nobody', 'XX'), KC, { pregameSpread: -7 });
-    const out = buildNflPicksV2({ games: [live, final, unknown], ratings, now: NOW });
-    expect(out.byGame).toHaveLength(0);
+  it('skips live, final and postponed games and games with no engine block', () => {
+    const live = { ...hook(), gameId: 'live', status: 'live', gameState: { isLive: true } };
+    const done = { ...hook(), gameId: 'done', status: 'final', gameState: { isFinal: true } };
+    const off = { ...hook(), gameId: 'ppd', status: 'postponed' };
+    const bare = game('bare', LV, KC);
+    const out = build([live, done, off, bare]);
+    expect(out.fullSlatePicks).toEqual([]);
     expect(out.meta.skippedGames).toBe(1);
-    expect(out.meta.totalCandidates).toBe(1);
   });
 
-  it('credits a rest advantage after a bye and lowers confidence on a thin sample', () => {
-    const rested = {
-      ...ratings,
-      teams: {
-        ...ratings.teams,
-        lions: rating('lions', 3, 2, { lastGameAt: NOW.getTime() - 13 * DAY }),
-        bears: rating('bears', 0.5, 0.5, { lastGameAt: NOW.getTime() - 5 * DAY }),
-      },
-    };
-    const g = game('r', CHI, DET, { pregameSpread: -3 });
-    const withRest = buildNflPicksV2({ games: [g], ratings: rested, now: NOW }).byGame[0].picks.runline;
-    expect(withRest.selection.side).toBe('home');
-    expect(withRest.betScore.components.situationalEdge).toBeGreaterThan(0.5);
-    expect(withRest.rationale.bullets.join(' ')).toMatch(/Rest edge/);
-
-    const thin = {
-      ...rested,
-      teams: Object.fromEntries(Object.entries(rested.teams).map(([k, v]) => [k, { ...v, games: 2 }])),
-    };
-    const early = buildNflPicksV2({ games: [g], ratings: thin, now: NOW }).byGame[0].picks.runline;
-    expect(early.betScore.components.modelConfidence).toBeLessThan(withRest.betScore.components.modelConfidence);
+  it('returns an empty, well-formed board with no games', () => {
+    const out = build([]);
+    expect(out.fullSlatePicks).toEqual([]);
+    expect(out.tiers).toEqual({ tier1: [], tier2: [], tier3: [] });
+    expect(out.topPick).toBeNull();
+    expect(out.meta.flags).toEqual([]);
   });
 
-  it('returns an empty, well-formed board with no games or no ratings', () => {
-    const empty = buildNflPicksV2({ games: [], ratings, now: NOW });
-    expect(empty.fullSlatePicks).toEqual([]);
-    expect(empty.topPick).toBeNull();
-    const noRatings = buildNflPicksV2({ games: [game('x', LV, KC, { pregameSpread: -7 })], ratings: null, now: NOW });
-    expect(noRatings.fullSlatePicks).toEqual([]);
-    expect(noRatings.meta.flags).toContain('no_ratings');
+  it('skips a market no book has posted instead of inventing a line', () => {
+    const g = withEngine(game('g5', LV, KC, { market: { books: books({}, { total: null }) } }));
+    const picks = build([g]).byGame[0].picks;
+    expect(picks.total).toBeNull();
+    expect(picks.runline).not.toBeNull();
   });
 });

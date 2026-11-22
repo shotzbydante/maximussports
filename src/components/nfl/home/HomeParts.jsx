@@ -47,7 +47,7 @@ export function Rail({ label, narrow = false, cap, children }) {
   );
 }
 
-/** Bet score out of 100 drawn as a ring. */
+/** Conviction out of 100 drawn as a ring. */
 export function ScoreRing({ value, small = false }) {
   const size = small ? 44 : 62;
   const stroke = small ? 4 : 5;
@@ -55,7 +55,7 @@ export function ScoreRing({ value, small = false }) {
   const c = 2 * Math.PI * r;
   const pct = Math.max(0, Math.min(100, Number(value) || 0));
   return (
-    <div className={`${h.ring} ${small ? h.ringSm : ''}`} role="img" aria-label={`Bet score ${pct} out of 100`}>
+    <div className={`${h.ring} ${small ? h.ringSm : ''}`} role="img" aria-label={`Conviction ${pct} out of 100`}>
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
         <circle className={h.ringTrack} cx={size / 2} cy={size / 2} r={r} fill="none" strokeWidth={stroke} />
         <circle
@@ -71,18 +71,21 @@ export function ScoreRing({ value, small = false }) {
 
 function pctText(p) { return `${Math.round(p * 100)}%`; }
 
-/** Model probability against the market's, on the same scale. */
+/**
+ * The chance the bet wins at the market's fair number, against the chance
+ * its price needs to break even. The gap between the bars is the value.
+ */
 export function ModelMarketBars({ model, market }) {
   if (typeof model !== 'number' || typeof market !== 'number') return null;
   return (
     <div className={h.bars}>
       <div className={`${h.bar} ${h.barModel}`}>
-        <span>Model</span>
+        <span>Wins</span>
         <span className={h.barTrack}><span className={h.barFill} style={{ width: pctText(model) }} /></span>
         <span className={h.barValue}>{pctText(model)}</span>
       </div>
       <div className={h.bar}>
-        <span>Market</span>
+        <span>Needs</span>
         <span className={h.barTrack}><span className={h.barFill} style={{ width: pctText(market) }} /></span>
         <span className={h.barValue}>{pctText(market)}</span>
       </div>

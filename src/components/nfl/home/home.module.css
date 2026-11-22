@@ -193,7 +193,8 @@ a.tile:hover { border-color: rgba(11, 27, 51, 0.24); color: var(--ink); }
   text-decoration: none;
 }
 a.top:hover { color: var(--ink); border-color: rgba(11, 27, 51, 0.24); }
-.topHead { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 0.8125rem; color: var(--ink-3); }
+.topHead { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; font-size: 0.8125rem; color: var(--ink-3); }
+.topHead > :last-child { white-space: nowrap; line-height: 1.9; }
 .topMain { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
 .topPick {
   margin: 0;
@@ -204,6 +205,7 @@ a.top:hover { color: var(--ink); border-color: rgba(11, 27, 51, 0.24); }
   letter-spacing: -0.035em;
   font-variant-numeric: tabular-nums;
 }
+.topPrice { margin: 6px 0 0; font-size: 1.0625rem; font-weight: 700; font-variant-numeric: tabular-nums; }
 .topWhy { margin: 6px 0 0; font-size: 0.9375rem; line-height: 1.45; color: var(--ink-2); }
 .topFoot { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 0.875rem; font-weight: 600; }
 
@@ -276,6 +278,7 @@ a.teamName:hover { text-decoration: underline; }
 .pickMain { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .pickLabel { font-family: var(--font-display); font-size: 1.5rem; font-weight: 800; letter-spacing: -0.025em; line-height: 1.1; font-variant-numeric: tabular-nums; }
 .pickGame { font-size: 0.8125rem; color: var(--ink-3); margin-top: 3px; }
+.pickGame b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
 .pickWhy {
   margin: 0;
   font-size: 0.8125rem;
@@ -313,6 +316,7 @@ a.teamName:hover { text-decoration: underline; }
 .leanHead::-webkit-details-marker { display: none; }
 .leanHead:focus-visible { outline: 2px solid var(--color-primary, #1668e3); outline-offset: -2px; border-radius: 16px; }
 .leanSub { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 3px; }
+.leanNone { text-align: right; font-size: 0.8125rem; color: var(--ink-3); white-space: nowrap; }
 .leanBest { text-align: right; font-weight: 700; font-size: 0.9375rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .leanCaret { color: var(--ink-3); transition: transform 0.15s ease; }
 details[open] > .leanHead .leanCaret { transform: rotate(90deg); }
