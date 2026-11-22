@@ -31,13 +31,6 @@ export const RECHECK_MS = Object.freeze({
 /** Lookups allowed per calendar month. Google's free allowance is 5,000. */
 export const DEFAULT_MONTHLY_CAP = 4500;
 export const PER_IP_HOURLY_LIMIT = 120;
-/**
- * The most the logged-out home page may use of the month's lookups. It
- * shows a flyover on every game of the week to anyone who visits, so
- * without its own ceiling a busy week of visitors would spend the month
- * and leave the app's game modules without flyovers.
- */
-export const DEFAULT_LANDING_CAP = 2000;
 
 export function getAerialKey(env = process.env) {
   return env.GOOGLE_AERIAL_API_KEY || env.GOOGLE_MAPS_API_KEY || '';
@@ -46,17 +39,6 @@ export function getAerialKey(env = process.env) {
 export function getMonthlyCap(env = process.env) {
   const n = Number(env.AERIAL_MONTHLY_LOOKUP_CAP);
   return Number.isFinite(n) && n >= 0 ? Math.floor(n) : DEFAULT_MONTHLY_CAP;
-}
-
-export function getLandingCap(env = process.env) {
-  const n = Number(env.AERIAL_LANDING_LOOKUP_CAP);
-  const cap = Number.isFinite(n) && n >= 0 ? Math.floor(n) : DEFAULT_LANDING_CAP;
-  return Math.min(cap, getMonthlyCap(env));
-}
-
-/** Which allowance a lookup counts against besides the month's: 'landing' or none. */
-export function flyoverBudget(value) {
-  return String(value || '').toLowerCase() === 'landing' ? 'landing' : null;
 }
 
 export class AerialError extends Error {
@@ -216,26 +198,18 @@ export async function getCoverage(sport, deps, { now = Date.now(), maxRefresh = 
 }
 
 const monthKey = (now) => `aerial:v1:lookups:${new Date(now).toISOString().slice(0, 7)}`;
-const landingKey = (now) => `${monthKey(now)}:landing`;
-const COUNTER_TTL_SECONDS = 40 * 24 * 3600;
 
 /** Lookups used this calendar month (0 when the counter store is unavailable). */
 export async function lookupsThisMonth({ getJson }, now = Date.now()) {
   return Number(await getJson(monthKey(now))) || 0;
 }
 
-/** Lookups the logged-out home page has used this calendar month. */
-export async function landingLookupsThisMonth({ getJson }, now = Date.now()) {
-  return Number(await getJson(landingKey(now))) || 0;
-}
-
 /**
  * Count one billed lookup against the monthly cap and the caller's hourly
- * limit, and against the home page's share when `budget` is 'landing'.
- * Refuses when any of them is spent. With no counter store (local
+ * limit. Refuses when either is spent. With no counter store (local
  * development) lookups are allowed.
  */
-export async function reserveLookup({ ip, budget = null }, deps, now = Date.now()) {
+export async function reserveLookup({ ip }, deps, now = Date.now()) {
   const cap = getMonthlyCap(deps.env);
   if (cap === 0) return { ok: false, reason: 'capped' };
   if (ip) {
@@ -243,12 +217,7 @@ export async function reserveLookup({ ip, budget = null }, deps, now = Date.now(
     const mine = await deps.incrWithTtl(`aerial:v1:ip:${ip}:${hour}`, 3600);
     if (mine != null && mine > PER_IP_HOURLY_LIMIT) return { ok: false, reason: 'rate_limited' };
   }
-  // The home page's share is checked first, so a lookup it is refused never counts against the month.
-  if (budget === 'landing') {
-    const landing = await deps.incrWithTtl(landingKey(now), COUNTER_TTL_SECONDS);
-    if (landing != null && landing > getLandingCap(deps.env)) return { ok: false, reason: 'capped' };
-  }
-  const used = await deps.incrWithTtl(monthKey(now), COUNTER_TTL_SECONDS);
+  const used = await deps.incrWithTtl(monthKey(now), 40 * 24 * 3600);
   if (used != null && used > cap) return { ok: false, reason: 'capped' };
   return { ok: true, used };
 }
@@ -257,7 +226,7 @@ export async function reserveLookup({ ip, budget = null }, deps, now = Date.now(
  * Fresh flyover links for one team's home venue.
  * @returns {Promise<{ state:'active', name, poster, mp4Low, mp4Medium, durationSec }|{ state:string, reason?:string }>}
  */
-export async function getFlyover(sport, team, deps, { ip = null, budget = null, now = Date.now() } = {}) {
+export async function getFlyover(sport, team, deps, { ip = null, now = Date.now() } = {}) {
   const venue = FLYOVER_VENUES[sport]?.[team];
   if (!venue) return { state: 'none', reason: 'unknown_venue' };
   const index = await loadIndex(sport, deps);
@@ -265,8 +234,8 @@ export async function getFlyover(sport, team, deps, { ip = null, budget = null, 
   const rec = index[id];
   if (rec?.status !== 'active' || !rec.videoId) return { state: rec?.status || 'unknown', ...(rec?.reason ? { reason: rec.reason } : {}) };
 
-  const reserved = await reserveLookup({ ip, budget }, deps, now);
-  if (!reserved.ok) return { state: reserved.reason };
+  const budget = await reserveLookup({ ip }, deps, now);
+  if (!budget.ok) return { state: budget.reason };
 
   try {
     const video = await lookupVideo(rec.videoId, deps);

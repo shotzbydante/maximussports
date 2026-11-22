@@ -11,8 +11,6 @@
  *
  *   variant="card"  full game cards
  *   variant="tile"  the narrow tiles in a rail
- *   budget="landing" on the logged-out home page, which has its own smaller
- *                    share of the month's lookups
  */
 
 import { useEffect, useRef, useState } from 'react';
@@ -27,7 +25,7 @@ function stillOnly() {
   return !!reduced || !!navigator.connection?.saveData;
 }
 
-function Flyover({ sport, venue, variant, surface, budget }) {
+function Flyover({ sport, venue, variant, surface }) {
   const { team, name } = venue;
   const [available, setAvailable] = useState(false);
   const [seen, setSeen] = useState(false);     // has been on screen at least once
@@ -42,11 +40,11 @@ function Flyover({ sport, venue, variant, surface, budget }) {
 
   useEffect(() => {
     let cancelled = false;
-    fetchFlyoverCoverage(sport, { budget }).then((c) => {
+    fetchFlyoverCoverage(sport).then((c) => {
       if (!cancelled) setAvailable(!c.capped && c.venues?.[team]?.state === 'active');
     });
     return () => { cancelled = true; };
-  }, [sport, team, budget]);
+  }, [sport, team]);
 
   useEffect(() => {
     const el = boxRef.current;
@@ -66,13 +64,13 @@ function Flyover({ sport, venue, variant, surface, budget }) {
   useEffect(() => {
     if (!available || !seen || media || failed) return undefined;
     let cancelled = false;
-    fetchFlyover(sport, team, { budget }).then((d) => {
+    fetchFlyover(sport, team).then((d) => {
       if (cancelled) return;
       if (d?.state === 'active' && (d.mp4Low || d.poster)) setMedia(d);
       else setFailed(true);
     });
     return () => { cancelled = true; };
-  }, [available, seen, media, failed, sport, team, budget]);
+  }, [available, seen, media, failed, sport, team]);
 
   const withVideo = !!media?.mp4Low && !stillOnly();
 
@@ -94,7 +92,7 @@ function Flyover({ sport, venue, variant, surface, budget }) {
     if (retried.current) { setFailed(true); return; }
     retried.current = true;
     setPlaying(false);
-    fetchFlyover(sport, team, { fresh: true, budget }).then((d) => {
+    fetchFlyover(sport, team, { fresh: true }).then((d) => {
       if (d?.state === 'active' && (d.mp4Low || d.poster)) setMedia(d);
       else setFailed(true);
     });
@@ -143,9 +141,9 @@ function Flyover({ sport, venue, variant, surface, budget }) {
   );
 }
 
-export default function VenueFlyover({ sport, game, variant = 'card', surface, budget = null }) {
+export default function VenueFlyover({ sport, game, variant = 'card', surface }) {
   const venue = flyoverVenueForGame(sport, game);
   if (!venue) return null;
   // Keyed by venue so a module reused for another game starts clean.
-  return <Flyover key={`${sport}:${venue.team}`} sport={sport} venue={venue} variant={variant} surface={surface || `${sport}_game_${variant}`} budget={budget} />;
+  return <Flyover key={`${sport}:${venue.team}`} sport={sport} venue={venue} variant={variant} surface={surface || `${sport}_game_${variant}`} />;
 }

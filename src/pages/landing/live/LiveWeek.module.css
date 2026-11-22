@@ -46,7 +46,7 @@
   flex-direction: column;
   gap: 10px;
   min-width: 0;
-  padding: 12px;
+  padding: 14px 12px 12px;
   border-radius: 16px;
   background: #fff;
   color: var(--ink);
@@ -56,7 +56,7 @@
 }
 .tileOpen { box-shadow: 0 0 0 1px rgba(125, 211, 252, 0.42), 0 28px 70px -30px rgba(29, 139, 255, 0.7); }
 .skeleton {
-  min-height: 420px;
+  min-height: 360px;
   border-radius: 16px;
   background: linear-gradient(90deg, rgba(13, 32, 64, 0.8), rgba(24, 52, 96, 0.8), rgba(13, 32, 64, 0.8));
   background-size: 200% 100%;
@@ -120,6 +120,32 @@
   color: var(--ink-2);
 }
 .gameFoot b { font-weight: 600; color: var(--ink); white-space: nowrap; }
+
+/* ── Position-group matchups ── */
+.matchups { display: flex; flex-direction: column; gap: 6px; margin: 0 2px; }
+.matchupsHead { font-size: 0.6875rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); }
+.matchupList { display: grid; gap: 5px; }
+.matchupRow { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 24px; }
+.matchupUnits { display: flex; flex-wrap: wrap; align-items: center; gap: 1px 5px; min-width: 0; font-size: 0.78125rem; line-height: 1.35; color: var(--ink-2); }
+.unit { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.unit:first-child { font-weight: 600; color: var(--ink); }
+.vs { color: var(--ink-3); }
+.edgeChip {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(22, 104, 227, 0.12);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  line-height: 1.5;
+  color: var(--blue);
+  white-space: nowrap;
+}
+.edgeChipBig { background: var(--ink); color: #fff; }
+.edgeChipEven { background: var(--wash); color: var(--ink-2); }
 
 .chips { display: inline-flex; flex-wrap: wrap; gap: 4px; }
 .chip {

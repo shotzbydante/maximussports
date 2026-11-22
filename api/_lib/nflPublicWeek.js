@@ -1,10 +1,11 @@
 /**
  * The NFL week as the logged-out home page shows it.
  *
- * Every game of the week with its score or its lines, and the three
- * highest-conviction picks in full. A call on any other game is for
- * members, so it never leaves the server: this is the only place the public
- * payload is built, and a game outside the top three carries no pick at all.
+ * Every game of the week with its score or its lines and its biggest
+ * position-group matchups, and the three highest-conviction picks in full.
+ * A call on any other game is for members, so it never leaves the server:
+ * this is the only place the public payload is built, and a game outside
+ * the top three carries no pick at all.
  *
  * Which week: the one ESPN calls current, until 5 AM Eastern on the Tuesday
  * after its last kickoff. From then the next week is shown, a day before
@@ -21,10 +22,14 @@ import { createCache, coalesce } from '../_cache.js';
 import { fetchScoreboardPage, SEASON_TYPE } from '../nfl/live/_normalize.js';
 import { enrichGamesWithOdds } from '../nfl/live/_odds.js';
 import { getLockedPicks, getLineSnapshots, resolvePicks } from './nflPicksStore.js';
+import { getNflTalent, getNflTalentLeague } from './nflTalent.js';
+import { getNflInjuries } from './nflInjuries.js';
 import { pickLiveStatus } from '../../src/features/nfl/picks/pickLive.js';
+import { talentMatchups } from '../../src/features/nfl/picks/v2/talent.js';
 import { getNflTeamBySlug, getNflLogoUrl } from '../../src/sports/nfl/teams.js';
 
 export const FEATURED_MAX = 3;
+export const MATCHUP_ROWS = 3;
 /** Expected value below this is rounding, not value. Mirrors the picks board. */
 const VALUE_FLOOR = 0.005;
 const HOUR = 3_600_000;
@@ -192,8 +197,54 @@ export function publicPick(row, game, rank) {
   };
 }
 
+const plainName = (name) => String(name || '').toLowerCase().replace(/[^a-z ]/g, '').replace(/\s+(jr|sr|ii|iii|iv)$/, '').trim();
+const SIDELINED = new Set(['out', 'doubtful', 'ir']);
+
+/**
+ * Is the quarterback the talent grades rate for this team unavailable?
+ * Roster talent rates the season's starter. When he is out or on injured
+ * reserve, a quarterback matchup built on his grade would describe a
+ * player who is not on the field, so that row is left off the public tile.
+ */
+export function ratedQuarterbackOut(team, { league = null, injuries = null } = {}) {
+  const rated = (league?.teams?.[team?.abbrev]?.players || [])
+    .filter((p) => p.group === 'QB')
+    .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))[0];
+  if (!rated) return false;
+  const name = plainName(rated.name);
+  return (injuries?.teams?.[team?.slug] || [])
+    .some((p) => SIDELINED.has(p.status) && plainName(p.name) === name);
+}
+
+/**
+ * The biggest position-group matchups in a game: which unit, against
+ * which, and who it favours. Edges only; the grades behind them and the
+ * players are for members.
+ *
+ * @returns {{ rows: Array<{ offenseTeam, defenseTeam, offense, defense, edge, size, favours }> }|null}
+ */
+export function publicMatchup(game, { talent = null, league = null, injuries = null, max = MATCHUP_ROWS } = {}) {
+  const home = game?.teams?.home;
+  const away = game?.teams?.away;
+  if (!talent || !home?.abbrev || !away?.abbrev) return null;
+  const all = talentMatchups({ home: home.abbrev, away: away.abbrev, talent });
+  if (!all) return null;
+  const noQuarterback = new Set([home, away]
+    .filter((t) => ratedQuarterbackOut(t, { league, injuries }))
+    .map((t) => t.abbrev));
+  const rows = all.matchups
+    .filter((m) => !(m.offense === 'quarterback' && noQuarterback.has(m.offenseTeam)))
+    .slice(0, max)
+    .map((m) => ({
+      offenseTeam: m.offenseTeam, defenseTeam: m.defenseTeam,
+      offense: m.offense, defense: m.defense,
+      edge: m.edge, size: m.size, favours: m.favours,
+    }));
+  return rows.length > 0 ? { rows } : null;
+}
+
 /** A game, reduced to what a public tile prints. No ratings, projections or engine output. */
-export function publicGame(game, { close = null } = {}) {
+export function publicGame(game, { close = null, matchup = null } = {}) {
   const gs = game.gameState || {};
   const m = game.market || {};
   const started = game.status === 'live' || game.status === 'final';
@@ -224,6 +275,7 @@ export function publicGame(game, { close = null } = {}) {
       neutralSite: !!game.venue?.neutralSite,
     },
     network: game.broadcast?.network || null,
+    matchup,
     pick: null,
   };
 }
@@ -238,14 +290,23 @@ const STATUS_ORDER = { live: 0, upcoming: 1, final: 2, postponed: 3 };
  * @param {Array}  [args.rows]  locked pick rows for the week's games
  * @param {Map}    [args.closes] closing-line snapshots keyed by game id
  * @param {object} [args.next]  { week, seasonType } of the week that takes over, when known
+ * @param {object} [args.talent]   unit grades per team, for the position-group matchups
+ * @param {object} [args.league]   rated starters per team, to know whose quarterback grade it is
+ * @param {object} [args.injuries] the league injury report
  */
-export function buildPublicWeek({ page, rows = [], closes = new Map(), next = null, now = Date.now() }) {
+export function buildPublicWeek({
+  page, rows = [], closes = new Map(), next = null, now = Date.now(),
+  talent = null, league = null, injuries = null,
+}) {
   const games = page?.games || [];
   const featured = featuredRows(rows, games);
   const rankOf = new Map(featured.map((row, i) => [String(row.game_id), { row, rank: i + 1 }]));
 
   const out = games.map((g) => {
-    const pub = publicGame(g, { close: closes.get(String(g.gameId)) || null });
+    const pub = publicGame(g, {
+      close: closes.get(String(g.gameId)) || null,
+      matchup: publicMatchup(g, { talent, league, injuries }),
+    });
     const hit = rankOf.get(pub.gameId);
     if (hit) pub.pick = publicPick(hit.row, g, hit.rank);
     return pub;
@@ -314,11 +375,14 @@ export async function getPublicWeek({ now = Date.now() } = {}) {
 
     const ids = games.map((g) => g.gameId);
     const finals = games.filter((g) => g.status === 'final').map((g) => g.gameId);
-    const [locked, closes] = await Promise.all([
+    const [locked, closes, talent, league, injuries] = await Promise.all([
       getLockedPicks(ids),
       finals.length > 0 ? getLineSnapshots(finals) : new Map(),
+      getNflTalent().catch(() => null),
+      getNflTalentLeague().catch(() => null),
+      getNflInjuries().catch(() => null),
     ]);
-    return buildPublicWeek({ page: { ...page, games }, rows: locked.rows || [], closes, next, now });
+    return buildPublicWeek({ page: { ...page, games }, rows: locked.rows || [], closes, next, now, talent, league, injuries });
   });
 
   if (body.games.length > 0) {

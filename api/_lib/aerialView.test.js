@@ -10,8 +10,7 @@ import { describe, it, expect, vi } from 'vitest';
 import {
   AerialError, lookupVideoMetadata, renderVideo, lookupVideo, isDue, refreshVenueRecord,
   getCoverage, reserveLookup, getFlyover, getAerialKey, getMonthlyCap,
-  getLandingCap, flyoverBudget, landingLookupsThisMonth,
-  RECHECK_MS, DEFAULT_MONTHLY_CAP, DEFAULT_LANDING_CAP, PER_IP_HOURLY_LIMIT,
+  RECHECK_MS, DEFAULT_MONTHLY_CAP, PER_IP_HOURLY_LIMIT,
 } from './aerialView.js';
 import { FLYOVER_VENUES, flyoverVenueId } from '../../src/sports/venues/flyoverVenues.js';
 
@@ -259,49 +258,6 @@ describe('reserveLookup', () => {
   it('allows lookups when there is no counter store', async () => {
     const deps = { incrWithTtl: vi.fn(async () => null), env: {} };
     expect((await reserveLookup({ ip: '1.1.1.1' }, deps, NOW)).ok).toBe(true);
-    expect((await reserveLookup({ ip: '1.1.1.1', budget: 'landing' }, deps, NOW)).ok).toBe(true);
-  });
-});
-
-describe('the logged-out home page\'s share', () => {
-  it('defaults to less than half the month and never exceeds the monthly cap', () => {
-    expect(DEFAULT_LANDING_CAP).toBeLessThan(DEFAULT_MONTHLY_CAP / 2);
-    expect(getLandingCap({})).toBe(DEFAULT_LANDING_CAP);
-    expect(getLandingCap({ AERIAL_LANDING_LOOKUP_CAP: '500' })).toBe(500);
-    expect(getLandingCap({ AERIAL_LANDING_LOOKUP_CAP: '0' })).toBe(0);
-    expect(getLandingCap({ AERIAL_LANDING_LOOKUP_CAP: '9000' })).toBe(DEFAULT_MONTHLY_CAP);
-    expect(getLandingCap({ AERIAL_LANDING_LOOKUP_CAP: 'lots' })).toBe(DEFAULT_LANDING_CAP);
-  });
-
-  it('only recognises the one budget name', () => {
-    expect(flyoverBudget('landing')).toBe('landing');
-    expect(flyoverBudget('LANDING')).toBe('landing');
-    expect(flyoverBudget('app')).toBeNull();
-    expect(flyoverBudget(undefined)).toBeNull();
-  });
-
-  it('stops the home page at its share and leaves the rest of the month to the app', async () => {
-    const s = store();
-    const deps = { ...s, env: { AERIAL_MONTHLY_LOOKUP_CAP: '10', AERIAL_LANDING_LOOKUP_CAP: '2' } };
-    expect((await reserveLookup({ budget: 'landing' }, deps, NOW)).ok).toBe(true);
-    expect((await reserveLookup({ budget: 'landing' }, deps, NOW)).ok).toBe(true);
-    expect(await reserveLookup({ budget: 'landing' }, deps, NOW)).toEqual({ ok: false, reason: 'capped' });
-    // The refused lookup did not count against the month, and the app can still look up.
-    expect(s.data.get('aerial:v1:lookups:2026-11')).toBe(2);
-    expect((await reserveLookup({}, deps, NOW)).ok).toBe(true);
-    expect(await landingLookupsThisMonth(s, NOW)).toBe(3);
-  });
-
-  it('counts home page lookups against the month as well', async () => {
-    const s = store({ 'aerial:v1:lookups:2026-11': 10 });
-    const deps = { ...s, env: { AERIAL_MONTHLY_LOOKUP_CAP: '10', AERIAL_LANDING_LOOKUP_CAP: '5' } };
-    expect(await reserveLookup({ budget: 'landing' }, deps, NOW)).toEqual({ ok: false, reason: 'capped' });
-  });
-
-  it('does not touch the home page counter for a lookup from the app', async () => {
-    const s = store();
-    await reserveLookup({ ip: '1.1.1.1' }, { ...s, env: {} }, NOW);
-    expect(s.data.has('aerial:v1:lookups:2026-11:landing')).toBe(false);
   });
 });
 
@@ -337,15 +293,6 @@ describe('getFlyover', () => {
     const g = google({ lookupVideo: links });
     expect(await getFlyover('nfl', 'BUF', { ...s, ...g, key: KEY, env: { AERIAL_MONTHLY_LOOKUP_CAP: '10' } }, { now: NOW })).toEqual({ state: 'capped' });
     expect(g.calls).toHaveLength(0);
-  });
-
-  it('returns capped to the home page once its share is spent, while the app still gets links', async () => {
-    const s = store({ ...active, 'aerial:v1:lookups:2026-11:landing': 3 });
-    const g = google({ lookupVideo: links });
-    const deps = { ...s, ...g, key: KEY, env: { AERIAL_LANDING_LOOKUP_CAP: '3' } };
-    expect(await getFlyover('nfl', 'BUF', deps, { budget: 'landing', now: NOW })).toEqual({ state: 'capped' });
-    expect(g.calls).toHaveLength(0);
-    expect((await getFlyover('nfl', 'BUF', deps, { now: NOW })).state).toBe('active');
   });
 
   it('forgets a video Google no longer has', async () => {

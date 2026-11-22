@@ -2,7 +2,7 @@
  * GET /api/nfl/public-week
  *
  * The NFL week for the logged-out home page: every game with its score or
- * lines, and the top three picks in full. Calls on the other games are for
+ * lines and its biggest position-group matchups, and the top three picks in full. Calls on the other games are for
  * members and are not in this response at all (see api/_lib/nflPublicWeek.js).
  *
  * The week turns over at 5 AM Eastern on Tuesday. Cached at the edge for a

@@ -8,7 +8,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
   rolloverAt, nextWeekCandidates, weekLabel, featuredRows, publicWhy, publicGame,
-  buildPublicWeek, resolveDisplayWeek, FEATURED_MAX,
+  publicMatchup, ratedQuarterbackOut, buildPublicWeek, resolveDisplayWeek, FEATURED_MAX, MATCHUP_ROWS,
 } from './nflPublicWeek.js';
 
 const TEAMS = {
@@ -218,6 +218,66 @@ describe('publicGame', () => {
   });
 });
 
+// Baltimore at Carolina, Week 11: the unit grades the app had on file.
+const UNITS = {
+  BAL: { QB: 94.8, 'Pass protection': 77.3, Receivers: 76.9, 'Run game': 78.9, 'Pass rush': 84.2, Coverage: 81.9, 'Run defense': 85.6, 'Pass defense': 83.1, 'Overall talent': 83.6 },
+  CAR: { QB: 83.0, 'Pass protection': 81.3, Receivers: 81.5, 'Run game': 81.8, 'Pass rush': 81.1, Coverage: 79.1, 'Run defense': 83.0, 'Pass defense': 80.1, 'Overall talent': 81.4 },
+};
+const TALENT = {
+  teams: UNITS,
+  averages: { QB: 81.1, 'Pass protection': 80.6, Receivers: 80.6, 'Run game': 80.9, 'Pass rush': 83.7, Coverage: 80.5, 'Run defense': 82.2, 'Pass defense': 82.1 },
+};
+const LEAGUE = { teams: {
+  BAL: { players: [{ group: 'QB', name: 'Lamar Jackson', score: 94.8 }, { group: 'RB', name: 'Derrick Henry', score: 87.5 }] },
+  CAR: { players: [{ group: 'QB', name: 'Bryce Young', score: 83 }] },
+} };
+const INJURIES = { teams: {
+  ravens: [{ name: 'Lamar Jackson', position: 'QB', status: 'ir' }, { name: 'Kedon Slovis', position: 'QB', status: 'out' }],
+  panthers: [{ name: 'Haynes King', position: 'QB', status: 'out' }],
+} };
+
+describe('publicMatchup', () => {
+  const g = WEEK11[2];   // BAL at CAR
+
+  it('lists the biggest unit matchups with who each favours, and no grades', () => {
+    const m = publicMatchup(g, { talent: TALENT });
+    expect(m.rows).toHaveLength(MATCHUP_ROWS);
+    expect(m.rows[0]).toEqual({
+      offenseTeam: 'BAL', defenseTeam: 'CAR', offense: 'quarterback', defense: 'pass defense',
+      edge: 15.7, size: 'big', favours: 'BAL',
+    });
+    expect(JSON.stringify(m)).not.toMatch(/Grade|overall|netHome|source/);
+  });
+
+  it('leaves out a quarterback matchup when the rated quarterback is out or on injured reserve', () => {
+    expect(ratedQuarterbackOut(g.teams.away, { league: LEAGUE, injuries: INJURIES })).toBe(true);
+    // A backup or third quarterback being inactive does not count.
+    expect(ratedQuarterbackOut(g.teams.home, { league: LEAGUE, injuries: INJURIES })).toBe(false);
+    const m = publicMatchup(g, { talent: TALENT, league: LEAGUE, injuries: INJURIES });
+    expect(m.rows.some((r) => r.offenseTeam === 'BAL' && r.offense === 'quarterback')).toBe(false);
+    expect(m.rows.map((r) => [r.offenseTeam, r.offense, r.size])).toEqual([
+      ['BAL', 'run game', 'even'], ['CAR', 'run game', 'even'], ['BAL', 'receivers', 'even'],
+    ]);
+    // Carolina's own quarterback matchup is still in the running.
+    expect(publicMatchup(g, { talent: TALENT, league: LEAGUE, injuries: INJURIES, max: 8 }).rows
+      .some((r) => r.offenseTeam === 'CAR' && r.offense === 'quarterback')).toBe(true);
+  });
+
+  it('matches names through suffixes and punctuation', () => {
+    const league = { teams: { BAL: { players: [{ group: 'QB', name: 'Michael Penix Jr.', score: 80 }] } } };
+    const injuries = { teams: { ravens: [{ name: 'Michael Penix Jr', position: 'QB', status: 'doubtful' }] } };
+    expect(ratedQuarterbackOut(g.teams.away, { league, injuries })).toBe(true);
+    injuries.teams.ravens[0].status = 'questionable';
+    expect(ratedQuarterbackOut(g.teams.away, { league, injuries })).toBe(false);
+  });
+
+  it('is absent when there are no grades for the game', () => {
+    expect(publicMatchup(g, {})).toBeNull();
+    expect(publicMatchup(WEEK11[0], { talent: TALENT })).toBeNull();
+    expect(publicGame(g).matchup).toBeNull();
+  });
+});
+
 describe('buildPublicWeek', () => {
   const rows = [
     row('g1', { expected_value: '0.048' }),
@@ -289,6 +349,15 @@ describe('buildPublicWeek', () => {
     const out = buildPublicWeek({ page: upcoming, rows: [] });
     expect(out).toMatchObject({ phase: 'upcoming', featured: 0, locked: 1, counts: { live: 0, upcoming: 1, final: 0 } });
     expect(out.games[0].pick).toBeNull();
+  });
+
+  it('puts the position-group matchups on every game it has grades for, locked or not', () => {
+    const out = buildPublicWeek({ page: PAGE, rows, talent: TALENT, league: LEAGUE, injuries: INJURIES });
+    const bal = out.games.find((g) => g.gameId === 'g3');
+    expect(bal.pick).toBeNull();
+    expect(bal.matchup.rows).toHaveLength(MATCHUP_ROWS);
+    expect(out.games.find((g) => g.gameId === 'g1').matchup).toBeNull();
+    expect(JSON.stringify(out)).not.toMatch(/offenseGrade|defenseGrade|Lamar/);
   });
 
   it('calls a week final once every game is', () => {

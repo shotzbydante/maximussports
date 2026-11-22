@@ -2,9 +2,10 @@
  * LiveWeek — this week's NFL games on the logged-out home page.
  *
  * Every game of the week as a tile, the way the NFL home page in the app
- * shows them: a flyover of the stadium, the score or the lines. The three
- * highest-conviction picks are shown in full, with where each one stands.
- * Every other game's call is behind a lock that leads to sign-up.
+ * shows them: both teams with their logos, the score or the lines, and the
+ * game's biggest position-group matchups. The three highest-conviction
+ * picks are shown in full, with where each one stands. Every other game's
+ * call is behind a lock that leads to sign-up.
  *
  * The locked calls are not hidden with CSS. /api/nfl/public-week sends a
  * pick for the top three games only; what sits behind a lock is a drawing.
@@ -16,7 +17,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { track } from '../../../analytics/index';
-import VenueFlyover from '../../../components/shared/VenueFlyover';
 import gl from '../GuestLanding.module.css';
 import s from './LiveWeek.module.css';
 
@@ -111,6 +111,37 @@ const VERDICT = {
   level: { text: 'Level', tone: 'flat', live: true },
 };
 
+const capFirst = (t) => (t ? t.charAt(0).toUpperCase() + t.slice(1) : '');
+
+/** The game's biggest unit-against-unit matchups, and who each favours. */
+function Matchups({ game }) {
+  const rows = game.matchup?.rows || [];
+  if (rows.length === 0) return null;
+  const byAbbrev = { [game.teams.away?.abbrev]: game.teams.away, [game.teams.home?.abbrev]: game.teams.home };
+  return (
+    <div className={s.matchups}>
+      <span className={s.matchupsHead}>Position-group matchups</span>
+      <ul className={s.matchupList}>
+        {rows.map((m) => {
+          const even = m.size === 'even' || !m.favours;
+          return (
+            <li key={`${m.offenseTeam}-${m.offense}`} className={s.matchupRow}>
+              <span className={s.matchupUnits}>
+                <span className={s.unit}><Logo team={byAbbrev[m.offenseTeam]} size={16} /> {capFirst(m.offense)}</span>
+                <span className={s.vs}>vs</span>
+                <span className={s.unit}><Logo team={byAbbrev[m.defenseTeam]} size={16} /> {m.defense}</span>
+              </span>
+              <span className={`${s.edgeChip} ${m.size === 'big' ? s.edgeChipBig : even ? s.edgeChipEven : ''}`}>
+                {even ? 'Even' : <><Logo team={byAbbrev[m.favours]} size={14} /> {m.favours} +{Math.abs(m.edge).toFixed(1)}</>}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
 /** One of the week's top three picks, in full. */
 function OpenPick({ pick }) {
   const v = VERDICT[pick.result?.verdict] || null;
@@ -192,7 +223,6 @@ function GameTile({ game, signupTo, onUnlock, asOf }) {
 
   return (
     <article className={`${s.tile} ${game.pick ? s.tileOpen : ''}`} role="listitem">
-      <VenueFlyover sport="nfl" game={game} variant="tile" surface="landing_week" budget="landing" />
       <div className={s.gameTop}>
         <Status game={game} />
         {game.network && <span>{game.network}</span>}
@@ -225,6 +255,8 @@ function GameTile({ game, signupTo, onUnlock, asOf }) {
           <span>{lineLabel} <b><Logo team={home} size={14} /> {home?.abbrev} {fmtLine(spread)}</b></span>
         )}
       </div>
+
+      <Matchups game={game} />
 
       {game.pick
         ? <OpenPick pick={game.pick} />
@@ -373,7 +405,8 @@ export default function LiveWeek({ signupTo }) {
           )}
           <p className={s.fine}>
             The top three are the week’s highest-conviction picks, shown as locked: line, price and
-            sportsbook. Each is graded against the final score, win or lose.
+            sportsbook. Each is graded against the final score, win or lose. Position-group
+            matchups compare roster talent, unit against unit.
             {week.rollsAt && week.phase === 'final' ? ` This board turns over ${stamp(week.rollsAt)}.` : ''}
           </p>
         </>
