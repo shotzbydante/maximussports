@@ -8,6 +8,7 @@ import { fetchNflHeadlines, fetchNflVideos } from '../../../api/nfl';
 import { SectionHead, Rail } from './HomeParts';
 import { timeAgo } from './format';
 import h from './home.module.css';
+import { trackStoryOpen, trackVideoOpen } from '../../../analytics/sportEvents';
 
 const TOPIC = { injury: 'Injury', transactions: 'Transactions', odds: 'Odds', playoffs: 'Playoffs', preview: 'Preview' };
 
@@ -28,7 +29,7 @@ export function HomeVideos({ max = 6 }) {
         <div className={h.skeleton} aria-busy="true" />
       ) : (
         <Rail label="NFL videos" narrow cap={4}>
-          {videos.map((v) => (
+          {videos.map((v, i) => (
             <a
               key={v.videoId}
               href={`https://www.youtube.com/watch?v=${v.videoId}`}
@@ -36,6 +37,7 @@ export function HomeVideos({ max = 6 }) {
               rel="noopener noreferrer"
               className={h.video}
               role="listitem"
+              onClick={() => trackVideoOpen({ sport: 'nfl', surface: 'nfl_home', video: v, position: i })}
             >
               <span className={h.videoThumb}>
                 {v.thumbUrl && <img src={v.thumbUrl} alt="" loading="lazy" />}
@@ -71,8 +73,15 @@ export function HomeHeadlines({ max = 6 }) {
         <div className={h.skeleton} aria-busy="true" />
       ) : (
         <div className={`${h.card} ${h.cardFlush}`}>
-          {headlines.slice(0, max).map((x) => (
-            <a key={x.id || x.link} href={x.link} target="_blank" rel="noopener noreferrer" className={h.story}>
+          {headlines.slice(0, max).map((x, i) => (
+            <a
+              key={x.id || x.link}
+              href={x.link}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={h.story}
+              onClick={() => trackStoryOpen({ sport: 'nfl', surface: 'nfl_home', story: x, position: i })}
+            >
               <span className={h.storyTitle}>{x.title}</span>
               <span className={h.storyMeta}>
                 {TOPIC[x.topic] && <span className={h.chip}>{TOPIC[x.topic]}</span>}

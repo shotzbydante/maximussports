@@ -12,6 +12,7 @@ import { NFL_DIVISIONS } from '../../sports/nfl/teams';
 import NflLogo from '../../components/nfl/NflLogo';
 import { fetchNflTeamBoard, fetchNflChampionshipOdds } from '../../api/nfl';
 import s from '../../components/nfl/nfl.module.css';
+import { trackFilterChange } from '../../analytics/sportEvents';
 
 function fmtOdds(v) { return v == null ? '—' : v > 0 ? `+${v}` : `${v}`; }
 function fmtSigned(v) { return v == null ? '—' : v > 0 ? `+${v}` : `${v}`; }
@@ -74,6 +75,10 @@ export default function NflTeams() {
   const [board, setBoard] = useState(null);
   const [odds, setOdds] = useState({});
   const [view, setView] = useState('divisions');
+  const changeView = (next) => {
+    setView(next);
+    trackFilterChange({ sport: 'nfl', page: 'teams', filter: 'view', value: next });
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -117,8 +122,8 @@ export default function NflTeams() {
             </p>
           </div>
           <div className={s.tabs} role="tablist" aria-label="Team view">
-            <button type="button" role="tab" aria-selected={view === 'divisions'} className={`${s.tab} ${view === 'divisions' ? s.tabActive : ''}`} onClick={() => setView('divisions')}>Divisions</button>
-            <button type="button" role="tab" aria-selected={view === 'power'} className={`${s.tab} ${view === 'power' ? s.tabActive : ''}`} onClick={() => setView('power')}>Power ratings</button>
+            <button type="button" role="tab" aria-selected={view === 'divisions'} className={`${s.tab} ${view === 'divisions' ? s.tabActive : ''}`} onClick={() => changeView('divisions')}>Divisions</button>
+            <button type="button" role="tab" aria-selected={view === 'power'} className={`${s.tab} ${view === 'power' ? s.tabActive : ''}`} onClick={() => changeView('power')}>Power ratings</button>
           </div>
         </div>
       </header>

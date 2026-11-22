@@ -22,6 +22,7 @@ import {
   fetchNflTeamInjuries,
 } from '../../api/nfl';
 import s from '../../components/nfl/nfl.module.css';
+import { trackFilterChange } from '../../analytics/sportEvents';
 
 const FREE_PIN_LIMIT = 3;
 
@@ -107,7 +108,10 @@ function InjuryReport({ report }) {
         </div>
       )}
       {reserve.length > 0 && (
-        <button type="button" className={s.linkButton} onClick={() => setShowAll((v) => !v)}>
+        <button type="button" className={s.linkButton} onClick={() => {
+          trackFilterChange({ sport: 'nfl', page: 'team', filter: 'injured_reserve', value: showAll ? 'hidden' : 'shown' });
+          setShowAll((v) => !v);
+        }}>
           {showAll ? 'Hide injured reserve' : `Show injured reserve (${reserve.length})`}
         </button>
       )}

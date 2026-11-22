@@ -8,6 +8,7 @@ import { Link } from 'react-router-dom';
 import { useWorkspace } from '../../workspaces/WorkspaceContext';
 import { fetchNflHeadlines, fetchNflTeamHeadlines, fetchNflVideos } from '../../api/nfl';
 import s from './nfl.module.css';
+import { trackStoryOpen, trackVideoOpen } from '../../analytics/sportEvents';
 
 const TOPIC_LABEL = {
   injury: 'Injury',
@@ -26,11 +27,18 @@ function timeAgo(iso) {
   return `${Math.floor(diffH / 24)}d ago`;
 }
 
-export function HeadlineList({ headlines }) {
+export function HeadlineList({ headlines, surface = 'nfl_intel_feed' }) {
   return (
     <div className={s.list}>
-      {headlines.map((h) => (
-        <a key={h.id || h.link} href={h.link} target="_blank" rel="noopener noreferrer" className={s.listRow}>
+      {headlines.map((h, i) => (
+        <a
+          key={h.id || h.link}
+          href={h.link}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={s.listRow}
+          onClick={() => trackStoryOpen({ sport: 'nfl', surface, story: h, position: i })}
+        >
           <span>
             <span className={s.listTitle}>{h.title}</span>
             <span className={s.listMeta}>
@@ -45,16 +53,17 @@ export function HeadlineList({ headlines }) {
   );
 }
 
-export function VideoGrid({ videos }) {
+export function VideoGrid({ videos, surface = 'nfl_intel_feed' }) {
   return (
     <div className={s.videoGrid}>
-      {videos.map((v) => (
+      {videos.map((v, i) => (
         <a
           key={v.videoId}
           href={`https://www.youtube.com/watch?v=${v.videoId}`}
           target="_blank"
           rel="noopener noreferrer"
           className={s.video}
+          onClick={() => trackVideoOpen({ sport: 'nfl', surface, video: v, position: i })}
         >
           <span className={s.videoThumb}>
             <img src={v.thumbUrl} alt="" loading="lazy" />

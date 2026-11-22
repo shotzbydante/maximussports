@@ -7,6 +7,7 @@ import SEOHead from '../../components/seo/SEOHead';
 import { HeadlineList, VideoGrid } from '../../components/nfl/NflIntelFeed';
 import { fetchNflHeadlines, fetchNflVideos } from '../../api/nfl';
 import s from '../../components/nfl/nfl.module.css';
+import { trackFilterChange } from '../../analytics/sportEvents';
 
 const TOPICS = [
   { key: 'all', label: 'All' },
@@ -63,7 +64,10 @@ export default function NflNewsFeed() {
               role="tab"
               aria-selected={topic === t.key}
               className={`${s.tab} ${topic === t.key ? s.tabActive : ''}`}
-              onClick={() => setTopic(t.key)}
+              onClick={() => {
+                setTopic(t.key);
+                trackFilterChange({ sport: 'nfl', page: 'news', filter: 'topic', value: t.key });
+              }}
             >
               {t.label}
               {counts[t.key] > 0 && <span className={s.tabCount}>{counts[t.key]}</span>}
@@ -79,14 +83,14 @@ export default function NflNewsFeed() {
             The feed refreshes every few minutes.
           </div>
         ) : (
-          <div className={s.card}><HeadlineList headlines={visible} /></div>
+          <div className={s.card}><HeadlineList headlines={visible} surface="nfl_news" /></div>
         )}
       </section>
 
       {videos?.length > 0 && (
         <section className={s.section}>
           <h2 className={s.sectionTitle}>Latest video</h2>
-          <VideoGrid videos={videos} />
+          <VideoGrid videos={videos} surface="nfl_news" />
         </section>
       )}
     </div>

@@ -15,6 +15,7 @@ import NflLogo from '../NflLogo';
 import { SectionHead } from './HomeParts';
 import { fmtOdds } from './format';
 import h from './home.module.css';
+import { trackFilterChange } from '../../../analytics/sportEvents';
 
 const implied = (american) => (american > 0 ? 100 / (american + 100) : -american / (-american + 100));
 
@@ -53,7 +54,10 @@ export default function HomeTitleRace({ limit = 5 }) {
               type="button"
               className={`${h.seg} ${conference === c ? h.segOn : ''}`}
               aria-pressed={conference === c}
-              onClick={() => setConference(c)}
+              onClick={() => {
+                setConference(c);
+                trackFilterChange({ sport: 'nfl', page: 'home', filter: 'title_race_conference', value: c });
+              }}
             >
               {c}
             </button>

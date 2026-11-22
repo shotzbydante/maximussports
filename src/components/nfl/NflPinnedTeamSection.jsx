@@ -22,6 +22,7 @@ import NflLogo from './NflLogo';
 import { SectionHead, Rail } from './home/HomeParts';
 import s from './nfl.module.css';
 import h from './home/home.module.css';
+import { trackTeamPickerOpened } from '../../analytics/sportEvents';
 
 const FREE_PIN_LIMIT = 3;
 const SUGGESTED = ['chiefs', 'eagles', 'bills', 'lions', '49ers'];
@@ -147,6 +148,7 @@ export default function NflPinnedTeamSection() {
 
   const openPicker = () => {
     if (!user) { navigate('/settings?next=/nfl'); return; }
+    trackTeamPickerOpened({ sport: 'nfl', surface: 'nfl_home' });
     setPickerOpen(true);
   };
 

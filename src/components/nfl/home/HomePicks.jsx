@@ -11,7 +11,7 @@
  *   variant="full"  every recommended pick with reasons, then every game
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useWorkspace } from '../../../workspaces/WorkspaceContext';
 import { fetchNflScorecard } from '../../../api/nfl';
@@ -20,6 +20,7 @@ import NflLogo from '../NflLogo';
 import { SectionHead, Rail, ScoreRing, ModelMarketBars, Chevron } from './HomeParts';
 import { kickoffShort } from './format';
 import h from './home.module.css';
+import { trackPicksBoardView } from '../../../analytics/sportEvents';
 
 const ENDPOINT = '/api/nfl/picks/built';
 const RAIL_MAX = 6;
@@ -249,6 +250,19 @@ export default function HomePicks({ variant = 'home' }) {
   const rest = recommended.slice(1, 1 + RAIL_MAX);
   const showLeans = recommended.length === 0 && leans.length > 0;
   const total = recommended.length + leans.length;
+
+  // One picks_board_view per mount, once the board has loaded with something on it.
+  const viewTracked = useRef(false);
+  useEffect(() => {
+    if (viewTracked.current || !board || total === 0) return;
+    viewTracked.current = true;
+    trackPicksBoardView({
+      sport: 'nfl',
+      surface: full ? 'nfl_picks' : 'nfl_home',
+      recommended: recommended.length,
+      leans: leans.length,
+    });
+  }, [board, total, full, recommended.length, leans.length]);
 
   const season = recordText(card?.season?.record);
   const recent = recordText(card?.record);
