@@ -13,6 +13,7 @@
  */
 
 import { spreadProbs, totalProbs, expectedValue, probToAmerican } from './distribution.js';
+import { SITUATION_RECORDS } from './situations.js';
 
 function isNum(v) { return typeof v === 'number' && Number.isFinite(v); }
 const r3 = (v) => (isNum(v) ? Math.round(v * 1000) / 1000 : null);
@@ -105,6 +106,8 @@ export function applyLocks(board, rows = [], { maxPerTier = { tier1: 3, tier2: 5
     const winShare = now && now.win + now.lose > 0 ? now.win / (now.win + now.lose) : null;
     const pick = {
       ...r.payload,
+      // Picks locked before the "why" line existed get one rebuilt from what was stored.
+      ...storedWhy(r),
       tier: r.tier,
       pickRole: 'hero',
       isLowConviction: false,
@@ -190,12 +193,55 @@ export function applyLocks(board, rows = [], { maxPerTier = { tier1: 3, tier2: 5
   };
 }
 
+const fmtOdds = (v) => (isNum(v) ? (v > 0 ? `+${v}` : `${v}`) : '');
+const WIND_UNDER_PCT = Math.round((SITUATION_RECORDS.windUnder.won / (SITUATION_RECORDS.windUnder.won + SITUATION_RECORDS.windUnder.lost)) * 100);
+
+/**
+ * The reason on a locked pick. New locks store it. A pick locked before the
+ * field existed has it rebuilt from its stored price, book and fair price,
+ * in the past tense: it describes the board when the pick was made.
+ */
+function storedWhy(r) {
+  const p = r.payload || {};
+  const why = p.why || p.rationale?.why;
+  if (why) return { why, whyShort: p.whyShort || p.rationale?.whyShort || why };
+  const headline = p.rationale?.headline || null;
+  const book = r.book || p.book?.title;
+  const price = fmtOdds(r.price_american == null ? p.market?.priceAmerican : Number(r.price_american));
+  const fairPrice = fmtOdds(p.fair?.priceAmerican);
+  const ev = r.expected_value == null ? p.ev : Number(r.expected_value);
+  const what = p.market?.type === 'moneyline' && p.selection?.team ? `${p.selection.team} to win` : p.selection?.label;
+  if (!book || !price || !what || !isNum(ev)) return { why: headline, whyShort: headline };
+  const evText = `${ev >= 0 ? '+' : ''}${(ev * 100).toFixed(1)}% expected value`;
+  const wind = p.modelSource === 'nfl_v2_wind' ? String(headline || '').match(/(\d+) mph wind/) : null;
+  if (wind) {
+    return {
+      why: `${wind[1]} mph wind was forecast when this pick was locked, and unders have won ${WIND_UNDER_PCT}% of the time in wind that strong since ${SITUATION_RECORDS.windUnder.since}. ${book}’s ${price} on ${what} was ${evText}.`,
+      whyShort: `${wind[1]} mph wind forecast at lock; unders win ${WIND_UNDER_PCT}% in wind that strong`,
+    };
+  }
+  if (!fairPrice) return { why: headline, whyShort: headline };
+  return {
+    why: `${book} was paying ${price} on ${what} when this pick was locked; the market’s fair price was ${fairPrice}. That gap was ${evText}.`,
+    whyShort: `${book} paid ${price}; the fair price was ${fairPrice}`,
+  };
+}
+
+const DEMOTE_WHY = {
+  same_side: 'Same opinion as the recommended side bet on this game, so it is tracked, not doubled up.',
+  no_price_edge: 'Tracked only: the board already carries its limit of recommended picks at this level.',
+};
+
 function demote(p, reason) {
+  const why = `${DEMOTE_WHY[reason] || 'Tracked, not recommended.'} ${p.why || ''}`.trim();
+  const whyShort = `${reason === 'same_side' ? 'Tracked, same side as the pick' : 'Tracked, board is full'}. ${p.whyShort || ''}`.trim();
   return {
     ...p,
+    why,
+    whyShort,
     tier: 'tracking', pickRole: 'tracking', isLowConviction: true, lowSignalReason: reason,
     flags: { ...(p.flags || {}), tracking: true },
-    rationale: { ...(p.rationale || {}), pickRole: 'tracking' },
+    rationale: { ...(p.rationale || {}), why, whyShort, pickRole: 'tracking' },
     conviction: { label: 'Lean', score: Math.min(49, p.conviction?.score ?? 49) },
     betScore: { ...(p.betScore || {}), total: Math.min(0.49, p.betScore?.total ?? 0.49) },
   };

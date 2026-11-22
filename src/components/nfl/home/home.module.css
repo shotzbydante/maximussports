@@ -206,7 +206,9 @@ a.top:hover { color: var(--ink); border-color: rgba(11, 27, 51, 0.24); }
   font-variant-numeric: tabular-nums;
 }
 .topPrice { margin: 6px 0 0; font-size: 1.0625rem; font-weight: 700; font-variant-numeric: tabular-nums; }
-.topWhy { margin: 6px 0 0; font-size: 0.9375rem; line-height: 1.45; color: var(--ink-2); }
+.topGame { margin: 6px 0 0; font-size: 0.8125rem; line-height: 1.45; color: var(--ink-3); }
+.topWhy { margin: 8px 0 0; font-size: 0.9375rem; line-height: 1.5; color: var(--ink-2); max-width: 62ch; }
+.topWhy b, .pickWhy b, .pickWhyFull b { color: var(--ink); font-weight: 600; }
 .topFoot { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 0.875rem; font-weight: 600; }
 
 .ring { position: relative; width: 62px; height: 62px; flex-shrink: 0; }
@@ -285,7 +287,7 @@ a.teamName:hover { text-decoration: underline; }
   line-height: 1.45;
   color: var(--ink-2);
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -303,6 +305,8 @@ a.teamName:hover { text-decoration: underline; }
 .recordLine b { font-family: var(--font-display); font-size: 1.0625rem; color: var(--ink); font-variant-numeric: tabular-nums; }
 
 /* Reasons, opened on demand */
+.pickWhyFull { margin: 0; font-size: 0.875rem; line-height: 1.5; color: var(--ink-2); }
+.leanWhy { grid-column: 1 / -1; font-size: 0.8125rem; font-weight: 400; line-height: 1.45; color: var(--ink-3); }
 .why { font-size: 0.875rem; color: var(--ink-2); }
 .why summary { cursor: pointer; font-weight: 600; color: var(--color-primary, #1668e3); list-style: none; }
 .why summary::-webkit-details-marker { display: none; }

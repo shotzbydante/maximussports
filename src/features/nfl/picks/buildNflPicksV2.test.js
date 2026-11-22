@@ -5,6 +5,8 @@ import { buildRatings } from './v2/ratings.js';
 import { buildQbTable, indexQbWeeks } from './v2/qb.js';
 import { buildUnitGrades } from './v2/units.js';
 import { league, game, books, KC, LV, BUF, SF, CHI, DET } from './v2/fixtures.js';
+import { recommendedPicks, summarizePick, pickWhy } from './pickSummary.js';
+import { applyLocks } from './v2/locks.js';
 
 const NOW = new Date('2026-11-22T12:00:00Z');
 const asOf = { season: 2026, week: 9 };
@@ -43,7 +45,7 @@ describe('buildNflPicksV2', () => {
     }
     expect(out.byGame).toHaveLength(2);
     expect(out.fullSlatePicks).toHaveLength(6);      // three markets on each game
-    expect(NFL_MODEL_VERSION).toBe('nfl-picks-v2.0.0');
+    expect(NFL_MODEL_VERSION).toBe('nfl-picks-v2.1.0');
   });
 
   it('recommends the off-market number, at that book and price, and nothing else', () => {
@@ -222,5 +224,122 @@ describe('buildNflPicksV2', () => {
     const picks = build([g]).byGame[0].picks;
     expect(picks.total).toBeNull();
     expect(picks.runline).not.toBeNull();
+  });
+});
+
+describe('the reason on every pick', () => {
+  const wx = { weather: { tempF: 34, windMph: 21, hoursOut: 20, source: 'google' } };
+
+  it('gives every pick on the board a sentence and a short form', () => {
+    const out = build([hook(), flat(), withEngine(game('g3', CHI, DET), wx)]);
+    expect(out.fullSlatePicks.length).toBeGreaterThan(6);
+    for (const p of out.fullSlatePicks) {
+      expect(p.why, p.id).toMatch(/\w{3,}.*[.!?]$/);
+      expect(p.whyShort.length, p.id).toBeGreaterThan(10);
+      expect(p.whyShort.length, p.id).toBeLessThan(p.why.length);
+      expect(p.rationale.why).toBe(p.why);         // stored with the pick, so it survives a lock
+    }
+  });
+
+  it('explains a price pick by its book, its number and the market', () => {
+    const p = build([hook(), flat()]).heroPicks[0];
+    expect(p.why).toContain('LV +3.5');
+    expect(p.why).toMatch(/while the market across \d+ books is \+3/);
+    expect(p.why).toContain('expected value');
+    expect(p.why).not.toMatch(/^Held|^Tracked|^Lean/);
+  });
+
+  it('explains a wind under by the wind, where it is, and the record behind it', () => {
+    const p = build([withEngine(game('g1', LV, KC), wx)]).heroPicks.find((x) => x.market.type === 'total');
+    expect(p.why).toContain('21 mph wind');
+    expect(p.why).toContain('57%');
+    expect(p.whyShort).toContain('21 mph wind');
+    expect(p.environment).toMatchObject({ indoor: false });
+    expect(p.environment.label).toMatch(/^Outdoors.*21 mph wind, 34°F/);
+  });
+
+  it('scales the wind with its speed: a pick at 21 mph, none at 13 with the same prices', () => {
+    const at = (mph) => build([withEngine(game('g1', LV, KC), { weather: { tempF: 34, windMph: mph, hoursOut: 20, source: 'google' } })]);
+    const strong = at(21).heroPicks.find((x) => x.market.type === 'total');
+    expect(strong.why).toContain('takes 1.2 points off our fair total');
+    expect(at(13).heroPicks.filter((x) => x.market.type === 'total')).toHaveLength(0);
+    // The fair total moves a little at 13 mph, and shows in the lean.
+    const fair = (mph) => at(mph).byGame[0].fair.total;
+    expect(fair(13) - fair(9)).toBeCloseTo(-0.36, 2);
+    expect(fair(21) - fair(9)).toBeCloseTo(-1.2, 2);
+  });
+
+  it('calls an under a price pick when it clears the bar without the wind', () => {
+    // One book hangs a total a point and a half above the market: a pick in any weather.
+    const g = (mph, total = 46) => withEngine(game('g1', LV, KC, { market: { books: books({ betmgm: { total } }) } }), { weather: { tempF: 50, windMph: mph, hoursOut: 20, source: 'google' } });
+    const breezy = build([g(12)]).heroPicks.find((x) => x.market.type === 'total');
+    expect(breezy).toMatchObject({ selection: { side: 'under' }, modelSource: 'nfl_v2_price' });
+    expect(breezy.why).toMatch(/has Under 46 while the market/);
+    expect(breezy.rationale.bullets.join(' ')).toContain('Sustained wind of 12 mph');   // the wind is still shown as context
+    const calm = build([g(5)]).heroPicks.find((x) => x.market.type === 'total');
+    expect(breezy.ev).toBeGreaterThan(calm.ev);                                         // and still counted in the price
+    // A smaller gap that only clears the bar with the wind's help is a wind pick, capped below a top play.
+    expect(build([g(5, 45.5)]).heroPicks.filter((x) => x.market.type === 'total')).toHaveLength(0);
+    const helped = build([g(12, 45.5)]).heroPicks.find((x) => x.market.type === 'total');
+    expect(helped).toMatchObject({ modelSource: 'nfl_v2_wind' });
+    expect(helped.why).toContain('takes 0.2 points off our fair total');
+    expect(helped.why).toContain('54% of games in wind of 10 to 15 mph');
+    expect(helped.conviction.score).toBeLessThanOrEqual(79);
+  });
+
+  it('says a lean is a lean, and why a held pick is held', () => {
+    const lean = build([flat()]).byGame[0].picks.runline;
+    expect(lean.why).toMatch(/^Lean only, not a recommended bet: the ratings make it BUF/);
+    const held = build([withEngine(game('g1', LV, KC, {
+      market: { books: books({ betmgm: { spread: -3.5 } }) },
+      injuries: { ok: true, away: { quarterbackStatuses: [{ name: 'LV Starter', status: 'questionable' }] }, home: { quarterbackStatuses: [] } },
+    }))]).byGame[0].picks.runline;
+    expect(held.why).toMatch(/^Held back: a starting quarterback is in doubt/);
+    expect(held.whyShort).toMatch(/^Held, quarterback in doubt/);
+  });
+
+  it('notes where a neutral-site game is played and whether it is under a roof', () => {
+    const mexico = { ...game('g1', LV, KC), venue: { name: 'Estadio Banorte', indoor: null, neutralSite: true } };
+    const outdoors = withEngine(mexico, { weather: { tempF: 61, windMph: 7, hoursOut: 20, source: 'google' } });
+    expect(outdoors.engine.env).toMatchObject({ indoor: false, venue: 'Estadio Banorte', city: 'Mexico City', neutral: true, wind: 7 });
+    expect(outdoors.engine.env.label).toBe('Outdoors at Estadio Banorte, Mexico City: 7 mph wind, 61°F');
+    expect(build([outdoors]).byGame[0].picks.total.rationale.bullets.join(' ')).toContain('Conditions: Outdoors at Estadio Banorte');
+
+    const dome = withEngine({ ...game('g2', SF, BUF), venue: { name: 'Caesars Superdome', indoor: null, neutralSite: true } }, wx);
+    expect(dome.engine.env).toMatchObject({ indoor: true, wind: null });
+    expect(dome.engine.env.label).toBe('Indoors at Caesars Superdome');
+    expect(build([dome]).heroPicks.filter((p) => p.modelSource === 'nfl_v2_wind')).toHaveLength(0);
+
+    const unknown = withEngine({ ...game('g3', CHI, DET), venue: { name: 'Nowhere Field', indoor: null, neutralSite: true } }, wx);
+    expect(unknown.engine.env).toMatchObject({ located: false, city: null });
+  });
+
+  it('states a pick the same way in emails and the briefing, reason included', () => {
+    const out = build([hook(), flat()]);
+    const [top] = recommendedPicks(out);
+    expect(summarizePick(top)).toMatchObject({ matchup: 'LV at KC', pick: 'LV +3.5', price: '-110' });
+    expect(summarizePick(top).why).toBe(top.why);
+    // A pick locked before the reason existed still gets its headline.
+    expect(pickWhy({ rationale: { headline: 'Old headline' } })).toBe('Old headline.');
+  });
+
+  it('keeps the reason on a locked pick and on one demoted behind it', () => {
+    const out = build([hook()]);
+    const p = out.heroPicks[0];
+    const row = { game_id: p.gameId, market_type: p.market.type, selection_side: p.selection.side, line_value: p.market.line,
+      price_american: p.market.priceAmerican, tier: p.tier, book: 'BetMGM', locked_at: '2026-11-21T15:00:00Z', expected_value: p.ev,
+      payload: { ...p, why: undefined, whyShort: undefined } };
+    const locked = applyLocks(out, [row]).heroPicks[0];
+    expect(locked.why).toBe(p.why);                // from the stored rationale
+
+    // Locked before the field existed: rebuilt from the stored ticket, in the past tense.
+    const old = { ...row, payload: { ...p, why: undefined, whyShort: undefined, rationale: { headline: p.rationale.headline, bullets: [], pickRole: 'hero' } } };
+    const legacy = applyLocks(out, [old]).heroPicks[0];
+    expect(legacy.why).toMatch(/^BetMGM was paying -110 on LV \+3\.5 when this pick was locked; the market’s fair price was -\d+\. That gap was \+\d\.\d% expected value\.$/);
+    const windOld = { ...old, market_type: 'total', selection_side: 'under', line_value: 40.5, price_american: -105, book: 'DraftKings', expected_value: 0.047,
+      payload: { ...old.payload, modelSource: 'nfl_v2_wind', market: { type: 'total', line: 40.5, priceAmerican: -105 }, selection: { side: 'under', label: 'Under 40.5' },
+        rationale: { headline: 'Under 40.5: 15 mph wind and -105 at DraftKings', bullets: [], pickRole: 'hero' } } };
+    const windLegacy = applyLocks(out, [windOld]).heroPicks[0];
+    expect(windLegacy.why).toBe('15 mph wind was forecast when this pick was locked, and unders have won 57% of the time in wind that strong since 2003. DraftKings’s -105 on Under 40.5 was +4.7% expected value.');
   });
 });

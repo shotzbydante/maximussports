@@ -3,7 +3,7 @@ import { buildRatings, weeksAgo, isBefore, RATING_PARAMS } from './ratings.js';
 import { buildQbTable, indexQbWeeks, teamQbMix, qbAdjustment, qbValue, QB_PARAMS } from './qb.js';
 import { projectGame, totalEnvironment } from './project.js';
 import { buildUnitGrades, unitMismatches } from './units.js';
-import { gameSituations, kickoffEtHour, SITUATION_RECORDS } from './situations.js';
+import { gameSituations, kickoffEtHour, SITUATION_RECORDS, windTotalShift, windUnderRecord } from './situations.js';
 import { analyzeGame, resolveStarter, toNflverse, normName } from './engine.js';
 import { league, game, books, KC, LV, BUF, SF } from './fixtures.js';
 
@@ -165,12 +165,33 @@ describe('situations', () => {
     expect(keys({ ...base, coaches: { home: { name: 'New Coach', games: 10 }, away: { name: 'Old Coach', games: 160 } } })).toContain('firstYearCoach');
     expect(keys(base)).toEqual(['bodyClock']);
   });
-  it('moves the total only for strong wind, outdoors, inside two days', () => {
+  it('takes the same amount off the total for every mph of wind between 10 and 20', () => {
+    expect(windTotalShift(8)).toBe(0);
+    expect(windTotalShift(10)).toBe(0);
+    expect(windTotalShift(11)).toBe(-0.12);
+    expect(windTotalShift(15)).toBe(-0.6);
+    expect(windTotalShift(20)).toBe(-1.2);
+    expect(windTotalShift(35)).toBe(-1.2);              // levels off: the data does not support more
+    expect(windTotalShift(null)).toBe(0);
+    // No cliff: a tenth of a mile per hour moves the number by about a hundredth of a point.
+    expect(Math.abs(windTotalShift(15) - windTotalShift(14.9))).toBeLessThan(0.02);
+    // Proportional: each step of the same size is worth the same.
+    expect(windTotalShift(14) - windTotalShift(12)).toBeCloseTo(windTotalShift(18) - windTotalShift(16), 5);
+  });
+
+  it('moves the total for wind outdoors, inside two days, and says which record applies', () => {
     const windy = gameSituations({ ...base, env: { indoor: false, wind: 18, hoursOut: 20 } });
-    expect(windy.adjustments).toEqual([{ key: 'windUnder', market: 'total', points: -1.2 }]);
-    expect(windy.tags.find((t) => t.key === 'windUnder').note).toContain('312-235');
+    expect(windy.adjustments).toEqual([{ key: 'windUnder', market: 'total', points: -0.96 }]);
+    const note = windy.tags.find((t) => t.key === 'windUnder').note;
+    expect(note).toContain('1.0 points off the fair total');
+    expect(note).toContain('312-235');
     expect(gameSituations({ ...base, env: { indoor: false, wind: 18, hoursOut: 80 } }).adjustments).toEqual([]);
-    expect(gameSituations({ ...base, env: { indoor: false, wind: 12, hoursOut: 20 } }).adjustments).toEqual([]);
+    const breezy = gameSituations({ ...base, env: { indoor: false, wind: 12, hoursOut: 20 } });
+    expect(breezy.adjustments).toEqual([{ key: 'windUnder', market: 'total', points: -0.24 }]);
+    expect(breezy.tags.find((t) => t.key === 'windUnder').note).toContain('535-456');
+    expect(windUnderRecord(12)).toMatchObject({ pct: 54, band: 'wind of 10 to 15 mph' });
+    expect(windUnderRecord(15)).toMatchObject({ pct: 57, band: 'wind of 15 mph or more' });
+    expect(gameSituations({ ...base, env: { indoor: false, wind: 9, hoursOut: 20 } }).adjustments).toEqual([]);
     expect(gameSituations({ ...base, env: { indoor: true, wind: 25, hoursOut: 20 } }).adjustments).toEqual([]);
   });
   it('keeps every published record internally consistent', () => {

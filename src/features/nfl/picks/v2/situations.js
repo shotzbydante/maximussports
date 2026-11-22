@@ -24,13 +24,27 @@ export const SITUATION_RECORDS = Object.freeze({
   letdown: { won: 229, lost: 247, since: 2003, recent: { won: 73, lost: 67, since: 2018 } },
   firstYearCoach: { won: 488, lost: 503, since: 2003, recent: { won: 191, lost: 211, since: 2018 } },
   windUnder: { won: 312, lost: 235, since: 2003, recent: { won: 91, lost: 68, since: 2018 } },
+  /** Unders in sustained wind of 10 to 15 mph. */
+  windUnderModerate: { won: 535, lost: 456, since: 2003, recent: { won: 191, lost: 129, since: 2018 } },
 });
 
 export const SITUATION_PARAMS = Object.freeze({
-  /** Sustained wind, mph, at which the under has paid. */
+  /**
+   * Wind and the fair total: a ramp, not a switch.
+   *
+   * Across 1,560 outdoor games with sustained wind of 10 mph or more
+   * (2003 to 2025), each mph above 10 was worth 0.18 +/- 0.07 points to the
+   * under against the closing total, levelling off at 20 mph. Below 10 mph
+   * wind shows nothing. That slope is cut by the same 0.7 the old flat rule
+   * used, because we act on a forecast and the history is measured wind.
+   * So: 0.12 points off the fair total per mph above 10, to a most of 1.2
+   * points at 20 mph. (`node scripts/nfl/backtest.mjs --situations`.)
+   */
+  windStartMph: 10,
+  windFullMph: 20,
+  windShiftPerMph: -0.12,
+  /** Sustained wind, mph, that the record books split on: 10 to 15, and 15 or more. */
   windMph: 15,
-  /** Points taken off the fair total in that wind. Measured 1.7; shrunk for forecast error. */
-  windTotalShift: -1.2,
   /** A forecast further out than this is not trusted to move a number. */
   windMaxHoursOut: 48,
   earlyKickoffEtHour: 13.1,
@@ -39,6 +53,28 @@ export const SITUATION_PARAMS = Object.freeze({
 });
 
 function isNum(v) { return typeof v === 'number' && Number.isFinite(v); }
+
+/**
+ * Points the wind takes off a fair total: nothing up to the start of the
+ * ramp, then the same amount for every extra mph, capped at the top.
+ * 10 mph -> 0, 15 mph -> -0.6, 20 mph and above -> -1.2.
+ */
+export function windTotalShift(mph, params = SITUATION_PARAMS) {
+  if (!isNum(mph) || mph <= params.windStartMph) return 0;
+  const over = Math.min(mph, params.windFullMph) - params.windStartMph;
+  return Math.round(params.windShiftPerMph * over * 100) / 100;
+}
+
+/** The under's record in wind like this, and how to name the band. */
+export function windUnderRecord(mph, params = SITUATION_PARAMS) {
+  const strong = mph >= params.windMph;
+  const record = strong ? SITUATION_RECORDS.windUnder : SITUATION_RECORDS.windUnderModerate;
+  return {
+    record,
+    pct: Math.round((100 * record.won) / (record.won + record.lost)),
+    band: strong ? `wind of ${params.windMph} mph or more` : `wind of ${params.windStartMph} to ${params.windMph} mph`,
+  };
+}
 function pct(r) { return `${((100 * r.won) / (r.won + r.lost)).toFixed(1)}%`; }
 function recordText(r, what = 'against the spread') {
   return `${r.won}-${r.lost} ${what} since ${r.since} (${pct(r)})`;
@@ -138,15 +174,19 @@ export function gameSituations(ctx = {}, params = SITUATION_PARAMS) {
   }
 
   const env = ctx.env || {};
-  if (env.indoor === false && isNum(env.wind) && env.wind >= p.windMph) {
+  const windShift = env.indoor === false ? windTotalShift(env.wind, p) : 0;
+  if (windShift !== 0) {
     const trusted = !isNum(env.hoursOut) || env.hoursOut <= p.windMaxHoursOut;
+    const { record, band } = windUnderRecord(env.wind, p);
+    const perMph = Math.abs(p.windShiftPerMph);
+    const most = Math.abs(windTotalShift(p.windFullMph, p));
     tags.push({
-      key: 'windUnder', team: null, weight: trusted ? p.windTotalShift : 0,
+      key: 'windUnder', team: null, weight: trusted ? windShift : 0, mph: env.wind, band,
       label: `Wind ${Math.round(env.wind)} mph`,
-      note: `Sustained wind of ${Math.round(env.wind)} mph is forecast. In wind of ${p.windMph} mph or more, unders are ${recordText(R.windUnder, 'against the closing total')}.`
+      note: `Sustained wind of ${Math.round(env.wind)} mph is forecast, worth ${Math.abs(windShift).toFixed(1)} points off the fair total: ${perMph} for each mph above ${p.windStartMph}, to a most of ${most.toFixed(1)} at ${p.windFullMph} mph. In ${band}, unders are ${recordText(record, 'against the closing total')}.`
         + (trusted ? '' : ' The forecast is too far out to move the number yet.'),
     });
-    if (trusted) adjustments.push({ key: 'windUnder', market: 'total', points: p.windTotalShift });
+    if (trusted) adjustments.push({ key: 'windUnder', market: 'total', points: windShift });
   }
   return { tags, adjustments };
 }

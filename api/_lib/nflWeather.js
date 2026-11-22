@@ -17,7 +17,7 @@
 
 import { createCache, coalesce } from '../_cache.js';
 import { getJson, setJson } from '../_globalCache.js';
-import { getNflVenue, isGameIndoors } from '../../src/sports/nfl/venues.js';
+import { resolveGameVenue, isGameIndoors } from '../../src/sports/nfl/venues.js';
 
 const FETCH_TIMEOUT_MS = 8000;
 const GAME_HOURS = 4;
@@ -165,7 +165,11 @@ export async function getKickoffWeather({ lat, lon, kickoffIso, now = Date.now()
 }
 
 /**
- * Forecasts for every upcoming outdoor game at a team's home stadium.
+ * Forecasts for every upcoming game played outdoors, wherever it is
+ * played: the home stadium, or the neutral site (Mexico City, London,
+ * Munich...) when the venue is on file. The National Weather Service only
+ * answers for the United States, so international games need the Google
+ * provider.
  * @returns {Promise<Record<string, object>>} keyed by gameId
  */
 export async function getWeatherForGames(games = [], { schedule = {}, now = Date.now() } = {}) {
@@ -173,12 +177,16 @@ export async function getWeatherForGames(games = [], { schedule = {}, now = Date
   for (const g of games) {
     const s = (g?.status || '').toLowerCase();
     if (!g || s === 'final' || s === 'live' || g.gameState?.isFinal || g.gameState?.isLive) continue;
-    const neutral = !!(g.venue?.neutralSite || schedule[String(g.gameId)]?.neutral);
-    if (neutral) continue;               // only home stadiums have coordinates on file
+    const sched = schedule[String(g.gameId)] || null;
+    const neutralSite = !!(g.venue?.neutralSite || sched?.neutral);
     const homeAbbrev = g.teams?.home?.abbrev;
-    const indoor = isGameIndoors({ homeAbbrev, espnIndoor: g.venue?.indoor ?? null, nflverseRoof: schedule[String(g.gameId)]?.roof ?? null });
-    const venue = getNflVenue(homeAbbrev);
-    if (indoor !== false || !venue) continue;
+    const venue = resolveGameVenue({
+      homeAbbrev, neutralSite, venueName: g.venue?.name || null,
+      stadiumName: sched?.stadium || null, stadiumId: sched?.stadiumId || null,
+    });
+    if (!venue) continue;                // a neutral site with no coordinates on file
+    const indoor = isGameIndoors({ homeAbbrev, espnIndoor: g.venue?.indoor ?? null, nflverseRoof: sched?.roof ?? null, neutralSite, venue });
+    if (indoor !== false) continue;
     jobs.push(getKickoffWeather({ lat: venue.lat, lon: venue.lon, kickoffIso: g.startTime, now })
       .then((w) => [String(g.gameId), w]).catch(() => [String(g.gameId), null]));
   }

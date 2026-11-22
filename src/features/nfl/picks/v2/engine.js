@@ -32,7 +32,7 @@ import { buildConsensus } from './market.js';
 import { gameSituations } from './situations.js';
 import { unitMismatches } from './units.js';
 import { homeWinProb } from './distribution.js';
-import { isGameIndoors } from '../../../../sports/nfl/venues.js';
+import { isGameIndoors, resolveGameVenue } from '../../../../sports/nfl/venues.js';
 
 export const ENGINE_DEFAULTS = Object.freeze({
   /** Share of the model-vs-market gap added to the fair number. Backtested at zero. */
@@ -141,12 +141,22 @@ export function analyzeGame({ game, model, weather = null, config = ENGINE_DEFAU
     if (starter.uncertain) flags.qbUncertain = true;
   }
 
-  // ── Environment ──
+  // ── Environment: where the game is played, and whether weather reaches the field ──
+  const venue = resolveGameVenue({
+    homeAbbrev: homeAbbr, neutralSite: neutral, venueName: game?.venue?.name || null,
+    stadiumName: sched?.stadium || null, stadiumId: sched?.stadiumId || null,
+  });
   const indoor = isGameIndoors({
-    homeAbbrev: homeAbbr, espnIndoor: game?.venue?.indoor ?? null, nflverseRoof: sched?.roof ?? null, neutralSite: neutral,
+    homeAbbrev: homeAbbr, espnIndoor: game?.venue?.indoor ?? null, nflverseRoof: sched?.roof ?? null, neutralSite: neutral, venue,
   });
   const env = {
     indoor,
+    venue: venue?.stadium || game?.venue?.name || sched?.stadium || null,
+    city: venue?.city || game?.venue?.city || null,
+    country: venue?.country || null,
+    neutral,
+    roof: venue?.roof || null,
+    located: !!venue,
     temp: indoor === false && isNum(weather?.tempF) ? weather.tempF : null,
     wind: indoor === false && isNum(weather?.windMph) ? weather.windMph : null,
     gust: indoor === false && isNum(weather?.gustMph) ? weather.gustMph : null,
@@ -154,6 +164,7 @@ export function analyzeGame({ game, model, weather = null, config = ENGINE_DEFAU
     hoursOut: isNum(weather?.hoursOut) ? weather.hoursOut : null,
     source: indoor === false ? (weather?.source || null) : null,
   };
+  env.label = environmentLabel(env);
 
   // ── Ratings projection ──
   const projection = modelOk ? projectGame({
@@ -241,6 +252,24 @@ export function analyzeGame({ game, model, weather = null, config = ENGINE_DEFAU
     flags,
     notes,
   };
+}
+
+/**
+ * One line on the playing conditions: "Indoors at Ford Field",
+ * "Outdoors at Soldier Field: 14 mph wind, 51°F, 55% chance of rain".
+ */
+export function environmentLabel(env) {
+  if (!env) return null;
+  const where = env.venue ? ` at ${env.venue}${env.neutral && env.city ? `, ${env.city}` : ''}` : '';
+  if (env.indoor === true) return `Indoors${where}${env.roof === 'retractable' ? ' (roof closed)' : ''}`;
+  if (env.indoor === null || env.indoor === undefined) {
+    return env.roof === 'retractable' ? `Retractable roof${where}: open or closed not yet known` : `Roof status unknown${where}`;
+  }
+  const bits = [];
+  if (isNum(env.wind)) bits.push(`${Math.round(env.wind)} mph wind`);
+  if (isNum(env.temp)) bits.push(`${Math.round(env.temp)}°F`);
+  if (isNum(env.precip) && env.precip >= 30) bits.push(`${Math.round(env.precip)}% chance of rain or snow`);
+  return bits.length ? `Outdoors${where}: ${bits.join(', ')}` : `Outdoors${where}: no forecast yet`;
 }
 
 function pickRating(t) {

@@ -110,6 +110,22 @@ async function persist(board, lockedRows, season) {
 }
 
 /**
+ * The most recent board already built, without building one. For callers
+ * that only want to quote the picks (the written briefing): no feeds are
+ * pulled and nothing is locked.
+ * @returns {Promise<object|null>}
+ */
+export async function getLatestNflPicksBoard() {
+  for (const key of [KV_LATEST, KV_LASTKNOWN]) {
+    try {
+      const snap = await getJson(key);
+      if (snap && snap.modelVersion === NFL_MODEL_VERSION) return snap;
+    } catch { /* fall through */ }
+  }
+  return null;
+}
+
+/**
  * @param {object} [opts]
  * @param {boolean} [opts.preferFresh=false] — ignore the KV latest snapshot
  * @returns {Promise<{ board, source, counts }>}

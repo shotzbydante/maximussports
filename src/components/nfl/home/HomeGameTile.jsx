@@ -14,7 +14,7 @@ import { getNflTeamBySlug } from '../../../sports/nfl/teams';
 import { fmtLine, fmtOdds, kickoffShort } from './format';
 import h from './home.module.css';
 
-const WIND_CHIP_MIN = 15; // mph, the level at which the engine adjusts a total
+const WIND_CHIP_MIN = 15; // mph: strong wind. The engine's wind ramp starts at 10 mph and is half way up here.
 
 function qbFlag(game) {
   const { injuries, teams } = game;

@@ -6,7 +6,8 @@ import { buildDecision } from '../cron/nfl/build-picks.js';
 import { seasonForDate, nflverseWeek, buildModelFromRows } from './nflModelData.js';
 import { attachEngine } from './nflSlate.js';
 import { parseOddsEvent } from '../nfl/live/_odds.js';
-import { isGameIndoors, getNflVenue, NFL_VENUES } from '../../src/sports/nfl/venues.js';
+import { isGameIndoors, getNflVenue, NFL_VENUES, NFL_NEUTRAL_VENUES, resolveGameVenue } from '../../src/sports/nfl/venues.js';
+import { getWeatherForGames } from './nflWeather.js';
 import { NFL_TEAMS } from '../../src/sports/nfl/teams.js';
 import { league, game, KC, LV } from '../../src/features/nfl/picks/v2/fixtures.js';
 
@@ -66,7 +67,8 @@ describe('venues', () => {
   });
   it('lets ESPN’s per-game roof flag win, then the schedule, then the stadium', () => {
     expect(isGameIndoors({ homeAbbrev: 'DAL', espnIndoor: false })).toBe(false);     // retractable roof, open
-    expect(isGameIndoors({ homeAbbrev: 'BUF', espnIndoor: true })).toBe(true);
+    expect(isGameIndoors({ homeAbbrev: 'BUF', espnIndoor: true })).toBe(false);      // open stadium on file beats a feed flag
+    expect(isGameIndoors({ homeAbbrev: 'BUF', espnIndoor: true, venueName: 'Ford Field' })).toBe(true); // home game moved to a dome
     expect(isGameIndoors({ homeAbbrev: 'DAL', nflverseRoof: 'closed' })).toBe(true);
     expect(isGameIndoors({ homeAbbrev: 'DAL' })).toBeNull();                         // retractable, nothing known
     expect(isGameIndoors({ homeAbbrev: 'DET' })).toBe(true);
@@ -74,6 +76,63 @@ describe('venues', () => {
     expect(isGameIndoors({ homeAbbrev: 'LAC', espnIndoor: false, neutralSite: true })).toBe(false);
     expect(isGameIndoors({ homeAbbrev: 'GB' })).toBe(false);
     expect(isGameIndoors({ homeAbbrev: 'GB', neutralSite: true })).toBeNull();       // not played at Lambeau
+  });
+});
+
+describe('neutral-site venues', () => {
+  it('has coordinates and a roof for every venue, with no clashing ids', () => {
+    const ids = new Set();
+    for (const v of NFL_NEUTRAL_VENUES) {
+      expect(Math.abs(v.lat)).toBeLessThanOrEqual(90);
+      expect(Math.abs(v.lon)).toBeLessThanOrEqual(180);
+      expect(['outdoors', 'dome', 'retractable']).toContain(v.roof);
+      for (const id of v.ids) { expect(ids.has(id)).toBe(false); ids.add(id); }
+    }
+  });
+
+  it('finds the venue by ESPN name, schedule id or schedule name', () => {
+    const mex = resolveGameVenue({ homeAbbrev: 'SF', neutralSite: true, venueName: 'Estadio Banorte' });
+    expect(mex).toMatchObject({ city: 'Mexico City', roof: 'outdoors', neutral: true });
+    expect(mex.lat).toBeCloseTo(19.3, 1);
+    expect(resolveGameVenue({ homeAbbrev: 'SF', neutralSite: true, venueName: 'Estadio Azteca' }).stadium).toBe('Estadio Banorte');
+    expect(resolveGameVenue({ homeAbbrev: 'JAX', neutralSite: true, stadiumId: 'LON00' }).stadium).toBe('Wembley Stadium');
+    expect(resolveGameVenue({ homeAbbrev: 'NO', neutralSite: true, venueName: 'Estádio do Maracanã' }).city).toBe('Rio de Janeiro');
+    expect(resolveGameVenue({ homeAbbrev: 'IND', neutralSite: true, stadiumName: 'FC Bayern Munich Stadium' }).stadium).toBe('Allianz Arena');
+  });
+
+  it('uses the venue, not the home team, for a neutral game', () => {
+    const sb = resolveGameVenue({ homeAbbrev: 'KC', neutralSite: true, venueName: 'Caesars Superdome' });
+    expect(sb.roof).toBe('dome');
+    expect(isGameIndoors({ homeAbbrev: 'KC', neutralSite: true, venue: sb })).toBe(true);
+    expect(resolveGameVenue({ homeAbbrev: 'GB', neutralSite: true, venueName: 'Somewhere Park' })).toBeNull();
+  });
+
+  it('trusts its own roof over a feed that has it wrong', () => {
+    // The schedule file lists these three as domes. All are open to the weather.
+    for (const id of ['MEL00', 'PAR00', 'MUN01']) {
+      const venue = resolveGameVenue({ homeAbbrev: 'LAR', neutralSite: true, stadiumId: id });
+      expect(isGameIndoors({ homeAbbrev: 'LAR', neutralSite: true, nflverseRoof: 'dome', venue })).toBe(false);
+    }
+    // A retractable roof still goes by the per-game flag.
+    const madrid = resolveGameVenue({ homeAbbrev: 'MIA', neutralSite: true, stadiumId: 'MAD01' });
+    expect(isGameIndoors({ homeAbbrev: 'MIA', neutralSite: true, nflverseRoof: 'closed', venue: madrid })).toBe(true);
+    expect(isGameIndoors({ homeAbbrev: 'MIA', neutralSite: true, venue: madrid })).toBeNull();
+  });
+
+  it('asks for a forecast at the neutral site, not the home stadium', async () => {
+    const calls = [];
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = async (url) => { calls.push(String(url)); return { ok: false, status: 500, json: async () => ({}) }; };
+    try {
+      const kickoff = new Date(Date.now() + 30 * 3600e3).toISOString();
+      await getWeatherForGames([
+        { gameId: '1', status: 'upcoming', startTime: kickoff, teams: { home: { abbrev: 'SF' }, away: { abbrev: 'MIN' } }, venue: { name: 'Estadio Banorte', neutralSite: true, indoor: false } },
+        { gameId: '2', status: 'upcoming', startTime: kickoff, teams: { home: { abbrev: 'KC' }, away: { abbrev: 'PHI' } }, venue: { name: 'Caesars Superdome', neutralSite: true, indoor: false } },
+        { gameId: '3', status: 'upcoming', startTime: kickoff, teams: { home: { abbrev: 'GB' }, away: { abbrev: 'CHI' } }, venue: { name: 'Nowhere Field', neutralSite: true, indoor: false } },
+      ]);
+    } finally { globalThis.fetch = realFetch; }
+    expect(calls.length).toBeGreaterThan(0);
+    expect(calls.every((u) => u.includes('19.3'))).toBe(true);       // only Mexico City: the dome and the unknown site are skipped
   });
 });
 

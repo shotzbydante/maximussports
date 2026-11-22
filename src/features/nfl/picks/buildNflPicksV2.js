@@ -35,11 +35,12 @@ import { priceOffers, bestOffer } from './v2/market.js';
 import { impliedProb, probToAmerican, spreadProbs, totalProbs, expectedValue } from './v2/distribution.js';
 import { UNIT_LABELS } from './v2/units.js';
 import { ENGINE_DEFAULTS } from './v2/engine.js';
+import { windUnderRecord } from './v2/situations.js';
 
-export const NFL_MODEL_VERSION = 'nfl-picks-v2.0.0';
+export const NFL_MODEL_VERSION = 'nfl-picks-v2.1.0';
 
 export const NFL_DEFAULT_CONFIG = Object.freeze({
-  version: 'nfl-picks-v2-2026-11-21a',
+  version: 'nfl-picks-v2-2026-11-22a',
   sport: 'nfl',
   /** Minimum expected value per unit staked for each tier. */
   evThresholds: Object.freeze({ tier1: 0.04, tier2: 0.025, tier3: 0.015 }),
@@ -68,6 +69,33 @@ const HOLD_REASONS = Object.freeze({
   data_gap: 'Model data for this game is incomplete. Tracked, not recommended.',
   same_side: 'The spread and moneyline are one opinion; the better-priced of the two is the pick.',
 });
+
+/** The same reasons, as the opening of a pick's one-line "why". */
+const HOLD_WHY = Object.freeze({
+  qb_uncertain: 'Held back: a starting quarterback is in doubt, and prices move on that news.',
+  injury_feed_down: 'Held back: the injury report did not load, so quarterback status is unconfirmed.',
+  stale_price: 'Held back: the best price on the board has not moved with the rest of the market.',
+  price_outlier: 'Held back: this price is too far from the market to trust.',
+  outside_window: 'Too early: picks are recommended and locked inside three days of kickoff.',
+  price_guard: 'Tracked only: a price this long or this short is outside the range we promote.',
+  thin_market: 'Tracked only: too few books have posted this market to call a fair price.',
+  data_gap: 'Tracked only: ratings data for this game is incomplete.',
+  same_side: 'Same opinion as the recommended side bet on this game, so it is tracked, not doubled up.',
+});
+
+/** A few words for the same reasons, for the short "why" on small tiles and in emails. */
+const HOLD_SHORT = Object.freeze({
+  qb_uncertain: 'Held, quarterback in doubt',
+  injury_feed_down: 'Held, no injury report',
+  stale_price: 'Held, stale price',
+  price_outlier: 'Held, price out of line',
+  outside_window: 'Opens three days out',
+  price_guard: 'Tracked, extreme price',
+  thin_market: 'Tracked, few books',
+  data_gap: 'Tracked, thin data',
+  same_side: 'Tracked, same side as the pick',
+});
+
 
 function isNum(v) { return typeof v === 'number' && Number.isFinite(v); }
 function clamp01(v) { return Math.max(0, Math.min(1, v)); }
@@ -153,11 +181,12 @@ function contextBullets(game, e) {
       `against ${A(mm.defenseTeam)} ${UNIT_LABELS[mm.defense].toLowerCase()} (${mm.defenseGrade}).`
     );
   }
+  if (e.env?.label) out.push(`Conditions: ${e.env.label}.`);
   for (const tag of (e.situations || []).slice(0, 2)) out.push(tag.note);
   return out;
 }
 
-function makePick({ game, e, kind, side, line, price, book, probs, ev, tier, role, reason, score, headline, bullets, components, modelSource }) {
+function makePick({ game, e, kind, side, line, price, book, probs, ev, tier, role, reason, score, headline, bullets, components, modelSource, why, whyShort }) {
   const away = teamShape(game.teams.away);
   const home = teamShape(game.teams.home);
   const team = side === 'away' ? away : side === 'home' ? home : null;
@@ -208,7 +237,12 @@ function makePick({ game, e, kind, side, line, price, book, probs, ev, tier, rol
     },
 
     betScore: { total: round3(score), components, weights: null },
-    rationale: { headline, bullets, pickRole: role },
+    // `why` is the one sentence shown wherever this pick is stated: app
+    // tiles, the briefing, emails. It is stored with the pick.
+    why: why || headline,
+    whyShort: whyShort || why || headline,
+    environment: e.env ? { indoor: e.env.indoor, venue: e.env.venue, label: e.env.label, wind: e.env.wind, temp: e.env.temp } : null,
+    rationale: { headline, bullets, why: why || headline, whyShort: whyShort || why || headline, pickRole: role },
     displayMetrics,
     flags: {
       informationGap: false,
@@ -242,7 +276,7 @@ function makePick({ game, e, kind, side, line, price, book, probs, ev, tier, rol
       side,
       value: kind === 'moneyline' ? (price ?? null) : line,
       marketType: kind,
-      explanation: headline,
+      explanation: why || headline,
       topSignals: bullets.slice(0, 3),
     },
     model: {
@@ -361,10 +395,15 @@ export function buildNflPicksV2({
       const name = kind === 'total' ? `${side === 'over' ? 'Over' : 'Under'} ${offer.line}` : kind === 'runline' ? `${team.name} ${fmtLine(offer.line)}` : `${team.name} to win`;
       const winShare = offer.probs.win / (offer.probs.win + offer.probs.lose);
       const fairPrice = probToAmerican(winShare);
-      const wind = kind === 'total' && side === 'under' && windTag;
+      // A wind pick is an under that only clears the bar because of the wind
+      // shift. An under that qualifies on price alone is a price pick, with
+      // the wind as supporting context.
+      const windHelps = kind === 'total' && side === 'under' && windTag;
+      const evCalm = windHelps ? expectedValue(totalProbs(fair.total - windTag.weight, offer.line, 'under'), offer.price) : null;
+      const wind = windHelps && !tierForEv(evCalm, thresholds) ? windTag : null;
       const bullets = [];
       if (kind === 'total') {
-        bullets.push(`${e.consensus.counts.total} books put the fair total at ${e.consensus.fairTotal.toFixed(1)}${wind ? `, and wind takes it to ${fair.total.toFixed(1)}` : ''}. ${offer.title} has ${side === 'over' ? 'Over' : 'Under'} ${offer.line} at ${fmtOdds(offer.price)}.`);
+        bullets.push(`${e.consensus.counts.total} books put the fair total at ${e.consensus.fairTotal.toFixed(1)}${windHelps ? `, and wind takes it to ${fair.total.toFixed(1)}` : ''}. ${offer.title} has ${side === 'over' ? 'Over' : 'Under'} ${offer.line} at ${fmtOdds(offer.price)}.`);
       } else if (kind === 'runline') {
         bullets.push(`${e.consensus.counts.spread} books make this ${homeAbbr} ${fmtLine(e.consensus.spreadHome)}. ${offer.title} has ${team.abbrev} ${fmtLine(offer.line)} at ${fmtOdds(offer.price)}.`);
       } else {
@@ -374,10 +413,33 @@ export function buildNflPicksV2({
         `At that number the bet wins ${pct(offer.probs.win)}${offer.probs.push > 0.001 ? `, pushes ${pct(offer.probs.push)}` : ''}; ` +
         `the price needs ${pct(offer.implied)}. Fair price ${fmtOdds(fairPrice)}, expected value ${fmtSigned(offer.ev * 100)}% per unit.`
       );
-      if (wind) bullets.push(windTag.note);
-      bullets.push(...context(side).filter((b) => !wind || b !== windTag.note));
+      if (windHelps) bullets.push(windTag.note);
+      bullets.push(...context(side).filter((b) => !windHelps || b !== windTag.note));
       const hold = c.hold || (shadowed ? 'same_side' : null);
       if (hold) bullets.unshift(HOLD_REASONS[hold]);
+      const evText = `${fmtSigned(offer.ev * 100)}% expected value`;
+      const consLine = kind === 'runline' ? (side === 'home' ? e.consensus.spreadHome : -e.consensus.spreadHome) : kind === 'total' ? e.consensus.total : null;
+      const offMarket = isNum(consLine) && offer.line !== consLine;
+      const what = kind === 'total' ? `${side === 'over' ? 'Over' : 'Under'} ${offer.line}` : kind === 'runline' ? `${team.abbrev} ${fmtLine(offer.line)}` : `${team.abbrev} to win`;
+      let why;
+      let whyShort;
+      if (wind) {
+        const rec = windUnderRecord(e.env.wind);
+        const pts = Math.abs(windTag.weight).toFixed(1);
+        why = `${Math.round(e.env.wind)} mph wind is forecast${e.env.venue ? ` at ${e.env.venue}` : ''}, which takes ${pts} points off our fair total. Unders have won ${rec.pct}% of games in ${rec.band} since ${rec.record.since}. ${offer.title}’s ${fmtOdds(offer.price)} on ${what} is ${evText}.`;
+        whyShort = `${Math.round(e.env.wind)} mph wind takes ${pts} points off the total; unders win ${rec.pct}% in wind like this`;
+      } else if (offMarket) {
+        const marketLine = kind === 'total' ? consLine : fmtLine(consLine);
+        why = `${offer.title} has ${what} while the market across ${e.consensus.counts[kind === 'total' ? 'total' : 'spread']} books is ${marketLine}. At ${fmtOdds(offer.price)} that is ${evText}.`;
+        whyShort = `${offer.title} is at ${kind === 'total' ? offer.line : fmtLine(offer.line)}; the market is ${marketLine}`;
+      } else {
+        why = `${offer.title} is paying ${fmtOdds(offer.price)} on ${what}; the market’s fair price is ${fmtOdds(fairPrice)}. That gap is ${evText}.`;
+        whyShort = `${offer.title} pays ${fmtOdds(offer.price)}; the fair price is ${fmtOdds(fairPrice)}`;
+      }
+      if (hold) {
+        why = `${HOLD_WHY[hold] || 'Tracked, not recommended.'} ${why}`;
+        whyShort = `${HOLD_SHORT[hold] || 'Tracked'}. ${whyShort}`;
+      }
       const role = hold ? 'tracking' : 'hero';
       let score = hold ? Math.min(0.49, convictionFromEv(offer.ev) - 0.2) : convictionFromEv(offer.ev);
       if (wind && !hold) {
@@ -401,6 +463,7 @@ export function buildNflPicksV2({
           marketQuality: round3(clamp01((e.consensus.books || 0) / 10)),
         },
         modelSource: wind ? 'nfl_v2_wind' : 'nfl_v2_price',
+        why, whyShort,
       });
     };
 
@@ -422,6 +485,11 @@ export function buildNflPicksV2({
       marketQuality: round3(clamp01((e.consensus?.books || 0) / 10)),
     });
     const leanBullets = (reason, lead, side) => [HOLD_REASONS[reason], lead, ...context(side)].filter(Boolean);
+    const cap = (t) => `${t.charAt(0).toUpperCase()}${t.slice(1)}`;
+    const leanWhy = (reason, text) => (reason === 'no_price_edge'
+      ? `Lean only, not a recommended bet: ${text} No book’s price beats the market.`
+      : `${HOLD_WHY[reason] || 'Tracked, not recommended.'} ${cap(text)}`);
+    const leanShort = (reason, text) => (reason === 'no_price_edge' ? `Lean: ${text}` : `${HOLD_SHORT[reason] || 'Tracked'}. ${cap(text)}`);
 
     if (!picks.runline && isNum(e.consensus?.spreadHome)) {
       const sideIsHome = leanSideHome ?? ((offers.runline.home[0]?.ev ?? -1) >= (offers.runline.away[0]?.ev ?? -1));
@@ -440,6 +508,12 @@ export function buildNflPicksV2({
           : `${team.name} ${fmtLine(line)}: no model lean available`,
         bullets: leanBullets(baseReason, isNum(gap) ? `The ratings and the market are ${Math.abs(gap).toFixed(1)} points apart. Over 4,096 games since 2011, gaps like this have not predicted which side covers.` : null, side),
         components: leanComponents(gap), modelSource: 'nfl_v2_lean',
+        why: leanWhy(baseReason, e.projection
+          ? `the ratings make it ${homeAbbr} ${fmtLine(e.projection.fairSpreadHome)} against a market of ${homeAbbr} ${fmtLine(e.consensus.spreadHome)}.`
+          : `no ratings projection is available for this game.`),
+        whyShort: leanShort(baseReason, e.projection
+          ? `ratings ${homeAbbr} ${fmtLine(e.projection.fairSpreadHome)}, market ${homeAbbr} ${fmtLine(e.consensus.spreadHome)}`
+          : 'no ratings projection'),
       });
     }
     if (!picks.moneyline && isNum(fair.homeWin)) {
@@ -456,6 +530,8 @@ export function buildNflPicksV2({
           headline: `Model lean: ${team.name} to win. Market ${pct(win, 0)}, best price ${fmtOdds(at.price)}`,
           bullets: leanBullets(reason, `The market gives ${team.abbrev} a ${pct(win)} chance with the vig removed; ${at.title} pays ${fmtOdds(at.price)}, which needs ${pct(at.implied)}.`, side),
           components: leanComponents(e.modelGap?.side), modelSource: 'nfl_v2_lean',
+          why: leanWhy(reason, `the market gives ${team.abbrev} a ${pct(win, 0)} chance and the best price, ${fmtOdds(at.price)} at ${at.title}, needs ${pct(at.implied, 0)}.`),
+          whyShort: leanShort(reason, `market gives ${team.abbrev} ${pct(win, 0)}; ${fmtOdds(at.price)} needs ${pct(at.implied, 0)}`),
         });
       }
     }
@@ -475,6 +551,10 @@ export function buildNflPicksV2({
           : `${over ? 'Over' : 'Under'} ${line}: no model lean available`,
         bullets: leanBullets(baseReason, e.projection ? `Ratings project ${e.projection.awayPoints.toFixed(1)} to ${e.projection.homePoints.toFixed(1)}. Since 2011 the ratings’ disagreements with the closing total have not reliably predicted overs or unders.` : null, null),
         components: leanComponents(gap), modelSource: 'nfl_v2_lean',
+        why: leanWhy(baseReason, e.projection
+          ? `the ratings project ${e.projection.total.toFixed(1)} points against a market of ${line}${e.env?.label ? ` (${e.env.label.charAt(0).toLowerCase()}${e.env.label.slice(1)})` : ''}.`
+          : `no ratings projection is available for this game.`),
+        whyShort: leanShort(baseReason, e.projection ? `ratings project ${e.projection.total.toFixed(1)}, market ${line}` : 'no ratings projection'),
       });
     }
 

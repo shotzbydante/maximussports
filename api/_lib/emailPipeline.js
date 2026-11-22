@@ -34,7 +34,7 @@ export const EMAIL_REGISTRY = {
     template: 'globalBriefing',
     prefKey: 'global_briefing',
     sport: 'global',
-    dataNeeds: ['ncaam', 'mlb', 'nba'],
+    dataNeeds: ['ncaam', 'mlb', 'nba', 'nfl'],
     mlbFlags: { includeSummary: true, includePicks: true },
     nbaFlags: { includeSummary: true, includePicks: true },
     includePennantRace: true,
@@ -124,7 +124,10 @@ export function isSeasonGated(type) {
 }
 
 /** Email sport key → workspace id in src/workspaces/config.js */
-const SPORT_TO_WORKSPACE = { mlb: 'mlb', ncaam: 'cbb', nba: 'nba' };
+/** Longest the email run waits for the NFL picks board. */
+const NFL_PICKS_WAIT_MS = 25_000;
+
+const SPORT_TO_WORKSPACE = { mlb: 'mlb', ncaam: 'cbb', nba: 'nba', nfl: 'nfl' };
 
 /**
  * Is this sport's season over? Reads the canonical season state from the
@@ -230,6 +233,7 @@ export async function assembleEmailData(type, baseUrl, opts = {}) {
     botIntelBullets: [],
     mlbData: null,
     nbaData: null,
+    nflData: null,
     mlbNarrativeParagraph: '',
     picksBoard: null,
     briefingContext: {},
@@ -357,6 +361,23 @@ export async function assembleEmailData(type, baseUrl, opts = {}) {
     }
   }
 
+  // NFL: this week's picks board, the same one /api/nfl/picks/built serves.
+  // Capped so a slow feed can never hold up the send; the template omits
+  // the NFL block when there is no board.
+  if (needs.includes('nfl')) {
+    try {
+      const { buildNflPicksBoard } = await import('./nflPicksBuilder.js');
+      const built = await Promise.race([
+        buildNflPicksBoard({ modelWaitMs: 12_000 }),
+        new Promise((resolve) => setTimeout(() => resolve(null), NFL_PICKS_WAIT_MS)),
+      ]);
+      result.nflData = { picksBoard: built?.board || null, picksSource: built?.source || 'timed_out' };
+    } catch (err) {
+      console.warn(`[emailPipeline] NFL assembly failed: ${err.message}`);
+      result.nflData = null;
+    }
+  }
+
   return result;
 }
 
@@ -438,6 +459,8 @@ export function buildEmailData(type, assembledData, recipientContext = {}) {
     nbaYesterdayResults: assembledData.nbaData?.yesterdayResults || [],
     nbaPicksBoard: assembledData.nbaData?.picksBoard || null,
     nbaPicksScorecard: assembledData.nbaData?.picksScorecard || null,
+    // NFL picks board: recommended picks, each with its reason.
+    nflPicksBoard: assembledData.nflData?.picksBoard || null,
     // NBA picks/scorecard diagnostics — surface which source the email is
     // rendering from so missing sections never go unexplained.
     nbaPicksSource: assembledData.nbaData?.picksSource || 'not_requested',
@@ -552,6 +575,7 @@ export function globalBriefingSectionDigest(emailData) {
     hasNbaResults: Array.isArray(emailData?.nbaYesterdayResults) && emailData.nbaYesterdayResults.length > 0,
     hasNbaScorecard: !!emailData?.nbaPicksScorecard,
     hasNbaPicks: !!emailData?.nbaPicksBoard,
+    hasNflPicks: !!emailData?.nflPicksBoard,
     hasNbaChampOdds: !!(emailData?.nbaChampOdds && Object.keys(emailData.nbaChampOdds).length > 0),
     // ─── MLB sections (new compact structure) ───
     hasMlbNarrative: !!(md.narrativeParagraph && md.narrativeParagraph.length > 30),
