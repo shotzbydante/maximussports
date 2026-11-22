@@ -215,6 +215,7 @@ export function normalizeEvent(ev) {
     venue: {
       name: comp.venue?.fullName || null,
       city: comp.venue?.address?.city || null,
+      state: comp.venue?.address?.state || null,
       indoor: comp.venue?.indoor ?? null,
       neutralSite: !!comp.neutralSite,
     },

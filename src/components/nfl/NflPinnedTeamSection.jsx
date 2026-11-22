@@ -19,7 +19,8 @@ import { getNflTeamBySlug } from '../../sports/nfl/teams';
 import { fetchNflChampionshipOdds, fetchNflTeamBoard, fetchNflGames } from '../../api/nfl';
 import NflTeamPickerModal from './NflTeamPickerModal';
 import NflLogo from './NflLogo';
-import { SectionHead, Rail } from './home/HomeParts';
+import { SectionHead } from './home/HomeParts';
+import { TeamTag } from './home/NflTeamTag';
 import s from './nfl.module.css';
 import h from './home/home.module.css';
 
@@ -28,22 +29,25 @@ const SUGGESTED = ['chiefs', 'eagles', 'bills', 'lions', '49ers'];
 
 function fmtOdds(v) { return v == null ? '—' : v > 0 ? `+${v}` : `${v}`; }
 
+/** The team's game this week as parts: plain strings and { slug } for a team to tag. */
 function nextGameLine(slug, games, byeTeams) {
-  if (byeTeams.includes(slug)) return 'On bye this week';
+  if (byeTeams.includes(slug)) return ['On bye this week'];
   const g = games.find((x) => x.teams?.home?.slug === slug || x.teams?.away?.slug === slug);
   if (!g) return null;
   const isHome = g.teams.home.slug === slug;
   const opp = isHome ? g.teams.away : g.teams.home;
   const us = isHome ? g.teams.home : g.teams.away;
+  const versus = isHome ? 'vs' : 'at';
   if (g.status === 'final') {
     const won = (us.score ?? 0) > (opp.score ?? 0);
     const tied = us.score === opp.score;
-    return `${tied ? 'Tied' : won ? 'Won' : 'Lost'} ${us.score}–${opp.score} ${isHome ? 'vs' : 'at'} ${opp.abbrev}`;
+    return [`${tied ? 'Tied' : won ? 'Won' : 'Lost'} ${us.score}–${opp.score} ${versus} `, { slug: opp.slug }];
   }
-  if (g.status === 'live') return `Live: ${us.score}–${opp.score} ${isHome ? 'vs' : 'at'} ${opp.abbrev}, ${g.gameState?.periodLabel || ''}`;
+  if (g.status === 'live') return [`Live: ${us.score}–${opp.score} ${versus} `, { slug: opp.slug }, `, ${g.gameState?.periodLabel || ''}`];
   const spread = g.market?.pregameSpread;
-  const line = spread != null ? `, ${us.abbrev} ${isHome ? fmt(spread) : fmt(-spread)}` : '';
-  return `${isHome ? 'vs' : 'at'} ${opp.abbrev}, ${kickoffLabel(g.startTime)}${line}`;
+  const parts = [`${versus} `, { slug: opp.slug }, `, ${kickoffLabel(g.startTime)}`];
+  if (spread != null) parts.push(', ', { slug: us.slug }, ` ${isHome ? fmt(spread) : fmt(-spread)}`);
+  return parts;
 }
 function fmt(v) { return v > 0 ? `+${v}` : v === 0 ? 'PK' : `${v}`; }
 /** Kickoff in the viewer's own time zone. */
@@ -79,7 +83,15 @@ function PinnedCard({ slug, board, odds, nextLine, onRemove, buildPath }) {
       {facts.length > 0 && (
         <div className={h.chipRow}>{facts.map((f) => <span key={f} className={h.chip}>{f}</span>)}</div>
       )}
-      {nextLine && <div className={h.gameFoot}><span>{nextLine}</span></div>}
+      {nextLine && (
+        <div className={h.gameFoot}>
+          <span>
+            {nextLine.map((part, i) => (
+              typeof part === 'string' ? part : <TeamTag key={i} slug={part.slug} label="abbrev" size={14} />
+            ))}
+          </span>
+        </div>
+      )}
     </article>
   );
 }
@@ -183,7 +195,7 @@ export default function NflPinnedTeamSection() {
           </div>
         </div>
       ) : (
-        <Rail label="Teams you follow">
+        <div className={h.stackOne} role="list" aria-label="Teams you follow">
           {pinned.map((slug) => (
             <PinnedCard
               key={slug}
@@ -195,7 +207,7 @@ export default function NflPinnedTeamSection() {
               buildPath={buildPath}
             />
           ))}
-        </Rail>
+        </div>
       )}
 
       <NflTeamPickerModal

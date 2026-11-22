@@ -6,7 +6,8 @@ import { useEffect, useState } from 'react';
 import { useWorkspace } from '../../../workspaces/WorkspaceContext';
 import { fetchNflHeadlines, fetchNflVideos } from '../../../api/nfl';
 import { SectionHead, Rail } from './HomeParts';
-import { timeAgo } from './format';
+import { timeAgo, teamsMentioned } from './format';
+import { TeamTag } from './NflTeamTag';
 import h from './home.module.css';
 
 const TOPIC = { injury: 'Injury', transactions: 'Transactions', odds: 'Odds', playoffs: 'Playoffs', preview: 'Preview' };
@@ -75,6 +76,7 @@ export function HomeHeadlines({ max = 6 }) {
             <a key={x.id || x.link} href={x.link} target="_blank" rel="noopener noreferrer" className={h.story}>
               <span className={h.storyTitle}>{x.title}</span>
               <span className={h.storyMeta}>
+                {teamsMentioned(x.title).slice(0, 3).map((slug) => <TeamTag key={slug} slug={slug} size={16} />)}
                 {TOPIC[x.topic] && <span className={h.chip}>{TOPIC[x.topic]}</span>}
                 <span>{[x.source, x.time].filter(Boolean).join(', ')}</span>
               </span>
