@@ -4,6 +4,7 @@
  */
 
 import styles from './NbaLiveGameCard.module.css';
+import VenueFlyover from '../shared/VenueFlyover';
 
 function StatusPill({ game }) {
   const gs = game.gameState || {};
@@ -40,6 +41,7 @@ export default function NbaLiveGameCard({ game, compact = false }) {
 
   return (
     <div className={`${styles.card} ${isLive ? styles.cardLive : ''} ${compact ? styles.cardCompact : ''}`}>
+      {!compact && <VenueFlyover sport="nba" game={game} surface="nba_game_card" />}
       {/* Matchup */}
       <div className={styles.matchup}>
         <div className={styles.teamRow}>

@@ -22,6 +22,9 @@
     "api/email/global-send.js": {
       "maxDuration": 120
     },
+    "api/venues/aerial.js": {
+      "maxDuration": 30
+    },
     "api/nfl/picks/built.js": {
       "maxDuration": 60
     },

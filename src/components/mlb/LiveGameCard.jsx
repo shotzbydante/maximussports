@@ -5,6 +5,7 @@
  */
 
 import styles from './LiveGameCard.module.css';
+import VenueFlyover from '../shared/VenueFlyover';
 
 function StatusPill({ game }) {
   const gs = game.gameState || {};
@@ -50,6 +51,7 @@ export default function LiveGameCard({ game, compact = false }) {
 
   return (
     <div className={`${styles.card} ${isLive ? styles.cardLive : ''} ${compact ? styles.cardCompact : ''}`}>
+      {!compact && <VenueFlyover sport="mlb" game={game} surface="mlb_game_card" />}
       {/* Matchup */}
       <div className={styles.matchup}>
         <div className={styles.teamRow}>

@@ -146,6 +146,13 @@ export function normalizeEvent(ev) {
       away: resolveTeam(away),
       home: resolveTeam(home),
     },
+    // Where the game is played, so a flyover of the home venue is not shown for a neutral-site game.
+    venue: {
+      name: comp.venue?.fullName || null,
+      city: comp.venue?.address?.city || null,
+      state: comp.venue?.address?.state || null,
+      neutralSite: !!comp.neutralSite,
+    },
     gameState: {
       periodLabel,
       period: Number.isFinite(periodNumber) ? periodNumber : null,
