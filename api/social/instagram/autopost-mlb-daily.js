@@ -28,8 +28,9 @@
  */
 
 import { getSupabaseAdmin } from '../../_lib/supabaseAdmin.js';
-import { internalAuthHeader } from '../../_lib/requireAuth.js';
-import { randomUUID } from 'node:crypto';
+import { internalAuthHeader, hasCronSecret } from '../../_lib/requireAuth.js';
+import { internalBaseUrl } from '../../_lib/siteUrl.js';
+import { randomUUID, timingSafeEqual } from 'node:crypto';
 
 // Data pipeline (same as client-side slides)
 import { MLB_TEAMS } from '../../../src/sports/mlb/teams.js';
@@ -104,14 +105,6 @@ function shortDiv(div) {
   return div.replace('American League ', 'AL ').replace('National League ', 'NL ');
 }
 
-function fmtConviction(tier) {
-  if (!tier) return 'Edge';
-  if (tier === 'high') return 'High';
-  if (tier === 'medium-high') return 'Med-High';
-  if (tier === 'medium') return 'Medium';
-  return tier.charAt(0).toUpperCase() + tier.slice(1);
-}
-
 function trim(text, max = 80) {
   if (!text) return '';
   let s = text.trim();
@@ -145,14 +138,17 @@ function buildCaptionDiagnostics(mlbPicks, mlbLeaders, captionText) {
 function validateAuth(req) {
   const cronSecret = sanitizeEnv(process.env.CRON_SECRET);
   if (!cronSecret) return { ok: false, reason: 'CRON_SECRET not configured' };
+  // Vercel Cron sends the secret as a Bearer token.
+  if (hasCronSecret(req)) return { ok: true };
 
-  const url = new URL(req.url, 'http://localhost');
-  const headerToken = (req.headers.authorization ?? '').replace(/^Bearer\s+/i, '');
-  const querySecret = url.searchParams.get('secret') || '';
-
-  if (headerToken === cronSecret || querySecret === cronSecret) {
-    return { ok: true };
-  }
+  // ?secret= is still accepted so the job can be run by hand from a browser.
+  // It is compared in constant time, but a secret in a URL lands in request
+  // logs and browser history: prefer the header, and rotate CRON_SECRET if
+  // the URL form has been shared.
+  const querySecret = new URL(req.url, 'http://localhost').searchParams.get('secret') || '';
+  const a = Buffer.from(querySecret);
+  const b = Buffer.from(cronSecret);
+  if (a.length === b.length && timingSafeEqual(a, b)) return { ok: true };
   return { ok: false, reason: 'Invalid or missing secret' };
 }
 
@@ -493,7 +489,7 @@ export default async function handler(req, res) {
 
   // ── Preview mode: return metadata only ──
   if (mode === 'preview') {
-    const baseUrl = `https://${req.headers.host || 'maximussports.ai'}`;
+    const baseUrl = internalBaseUrl(req);
     const [liveGames, champOdds, leadersResult, mlbStandings, picksResult] = await Promise.all([
       fetchLiveGames(baseUrl, log),
       fetchChampOdds(baseUrl, log),
@@ -547,7 +543,7 @@ export default async function handler(req, res) {
 
   // ── Render-preview mode: render slides, return base64 images (no publish) ──
   if (mode === 'render-preview') {
-    const baseUrl = `https://${req.headers.host || 'maximussports.ai'}`;
+    const baseUrl = internalBaseUrl(req);
     const [liveGames, champOdds, leadersResult, mlbStandings, picksResult] = await Promise.all([
       fetchLiveGames(baseUrl, log),
       fetchChampOdds(baseUrl, log),
@@ -631,7 +627,7 @@ export default async function handler(req, res) {
         durationMs: Date.now() - startTs,
         ...context,
       };
-      await supabase.from('social_posts').insert([{
+      const { error } = await supabase.from('social_posts').insert([{
         platform: 'instagram',
         lifecycle_status: 'failed',
         content_type: 'carousel',
@@ -646,7 +642,8 @@ export default async function handler(req, res) {
         error_message: errorMsg,
         status_detail: JSON.stringify(statusDetail),
       }]);
-      log.info(`failure persisted to social_posts: stage=${stage} step=${step} reason=${reason}`);
+      if (error) log.warn(`failure NOT persisted (${error.code || 'error'}): ${error.message}`);
+      else log.info(`failure persisted to social_posts: stage=${stage} step=${step} reason=${reason}`);
     } catch (e) {
       log.warn('failure persistence failed (non-blocking):', e.message);
     }
@@ -657,7 +654,7 @@ export default async function handler(req, res) {
   // days from broken-payload failures.
   async function persistSkip(reason, context = {}) {
     try {
-      await supabase.from('social_posts').insert([{
+      const { error } = await supabase.from('social_posts').insert([{
         platform: 'instagram',
         lifecycle_status: 'skipped',
         content_type: 'carousel',
@@ -672,14 +669,17 @@ export default async function handler(req, res) {
         error_message: reason,
         status_detail: JSON.stringify({ mode, dateKey, stage: 'skipped', reason, ...context }),
       }]);
-      log.info(`skip persisted to social_posts: reason=${reason}`);
+      // supabase-js reports failures in the return value, not by throwing.
+      // 'skipped' needs docs/social-posts-skipped-status.sql; until that runs the insert is rejected.
+      if (error) log.warn(`skip NOT persisted (${error.code || 'error'}): ${error.message}`);
+      else log.info(`skip persisted to social_posts: reason=${reason}`);
     } catch (e) {
       log.warn('skip persistence failed (non-blocking):', e.message);
     }
   }
 
   // ── Assemble data ──
-  const baseUrl = `https://${req.headers.host || 'maximussports.ai'}`;
+  const baseUrl = internalBaseUrl(req);
   log.info('assembling data from:', baseUrl);
 
   let liveGames, champOdds, mlbLeaders, mlbStandings, mlbPicks;

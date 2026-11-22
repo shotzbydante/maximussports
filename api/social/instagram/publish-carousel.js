@@ -24,6 +24,7 @@
 
 import { getSupabaseAdmin } from '../../_lib/supabaseAdmin.js';
 import { requireAdminOrCron } from '../../_lib/requireAuth.js';
+import { getInstagramCredentials } from '../../_lib/instagramAuth.js';
 import { randomUUID } from 'node:crypto';
 
 const POLL_INTERVAL_MS = 2000;
@@ -38,15 +39,6 @@ function createLogger(requestId) {
     warn:  (...args) => console.warn(prefix, ...args),
     error: (...args) => console.error(prefix, ...args),
   };
-}
-
-function sanitizeEnv(value) {
-  if (value == null) return '';
-  let s = String(value).trim();
-  if ((s.startsWith('"') && s.endsWith('"')) || (s.startsWith("'") && s.endsWith("'"))) {
-    s = s.slice(1, -1).trim();
-  }
-  return s;
 }
 
 function safeMetaError(raw) {
@@ -145,8 +137,7 @@ export default async function handler(req, res) {
     });
   }
 
-  const accountId   = sanitizeEnv(process.env.INSTAGRAM_ACCOUNT_ID);
-  const accessToken = sanitizeEnv(process.env.INSTAGRAM_ACCESS_TOKEN);
+  const { accountId, accessToken } = await getInstagramCredentials();
 
   if (!accountId || !accessToken) {
     log.error('missing INSTAGRAM_ACCOUNT_ID or INSTAGRAM_ACCESS_TOKEN');

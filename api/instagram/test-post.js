@@ -7,26 +7,16 @@
  *   Step 1 — Create a media container  → /media
  *   Step 2 — Publish the container     → /media_publish
  *
- * This is a backend-only test route. No frontend is wired to it yet.
- * GET requests return a simple probe response so the route is discoverable.
+ * Backend-only test route; no frontend is wired to it. It publishes to the
+ * live account, so it requires the cron secret or a signed-in admin.
  *
  * Required env vars:
  *   INSTAGRAM_ACCOUNT_ID   — numeric Instagram user ID
  *   INSTAGRAM_ACCESS_TOKEN — valid Instagram Login API access token
  */
 
-/**
- * Strips leading/trailing whitespace and wrapping quotes from an env value.
- * Returns an empty string for null/undefined so callers can safely use .length.
- */
-function sanitizeEnv(value) {
-  if (value == null) return '';
-  let s = String(value).trim();
-  if ((s.startsWith('"') && s.endsWith('"')) || (s.startsWith("'") && s.endsWith("'"))) {
-    s = s.slice(1, -1).trim();
-  }
-  return s;
-}
+import { requireAdminOrCron } from '../_lib/requireAuth.js';
+import { getInstagramCredentials } from '../_lib/instagramAuth.js';
 
 /**
  * Extract a safe subset of a Meta API error object.
@@ -43,23 +33,12 @@ function safeMetaError(raw) {
 }
 
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Cache-Control', 'no-store');
-
-  if (req.method === 'OPTIONS') return res.status(200).end();
-
-  // --- GET probe — lets callers confirm the route exists ---
-  if (req.method === 'GET') {
-    return res.status(200).json({
-      ok: true,
-      route: 'instagram test-post',
-      method: 'POST required',
-    });
-  }
 
   if (req.method !== 'POST') {
     return res.status(405).json({ ok: false, error: 'Method not allowed' });
   }
+  if (!(await requireAdminOrCron(req, res))) return;
 
   // --- Stage: env ---
   const envCheck = {
@@ -76,13 +55,11 @@ export default async function handler(req, res) {
     });
   }
 
-  const accountId   = sanitizeEnv(process.env.INSTAGRAM_ACCOUNT_ID);
-  const accessToken = sanitizeEnv(process.env.INSTAGRAM_ACCESS_TOKEN);
+  const { accountId, accessToken } = await getInstagramCredentials();
 
   // Safe debug metadata — never exposes the full token or secret
   const debug = {
     tokenLength:              accessToken.length,
-    tokenPrefix:              accessToken.slice(0, 8),
     tokenHasWhitespace:       /\s/.test(accessToken),
     tokenHasNewline:          /[\r\n]/.test(accessToken),
     instagramAccountIdLength: accountId.length,
