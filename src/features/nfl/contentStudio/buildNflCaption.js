@@ -46,6 +46,7 @@ function pickMath(p) {
   const bits = [];
   if (p.fairPrice && p.offeredPrice) bits.push(`Fair price ${p.fairPrice}, offered ${p.offeredPrice}`);
   if (p.hitPct) bits.push(`wins ${p.hitPct}${p.pushPct ? ` and pushes ${p.pushPct}` : ''}`);
+  else if (p.marketPct && p.modelPct) bits.push(`market ${p.marketPct}, Maximus ${p.modelPct}`);
   if (p.evLabel) bits.push(`expected value ${p.evLabel}`);
   if (!bits.length) return '';
   const s = bits.join(', ');
@@ -151,11 +152,73 @@ function receiptsCaption(payload) {
     .map((p) => `${mark[p.status]}  ${p.label}${p.matchupLabel ? `, ${p.matchupLabel}` : ''}${p.finalScore ? ` (${p.finalScore})` : ''}`)
     .join('\n');
   const promise = 'Every pick is locked before kickoff and graded at the price we posted. The losses stay up.';
-  const cta = `The full graded record: ${SITE}`;
+  const cta = `Every pick, price and result: ${SITE}/record`;
   return {
     shortCaption: blocks([hook, clv, promise, cta, RESPONSIBLE]),
     longCaption: blocks([hook, clv, list, promise, cta, RESPONSIBLE]),
     hashtags: baseTags(payload),
+  };
+}
+
+function teamCaption(payload) {
+  const t = payload.team;
+  if (!t) return null;
+  const hook = `${t.name}: ${t.record}${t.standingLabel ? `, ${t.standingLabel}` : ''}. 🏈`;
+  const outlook = join([
+    t.playoffLabel && `Playoff chances: ${t.playoffLabel}.${t.projectedWinsLabel ? ` Projected wins: ${t.projectedWinsLabel}.` : ''}`,
+    t.titleOddsLabel && `Super Bowl price: ${t.titleOddsLabel}.`,
+    t.powerRank && `Maximus power rank: ${t.powerRank} of 32.`,
+  ]);
+  const n = t.next;
+  const nextLine = n
+    ? join([
+        `Next: ${n.isHome ? 'vs' : 'at'} ${n.opponent.name}${n.kickoffLabel ? `, ${n.kickoffLabel}` : ''}.`,
+        (n.spreadLabel || n.total != null) && `Line: ${[n.spreadLabel, n.total != null ? `total ${n.total}` : null].filter(Boolean).join(', ')}.`,
+        n.winPct && `Maximus gives the ${t.nickname} a ${n.winPct} chance to win.`,
+        n.pick ? `Our bet in this one: ${n.pick.label}${n.pick.priceLabel ? ` (${n.pick.priceLabel})` : ''}.` : 'No bet in this one. The price is fair.',
+      ])
+    : (t.onBye ? `The ${t.nickname} are on a bye this week.` : null);
+  const cta = `The full ${t.nickname} breakdown: ${SITE}`;
+  const tags = [...baseTags(payload)];
+  tags.splice(1, 0, tagify(t.nickname));
+  return {
+    shortCaption: blocks([hook, nextLine, cta, RESPONSIBLE]),
+    longCaption: blocks([hook, outlook, nextLine, cta, RESPONSIBLE]),
+    hashtags: [...new Set(tags)].slice(0, 8),
+  };
+}
+
+function reviewCaption(payload) {
+  const r = payload.review;
+  if (!r || r.finals === 0) return null;
+  const hook = r.wrongSide === 0
+    ? `${payload.slateLabel} so far: right winner in ${r.finals === 1 ? 'the one game played' : `all ${r.finals} games`}. The scores are where we missed. 🏈`
+    : `${payload.slateLabel} so far: Maximus called ${r.rightSide} of ${plural(r.finals, 'winner')}. Here is what we got wrong. 🏈`;
+  const misses = r.misses
+    .map((m) => `${m.matchupLabel}: projected ${m.projected}, finished ${m.actual}. Off by ${m.missPts} points${m.rightSide ? '' : ', and on the wrong side'}.`)
+    .join('\n');
+  const picks = r.lostPicks.length
+    ? `Losing bets: ${r.lostPicks.map((k) => `${k.label} (${k.matchupLabel})`).join(', ')}.`
+    : null;
+  const avg = r.avgMiss != null ? `Average miss on the margin: ${r.avgMiss} points.` : null;
+  const promise = 'We post the misses the same way we post the wins.';
+  const cta = `Every pick, price and result: ${SITE}/record`;
+  return {
+    shortCaption: blocks([hook, avg, picks, promise, cta, RESPONSIBLE]),
+    longCaption: blocks([hook, misses, avg, picks, promise, cta, RESPONSIBLE]),
+    hashtags: baseTags(payload),
+  };
+}
+
+function explainCaption(payload) {
+  const e = payload.explainer;
+  if (!e) return null;
+  const body = e.points.map((p, i) => `${i + 1}. ${p}`).join('\n');
+  const cta = `See it applied to every game this week: ${SITE}`;
+  return {
+    shortCaption: blocks([`${e.title} Save this one. 🏈`, body, e.closer, cta, RESPONSIBLE]),
+    longCaption: blocks([`${e.title} Save this one. 🏈`, body, e.example, e.closer, cta, RESPONSIBLE]),
+    hashtags: ['#NFL', '#SportsBetting', '#BettingTips', '#NFLBetting', '#MaximusSports'],
   };
 }
 
@@ -167,6 +230,9 @@ export function buildNflCaption(payload) {
     case 'nfl-picks': return picksCaption(payload);
     case 'nfl-game': return gameCaption(payload);
     case 'nfl-receipts': return receiptsCaption(payload);
+    case 'nfl-team': return teamCaption(payload);
+    case 'nfl-review': return reviewCaption(payload);
+    case 'nfl-explain': return explainCaption(payload);
     default: return null;
   }
 }

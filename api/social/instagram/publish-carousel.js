@@ -25,6 +25,7 @@
 import { getSupabaseAdmin } from '../../_lib/supabaseAdmin.js';
 import { requireAdminOrCron } from '../../_lib/requireAuth.js';
 import { getInstagramCredentials } from '../../_lib/instagramAuth.js';
+import { findVoiceIssues } from '../../../src/features/contentStudio/voice.js';
 import { randomUUID } from 'node:crypto';
 
 const POLL_INTERVAL_MS = 2000;
@@ -134,6 +135,14 @@ export default async function handler(req, res) {
     return res.status(400).json({
       ok: false, stage: 'validation', requestId,
       error: `caption is too short (${caption.trim().length} chars). A legitimate caption is at least ${MIN_CAPTION_CHARS} chars. This likely indicates a caption-builder failure upstream.`,
+    });
+  }
+
+  const hype = findVoiceIssues(caption);
+  if (hype.length > 0) {
+    return res.status(400).json({
+      ok: false, stage: 'validation', requestId,
+      error: `caption promises an outcome (${hype.join(', ')}). Maximus Sports does not post that.`,
     });
   }
 

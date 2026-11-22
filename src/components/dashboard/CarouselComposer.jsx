@@ -211,6 +211,9 @@ const TEMPLATE_LABELS = {
   'nfl-picks':     "NFL Maximus's Picks",
   'nfl-game':      'NFL Game Breakdown',
   'nfl-receipts':  'NFL Receipts',
+  'nfl-team':      'NFL Team Card',
+  'nfl-review':    'NFL What We Got Wrong',
+  'nfl-explain':   'NFL Explainer',
 };
 
 /**

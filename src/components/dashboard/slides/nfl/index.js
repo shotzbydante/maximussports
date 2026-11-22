@@ -6,6 +6,9 @@ import {
   NflPickSlide,
   NflGameSlide,
   NflReceiptsSlide,
+  NflTeamSlide,
+  NflReviewSlide,
+  NflExplainerSlide,
 } from './NflSlides';
 
 /** Template id → ordered slide components. `pickCount` sizes the picks carousel. */
@@ -19,6 +22,12 @@ export function getNflSlides(template, { pickCount = 0 } = {}) {
       return [NflGameSlide];
     case 'nfl-receipts':
       return [NflReceiptsSlide];
+    case 'nfl-team':
+      return [NflTeamSlide];
+    case 'nfl-review':
+      return [NflReviewSlide];
+    case 'nfl-explain':
+      return [NflExplainerSlide];
     default:
       return null;
   }

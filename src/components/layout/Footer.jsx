@@ -99,6 +99,7 @@ export default function Footer() {
           <Link to="/nba" className={styles.seoNavLink}>NBA</Link>
           <Link to="/mlb" className={styles.seoNavLink}>MLB</Link>
           <Link to="/ncaam" className={styles.seoNavLink}>College Basketball</Link>
+          <Link to="/record" className={styles.seoNavLink}>The Record</Link>
         </nav>
 
         <div className={styles.divider} />
