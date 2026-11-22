@@ -35,12 +35,12 @@ import { priceOffers, bestOffer } from './v2/market.js';
 import { impliedProb, probToAmerican, spreadProbs, totalProbs, expectedValue } from './v2/distribution.js';
 import { UNIT_LABELS } from './v2/units.js';
 import { ENGINE_DEFAULTS } from './v2/engine.js';
-import { SITUATION_RECORDS } from './v2/situations.js';
+import { windUnderRecord } from './v2/situations.js';
 
-export const NFL_MODEL_VERSION = 'nfl-picks-v2.0.0';
+export const NFL_MODEL_VERSION = 'nfl-picks-v2.1.0';
 
 export const NFL_DEFAULT_CONFIG = Object.freeze({
-  version: 'nfl-picks-v2-2026-11-21a',
+  version: 'nfl-picks-v2-2026-11-22a',
   sport: 'nfl',
   /** Minimum expected value per unit staked for each tier. */
   evThresholds: Object.freeze({ tier1: 0.04, tier2: 0.025, tier3: 0.015 }),
@@ -96,7 +96,6 @@ const HOLD_SHORT = Object.freeze({
   same_side: 'Tracked, same side as the pick',
 });
 
-const WIND_UNDER_PCT = Math.round((SITUATION_RECORDS.windUnder.won / (SITUATION_RECORDS.windUnder.won + SITUATION_RECORDS.windUnder.lost)) * 100);
 
 function isNum(v) { return typeof v === 'number' && Number.isFinite(v); }
 function clamp01(v) { return Math.max(0, Math.min(1, v)); }
@@ -396,10 +395,15 @@ export function buildNflPicksV2({
       const name = kind === 'total' ? `${side === 'over' ? 'Over' : 'Under'} ${offer.line}` : kind === 'runline' ? `${team.name} ${fmtLine(offer.line)}` : `${team.name} to win`;
       const winShare = offer.probs.win / (offer.probs.win + offer.probs.lose);
       const fairPrice = probToAmerican(winShare);
-      const wind = kind === 'total' && side === 'under' && windTag;
+      // A wind pick is an under that only clears the bar because of the wind
+      // shift. An under that qualifies on price alone is a price pick, with
+      // the wind as supporting context.
+      const windHelps = kind === 'total' && side === 'under' && windTag;
+      const evCalm = windHelps ? expectedValue(totalProbs(fair.total - windTag.weight, offer.line, 'under'), offer.price) : null;
+      const wind = windHelps && !tierForEv(evCalm, thresholds) ? windTag : null;
       const bullets = [];
       if (kind === 'total') {
-        bullets.push(`${e.consensus.counts.total} books put the fair total at ${e.consensus.fairTotal.toFixed(1)}${wind ? `, and wind takes it to ${fair.total.toFixed(1)}` : ''}. ${offer.title} has ${side === 'over' ? 'Over' : 'Under'} ${offer.line} at ${fmtOdds(offer.price)}.`);
+        bullets.push(`${e.consensus.counts.total} books put the fair total at ${e.consensus.fairTotal.toFixed(1)}${windHelps ? `, and wind takes it to ${fair.total.toFixed(1)}` : ''}. ${offer.title} has ${side === 'over' ? 'Over' : 'Under'} ${offer.line} at ${fmtOdds(offer.price)}.`);
       } else if (kind === 'runline') {
         bullets.push(`${e.consensus.counts.spread} books make this ${homeAbbr} ${fmtLine(e.consensus.spreadHome)}. ${offer.title} has ${team.abbrev} ${fmtLine(offer.line)} at ${fmtOdds(offer.price)}.`);
       } else {
@@ -409,8 +413,8 @@ export function buildNflPicksV2({
         `At that number the bet wins ${pct(offer.probs.win)}${offer.probs.push > 0.001 ? `, pushes ${pct(offer.probs.push)}` : ''}; ` +
         `the price needs ${pct(offer.implied)}. Fair price ${fmtOdds(fairPrice)}, expected value ${fmtSigned(offer.ev * 100)}% per unit.`
       );
-      if (wind) bullets.push(windTag.note);
-      bullets.push(...context(side).filter((b) => !wind || b !== windTag.note));
+      if (windHelps) bullets.push(windTag.note);
+      bullets.push(...context(side).filter((b) => !windHelps || b !== windTag.note));
       const hold = c.hold || (shadowed ? 'same_side' : null);
       if (hold) bullets.unshift(HOLD_REASONS[hold]);
       const evText = `${fmtSigned(offer.ev * 100)}% expected value`;
@@ -420,8 +424,10 @@ export function buildNflPicksV2({
       let why;
       let whyShort;
       if (wind) {
-        why = `${Math.round(e.env.wind)} mph wind is forecast${e.env.venue ? ` at ${e.env.venue}` : ''}, and unders have won ${WIND_UNDER_PCT}% of the time in wind that strong since ${SITUATION_RECORDS.windUnder.since}. ${offer.title}’s ${fmtOdds(offer.price)} on ${what} is ${evText}.`;
-        whyShort = `${Math.round(e.env.wind)} mph wind forecast; unders win ${WIND_UNDER_PCT}% in wind that strong`;
+        const rec = windUnderRecord(e.env.wind);
+        const pts = Math.abs(windTag.weight).toFixed(1);
+        why = `${Math.round(e.env.wind)} mph wind is forecast${e.env.venue ? ` at ${e.env.venue}` : ''}, which takes ${pts} points off our fair total. Unders have won ${rec.pct}% of games in ${rec.band} since ${rec.record.since}. ${offer.title}’s ${fmtOdds(offer.price)} on ${what} is ${evText}.`;
+        whyShort = `${Math.round(e.env.wind)} mph wind takes ${pts} points off the total; unders win ${rec.pct}% in wind like this`;
       } else if (offMarket) {
         const marketLine = kind === 'total' ? consLine : fmtLine(consLine);
         why = `${offer.title} has ${what} while the market across ${e.consensus.counts[kind === 'total' ? 'total' : 'spread']} books is ${marketLine}. At ${fmtOdds(offer.price)} that is ${evText}.`;

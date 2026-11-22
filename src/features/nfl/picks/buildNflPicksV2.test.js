@@ -45,7 +45,7 @@ describe('buildNflPicksV2', () => {
     }
     expect(out.byGame).toHaveLength(2);
     expect(out.fullSlatePicks).toHaveLength(6);      // three markets on each game
-    expect(NFL_MODEL_VERSION).toBe('nfl-picks-v2.0.0');
+    expect(NFL_MODEL_VERSION).toBe('nfl-picks-v2.1.0');
   });
 
   it('recommends the off-market number, at that book and price, and nothing else', () => {
@@ -256,6 +256,35 @@ describe('the reason on every pick', () => {
     expect(p.whyShort).toContain('21 mph wind');
     expect(p.environment).toMatchObject({ indoor: false });
     expect(p.environment.label).toMatch(/^Outdoors.*21 mph wind, 34°F/);
+  });
+
+  it('scales the wind with its speed: a pick at 21 mph, none at 13 with the same prices', () => {
+    const at = (mph) => build([withEngine(game('g1', LV, KC), { weather: { tempF: 34, windMph: mph, hoursOut: 20, source: 'google' } })]);
+    const strong = at(21).heroPicks.find((x) => x.market.type === 'total');
+    expect(strong.why).toContain('takes 1.2 points off our fair total');
+    expect(at(13).heroPicks.filter((x) => x.market.type === 'total')).toHaveLength(0);
+    // The fair total moves a little at 13 mph, and shows in the lean.
+    const fair = (mph) => at(mph).byGame[0].fair.total;
+    expect(fair(13) - fair(9)).toBeCloseTo(-0.36, 2);
+    expect(fair(21) - fair(9)).toBeCloseTo(-1.2, 2);
+  });
+
+  it('calls an under a price pick when it clears the bar without the wind', () => {
+    // One book hangs a total a point and a half above the market: a pick in any weather.
+    const g = (mph, total = 46) => withEngine(game('g1', LV, KC, { market: { books: books({ betmgm: { total } }) } }), { weather: { tempF: 50, windMph: mph, hoursOut: 20, source: 'google' } });
+    const breezy = build([g(12)]).heroPicks.find((x) => x.market.type === 'total');
+    expect(breezy).toMatchObject({ selection: { side: 'under' }, modelSource: 'nfl_v2_price' });
+    expect(breezy.why).toMatch(/has Under 46 while the market/);
+    expect(breezy.rationale.bullets.join(' ')).toContain('Sustained wind of 12 mph');   // the wind is still shown as context
+    const calm = build([g(5)]).heroPicks.find((x) => x.market.type === 'total');
+    expect(breezy.ev).toBeGreaterThan(calm.ev);                                         // and still counted in the price
+    // A smaller gap that only clears the bar with the wind's help is a wind pick, capped below a top play.
+    expect(build([g(5, 45.5)]).heroPicks.filter((x) => x.market.type === 'total')).toHaveLength(0);
+    const helped = build([g(12, 45.5)]).heroPicks.find((x) => x.market.type === 'total');
+    expect(helped).toMatchObject({ modelSource: 'nfl_v2_wind' });
+    expect(helped.why).toContain('takes 0.2 points off our fair total');
+    expect(helped.why).toContain('54% of games in wind of 10 to 15 mph');
+    expect(helped.conviction.score).toBeLessThanOrEqual(79);
   });
 
   it('says a lean is a lean, and why a held pick is held', () => {
