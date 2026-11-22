@@ -50,6 +50,20 @@ function getPstDate() {
   });
 }
 
+/**
+ * Game day as fans say it: the US Eastern calendar day ("Saturday, Nov 21").
+ * Tip times are stored in UTC, where an evening game is already "tomorrow".
+ */
+export function formatGameDay(iso) {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleDateString('en-US', {
+    timeZone: 'America/New_York',
+    weekday: 'long', month: 'short', day: 'numeric',
+  });
+}
+
 function buildPayload(data) {
   const { team, schedule, ats, teamNews, rank, tier, titleOdds = null, nextGameLine = null } = data;
 
@@ -71,7 +85,7 @@ function buildPayload(data) {
 
   const upcomingGames = (schedule.upcoming || []).slice(0, 3).map((g) => ({
     opponent: g.opponent || 'TBD',
-    date: (g.date || g.gameDate || '').slice(0, 10) || null,
+    date: formatGameDay(g.date || g.gameDate),
     site: g.homeAway === 'home' ? 'home' : g.homeAway === 'away' ? 'away' : null,
   }));
 
