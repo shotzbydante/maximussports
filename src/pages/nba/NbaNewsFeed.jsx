@@ -4,6 +4,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { fetchNbaHeadlines } from '../../api/nbaNews';
 import { NBA_TEAMS } from '../../sports/nba/teams';
+import SEOHead from '../../components/seo/SEOHead';
 import styles from './NbaNewsFeed.module.css';
 
 const PUBLISHER_CONFIG = {
@@ -168,6 +169,7 @@ export default function NbaNewsFeed() {
   return (
     <div className={styles.page}>
       <header className={styles.header}>
+        <SEOHead title="NBA News: Injuries, Trades & Headlines" description="The day’s NBA headlines: injuries, trades, results and title-odds moves." />
         <h1 className={styles.pageTitle}>NBA Intelligence Feed</h1>
         <p className={styles.subtitle}>Headlines, analysis, and intelligence across the NBA</p>
       </header>

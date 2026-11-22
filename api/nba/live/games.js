@@ -42,8 +42,13 @@ export default async function handler(req, res) {
 
   const ranked = rankLiveGames(filtered, sortMode);
 
+  // Counts cover the whole slate, whatever the filter, so tabs can show them.
+  const counts = { live: 0, upcoming: 0, final: 0 };
+  for (const g of games) if (counts[g.status] != null) counts[g.status] += 1;
+
   return res.status(200).json({
     games: ranked,
+    counts,
     total: ranked.length,
     statusFilter,
     sortMode,

@@ -13,6 +13,7 @@ import { fetchNbaHeadlines } from '../../api/nbaNews';
 import { fetchNbaTeamBoard } from '../../api/nbaTeamBoard';
 import { buildNbaTeamIntelSummary } from '../../data/nba/teamIntelSummary';
 import NbaLiveGameCard from '../../components/nba/NbaLiveGameCard';
+import SEOHead from '../../components/seo/SEOHead';
 import styles from './NbaTeamDetail.module.css';
 
 function formatOdds(american) {
@@ -290,6 +291,7 @@ export default function NbaTeamDetail() {
               <span className={styles.heroLogoFallback}>{team.abbrev}</span>
             )}
             <div className={styles.heroText}>
+              <SEOHead title={`${team.name}: Record, Schedule, Title Odds & News`} description={`${team.name} record, standing, schedule and results, championship odds and the latest headlines.`} />
               <h1 className={styles.teamName}>{team.name}</h1>
               <div className={styles.heroMeta}>
                 <span className={styles.confChip}>{team.conference}</span>
@@ -446,7 +448,7 @@ export default function NbaTeamDetail() {
               </div>
               {nextGame.gamecastUrl && (
                 <a href={nextGame.gamecastUrl} target="_blank" rel="noopener noreferrer" className={styles.gamecastLink}>
-                  <ESPNBadge /> <span className={styles.gamecastLabel}>Gamecast</span> <span aria-hidden>&nearr;</span>
+                  <ESPNBadge /> <span className={styles.gamecastLabel}>Gamecast</span> <span aria-hidden>&#x2197;</span>
                 </a>
               )}
             </div>

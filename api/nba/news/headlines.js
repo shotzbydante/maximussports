@@ -1,22 +1,39 @@
 /**
  * GET /api/nba/news/headlines — NBA headlines via Google News RSS.
- * Playoff-aware: heavily prefers last 24-72h postseason content.
+ * Season-aware: playoff searches and the playoff boost only apply from the
+ * play-in to the Finals. The rest of the year it looks for game results,
+ * injuries, trades and standings.
  */
 
 import { createCache } from '../../_cache.js';
+import { nbaSeasonPhase } from '../../../src/sports/nba/season.js';
 
 const cache = createCache(5 * 60 * 1000); // 5min (was 15min) — fresher during playoffs
-const CACHE_KEY = 'nba:headlines:v2';
+const CACHE_KEY = 'nba:headlines:v3';
 const MAX_ITEMS = 30;
 
-// Queries narrowed to playoff-relevant terms with short time windows
-const NBA_QUERIES = [
+const PLAYOFF_QUERIES = [
   { q: 'NBA playoffs', window: '3d' },
   { q: 'NBA play-in', window: '2d' },
   { q: 'NBA series preview', window: '2d' },
   { q: 'NBA playoff injury report', window: '2d' },
   { q: 'NBA title odds', window: '4d' },
 ];
+const SEASON_QUERIES = [
+  { q: 'NBA', window: '1d' },
+  { q: 'NBA injury report', window: '2d' },
+  { q: 'NBA trade', window: '3d' },
+  { q: 'NBA standings', window: '3d' },
+  { q: 'NBA title odds', window: '4d' },
+];
+// Stories about a series or a round are last spring's when read in November.
+const POSTSEASON_ONLY = /\b(conference.?finals?|nba.?finals|game.?[67]|first.?round|second.?round|closeout|elimination|play.?in|series)\b/i;
+export function queriesFor(phase) {
+  return phase === 'playoffs' ? PLAYOFF_QUERIES : SEASON_QUERIES;
+}
+
+// What matters between opening night and the play-in.
+const SEASON_KEYWORDS = /\b(injur(y|ies|ed)|questionable|probable|out.?for|return(s|ing)?|trade[sd]?|signs?|signed|waive[sd]?|extension|standings|streak|career.?high|triple.?double|game.?winner|buzzer|overtime|suspend(ed|sion)|title.?odds|mvp)\b/i;
 
 // Strong boost keywords
 const PLAYOFF_KEYWORDS = /\b(play.?in|playoffs?|bracket|series|finals?|conference.?finals?|semifinals?|elimination|closeout|game.?7|game.?6|clinched?|matchup.?preview|game.?preview|series.?preview|postseason|title.?odds|first.?round|second.?round|injury.?update|probable|questionable|out.?for)\b/i;
@@ -31,7 +48,7 @@ const GOOD_SOURCES = /fox.?sports|cbs.?sports|yahoo|sports.?illustrated|nbc.?spo
 // Low-signal patterns
 const LOW_SIGNAL = /\b(watch|stream.?free|subscribe|podcast|odds.?to.?win|best.?bets.?today|promo.?code|parlay.?pick)\b/i;
 
-function scoreItem(item) {
+export function scoreItem(item, phase = nbaSeasonPhase()) {
   let s = 0;
   const t = (item.title || '').toLowerCase();
   const src = (item.source || '').toLowerCase();
@@ -47,8 +64,13 @@ function scoreItem(item) {
     else                  s -= 8;    // older — heavy penalty
   }
 
-  // Playoff keyword boost
-  if (PLAYOFF_KEYWORDS.test(t)) s += 8;
+  // During the playoffs, playoff stories lead. The rest of the year they
+  // are usually speculation or last spring's recap, so they get no boost.
+  if (phase === 'playoffs') { if (PLAYOFF_KEYWORDS.test(t)) s += 8; }
+  else {
+    if (SEASON_KEYWORDS.test(t)) s += 4;
+    if (POSTSEASON_ONLY.test(t)) s -= 6;
+  }
 
   // NBA mention required for positive base score
   if (/\bnba\b|\bbasketball\b/i.test(t)) s += 2;
@@ -116,41 +138,48 @@ function classifyTopic(title) {
   const t = (title || '').toLowerCase();
   if (/\bplay.?in\b/.test(t)) return 'play-in';
   if (/\binjury|questionable|probable|out.?for|sidelined|minutes.?restriction\b/.test(t)) return 'injury';
+  if (/\btrade[sd]?\b|\bsigns?\b|\bsigned\b|\bwaive[sd]?\b|\bextension\b/.test(t)) return 'transactions';
   if (/\bseries.?preview|matchup.?preview|game.?preview\b/.test(t)) return 'preview';
   if (/\btitle.?odds|championship.?odds|futures|mvp.?odds\b/.test(t)) return 'odds';
   if (/\bplayoffs?|bracket|postseason|first.?round|finals?|elimination\b/.test(t)) return 'playoffs';
   return null;
 }
 
+/** The scored, de-duplicated headline list, memoised for five minutes. Throws on a failed fetch. */
+export async function loadNbaHeadlines() {
+  const cached = cache.get(CACHE_KEY);
+  if (cached) return cached;
+
+  const phase = nbaSeasonPhase();
+  const results = await Promise.allSettled(queriesFor(phase).map(q => fetchGoogleNewsRSS(q.q, q.window)));
+  let all = results.flatMap((r) => (r.status === 'fulfilled' ? r.value : []));
+  all = dedup(all);
+  all.forEach((it) => { it._score = scoreItem(it, phase); });
+  // Keep only items that scored positive: fresh, relevant and about the NBA.
+  all = all.filter(it => it._score > 0);
+  all.sort((a, b) => b._score - a._score);
+
+  const headlines = all.slice(0, MAX_ITEMS).map((it, i) => ({
+    id: `nba-news-${i}`,
+    title: it.title,
+    link: it.link,
+    source: it.source || 'News',
+    time: formatTime(it.pubDate),
+    topic: classifyTopic(it.title),
+  }));
+
+  const payload = { headlines, fetchedAt: new Date().toISOString() };
+  if (headlines.length > 0) cache.set(CACHE_KEY, payload);
+  return payload;
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600'); // 5min (was 10min)
+  res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
-  const cached = cache.get(CACHE_KEY);
-  if (cached) return res.status(200).json(cached);
-
   try {
-    const results = await Promise.allSettled(NBA_QUERIES.map(q => fetchGoogleNewsRSS(q.q, q.window)));
-    let all = results.flatMap((r) => (r.status === 'fulfilled' ? r.value : []));
-    all = dedup(all);
-    all.forEach((it) => { it._score = scoreItem(it); });
-    // Filter to only items that actually scored positive (playoff or fresh)
-    all = all.filter(it => it._score > 0);
-    all.sort((a, b) => b._score - a._score);
-
-    const headlines = all.slice(0, MAX_ITEMS).map((it, i) => ({
-      id: `nba-news-${i}`,
-      title: it.title,
-      link: it.link,
-      source: it.source || 'News',
-      time: formatTime(it.pubDate),
-      topic: classifyTopic(it.title),
-    }));
-
-    const payload = { headlines, fetchedAt: new Date().toISOString() };
-    cache.set(CACHE_KEY, payload);
-    return res.status(200).json(payload);
+    return res.status(200).json(await loadNbaHeadlines());
   } catch (err) {
     return res.status(200).json({ headlines: [], error: err?.message });
   }

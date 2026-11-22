@@ -193,7 +193,7 @@ describe('Global Briefing: rendered HTML section contract', () => {
 
     // NEW CONTRACT: NBA Playoffs first, MLB second, parallel 5-section structure
     // Sport headers
-    expect(html).toContain('NBA PLAYOFFS');
+    expect(html).toContain(NBA_HEADER);
     expect(html).toContain('MLB');
     // NBA block
     expect(html).toContain('NBA DAILY INTELLIGENCE');
@@ -212,7 +212,7 @@ describe('Global Briefing: rendered HTML section contract', () => {
     const emailData = buildEmailData('global_briefing', fullAssembled(), { displayName: 'Test' });
     const html = renderGlobalBriefingHTML(emailData);
 
-    const nbaIdx = html.indexOf('NBA PLAYOFFS');
+    const nbaIdx = html.indexOf(NBA_HEADER);
     const mlbIdx = html.indexOf('>MLB<');  // sport header (not "MLB DAILY")
     const partnerIdx = html.indexOf('ACT ON TODAY');
 
@@ -320,7 +320,7 @@ describe('Global Briefing: prod/test parity (same input → same output)', () =>
 
     // Section presence parity — new compact cross-sport contract
     const sections = [
-      'NBA PLAYOFFS',
+      NBA_HEADER,
       'NBA DAILY INTELLIGENCE',
       'NBA PICKS SCORECARD',
       'NBA CHAMPIONSHIP ODDS',
@@ -624,7 +624,7 @@ describe('Global Briefing: NBA section contract', () => {
     const emailData = buildEmailData('global_briefing', fullAssembled(), { displayName: 'Test' });
     const html = renderGlobalBriefingHTML(emailData);
 
-    expect(html).toContain('NBA PLAYOFFS');
+    expect(html).toContain(NBA_HEADER);
     expect(html).toContain('NBA DAILY INTELLIGENCE');
     expect(html).toContain('NBA PICKS SCORECARD');
     expect(html).toContain('NBA CHAMPIONSHIP ODDS');
@@ -741,6 +741,10 @@ describe('Global Briefing: NBA prod/test parity', () => {
 // ═══════════════════════════════════════════════════════════════
 
 import { resolveEmailDateContext } from './emailDateContext.js';
+import { nbaSeasonPhase } from '../../src/sports/nba/season.js';
+
+// The NBA block is headed "NBA PLAYOFFS" only from the play-in to the Finals.
+const NBA_HEADER = nbaSeasonPhase() === 'playoffs' ? 'NBA PLAYOFFS' : '>NBA<';
 
 describe('Date context: timezone-safe resolution', () => {
   it('resolves the correct PT date at 11:45 PM PT (the near-midnight bug)', () => {
@@ -1151,7 +1155,7 @@ describe('Global Briefing: NBA picks/scorecard parity (test ≡ prod)', () => {
 
     // Section presence parity for the four NBA-section markers
     for (const marker of [
-      'NBA PLAYOFFS',
+      NBA_HEADER,
       'NBA DAILY INTELLIGENCE',
       'NBA PICKS SCORECARD',
       "TODAY’S NBA PICKS",

@@ -79,6 +79,15 @@ export function getNbaTeamBySlug(slug) {
   return NBA_TEAMS.find((t) => t.slug === slug);
 }
 
+const TWO_WORD_NICKNAMES = { por: 'Trail Blazers' };
+
+/** "Celtics", "Trail Blazers", "76ers": the team's short name. */
+export function nbaNickname(slug) {
+  const team = getNbaTeamBySlug(slug);
+  if (!team) return '';
+  return TWO_WORD_NICKNAMES[slug] || team.name.split(' ').pop();
+}
+
 export function getNbaTeamsGroupedByDivision() {
   const byDiv = {};
   for (const team of NBA_TEAMS) {
