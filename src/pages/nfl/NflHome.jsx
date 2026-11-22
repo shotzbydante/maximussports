@@ -1,7 +1,7 @@
 /**
  * NFL Home — the briefing page for the NFL workspace.
  *
- * Order: Maximus's picks for the week → written commentary → games →
+ * Order: Maximus's picks for the week → the brief → games →
  * headlines beside your teams and Super Bowl odds → videos. Sections are rails on phones and grids
  * on wide screens; the detail lives on the pages each section links to.
  */
@@ -18,6 +18,7 @@ import { HomeVideos, HomeHeadlines } from '../../components/nfl/home/HomeFeed';
 import { SectionHead, Rail } from '../../components/nfl/home/HomeParts';
 import { TeamTag, TeamText } from '../../components/nfl/home/NflTeamTag';
 import NflProse from '../../components/nfl/home/NflProse';
+import NflBrief from '../../components/nfl/home/NflBrief';
 import { fetchNflGames } from '../../api/nfl';
 import { mascotFor } from '../../brand/mascots';
 import s from '../../components/nfl/nfl.module.css';
@@ -26,7 +27,10 @@ import { trackBriefingRefresh, trackBriefingExpand } from '../../analytics/sport
 
 const SPLASH_MS = 1400;
 const LLM_TTL_MS = 60_000;
-const CLIENT_TIMEOUT_MS = 15_000;
+// A brief that is out of date is rewritten before the server answers, which can take a while.
+const CLIENT_TIMEOUT_MS = 35_000;
+const LIVE_SLATE_POLL_MS = 60_000;
+const LIVE_BRIEF_POLL_MS = 5 * 60_000;
 const BOARD_PREVIEW = 8;
 
 const _llmCache = { data: null, ts: 0 };
@@ -77,10 +81,12 @@ export default function NflHome() {
   const [showSplash, setShowSplash] = useState(() => {
     try { return sessionStorage.getItem(splashKey) !== '1'; } catch { return false; }
   });
-  const [summary, setSummary] = useState(() => (
+  const [briefing, setBriefing] = useState(() => (
     _llmCache.data && Date.now() - _llmCache.ts < LLM_TTL_MS ? _llmCache.data : null
   ));
-  const [summaryState, setSummaryState] = useState(summary ? 'ready' : 'loading');
+  const brief = briefing?.brief || null;
+  const summary = briefing?.summary || null;
+  const [summaryState, setSummaryState] = useState(briefing ? 'ready' : 'loading');
   const [refreshing, setRefreshing] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [slate, setSlate] = useState(null);
@@ -104,10 +110,11 @@ export default function NflHome() {
     return fetchWithTimeout(`/api/nfl/chat/homeSummary${force ? '?force=1' : ''}`)
       .then((r) => r.json())
       .then((d) => {
-        if (d?.summary) {
-          _llmCache.data = d.summary;
+        if (d?.brief || d?.summary) {
+          const next = { brief: d.brief || null, summary: d.summary || null, generatedAt: d.generatedAt || null };
+          _llmCache.data = next;
           _llmCache.ts = Date.now();
-          setSummary(d.summary);
+          setBriefing(next);
           setSummaryState('ready');
           return true;
         }
@@ -117,7 +124,7 @@ export default function NflHome() {
   }, []);
 
   useEffect(() => {
-    if (summary) return undefined;
+    if (briefing) return undefined;
     let cancelled = false;
     let retry;
     loadSummary(false).then((ok) => {
@@ -136,9 +143,18 @@ export default function NflHome() {
     setRefreshing(true);
     loadSummary(true).then((ok) => {
       setRefreshing(false);
-      if (!ok && !summary) setSummaryState('failed');
+      if (!ok && !briefing) setSummaryState('failed');
     });
-  }, [refreshing, loadSummary, summary]);
+  }, [refreshing, loadSummary, briefing]);
+
+  // While games are on, keep the scores and the brief moving without a reload.
+  const liveNow = (slate?.counts?.live || 0) > 0;
+  useEffect(() => {
+    if (!liveNow) return undefined;
+    const slateTimer = setInterval(() => { fetchNflGames().then((d) => { if (d?.games?.length) setSlate(d); }); }, LIVE_SLATE_POLL_MS);
+    const briefTimer = setInterval(() => { loadSummary(false); }, LIVE_BRIEF_POLL_MS);
+    return () => { clearInterval(slateTimer); clearInterval(briefTimer); };
+  }, [liveNow, loadSummary]);
 
   if (showSplash) return <Splash theme={workspace.theme} />;
 
@@ -198,39 +214,28 @@ export default function NflHome() {
 
       <HomePicks games={slate ? games : undefined} weekLabel={weekLabel || undefined} />
 
-      <section className={h.section} aria-label="Commentary for the week">
-        <SectionHead title={weekLabel ? `${weekLabel} commentary` : 'This week’s commentary'}>
-          <button
-            type="button"
-            className={h.iconBtn}
-            onClick={handleRefresh}
-            disabled={refreshing}
-            aria-label="Refresh the commentary"
-            title="Refresh the commentary"
-          >
-            <svg className={refreshing ? h.spin : undefined} width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-              <path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9M13.5 2.5v3h-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </button>
-        </SectionHead>
-        <div className={h.card}>
-          <div className={`${h.briefBody} ${!expanded && summary ? h.briefClamp : ''}`}>
-            {summary ? (
-              <NflProse text={summary} />
-            ) : summaryState === 'loading' ? (
-              <p className={s.muted}>Writing this week’s commentary…</p>
-            ) : fallback ? (
-              <p><TeamText text={fallback} /></p>
-            ) : (
-              <p className={s.muted}>The commentary can’t load right now. Picks and games on this page are still current.</p>
-            )}
-          </div>
-          {summary && (
+      <section className={h.section} aria-label="The brief">
+        <SectionHead title="The brief" />
+        {brief ? (
+          <NflBrief brief={brief} games={games} generatedAt={briefing?.generatedAt} onRefresh={handleRefresh} refreshing={refreshing} />
+        ) : summary ? (
+          <div className={h.card}>
+            <div className={`${h.briefBody} ${!expanded ? h.briefClamp : ''}`}><NflProse text={summary} /></div>
             <button type="button" className={h.linkBtn} onClick={() => { trackBriefingExpand({ sport: 'nfl', expanded: !expanded }); setExpanded((v) => !v); }} aria-expanded={expanded}>
               {expanded ? 'Show less' : 'Read it all'}
             </button>
-          )}
-        </div>
+          </div>
+        ) : summaryState === 'loading' ? (
+          <div className={h.skeleton} aria-busy="true" aria-label="Writing the brief" />
+        ) : (
+          <div className={h.card}>
+            <div className={h.briefBody}>
+              {fallback
+                ? <p><TeamText text={fallback} /></p>
+                : <p className={s.muted}>The brief can’t load right now. Picks and games on this page are still current.</p>}
+            </div>
+          </div>
+        )}
       </section>
 
       <section className={h.section} aria-label="This week's games">

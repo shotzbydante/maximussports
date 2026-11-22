@@ -113,6 +113,11 @@ export function fetchNflTeamInjuries(team) {
     .then((d) => ({ injuries: d.injuries ?? [], summary: d.summary ?? null, generatedAt: d.generatedAt ?? null }));
 }
 
+/** This week's recommended picks whose games have kicked off, with where each stands. */
+export function fetchNflPicksInPlay() {
+  return getJson('/api/nfl/picks/inplay', { picks: [] });
+}
+
 export function fetchNflScorecard({ days = 9 } = {}) {
   return getJson(`/api/nfl/picks/scorecard?days=${days}`, null);
 }

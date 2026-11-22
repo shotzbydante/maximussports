@@ -106,7 +106,7 @@ export default function HomeGameTile({ game }) {
           <span>{market.pregameTotal != null ? <>Total <b>{market.pregameTotal}</b></> : 'No total posted'}</span>
         )}
         {showScore ? (
-          spread != null && <span>Closed <b><TeamTag slug={home?.slug} logo={home?.logo} label="abbrev" size={14} /> {fmtLine(spread)}</b></span>
+          spread != null && <span>{gs.isLive ? 'Live line' : 'Closed'} <b><TeamTag slug={home?.slug} logo={home?.logo} label="abbrev" size={14} /> {fmtLine(spread)}</b></span>
         ) : (
           model.fairSpread != null && (
             <span>Ratings <b><TeamTag slug={home?.slug} logo={home?.logo} label="abbrev" size={14} /> {fmtLine(Math.round(model.fairSpread * 10) / 10)}</b>{model.fairTotal != null ? <>, <b>{model.fairTotal.toFixed(1)}</b></> : null}</span>
