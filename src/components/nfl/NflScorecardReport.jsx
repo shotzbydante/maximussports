@@ -173,6 +173,9 @@ export default function NflScorecardReport({ variant = 'full', insightsHref = '/
                             <td>
                               <strong>{p.label}</strong>
                               {p.why && <span className={s.pickWhy}>{/[.!?]$/.test(p.why) ? p.why : `${p.why}.`}</span>}
+                              {p.review?.note && (
+                                <span className={s.pickReview}><span className={s.pickReviewTag}>What happened</span> {p.review.note}</span>
+                              )}
                             </td>
                             <td className={s.hideSm}>{MARKET_LABEL[p.market] || p.market}</td>
                             <td className={s.hideSm}>

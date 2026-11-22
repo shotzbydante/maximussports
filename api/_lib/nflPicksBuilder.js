@@ -11,8 +11,9 @@
  *   2. lays stored locks over the board, so a pick published earlier shows
  *      the ticket it was published at
  *   3. in production, locks any newly recommended pick, locks the model's
- *      lean on each remaining market a day before kickoff, and snapshots
- *      every game's consensus line (the last one before kickoff is the close)
+ *      lean on each remaining market a day before kickoff, snapshots every
+ *      game's consensus line (the last one before kickoff is the close) and
+ *      saves what the engine believed about each game for the post-game review
  *
  * Fallback precedence: fresh build, then the KV latest snapshot (15 min),
  * then the KV last-known-good snapshot (72 h), then an empty board.
@@ -28,6 +29,7 @@ import { getNflConfig } from './nflConfig.js';
 import { getJson, setJson } from '../_globalCache.js';
 import { getLatestGradedScorecard } from './picksHistory.js';
 import { getLockedPicks, lockPicks, saveLineSnapshots } from './nflPicksStore.js';
+import { saveGameContexts } from './nflReview.js';
 import { applyLocks } from '../../src/features/nfl/picks/v2/locks.js';
 import {
   buildNflPicksV2, NFL_DEFAULT_CONFIG, NFL_MODEL_VERSION,
@@ -105,6 +107,8 @@ async function persist(board, lockedRows, season) {
     lastSnapshotAt = now.getTime();
     result.snapshots = await saveLineSnapshots(board.byGame, { now, week: board.week, season });
     if (!result.snapshots.ok) lastSnapshotAt = 0;
+    // What the engine believed about each game, for the post-game review.
+    result.contexts = await saveGameContexts(board.byGame, { now }).catch(() => ({ saved: 0 }));
   }
   return result;
 }
