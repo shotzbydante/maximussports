@@ -19,6 +19,18 @@ import { buildFinalsIndex, resolveFinalForPick } from './finalsIndex.js';
 const resultOf = (p) => (Array.isArray(p.pick_results) ? p.pick_results[0] : p.pick_results);
 
 /**
+ * Whether a pick's closing-line value can be worked out yet. The closing
+ * line is the last snapshot before kickoff, so it does not exist until the
+ * game has started: a slate graded while a later game is still to come
+ * must leave that game's picks alone. Exported for tests.
+ */
+export function closingValueDue(pick, now = Date.now()) {
+  if (!pick?.locked_at || pick.clv_ev != null) return false;
+  const kick = Date.parse(pick.start_time || '');
+  return Number.isFinite(kick) && kick <= now;
+}
+
+/**
  * @param {object} args
  * @param {string} args.slateDate 'YYYY-MM-DD' (kickoff date, Eastern)
  * @param {boolean} [args.force]  re-grade picks that already have a result
@@ -77,7 +89,7 @@ export async function settleNflSlate({ slateDate, force = false, tag = 'nflSettl
   // snapshot before kickoff. Only locked picks have a real ticket.
   let clvSaved = 0;
   try {
-    const locked = picks.filter((p) => p.locked_at && p.clv_ev == null);
+    const locked = picks.filter((p) => closingValueDue(p));
     const snaps = await getLineSnapshots(locked.map((p) => p.game_id));
     const updates = [];
     for (const p of locked) {

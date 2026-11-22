@@ -240,6 +240,26 @@ describe('reviewPick', () => {
     expect(r.note).toMatch(/ARI had the better of the play\. KC won the turnovers 3-0, usually worth about 13 points\./);
   });
 
+  it('leads with the biggest swing, and does not put a number on level yardage', () => {
+    // Carolina 35, Baltimore 33: 43 yards between them, three turnovers and a return score.
+    const f = gameFacts(summary({
+      home: { id: '12', abbr: 'CAR', yards: 378, turnovers: 0, redZone: '3-4', defTds: 1 },
+      away: { id: '22', abbr: 'BAL', yards: 421, turnovers: 3, redZone: '3-5', defTds: 0 },
+      scoringPlays: [{ type: { text: 'Fumble Return Touchdown' }, team: { id: '12' } }],
+    }));
+    const lean = (over) => pick({ market_type: 'moneyline', selection_side: 'away', line_value: null, price_american: 127, tier: 'tracking', rationale: { pickRole: 'tracking' }, payload: null, expected_value: '-0.04', ...over });
+    const r = reviewPick({ pick: lean(), result: result('lost', 35, 33), facts: f, teams: { home: 'CAR', away: 'BAL' } });
+    expect(r.factors.map((x) => x.key)).toEqual(['turnovers', 'return_tds', 'yards']);
+    expect(r.note).toBe('Lost by 2 points: inside a field goal. CAR won the turnovers 3-0, usually worth about 13 points.');
+
+    const level = gameFacts(summary({
+      home: { id: '12', abbr: 'CHI', yards: 311, turnovers: 1, redZone: '2-3', defTds: 0 },
+      away: { id: '22', abbr: 'NO', yards: 307, turnovers: 1, redZone: '1-2', defTds: 0 },
+    }));
+    const r2 = reviewPick({ pick: lean({ price_american: 520 }), result: result('lost', 21, 13), facts: level, teams: { home: 'CHI', away: 'NO' } });
+    expect(r2.note).toBe('Lost by 8 points. The yardage was about even.');
+  });
+
   it('still reviews with no box score and no closing line', () => {
     const r = reviewPick({ pick: pick({ expected_value: null }), result: result('lost', 30, 20) });
     expect(r.play).toBeNull();
