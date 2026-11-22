@@ -102,7 +102,7 @@ export async function getLockedPicks(gameIds = []) {
   try {
     const { data, error } = await sb
       .from('picks')
-      .select('id, game_id, market_type, selection_side, line_value, price_american, tier, book, locked_at, expected_value, payload, slate_date, start_time')
+      .select('id, game_id, market_type, selection_side, line_value, price_american, tier, book, locked_at, expected_value, bet_score, rationale, payload, slate_date, start_time, created_at')
       .eq('sport', 'nfl')
       .in('game_id', ids)
       .not('locked_at', 'is', null);
