@@ -80,44 +80,53 @@ describe('buildNflPicksV2', () => {
     expect(out.trackingPicks).toHaveLength(3);
     for (const p of out.trackingPicks) {
       expect(p).toMatchObject({ tier: 'tracking', pickRole: 'tracking', isLowConviction: true, lowSignalReason: 'no_price_edge' });
-      expect(p.modelSource).toBe(p.market.type === 'moneyline' ? 'nfl_v2_winner' : 'nfl_v2_lean');
+      expect(p.modelSource).toBe(p.market.type === 'moneyline' ? 'nfl_v2_ml_value' : 'nfl_v2_lean');
       expect(p.conviction.score).toBeLessThan(50);
       expect(p.ev).toBeLessThan(0);                  // the consensus price always costs the vig
       expect(p.rationale.bullets[0]).toContain('Tracked, not recommended');
     }
   });
 
-  it('calls the likelier winner on the moneyline, even when the spread lean is the underdog', () => {
-    // The market has Buffalo -6 at home; the ratings have it closer, so the spread lean is SF +6.
-    const g = withEngine(game('g8', SF, BUF, { market: { books: books({}, { spread: -6, ml: [-260, 215] }) } }));
-    const { runline, moneyline } = build([g]).byGame[0].picks;
-    expect(runline.selection).toMatchObject({ side: 'away', team: 'SF' });
-    expect(moneyline.selection).toMatchObject({ side: 'home', team: 'BUF', label: 'BUF -260' });
-    expect(moneyline).toMatchObject({ pickRole: 'tracking', tier: 'tracking', lowSignalReason: 'no_price_edge', modelSource: 'nfl_v2_winner' });
-    expect(moneyline.modelProb).toBeGreaterThan(0.5);
-    expect(moneyline.rationale.headline).toMatch(/^Winner call: .* to win\./);
-    expect(moneyline.whyShort).toMatch(/^Lean: 6 books give BUF \d+% to win; the ratings make it BUF by \d+\.\d; -260 needs \d+%$/);
-    expect(moneyline.why).toContain('chance to win');
+  it('judges the moneyline on value, and says so when no price has any', () => {
+    const ml = build([flat()]).byGame[0].picks.moneyline;
+    expect(ml).toMatchObject({ pickRole: 'tracking', tier: 'tracking', lowSignalReason: 'no_price_edge', modelSource: 'nfl_v2_ml_value' });
+    expect(ml.ev).toBeLessThan(0);
+    expect(ml.conviction.score).toBe(25);
+    expect(ml.rationale.headline).toMatch(/^No moneyline value: /);
+    expect(ml.whyShort).toMatch(/^No value: best price \w+ [+-]\d+ at \w+, fair [+-]\d+ \(-\d+\.\d%\)$/);
+    expect(ml.why).toMatch(/^Not a bet: no moneyline value\./);
   });
 
-  it('says so when the ratings disagree with the winner call', () => {
-    // The market makes Las Vegas a small home favorite; the ratings prefer Kansas City.
-    const g = withEngine(game('g9', KC, LV, { market: { books: books({}, { spread: -1.5, ml: [-125, 105] }) } }));
-    const ml = build([g]).byGame[0].picks.moneyline;
-    expect(ml.selection).toMatchObject({ side: 'home', team: 'LV' });
-    expect(ml.whyShort).toMatch(/the ratings lean KC by \d+\.\d/);
+  it('tracks the side with the best price against fair, whichever side the spread lean is on', () => {
+    // The fair road price here is +151. BetMGM pays +153: better than fair, under the bar.
+    const g = withEngine(game('g8', LV, KC, { market: { books: books({ betmgm: { ml: [-160, 153] } }) } }));
+    const { moneyline } = build([g]).byGame[0].picks;
+    expect(moneyline.selection).toMatchObject({ side: 'away', team: 'LV', label: 'LV +153' });
+    expect(moneyline).toMatchObject({ pickRole: 'tracking', lowSignalReason: 'thin_value', modelSource: 'nfl_v2_ml_value', book: { key: 'betmgm' } });
+    expect(moneyline.ev).toBeGreaterThanOrEqual(NFL_DEFAULT_CONFIG.evThresholds.thin);
+    expect(moneyline.ev).toBeLessThan(NFL_DEFAULT_CONFIG.evThresholds.tier3);
+    expect(moneyline.conviction.score).toBeGreaterThan(25);
+    expect(moneyline.conviction.score).toBeLessThan(50);
+    expect(moneyline.whyShort).toMatch(/^Thin value\. \w+ pays \+153 on LV; the fair price is \+151, \+\d\.\d%$/);
+    expect(moneyline.why).toContain('under the 1.5% we need to recommend a bet');
   });
 
-  it('scores a winner call by how likely the team is to win, and never as high as a recommended pick', () => {
-    const at = (ml, spread) => build([withEngine(game('g10', SF, BUF, { market: { books: books({}, { spread, ml }) } }))]).byGame[0].picks.moneyline;
-    const small = at([-130, 110], -2);
-    const big = at([-400, 320], -8.5);
-    expect(big.modelProb).toBeGreaterThan(small.modelProb);
-    expect(big.conviction.score).toBeGreaterThan(small.conviction.score);
-    for (const p of [small, big]) {
-      expect(p.conviction.score).toBeGreaterThanOrEqual(25);
-      expect(p.conviction.score).toBeLessThan(50);
+  it('does not call a rounding-sized edge value', () => {
+    // +148 is short of the fair +151; +151 matches it and is worth a tenth of a percent.
+    const at = (price) => build([withEngine(game('g9', LV, KC, { market: { books: books({ betmgm: { ml: [-160, price] } }) } }))]).byGame[0].picks.moneyline;
+    for (const p of [at(148), at(151)]) {
+      expect(p.ev).toBeLessThan(NFL_DEFAULT_CONFIG.evThresholds.thin);
+      expect(p.lowSignalReason).toBe('no_price_edge');
     }
+  });
+
+  it('scores a moneyline by its value, and never as high as a recommended pick', () => {
+    const at = (price) => build([withEngine(game('g10', LV, KC, { market: { books: books({ betmgm: { ml: [-160, price] } }) } }))]).byGame[0].picks.moneyline;
+    const thin = at(152);
+    const thicker = at(154);
+    expect(thicker.ev).toBeGreaterThan(thin.ev);
+    expect(thicker.conviction.score).toBeGreaterThan(thin.conviction.score);
+    expect(thicker.conviction.score).toBeLessThan(50);
   });
 
   it('leans the way the ratings point: the stronger road team when the market has it too short', () => {

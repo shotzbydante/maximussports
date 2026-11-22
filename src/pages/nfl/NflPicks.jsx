@@ -45,8 +45,8 @@ export default function NflPicks() {
           <p className={h.prose}>
             Maximus also rates every team from points and play-by-play efficiency, adjusts for who starts at
             quarterback, and projects each game. Over 4,096 games since 2011 those projections have not beaten the
-            closing line, so they are shown as leans and graded, never recommended. The moneyline call on each game
-            is simply the team the market’s fair price makes more likely to win. Schedule spots, coaching
+            closing line, so they are shown as leans and graded, never recommended. A moneyline is judged on value
+            alone, and is shown only when a book’s price pays more than the fair price. Schedule spots, coaching
             matchups and unit grades appear with their historical record against the spread.
           </p>
           <p className={h.prose}>

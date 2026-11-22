@@ -162,7 +162,13 @@ export default function HomePicks({ variant = 'home', games: gamesProp, weekLabe
           {board === undefined ? <div className={h.skeleton} aria-busy="true" /> : (cards || nothingYet)}
         </section>
 
-        {total > 0 && <HomeEveryGame picks={board.fullSlatePicks || [...recommended, ...leans]} />}
+        {total > 0 && (
+          <HomeEveryGame
+            picks={board.fullSlatePicks || [...recommended, ...leans]}
+            valueFloor={board.meta?.model?.evThresholds?.thin}
+            recommendBar={board.meta?.model?.evThresholds?.tier3}
+          />
+        )}
       </>
     );
   }

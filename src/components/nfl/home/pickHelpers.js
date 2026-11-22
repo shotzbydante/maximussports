@@ -17,6 +17,11 @@ export const HELD_BACK = {
   data_gap: 'Thin data',
 };
 
+/** A price that beats fair, but by less than the bar for a recommendation. Playable, so not a hold. */
+export const THIN_VALUE = 'thin_value';
+/** Expected value below this is rounding, not value. Mirrors the engine's `evThresholds.thin`. */
+export const VALUE_FLOOR = 0.005;
+
 export const score = (p) => p?.conviction?.score ?? Math.round((p?.betScore?.total || 0) * 100);
 export const isRecommended = (p) => p?.pickRole === 'hero';
 
@@ -51,9 +56,37 @@ export function oneLiner(p) {
   const raw = String(whyShortOf(p) || '')
     .replace(/^Lean:\s*/i, '')
     .replace(/^(Tracked|Held),[^.]*\.\s*/i, '')
+    .replace(/^Thin value\.\s*/i, '')
     .replace(/^Opens three days out\.\s*/i, '');
   if (!raw) return '';
   return sentence(raw.charAt(0).toUpperCase() + raw.slice(1));
+}
+
+/** "+0.6%" */
+export const evText = (ev) => (typeof ev === 'number' ? `${ev >= 0 ? '+' : ''}${(ev * 100).toFixed(1)}%` : '');
+
+/**
+ * Whether a moneyline is worth showing. A moneyline is judged on value
+ * alone: a book's price has to pay more than the fair price by at least
+ * the floor. Anything else is not a call, it is just a price.
+ */
+export function moneylineHasValue(p, floor = VALUE_FLOOR) {
+  if (p?.market?.type !== 'moneyline') return false;
+  return isRecommended(p) || (typeof p.ev === 'number' && p.ev >= floor);
+}
+
+/** Moneylines with value, best value first. Often empty: most weeks no price beats fair. */
+export function rankMoneylineValue(picks, floor = VALUE_FLOOR) {
+  return (picks || [])
+    .filter((p) => moneylineHasValue(p, floor))
+    .sort((a, b) => (isRecommended(b) - isRecommended(a)) || ((b.ev || 0) - (a.ev || 0)));
+}
+
+/** The moneyline that comes closest to value, for saying how far off the board is. */
+export function closestMoneyline(picks) {
+  return (picks || [])
+    .filter((p) => p?.market?.type === 'moneyline' && typeof p.ev === 'number')
+    .sort((a, b) => b.ev - a.ev)[0] || null;
 }
 
 /** One market's decision for every game, strongest first. */
@@ -81,11 +114,12 @@ function strongerForGame(a, b) {
 /**
  * The single strongest decision for each game, whichever market it is in,
  * with the games then ranked strongest first. A recommended pick always
- * represents its game.
+ * represents its game. A moneyline is only in the running when it has value.
  */
-export function bestPerGame(picks) {
+export function bestPerGame(picks, floor = VALUE_FLOOR) {
   const best = new Map();
   for (const p of picks || []) {
+    if (p?.market?.type === 'moneyline' && !moneylineHasValue(p, floor)) continue;
     const key = String(p.gameId);
     const cur = best.get(key);
     if (!cur || strongerForGame(p, cur) < 0) best.set(key, p);

@@ -18,9 +18,11 @@ The three tracking leans answer different questions (model version 2.2.0, Nov 22
 
 - **Spread lean**: the side the ratings prefer against the market line, scored by the size of the gap.
 - **Total lean**: over or under, by the ratings' projected total against the market total.
-- **Moneyline lean, the winner call**: the team the market's fair price makes more likely to win, scored by that win chance (a coin flip scores 25, a 70% favorite 37, 90% or better 49). It no longer follows the spread lean's side. Before 2.2.0 it did, which made it the underdog in most games: in Week 11 all twelve moneyline leans had negative expected value and the top-ranked one was a +980 long shot. Covering and winning are different questions, so the spread lean and the winner call can now name different teams.
+- **Moneyline**: judged on value alone. Of the two sides, the engine tracks the one whose best clean price pays the most against the market's fair price, and `ev` says whether there is any value in it. At +1.5% or more it is a recommended pick like any other. From +0.5% to +1.5% it is tracked as **thin value** (`lowSignalReason: 'thin_value'`): better than fair, under the bar. Below +0.5% (`evThresholds.thin`) an edge is rounding and the pick is recorded as no value. It no longer follows the spread lean's side. Before 2.2.0 it did, which made it the underdog in most games whatever the price: in Week 11 all twelve moneyline leans had negative expected value and the top-ranked one was a +980 long shot priced at -21%.
 
-Every lean scores between 25 and 49, so no lean can outrank a recommended pick. A winner call priced outside -450/+400 is still held as "extreme price".
+The picks page lists a moneyline only when it has value (recommended, or +0.5% and up), ranked by expected value, and says so when none does. In Week 11 none did: the closest was KC -1250 at +0.1%.
+
+Every tracking pick scores between 25 and 49, so none can outrank a recommended pick. A moneyline priced outside -450/+400 is still held as "extreme price", value or not.
 
 ## Why the ratings do not move the fair number
 
