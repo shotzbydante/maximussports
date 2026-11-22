@@ -97,10 +97,18 @@ export function parseInjuries(json) {
  * absences are weeks old and already in both the results and the line.
  */
 export function summarizeTeamInjuries(list = []) {
-  const summary = { out: 0, doubtful: 0, questionable: 0, ir: 0, other: 0, total: list.length, quarterbacks: [] };
+  const summary = {
+    out: 0, doubtful: 0, questionable: 0, ir: 0, other: 0, total: list.length,
+    quarterbacks: [],
+    // Every listed quarterback with a raw status key. The picks engine uses
+    // this to tell a starter from a backup and "out" from "in doubt".
+    quarterbackStatuses: [],
+  };
   for (const p of list) {
     if (summary[p.status] != null) summary[p.status] += 1;
-    if (p.position === 'QB' && (p.status === 'out' || p.status === 'doubtful')) {
+    if (p.position !== 'QB') continue;
+    summary.quarterbackStatuses.push({ name: p.name, status: p.status });
+    if (p.status === 'out' || p.status === 'doubtful') {
       summary.quarterbacks.push({ name: p.name, status: p.statusLabel });
     }
   }
@@ -143,11 +151,17 @@ export async function getNflInjuries() {
 /** Attach `{ away, home }` injury summaries to each game that has not finished. */
 export function attachInjuries(games, injuries) {
   if (!injuries?.teams || Object.keys(injuries.teams).length === 0) return games;
+  // `ok` tells the picks engine the report loaded. A team with nobody
+  // listed gets an empty summary, not null: "no injuries" and "no report"
+  // must not look the same, because a missing report holds picks.
+  const side = (slug) => (slug ? summarizeTeamInjuries(injuries.teams[slug] || []) : null);
   return games.map((g) => {
     if (g?.gameState?.isFinal || g?.status === 'final') return g;
-    const side = (slug) => (slug && injuries.teams[slug] ? summarizeTeamInjuries(injuries.teams[slug]) : null);
     const away = side(g.teams?.away?.slug);
     const home = side(g.teams?.home?.slug);
-    return away || home ? { ...g, injuries: { away, home } } : g;
+    return {
+      ...g,
+      injuries: { away, home, ok: true, stale: !!injuries.stale, generatedAt: injuries.generatedAt || null },
+    };
   });
 }

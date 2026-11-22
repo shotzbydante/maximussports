@@ -48,7 +48,7 @@ export default function PickCardV2({ pick, tier, siblings = [], relativeStrength
   const time = fmtTime(pick.matchup?.startTime);
   const label = pick.selection?.label || pick.pick?.label || '';
   const headline = pick.rationale?.headline || pick.pick?.explanation || '';
-  const bullets = (pick.rationale?.bullets || []).slice(0, 2);
+  const allBullets = pick.rationale?.bullets || [];
 
   const conviction = resolveConviction(pick);           // null when unknown
   const betScore = resolveBetScoreDisplay(pick);        // null when unknown
@@ -57,6 +57,11 @@ export default function PickCardV2({ pick, tier, siblings = [], relativeStrength
   const confidencePct = components?.modelConfidence != null
     ? Math.round(components.modelConfidence * 100) : null;
   const tierLabel = conviction != null ? convictionTier(conviction) : null;
+  // NFL picks are recommended on price: show expected value, the fair hit
+  // rate and the book, not a model-confidence bar that would mean nothing.
+  const dm = pick.displayMetrics || null;
+  const priced = pick.sport === 'nfl' && !!dm?.edgeLabel;
+  const bulletLimit = priced ? 4 : 2;
 
   const tierClass =
     tier === 'tier1' ? styles.cardTier1
@@ -129,13 +134,21 @@ export default function PickCardV2({ pick, tier, siblings = [], relativeStrength
       <div className={`${styles.detail} ${expanded ? styles.detailOpen : styles.detailClosed}`}>
         <div className={styles.detailInner}>
 
-          <div className={styles.metrics}>
-            {edgePct != null && <Metric label="Edge" value={edgePct} />}
-            {confidencePct != null && <Metric label="Confidence" value={`${confidencePct}%`} />}
-            {betScore != null && <Metric label="Bet Score" value={betScore} emphasize />}
-          </div>
+          {priced ? (
+            <div className={styles.metrics}>
+              {dm.edgeValue != null && <Metric label={dm.edgeLabel} value={dm.edgeValue} emphasize />}
+              {dm.hitProbabilityValue != null && <Metric label={dm.hitProbabilityLabel} value={dm.hitProbabilityValue} />}
+              {dm.signalQualityValue != null && <Metric label={dm.signalQualityLabel} value={dm.signalQualityValue} />}
+            </div>
+          ) : (
+            <div className={styles.metrics}>
+              {edgePct != null && <Metric label="Edge" value={edgePct} />}
+              {confidencePct != null && <Metric label="Confidence" value={`${confidencePct}%`} />}
+              {betScore != null && <Metric label="Bet Score" value={betScore} emphasize />}
+            </div>
+          )}
 
-          {components && tier !== 'tier3' && (
+          {components && tier !== 'tier3' && !priced && (
             <div className={styles.componentBar}>
               <span className={styles.componentTitle}>Score Composition</span>
               <div className={styles.componentStrip}>
@@ -146,9 +159,9 @@ export default function PickCardV2({ pick, tier, siblings = [], relativeStrength
             </div>
           )}
 
-          {bullets.length > 0 && (
+          {allBullets.length > 0 && (
             <ul className={styles.bullets}>
-              {bullets.map((b, i) => <li key={i}>{b}</li>)}
+              {allBullets.slice(0, bulletLimit).map((b, i) => <li key={i}>{b}</li>)}
             </ul>
           )}
 

@@ -43,6 +43,40 @@ function RecordStat({ label, record, sub }) {
   );
 }
 
+function signed(v, digits = 1, suffix = '') {
+  if (v == null || !Number.isFinite(Number(v))) return null;
+  const n = Number(v);
+  return `${n > 0 ? '+' : ''}${n.toFixed(digits)}${suffix}`;
+}
+function priceText(v) {
+  if (v == null || !Number.isFinite(Number(v))) return '';
+  return Number(v) > 0 ? `+${v}` : `${v}`;
+}
+
+/** Units and closing-line value for one role. Hidden until something is graded. */
+function PerformanceStat({ label, perf, sub }) {
+  const gradedCount = (perf?.record?.won || 0) + (perf?.record?.lost || 0) + (perf?.record?.push || 0);
+  if (!perf || gradedCount === 0) {
+    return (
+      <div className={s.stat}>
+        <span className={s.statLabel}>{label}</span>
+        <span className={s.statValue}>—</span>
+        <span className={s.statSub}>{sub || 'Nothing graded yet'}</span>
+      </div>
+    );
+  }
+  return (
+    <div className={s.stat}>
+      <span className={s.statLabel}>{label}</span>
+      <span className={s.statValue}>{signed(perf.units, 2, 'u')}</span>
+      <span className={s.statSub}>
+        {perf.roiPct != null ? `${signed(perf.roiPct, 1, '%')} return` : ''}
+        {perf.clvEvPct != null ? ` · ${signed(perf.clvEvPct, 1, '%')} vs the close (${perf.clvSample})` : ''}
+      </span>
+    </div>
+  );
+}
+
 function StatusPill({ pick }) {
   const cls = pick.status === 'won' ? s.pillWin : pick.status === 'lost' ? s.pillLoss : '';
   const text = pick.status === 'won' ? 'Won' : pick.status === 'lost' ? 'Lost' : pick.status === 'push' ? 'Push' : pick.status === 'void' ? 'Void' : 'Pending';
@@ -76,7 +110,7 @@ export default function NflScorecardReport({ variant = 'full', insightsHref = '/
         <div>
           <h2 className={s.sectionTitle}>Model performance</h2>
           <p className={s.sectionSub}>
-            Every pick is recorded before kickoff and graded against the final score.
+            Every pick is locked before kickoff and graded against the final score and the closing line.
           </p>
         </div>
         {variant === 'embedded' && <Link to={insightsHref} className={s.sectionLink}>Every graded pick →</Link>}
@@ -97,6 +131,8 @@ export default function NflScorecardReport({ variant = 'full', insightsHref = '/
             <RecordStat label="Moneyline" record={data.byMarket?.moneyline} />
             <RecordStat label="Total" record={data.byMarket?.total} />
             <RecordStat label="Season" record={data.season?.record} sub="Posts after the first settled slate" />
+            <PerformanceStat label="Recommended units" perf={data.performance?.hero} sub="One unit per pick at the locked price" />
+            <PerformanceStat label="Model leans units" perf={data.performance?.tracking} sub="Tracked, never recommended" />
           </div>
 
           {variant === 'full' && hasPicks && (
@@ -118,8 +154,10 @@ export default function NflScorecardReport({ variant = 'full', insightsHref = '/
                           <th>Pick</th>
                           <th className={s.hideSm}>Market</th>
                           <th className={s.hideSm}>Type</th>
-                          <th className={s.right}>Conviction</th>
+                          <th className={`${s.right} ${s.hideSm}`}>Price</th>
+                          <th className={`${s.right} ${s.hideSm}`}>Vs close</th>
                           <th className={s.hideSm}>Final</th>
+                          <th className={`${s.right} ${s.hideSm}`}>Units</th>
                           <th className={s.right}>Result</th>
                         </tr>
                       </thead>
@@ -139,8 +177,12 @@ export default function NflScorecardReport({ variant = 'full', insightsHref = '/
                                 ? <span className={`${s.pill} ${s.pillAccent}`}>Recommended</span>
                                 : <span className={s.muted}>Tracking</span>}
                             </td>
-                            <td className={`${s.right} ${s.num}`}>{p.conviction}</td>
+                            <td className={`${s.right} ${s.hideSm} ${s.num}`} title={p.book || undefined}>{priceText(p.price) || '—'}</td>
+                            <td className={`${s.right} ${s.hideSm} ${s.num}`} title="Expected value of this ticket against the closing consensus">
+                              {signed(p.clvEv != null ? p.clvEv * 100 : null, 1, '%') || '—'}
+                            </td>
                             <td className={`${s.hideSm} ${s.num}`}>{p.finalScore || '—'}</td>
+                            <td className={`${s.right} ${s.hideSm} ${s.num}`}>{signed(p.units, 2) || '—'}</td>
                             <td className={s.right}><StatusPill pick={p} /></td>
                           </tr>
                         ))}
@@ -153,8 +195,10 @@ export default function NflScorecardReport({ variant = 'full', insightsHref = '/
           )}
 
           <p className={s.note}>
-            Recommended picks are the ones promoted to a tier. Tracking picks cover the rest of the slate so
-            the full record stays visible; they are not recommendations.
+            Recommended picks are locked at a line, price and book when published; that ticket is what is graded.
+            Tracking picks are the model’s lean on every other market, locked a day before kickoff; they are not
+            recommendations. “Vs close” is the value of the ticket against the closing line, the earliest sign of
+            whether picks are any good.
             {anyProvisional ? ' Results marked * are graded from the final score and become official overnight.' : ''}
           </p>
         </>

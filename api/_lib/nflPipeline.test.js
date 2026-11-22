@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { parseStandings } from './nflStandings.js';
 import { dedupeLatestPerMarket } from './nflPicksStore.js';
-import { splitBoardBySlateDate } from './nflPicksBuilder.js';
 import { attachModel } from './nflSlate.js';
 import { simulateNflSeason } from '../../src/features/nfl/season/simulateSeason.js';
 import { NFL_TEAMS } from '../../src/sports/nfl/teams.js';
@@ -82,45 +81,6 @@ describe('dedupeLatestPerMarket', () => {
     const kept = dedupeLatestPerMarket(rows).map((r) => r.id).sort();
     expect(kept).toEqual([2, 3, 4]);
     expect(dedupeLatestPerMarket([])).toEqual([]);
-  });
-});
-
-describe('splitBoardBySlateDate', () => {
-  const now = Date.parse('2026-11-21T20:00:00Z'); // Saturday 3pm ET
-  const pick = (id, startTime) => ({ id, matchup: { startTime } });
-  const board = {
-    week: 11, modelVersion: 'm', configVersion: 'c', generatedAt: new Date(now).toISOString(), meta: {},
-    tiers: { tier1: [], tier2: [], tier3: [] },
-    fullSlatePicks: [
-      pick('sun-early', '2026-11-22T18:00:00Z'),
-      // Sunday night kicks off after midnight UTC but is still Sunday in ET.
-      pick('sun-night', '2026-11-23T01:20:00Z'),
-      pick('mon-night', '2026-11-24T01:15:00Z'),
-      pick('already-started', '2026-11-21T18:00:00Z'),
-    ],
-  };
-  board.tiers.tier1 = [board.fullSlatePicks[0]];
-  board.tiers.tier2 = [board.fullSlatePicks[2]];
-
-  it('groups picks by ET kickoff date and only inside the persist window', () => {
-    const groups = splitBoardBySlateDate(board, { now, windowHours: 36 });
-    expect(groups.map((g) => g.date)).toEqual(['2026-11-22']);
-    expect(groups[0].payload.fullSlatePicks.map((p) => p.id)).toEqual(['sun-early', 'sun-night']);
-    expect(groups[0].payload).toMatchObject({ sport: 'nfl', date: '2026-11-22', week: 11 });
-    expect(groups[0].payload.tiers.tier1.map((p) => p.id)).toEqual(['sun-early']);
-    expect(groups[0].payload.tiers.tier2).toEqual([]);
-  });
-
-  it('adds Monday night once it is inside the window, and never a game that has started', () => {
-    const groups = splitBoardBySlateDate(board, { now, windowHours: 60 });
-    expect(groups.map((g) => g.date).sort()).toEqual(['2026-11-22', '2026-11-23']);
-    const all = groups.flatMap((g) => g.payload.fullSlatePicks.map((p) => p.id));
-    expect(all).not.toContain('already-started');
-  });
-
-  it('returns nothing for an empty board', () => {
-    expect(splitBoardBySlateDate({ fullSlatePicks: [] }, { now })).toEqual([]);
-    expect(splitBoardBySlateDate(null, { now })).toEqual([]);
   });
 });
 

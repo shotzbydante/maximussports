@@ -15,6 +15,7 @@ import { getNflPicks } from '../../_lib/nflPicksStore.js';
 import { getSupabaseAdmin } from '../../_lib/supabaseAdmin.js';
 import { yesterdayET } from '../../_lib/dateWindows.js';
 import { requireAdminOrCron } from '../../_lib/requireAuth.js';
+import { summarizePerformance } from '../../../src/features/nfl/picks/v2/performance.js';
 
 export default async function handler(req, res) {
   if (!(await requireAdminOrCron(req, res))) return;
@@ -40,8 +41,17 @@ export default async function handler(req, res) {
       recent = data || [];
     } catch { /* streak context is optional */ }
 
-    const row = buildScorecard({ sport: 'nfl', slateDate, picks, recentRecords: recent });
-    const saved = await upsertScorecard(row);
+    const base = buildScorecard({ sport: 'nfl', slateDate, picks, recentRecords: recent });
+    // Units and closing-line value by role, so the season view can add
+    // them up without re-reading every pick.
+    const row = { ...base, performance: summarizePerformance(picks) };
+    let saved = await upsertScorecard(row);
+    if (!saved) {
+      // Before docs/nfl-picks-v2-migration.sql the table has neither
+      // `performance` nor `by_pick_role`; save the record alone.
+      const { performance, by_pick_role, ...legacy } = row; // eslint-disable-line no-unused-vars
+      saved = await upsertScorecard(legacy);
+    }
     if (!saved) console.error(`[cron/nfl/build-scorecard] scorecard upsert returned null for ${slateDate}`);
 
     console.log(

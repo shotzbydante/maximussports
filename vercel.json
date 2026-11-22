@@ -22,6 +22,12 @@
     "api/email/global-send.js": {
       "maxDuration": 120
     },
+    "api/nfl/picks/built.js": {
+      "maxDuration": 60
+    },
+    "api/cron/nfl/build-picks.js": {
+      "maxDuration": 60
+    },
     "api/user/followers.js": {
       "maxDuration": 30
     },
@@ -92,6 +98,7 @@
     {"path": "/api/cron/nba/build-scorecard",                      "schedule": "45 8 * * *"},
     {"path": "/api/cron/nba/run-audit",                            "schedule": "0 9 * * *"},
     {"path": "/api/cron/nfl/settle-yesterday",                     "schedule": "30 9 * * *"},
-    {"path": "/api/cron/nfl/build-scorecard",                      "schedule": "45 9 * * *"}
+    {"path": "/api/cron/nfl/build-scorecard",                      "schedule": "45 9 * * *"},
+    {"path": "/api/cron/nfl/build-picks",                          "schedule": "*/10 * * * *"}
   ]
 }
