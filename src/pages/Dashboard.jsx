@@ -57,6 +57,9 @@ import { fetchMlbChampionshipOdds } from '../api/mlbChampionshipOdds';
 import { useNflStudioData } from '../features/nfl/contentStudio/useNflStudioData';
 import { normalizeNflStudioPayload, nflSectionReady, nflSlideCount } from '../features/nfl/contentStudio/normalizeNflStudioPayload';
 import { buildNflCaption } from '../features/nfl/contentStudio/buildNflCaption';
+import { NFL_EXPLAINERS } from '../features/nfl/contentStudio/explainers';
+import { todaysNflPlan } from '../features/nfl/contentStudio/weeklyPlan';
+import { toStoryDataUrl } from '../components/dashboard/utils/storyExport';
 import styles from './Dashboard.module.css';
 
 const isDev = typeof import.meta !== 'undefined' && import.meta.env?.DEV;
@@ -106,7 +109,10 @@ const NFL_SECTIONS = [
   { id: 'nfl-slate',    label: 'Slate Briefing',    icon: '🏈',  requiredCap: null },
   { id: 'nfl-picks',    label: "Maximus's Picks",    icon: '📈',  requiredCap: 'picks' },
   { id: 'nfl-game',     label: 'Game Breakdown',     icon: '📊',  requiredCap: 'games' },
+  { id: 'nfl-team',     label: 'Team Card',          icon: '🛡️',  requiredCap: 'teamIntel' },
+  { id: 'nfl-review',   label: 'What We Got Wrong',  icon: '🔍',  requiredCap: 'picks' },
   { id: 'nfl-receipts', label: 'Receipts',           icon: '🧾',  requiredCap: 'picks' },
+  { id: 'nfl-explain',  label: 'Explainers',         icon: '🎓',  requiredCap: null },
   { id: 'videos',       label: 'Videos',             icon: '🎬',  requiredCap: null,  shared: true },
 ];
 
@@ -253,6 +259,8 @@ export default function Dashboard() {
   // ── NFL Content Studio state (data hook + normalized payload live below) ──
   const isNflStudio = studioWorkspaceId === WorkspaceId.NFL;
   const [nflSelectedGameId, setNflSelectedGameId] = useState(null);
+  const [nflSelectedTeamSlug, setNflSelectedTeamSlug] = useState(null);
+  const [nflExplainerId, setNflExplainerId] = useState(NFL_EXPLAINERS[0].id);
 
   // ── Gemini image generation state (MLB only) ───────────
   const [geminiImage, setGeminiImage] = useState(null);       // { base64, mimeType }
@@ -875,12 +883,14 @@ export default function Dashboard() {
       season: nflData.season,
       scorecard: nflData.scorecard,
       selectedGameId: nflSelectedGameId,
+      selectedTeamSlug: nflSelectedTeamSlug,
+      explainerId: nflExplainerId,
     });
-  }, [nflActive, activeSection, nflData, nflSelectedGameId]);
+  }, [nflActive, activeSection, nflData, nflSelectedGameId, nflSelectedTeamSlug, nflExplainerId]);
   const nflReady = useMemo(() => nflSectionReady(nflPayload), [nflPayload]);
 
   // ── compute caption ───────────────────────────────────────
-  const caption = useMemo(() => {
+  const baseCaption = useMemo(() => {
     // ── NFL caption: built from the same payload the slides render ──
     if (nflActive) {
       if (!nflPayload || !nflReady.ok) return null;
@@ -1058,6 +1068,37 @@ export default function Dashboard() {
     return normalizeStudioCaption(cbbBuilt);
   }, [activeSection, dashData, teamPageData, selectedTeam, selectedGame, dailyStyleMode, dailyDigest, selectedConference, tournamentInsightsData, canonicalRenderedPicks, canonicalPicksGames, mlbActive, mlbGames, mlbLiveGames, mlbPicks, mlbLeaders, mlbStandings, mlbChampOdds, mlbSelectedTeam, mlbSelectedGame, mlbBriefing, mlbHeadlines, mlbLeague, mlbDivision, mlbGameAngle, nbaActive, nbaPicks, nbaLiveGames, nbaWindowGames, nbaLeaders, nbaStandings, nbaChampOdds, nbaNews, nbaSelectedTeam, nflActive, nflPayload, nflReady]);
 
+  // ── voice pass (Claude rewrites the wording; the facts are checked server-side) ──
+  const [voiced, setVoiced] = useState(null);      // { base, text }
+  const [voiceState, setVoiceState] = useState({ busy: false, error: null });
+  const caption = useMemo(() => {
+    if (!baseCaption || baseCaption.ok === false || !voiced || voiced.base !== baseCaption.shortCaption) return baseCaption;
+    const tags = (baseCaption.hashtags || []).join(' ');
+    return { ...baseCaption, shortCaption: voiced.text, fullCaption: tags ? `${voiced.text}\n\n${tags}` : voiced.text, voiced: true };
+  }, [baseCaption, voiced]);
+
+  const handleVoicePass = useCallback(async () => {
+    if (!baseCaption?.shortCaption) return;
+    setVoiceState({ busy: true, error: null });
+    try {
+      const res = await fetch('/api/content-studio/voice-pass', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
+        body: JSON.stringify({ caption: baseCaption.shortCaption }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (data.ok && data.caption) {
+        setVoiced({ base: baseCaption.shortCaption, text: data.caption });
+        setCaptionTab('short');
+        setVoiceState({ busy: false, error: null });
+      } else {
+        setVoiceState({ busy: false, error: data.error || 'Voice pass failed. Keeping the original.' });
+      }
+    } catch {
+      setVoiceState({ busy: false, error: 'Could not reach the voice service. Keeping the original.' });
+    }
+  }, [baseCaption]);
+
   // ── Instagram Hero Summary caption (Slide 4 — Team Intel only) ────────────
   // Separate from the generic team caption — this is the viral-optimized caption
   // tied specifically to the Instagram Hero Summary slide.
@@ -1158,7 +1199,8 @@ export default function Dashboard() {
   }, [mlbActive, activeSection, mlbPicks, mlbGames, mlbLiveGames, mlbHeadlines, mlbSelectedTeam, mlbSelectedGame, mlbLeague, mlbDivision, mlbGameAngle, mlbBriefing]);
 
   // ── export PNGs ───────────────────────────────────────────
-  const handleExport = useCallback(async () => {
+  const handleExport = useCallback(async (asStory) => {
+    const story = asStory === true; // onClick passes an event, which is not `true`
     if (!exportRef.current) return;
     setExporting(true);
     const layer = exportRef.current;
@@ -1178,8 +1220,8 @@ export default function Dashboard() {
           width: dims.width, height: dims.height, pixelRatio: 1, skipAutoScale: true,
         });
         const a = document.createElement('a');
-        a.href = dataUrl;
-        a.download = `${prefix}_${idx}.png`;
+        a.href = story ? await toStoryDataUrl(dataUrl) : dataUrl;
+        a.download = `${prefix}${story ? '_story' : ''}_${idx}.png`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -1295,7 +1337,8 @@ export default function Dashboard() {
   const publishMetadata = useMemo(() => {
     const sections = getSectionsForWorkspace(studioWorkspace);
     const section = sections.find(s => s.id === activeSection);
-    const team = activeSection === 'mlb-team' ? mlbSelectedTeam
+    const team = activeSection === 'nfl-team' ? nflPayload?.team
+      : activeSection === 'mlb-team' ? mlbSelectedTeam
       : activeSection === 'nba-team' ? nbaSelectedTeam
       : activeSection === 'team' ? selectedTeam
       : null;
@@ -1307,7 +1350,7 @@ export default function Dashboard() {
       teamSlug:              team?.slug  ?? null,
       teamName:              team?.name  ?? null,
     };
-  }, [activeSection, selectedTeam, mlbSelectedTeam, nbaSelectedTeam, studioWorkspace]);
+  }, [activeSection, selectedTeam, mlbSelectedTeam, nbaSelectedTeam, nflPayload, studioWorkspace]);
 
   const handlePublishSuccess = useCallback(() => {
     setHistoryRefreshKey(k => k + 1);
@@ -1461,7 +1504,7 @@ export default function Dashboard() {
         </div>
         <div className={styles.authStatus}>
           <span className={styles.authDot} />
-          {user.email}
+          {user?.email}
         </div>
       </div>
 
@@ -1984,6 +2027,23 @@ export default function Dashboard() {
             </div>
           )}
 
+          {/* ─── NFL: today's post in the weekly rhythm ── */}
+          {isNflStudio && activeSection !== 'videos' && (() => {
+            const plan = todaysNflPlan();
+            return (
+              <div className={styles.todayPlan}>
+                <span className={styles.todayPlanLabel}>{plan.dayLabel}&rsquo;s post</span>
+                <b>{plan.name}</b>
+                <span>{plan.why}</span>
+                {activeSection !== plan.section && (
+                  <button className={styles.copyBtn} onClick={() => { setActiveSection(plan.section); setAssetsReady(false); }}>
+                    Open {plan.name}
+                  </button>
+                )}
+              </div>
+            );
+          })()}
+
           {/* ─── NFL controls ─────────────────────────── */}
           {nflActive && (
             <div className={styles.sectionControls}>
@@ -2011,6 +2071,44 @@ export default function Dashboard() {
                           {g.away?.abbrev} @ {g.home?.abbrev} · {g.isFinal ? 'Final' : g.kickoffLabel}{g.picks.length ? ' · pick' : ''}
                         </option>
                       ))}
+                    </select>
+                  </div>
+                </div>
+              )}
+
+              {activeSection === 'nfl-team' && (nflPayload?.teamOptions?.length ?? 0) > 0 && (
+                <div className={styles.controlGroup}>
+                  <label className={styles.controlLabel} htmlFor="nfl-team-picker">Team</label>
+                  <div className={styles.selectWrap}>
+                    <select
+                      id="nfl-team-picker"
+                      className={styles.select}
+                      value={nflPayload.team?.slug || ''}
+                      onChange={e => { setNflSelectedTeamSlug(e.target.value); setAssetsReady(false); }}
+                    >
+                      {['AFC', 'NFC'].map(conf => (
+                        <optgroup key={conf} label={conf}>
+                          {nflPayload.teamOptions.filter(t => t.conference === conf).map(t => (
+                            <option key={t.slug} value={t.slug}>{t.name}</option>
+                          ))}
+                        </optgroup>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              )}
+
+              {activeSection === 'nfl-explain' && (
+                <div className={styles.controlGroup}>
+                  <label className={styles.controlLabel} htmlFor="nfl-explainer-picker">Topic</label>
+                  <div className={styles.selectWrap}>
+                    <select
+                      id="nfl-explainer-picker"
+                      className={styles.select}
+                      value={nflExplainerId}
+                      onChange={e => { setNflExplainerId(e.target.value); setAssetsReady(false); }}
+                    >
+                      {NFL_EXPLAINERS.map(x => <option key={x.id} value={x.id}>{x.label}</option>)}
                     </select>
                   </div>
                 </div>
@@ -2261,6 +2359,9 @@ export default function Dashboard() {
             <button className={styles.btnSecondary} onClick={handleDownloadZip} disabled={!canExport || exporting || zipping}>
               {zipping ? 'Zipping…' : 'Download ZIP'}
             </button>
+            <button className={styles.btnSecondary} onClick={() => handleExport(true)} disabled={!canExport || exporting || zipping}>
+              Export for Stories (9:16)
+            </button>
 
             {/* ── Gemini generation (MLB only) ──────────── */}
             {mlbActive && (
@@ -2312,6 +2413,9 @@ export default function Dashboard() {
                       'nfl-picks': "Maximus's Picks",
                       'nfl-game': 'Game Breakdown',
                       'nfl-receipts': 'Receipts',
+                      'nfl-team': 'Team Card',
+                      'nfl-review': 'What We Got Wrong',
+                      'nfl-explain': 'Explainer',
                       'nba-daily': 'Daily Briefing',
                       'nba-team': 'Team Intel',
                       'mlb-daily': 'Daily Briefing',
@@ -2384,6 +2488,18 @@ export default function Dashboard() {
                   {copied ? '✓ Copied' : 'Copy'}
                 </button>
               </div>
+              <div className={styles.voiceRow}>
+                {caption.voiced ? (
+                  <button className={styles.copyBtn} onClick={() => setVoiced(null)}>Use the original</button>
+                ) : (
+                  <button className={styles.copyBtn} onClick={handleVoicePass} disabled={voiceState.busy}>
+                    {voiceState.busy ? 'Rewriting…' : 'Rewrite in the Maximus voice'}
+                  </button>
+                )}
+                <span className={styles.voiceNote}>
+                  {voiceState.error || (caption.voiced ? 'Rewritten by Claude. Every number was checked against the original.' : 'Changes the wording, never the numbers.')}
+                </span>
+              </div>
               <div className={styles.captionBody}>
                 <pre className={styles.captionText}>
                   {captionTab === 'short' ? caption.shortCaption : caption.longCaption}
@@ -2404,9 +2520,10 @@ export default function Dashboard() {
                   {caption.reason === 'caption_build_failed' && 'Caption generation failed for this post. Regenerate content to retry.'}
                   {caption.reason === 'payload_build_failed' && 'Caption payload could not be assembled. Regenerate content to retry.'}
                   {caption.reason === 'too_short' && `Caption is incomplete (${caption.totalLength ?? 0} chars). Regenerate to retry.`}
+                  {caption.reason === 'banned_phrase' && `Caption promises an outcome (${(caption.voiceIssues || []).join(', ')}). That is off-voice and cannot be posted.`}
                   {caption.reason === 'missing_body' && 'Caption builder returned unexpected shape. Regenerate to retry.'}
                   {caption.reason === 'null_builder_output' && 'No caption was produced. Generate content first.'}
-                  {!['caption_build_failed','payload_build_failed','too_short','missing_body','null_builder_output'].includes(caption.reason) && 'Caption is not ready. Regenerate content before publishing.'}
+                  {!['caption_build_failed','payload_build_failed','too_short','banned_phrase','missing_body','null_builder_output'].includes(caption.reason) && 'Caption is not ready. Regenerate content before publishing.'}
                 </pre>
               </div>
             </div>

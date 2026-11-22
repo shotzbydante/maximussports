@@ -23,6 +23,7 @@ const Alerts      = lazy(() => import('./pages/Alerts'));
 const SharePage   = lazy(() => import('./pages/SharePage'));
 const Settings    = lazy(() => import('./pages/Settings'));
 const Privacy     = lazy(() => import('./pages/Privacy'));
+const Record      = lazy(() => import('./pages/Record'));
 const Terms       = lazy(() => import('./pages/Terms'));
 const Contact     = lazy(() => import('./pages/Contact'));
 const Dashboard   = lazy(() => import('./pages/Dashboard'));
@@ -172,6 +173,7 @@ export default function App() {
                   {/* ══ Global / shared routes (no sport prefix) ══ */}
                   <Route path="settings" element={<Settings />} />
                   <Route path="dashboard" element={<Dashboard />} />
+                  <Route path="record" element={<Record />} />
                   <Route path="privacy" element={<Privacy />} />
                   <Route path="terms" element={<Terms />} />
                   <Route path="contact" element={<Contact />} />

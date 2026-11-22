@@ -192,7 +192,7 @@ export function NflTitleRaceSlide({ data: p, slideNumber, slideTotal, ...rest })
         <Empty title="Title odds unavailable" note="The futures feed did not load. Regenerate to try again." />
       ) : (
         <div className={styles.race}>
-          {race.map((t, i) => (
+          {race.slice(0, p?.sendLine && (p?.bubble || []).length ? 7 : 8).map((t, i) => (
             <div key={t.slug} className={styles.raceRow}>
               <span className={styles.raceRank}>{i + 1}</span>
               <Logo team={t} size={62} />
@@ -206,6 +206,7 @@ export function NflTitleRaceSlide({ data: p, slideNumber, slideTotal, ...rest })
           ))}
         </div>
       )}
+      {p?.sendLine && <p className={styles.send}>{p.sendLine}</p>}
       {(p?.bubble || []).length > 0 && (
         <section className={styles.bubble}>
           <div className={styles.cardLabel}>Coin flips to make the playoffs</div>
@@ -293,6 +294,16 @@ export function NflPickSlide({ data: p, slideNumber, slideTotal, ...rest }) {
         <Stat label="Wins" value={k.hitPct} />
         <Stat label="Expected value" value={k.evLabel} tone="good" />
       </div>
+      {k.marketProb != null && k.modelProb != null && (
+        <div className={styles.gap}>
+          <span>Market <b>{k.marketPct}</b></span>
+          <div className={styles.gapBar}>
+            <i style={{ left: `${Math.max(2, Math.min(98, (k.marketProb - 0.4) * 500))}%` }} className={styles.gapMarket} />
+            <i style={{ left: `${Math.max(2, Math.min(98, (k.modelProb - 0.4) * 500))}%` }} className={styles.gapModel} />
+          </div>
+          <span>Maximus <b className={styles.good}>{k.modelPct}</b></span>
+        </div>
+      )}
       <section className={styles.why}>
         <div className={styles.cardLabel}>Why</div>
         <ol>
@@ -304,6 +315,7 @@ export function NflPickSlide({ data: p, slideNumber, slideTotal, ...rest }) {
         {locked ? `Locked ${locked} ET at ${k.lockedPrice || k.offeredPrice}. That ticket is the one we grade.` : 'Graded at the price shown.'}
         {k.pushPct ? ` Pushes ${k.pushPct} of the time.` : ''}
         {k.movedAgainst ? ' The line has moved since, so shop for this number or better.' : ''}
+        {slideNumber === slideTotal && p.sendLine ? ` ${p.sendLine}` : ''}
       </p>
     </Shell>
   );
@@ -422,6 +434,136 @@ export function NflReceiptsSlide({ data: p, slideNumber, slideTotal, ...rest }) 
       <div className={styles.promise}>
         <b>Locked before kickoff. Graded at the posted price.</b>
         <span>The losses stay up.</span>
+      </div>
+    </Shell>
+  );
+}
+
+/* ───────────────────────── Team card: 1 slide, one per team ───────────────────────── */
+
+export function NflTeamSlide({ data: p, slideNumber, slideTotal, ...rest }) {
+  const t = p?.team;
+  if (!t) {
+    return (
+      <Shell payload={p} kicker="NFL · Team card" slideNumber={slideNumber} slideTotal={slideTotal} rest={rest}>
+        <Empty title="Pick a team" note="Choose a team in the controls." />
+      </Shell>
+    );
+  }
+  const n = t.next;
+  return (
+    <Shell payload={p} kicker={`NFL · ${p.slateLabel}`} slideNumber={slideNumber} slideTotal={slideTotal} rest={rest}>
+      <div className={styles.kicker}>{t.standingLabel || 'Team card'}{t.streak ? ` · ${t.streak}` : ''}</div>
+      <div className={styles.teamHead}>
+        <Logo team={t} size={190} />
+        <div>
+          <h1 className={styles.teamName}>{t.nickname}</h1>
+          <div className={styles.teamRecord}>{t.record}</div>
+        </div>
+      </div>
+      <div className={styles.stats}>
+        <Stat label="Make the playoffs" value={t.playoffLabel} tone={t.playoffPct >= 0.5 ? 'good' : undefined} />
+        <Stat label="Projected wins" value={t.projectedWinsLabel} />
+        <Stat label="Super Bowl" value={t.titleOddsLabel} />
+      </div>
+      <ul className={`${styles.facts} ${styles.factsFlow} ${styles.factsRoomy}`}>
+        {t.seedLabel && <li><span>If the playoffs started today</span><b>{t.seedLabel}</b></li>}
+        {t.powerRank && <li><span>Maximus power rank</span><b>{t.powerRank} of 32</b></li>}
+        {t.pointDiffLabel && <li><span>Point differential</span><b>{t.pointDiffLabel}</b></li>}
+        {t.lastResult && <li><span>Last game</span><b>{t.lastResult}</b></li>}
+      </ul>
+      <section className={`${styles.card} ${styles.verdict}`}>
+        <div className={styles.cardLabel}>{n ? `Next · ${n.kickoffLabel || ''}` : 'This week'}</div>
+        {n ? (
+          <>
+            <div className={styles.verdictPick}>
+              {n.isHome ? 'vs' : 'at'} {n.opponent?.abbrev} <span>{[n.spreadLabel, n.total != null ? `total ${n.total}` : null].filter(Boolean).join(' · ')}</span>
+            </div>
+            <div className={styles.verdictNote}>
+              {n.winPct ? `${n.winPct} to win. ` : ''}{n.pick ? `Our bet: ${n.pick.label} (${n.pick.priceLabel}).` : 'No bet here. The price is fair.'}
+            </div>
+          </>
+        ) : (
+          <div className={styles.verdictPick}>{t.onBye ? 'Bye week.' : 'No game listed.'}</div>
+        )}
+      </section>
+    </Shell>
+  );
+}
+
+/* ───────────────────────── Weekly review: what the model got wrong ───────────────────────── */
+
+export function NflReviewSlide({ data: p, slideNumber, slideTotal, ...rest }) {
+  const r = p?.review;
+  if (!r || r.finals === 0) {
+    return (
+      <Shell payload={p} kicker="NFL · The review" slideNumber={slideNumber} slideTotal={slideTotal} rest={rest}>
+        <Empty title="No finals yet" note="The review unlocks after the first finished game of the week." />
+      </Shell>
+    );
+  }
+  return (
+    <Shell payload={p} kicker="NFL · The review" slideNumber={slideNumber} slideTotal={slideTotal} rest={rest}>
+      <div className={styles.kicker}>{p.slateLabel} · projections against results</div>
+      <h1 className={`${styles.h1} ${styles.h1Cover}`}>
+        What we<br /><span className={styles.accent}>got wrong.</span>
+      </h1>
+      <div className={styles.stats}>
+        <Stat label="Winners called" value={`${r.rightSide} of ${r.finals}`} />
+        <Stat label="Average miss" value={r.avgMiss != null ? `${r.avgMiss} pts` : null} />
+        <Stat label="Losing bets" value={r.lostPicks.length} tone={r.lostPicks.length ? 'bad' : 'good'} />
+      </div>
+      <div className={styles.ledger}>
+        {r.misses.map((m) => (
+          <div key={m.id} className={`${styles.ledgerRow} ${styles.reviewRow}`}>
+            <span className={`${styles.mark} ${m.rightSide ? styles.push : styles.lost}`}>{Math.round(m.missPts)}</span>
+            <span className={styles.ledgerMain}><b>{m.matchupLabel}</b><i>We said {m.projected}</i></span>
+            <span className={styles.ledgerScore}>{m.actual}</span>
+          </div>
+        ))}
+      </div>
+      {r.lostPicks.length > 0 && r.misses.length <= 2 && (
+        <section className={styles.card}>
+          <div className={styles.cardLabel}>Bets that lost</div>
+          {r.lostPicks.map((k) => (
+            <div key={k.id} className={styles.passNote}>{k.label} ({k.priceLabel}), {k.finalScore || k.matchupLabel}</div>
+          ))}
+        </section>
+      )}
+      <div className={styles.promise}>
+        <b>The number in the box is how many points we missed the margin by.</b>
+        <span>We post the misses the same way we post the wins.</span>
+      </div>
+    </Shell>
+  );
+}
+
+/* ───────────────────────── Explainer: evergreen, saveable ───────────────────────── */
+
+export function NflExplainerSlide({ data: p, slideNumber, slideTotal, ...rest }) {
+  const e = p?.explainer;
+  if (!e) return null;
+  return (
+    <Shell payload={p} kicker="Maximus explains" slideNumber={slideNumber} slideTotal={slideTotal} rest={rest}>
+      <div className={styles.kicker}>{e.kicker}</div>
+      <div className={styles.heroRow}>
+        <h1 className={`${styles.h1} ${styles.h1Wrap}`}>{e.title}</h1>
+        <img src="/mascot.png" alt="" className={styles.mascot} {...IMG} onError={hide} />
+      </div>
+      <section className={`${styles.why} ${styles.explain}`}>
+        <ol>
+          {e.points.map((point, i) => <li key={i}>{point}</li>)}
+        </ol>
+      </section>
+      {e.example && (
+        <section className={styles.card}>
+          <div className={styles.cardLabel}>For example</div>
+          <div className={styles.passNote}>{e.example}</div>
+        </section>
+      )}
+      <div className={styles.promise}>
+        <b>{e.closer}</b>
+        <span>Save this for the next time someone calls a bet a lock.</span>
       </div>
     </Shell>
   );

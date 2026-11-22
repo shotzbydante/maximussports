@@ -197,3 +197,30 @@
 .empty { margin: auto 0; padding: 48px 40px; text-align: center; border: 2px dashed var(--line); border-radius: 28px; }
 .emptyTitle { font-family: 'Manrope', 'Inter', sans-serif; font-size: 64px; font-weight: 800; letter-spacing: -0.02em; }
 .emptyNote { font-size: 30px; line-height: 1.4; color: var(--mute); margin-top: 14px; }
+
+/* ── Send line, probability gap ── */
+.send { margin: 20px 0 0; font-size: 28px; font-weight: 700; color: var(--teal); }
+.gap { display: flex; align-items: center; gap: 18px; margin-top: 22px; font-size: 26px; color: var(--mute); white-space: nowrap; }
+.gap b { color: var(--ink); font-weight: 800; margin-left: 6px; }
+.gap b.good { color: var(--good); }
+.gapBar { position: relative; flex: 1; height: 10px; border-radius: 5px; background: rgba(255, 255, 255, 0.1); }
+.gapBar i { position: absolute; top: 50%; width: 22px; height: 22px; border-radius: 50%; transform: translate(-50%, -50%); border: 4px solid var(--navy-0); }
+.gapMarket { background: var(--mute); }
+.gapModel { background: var(--good); }
+
+/* ── Team card ── */
+.teamHead { display: flex; align-items: center; gap: 30px; margin-top: 22px; }
+.teamName { font-family: 'Manrope', 'Inter', sans-serif; font-size: 120px; font-weight: 800; letter-spacing: -0.03em; line-height: 0.98; margin: 0; white-space: nowrap; }
+.teamRecord { font-size: 46px; font-weight: 700; color: var(--cyan); margin-top: 8px; }
+
+/* ── Review ── */
+.reviewRow { height: 88px; }
+.reviewRow .mark { width: 62px; height: 62px; font-size: 30px; }
+
+/* ── Explainer ── */
+.h1Wrap { font-size: 92px; line-height: 1.02; white-space: normal; text-wrap: balance; }
+.h1Wrap + .mascot { height: 240px; }
+.explain { margin-top: 18px; }
+.explain li { font-size: 34px; padding-top: 18px; padding-bottom: 18px; }
+.explain li::before { top: 20px; }
+.factsRoomy li { font-size: 34px; padding: 24px 0; }

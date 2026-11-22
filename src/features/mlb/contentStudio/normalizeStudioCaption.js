@@ -23,12 +23,14 @@
  *     ok:           boolean,     // true iff fullCaption is publish-ready
  *     reason:       string|null, // when ok=false, one of:
  *                                //   'null_builder_output' | 'missing_body' |
- *                                //   'too_short' | 'unknown_shape'
+ *                                //   'too_short' | 'banned_phrase' | 'unknown_shape'
  *   }
  */
 
 // Minimum chars for a publishable caption. Matches server-side guards in
 // /api/social/instagram/publish{,-carousel}.js so all layers agree.
+import { findVoiceIssues, ensureResponsibleLine } from '../../contentStudio/voice.js';
+
 export const MIN_PUBLISHABLE_CAPTION_CHARS = 80;
 
 export function normalizeStudioCaption(raw) {
@@ -68,12 +70,16 @@ export function normalizeStudioCaption(raw) {
 
   const hashtags = Array.isArray(raw?.hashtags) ? raw.hashtags.filter(Boolean) : [];
   const hashtagLine = hashtags.join(' ');
-  const bodyTrim = body.trim();
+  // Voice rules apply to every sport: the age-and-help line is always there,
+  // and a caption that promises an outcome is not publishable.
+  const bodyTrim = ensureResponsibleLine(body);
   const fullCaption = hashtagLine ? `${bodyTrim}\n\n${hashtagLine}` : bodyTrim;
+  const voiceIssues = findVoiceIssues(fullCaption);
 
   const bodyLength = bodyTrim.length;
   const totalLength = fullCaption.length;
-  const ok = totalLength >= MIN_PUBLISHABLE_CAPTION_CHARS;
+  const longEnough = totalLength >= MIN_PUBLISHABLE_CAPTION_CHARS;
+  const ok = longEnough && voiceIssues.length === 0;
 
   return {
     fullCaption,
@@ -83,7 +89,8 @@ export function normalizeStudioCaption(raw) {
     bodyLength,
     totalLength,
     ok,
-    reason: ok ? null : 'too_short',
+    reason: ok ? null : (longEnough ? 'banned_phrase' : 'too_short'),
+    voiceIssues,
   };
 }
 
