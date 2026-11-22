@@ -10,11 +10,11 @@
 import { useState } from 'react';
 import styles from './AboutTheModel.module.css';
 
-export default function AboutTheModel({ variant = 'full' }) {
+export default function AboutTheModel({ variant = 'full', slateNoun = "today's slate" }) {
   const [open, setOpen] = useState(false);
 
   const summary = variant === 'compact'
-    ? 'Model-scored picks, 0–100 conviction, graded daily. Top Plays are the highest-conviction opportunities on today\'s slate.'
+    ? `Model-scored picks, 0–100 conviction, graded daily. Top Plays are the highest-conviction opportunities on ${slateNoun}.`
     : 'Every pick carries a 0–100 conviction score composed of edge, model confidence, situational context, and market quality. Top Plays clear the highest bar. Every slate is graded against real results, and those grades feed a daily audit that informs the next slate.';
 
   return (

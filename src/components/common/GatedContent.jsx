@@ -22,6 +22,10 @@ const SPORT_COPY = {
     title: 'Unlock full NBA intelligence',
     sub: 'Create your free account to access the full playoff bracket, picks board, team intel, and daily briefings.',
   },
+  nfl: {
+    title: 'Unlock full NFL intelligence',
+    sub: 'Create your free account to access every game on the board, the picks, team intel, and season projections.',
+  },
   ncaam: {
     title: 'Unlock full NCAAM intelligence',
     sub: 'Create your free account to access bracketology, picks, ATS analytics, and team intel.',

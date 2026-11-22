@@ -30,7 +30,7 @@ const POINTS = [
   },
 ];
 
-export default function HowItWorks({ variant = 'full' }) {
+export default function HowItWorks({ variant = 'full', insightsHref = '/mlb/insights' }) {
   if (variant === 'home') {
     return (
       <aside className={`${styles.block} ${styles.blockHome}`}>
@@ -41,7 +41,7 @@ export default function HowItWorks({ variant = 'full' }) {
             Every pick is model-scored 0–100 and tiered by conviction. Top Plays clear the highest bar. Results are graded daily.
           </p>
         </div>
-        <a href="/mlb/insights" className={styles.cta}>See the full board →</a>
+        <a href={insightsHref} className={styles.cta}>See the full board →</a>
       </aside>
     );
   }

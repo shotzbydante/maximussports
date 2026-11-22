@@ -4,7 +4,7 @@
  *   mode="page"      → full Odds Insights
  *   mode="home"      → MLB / NBA home preview (Top Play FIRST)
  *   endpoint         → canonical picks source (default /api/mlb/picks/built)
- *   sport            → 'mlb' | 'nba' (used for copy + links)
+ *   sport            → 'mlb' | 'nba' | 'nfl' (used for copy + links)
  *
  * The component is sport-agnostic when `endpoint` + `sport` are passed. MLB
  * callers keep the defaults; NBA callers supply `sport="nba"` +
@@ -57,7 +57,26 @@ const SPORT_META = {
     pageSubtitle: "Model-scored picks across today's slate. Tiered by conviction, grouped by bet type.",
     insightsHref: '/nba/insights',
   },
+  nfl: {
+    label: "Maximus's Picks",
+    homeTitle: 'Model-driven NFL betting intelligence',
+    pageEyebrow: 'Betting Intelligence',
+    pageTitle: 'NFL Odds Insights',
+    pageSubtitle: "Model-scored picks across this week's slate. Tiered by conviction, grouped by bet type.",
+    insightsHref: '/nfl/insights',
+    // NFL is a weekly slate; the shared copy defaults to "today".
+    picksKicker: "This Week's Picks",
+    slateNoun: "this week's slate",
+    emptyDesc: 'No edge on the board clears the bar yet. Lines firm up as the week goes on.',
+  },
 };
+
+/**
+ * Sports whose home view shows the Pick 'Em / ATS / Totals count strip.
+ * The strip is styled for the dark NBA picks hero and worded for the
+ * playoffs, so it stays NBA-only.
+ */
+const BY_MARKET_SPORTS = new Set(['nba']);
 
 function asCards(picks) { return (picks || []).map(p => ({ primary: p, siblings: [] })); }
 
@@ -182,7 +201,7 @@ export default function MlbMaximusPicksSectionV2({
         </header>
 
         {/* 2. Top Play FIRST — the entry point */}
-        {topPick && <TopPlayHero pick={topPick} relativeStrength={topPickStrength} />}
+        {topPick && <TopPlayHero pick={topPick} relativeStrength={topPickStrength} weekly={sport === 'nfl'} />}
 
         {/* 3. Horizontal trust strip — components always mount and self-fetch
             when `scorecardSummary` embed is null (e.g. /built cache is stale
@@ -205,7 +224,7 @@ export default function MlbMaximusPicksSectionV2({
             so the user sees all three categories regardless of which
             tiers actually fired. NBA-only on home mode (Odds Insights
             already groups by market in its tier subgroups). */}
-        {sport === 'nba' && (
+        {BY_MARKET_SPORTS.has(sport) && (
           <ByMarketSummary
             // v7: count across the full slate so all three market
             // counts reflect the "every game gets ML/ATS/Total"
@@ -225,7 +244,7 @@ export default function MlbMaximusPicksSectionV2({
         )}
 
         {/* 4. Today's Picks section header — framing copy lives HERE */}
-        {totalPicks > 0 && <TodaysPicksHeader totalPicks={totalPicks} compact />}
+        {totalPicks > 0 && <TodaysPicksHeader totalPicks={totalPicks} meta={meta} compact />}
 
         {/* 5. Picks grid
             homeShowAll=true (NBA Home): render every tier + every coverage
@@ -262,15 +281,15 @@ export default function MlbMaximusPicksSectionV2({
             }
           </>
         ) : (
-          !topPick && <EmptyBoard />
+          !topPick && <EmptyBoard meta={meta} />
         )}
 
         {/* 6. Performance + About */}
         {!suppressPerformanceBlocks && <PerformanceLearning compact sport={sport} />}
-        <AboutTheModel variant="compact" />
+        <AboutTheModel variant="compact" slateNoun={meta.slateNoun} />
 
         {/* 7. How it works — moved to BOTTOM */}
-        <HowItWorks variant="home" />
+        <HowItWorks variant="home" insightsHref={meta.insightsHref} />
 
         <footer className={styles.homeFooter}>
           {totalPicks > 0 && (
@@ -305,7 +324,7 @@ export default function MlbMaximusPicksSectionV2({
           <YesterdayContinuity summary={scorecardSummary} />
         </>
       )}
-      {topPick && <TopPlayHero pick={topPick} featured relativeStrength={topPickStrength} />}
+      {topPick && <TopPlayHero pick={topPick} featured relativeStrength={topPickStrength} weekly={sport === 'nfl'} />}
 
       {!suppressPerformanceBlocks && (
         <div className={styles.intelligenceGrid}>
@@ -316,11 +335,11 @@ export default function MlbMaximusPicksSectionV2({
 
       <AboutTheModel />
 
-      {totalPicks === 0 && !topPick && <EmptyBoard />}
+      {totalPicks === 0 && !topPick && <EmptyBoard meta={meta} />}
 
       {totalPicks > 0 && (
         <>
-          <TodaysPicksHeader totalPicks={totalPicks} />
+          <TodaysPicksHeader totalPicks={totalPicks} meta={meta} />
           <TierSection tier="tier1" cards={tier1Cards} />
           <TierSection tier="tier2" cards={tier2Cards} />
           <TierSection tier="tier3" cards={tier3Cards} initialCollapsed />
@@ -344,18 +363,19 @@ export default function MlbMaximusPicksSectionV2({
   );
 }
 
-function TodaysPicksHeader({ totalPicks, compact }) {
+function TodaysPicksHeader({ totalPicks, compact, meta }) {
+  const slateNoun = meta?.slateNoun || "today's slate";
   return (
     <header className={`${styles.todaysHeader} ${compact ? styles.todaysHeaderCompact : ''}`}>
       <div className={styles.todaysHeaderLeft}>
-        <span className={styles.todaysKicker}>Today's Picks</span>
+        <span className={styles.todaysKicker}>{meta?.picksKicker || "Today's Picks"}</span>
         <h2 className={styles.todaysTitle}>
           Tiered by conviction — not all picks are equal.
         </h2>
         {!compact && (
           <p className={styles.todaysCopy}>
             Top Plays represent the highest-conviction edges. Additional picks reflect broader
-            coverage across today's slate with varying confidence levels.
+            coverage across {slateNoun} with varying confidence levels.
           </p>
         )}
       </div>
@@ -377,11 +397,11 @@ function LoadingShell({ mode }) {
   );
 }
 
-function EmptyBoard() {
+function EmptyBoard({ meta }) {
   return (
     <div className={styles.emptyBoard}>
-      <p className={styles.emptyBoardTitle}>No qualified edges today</p>
-      <p className={styles.emptyBoardDesc}>The model is being selective — check back as the slate firms up.</p>
+      <p className={styles.emptyBoardTitle}>{meta?.slateNoun ? 'No qualified edges yet' : 'No qualified edges today'}</p>
+      <p className={styles.emptyBoardDesc}>{meta?.emptyDesc || 'The model is being selective — check back as the slate firms up.'}</p>
     </div>
   );
 }

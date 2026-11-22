@@ -138,7 +138,9 @@ export default function Dashboard() {
   const [studioWorkspaceId, setStudioWorkspaceId] = useState(WorkspaceId.MLB);
   const studioWorkspace = WORKSPACES[studioWorkspaceId] ?? WORKSPACES[WorkspaceId.CBB];
   const availableStudioWorkspaces = useMemo(
-    () => (user ? getVisibleWorkspaces(user) : []),
+    // Only sports with social templates built. A workspace without them
+    // would otherwise fall through to the NCAAM slide set.
+    () => (user ? getVisibleWorkspaces(user).filter((ws) => ws.capabilities?.contentStudio) : []),
     [user],
   );
   const isCbbStudio = studioWorkspaceId === WorkspaceId.CBB;

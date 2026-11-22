@@ -45,6 +45,14 @@ const NbaPicks      = lazy(() => import('./pages/nba/NbaPicks'));
 const NbaSeasonIntel = lazy(() => import('./pages/nba/NbaSeasonIntel'));
 const NbaBracketology = lazy(() => import('./pages/nba/NbaBracketology'));
 
+const NflHome        = lazy(() => import('./pages/nfl/NflHome'));
+const NflGames       = lazy(() => import('./pages/nfl/NflGames'));
+const NflTeams       = lazy(() => import('./pages/nfl/NflTeams'));
+const NflTeamDetail  = lazy(() => import('./pages/nfl/NflTeamDetail'));
+const NflNewsFeed    = lazy(() => import('./pages/nfl/NflNewsFeed'));
+const NflPicks       = lazy(() => import('./pages/nfl/NflPicks'));
+const NflSeasonModel = lazy(() => import('./pages/nfl/NflSeasonModel'));
+
 const AuthCallback = lazy(() => import('./pages/AuthCallback'));
 
 const RenderMlbDaily = lazy(() => import('./pages/RenderMlbDaily'));
@@ -140,6 +148,20 @@ export default function App() {
                     <Route path="insights" element={<RouteGate><NbaPicks /></RouteGate>} />
                     <Route path="season-intel" element={<RouteGate><NbaSeasonIntel /></RouteGate>} />
                     <Route path="bracketology" element={<RouteGate><NbaBracketology /></RouteGate>} />
+                    <Route path="dashboard" element={<Navigate to="/dashboard" replace />} />
+                    <Route path="settings" element={<Navigate to="/settings" replace />} />
+                  </Route>
+
+                  {/* ══ NFL routes (public workspace, non-home preview-gated for guests) ══ */}
+                  <Route path="nfl" element={<WorkspaceGate workspaceId={WorkspaceId.NFL} />}>
+                    <Route index element={<NflHome />} />
+                    <Route path="games" element={<RouteGate><NflGames /></RouteGate>} />
+                    <Route path="teams" element={<RouteGate><NflTeams /></RouteGate>} />
+                    <Route path="teams/:slug" element={<RouteGate><NflTeamDetail /></RouteGate>} />
+                    <Route path="news" element={<RouteGate><NflNewsFeed /></RouteGate>} />
+                    <Route path="insights" element={<RouteGate><NflPicks /></RouteGate>} />
+                    <Route path="season-model" element={<RouteGate><NflSeasonModel /></RouteGate>} />
+                    <Route path="season-intel" element={<Navigate to="/nfl/season-model" replace />} />
                     <Route path="dashboard" element={<Navigate to="/dashboard" replace />} />
                     <Route path="settings" element={<Navigate to="/settings" replace />} />
                   </Route>

@@ -38,7 +38,7 @@ const MARKET_LABEL = {
   total: 'Total',
 };
 
-export default function TopPlayHero({ pick, featured = false, relativeStrength = null }) {
+export default function TopPlayHero({ pick, featured = false, relativeStrength = null, weekly = false }) {
   if (!pick) return null;
   const driver = primaryDriver(pick);
 
@@ -65,14 +65,14 @@ export default function TopPlayHero({ pick, featured = false, relativeStrength =
   const marketLabel = MARKET_LABEL[pick.market?.type] || pick.market?.type;
 
   return (
-    <section className={`${styles.hero} ${featured ? styles.heroFeatured : ''}`} aria-label="Today's Top Play">
+    <section className={`${styles.hero} ${featured ? styles.heroFeatured : ''}`} aria-label={weekly ? "This week's Top Play" : "Today's Top Play"}>
       <div className={styles.beam} aria-hidden="true" />
       <div className={styles.gradient} aria-hidden="true" />
       <div className={styles.glow} aria-hidden="true" />
 
       <header className={styles.header}>
         <div className={styles.eyebrowRow}>
-          <span className={styles.eyebrow}>Today's Top Play</span>
+          <span className={styles.eyebrow}>{weekly ? "This Week's Top Play" : "Today's Top Play"}</span>
           {marketLabel && (
             <>
               <span className={styles.eyebrowDot}>·</span>
@@ -122,7 +122,7 @@ export default function TopPlayHero({ pick, featured = false, relativeStrength =
         </ul>
       )}
 
-      <p className={styles.reinforce}>The model's strongest recommendation today.</p>
+      <p className={styles.reinforce}>The model's strongest recommendation {weekly ? 'this week' : 'today'}.</p>
 
       <footer className={styles.metrics}>
         {edgePct != null && <Metric label="Edge" value={edgePct} />}

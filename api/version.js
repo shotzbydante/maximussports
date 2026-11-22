@@ -8,7 +8,7 @@
  *     ok: true,
  *     timestamp: ISO,
  *     git: { sha, shortSha, branch, buildTime },
- *     model: { nba, mlb }
+ *     model: { nba, mlb, nfl }
  *   }
  *
  * Vercel auto-injects `VERCEL_GIT_COMMIT_SHA`, `VERCEL_GIT_COMMIT_REF`, and
@@ -20,6 +20,7 @@
  */
 
 import { NBA_MODEL_VERSION } from '../src/features/nba/picks/v2/buildNbaPicksV2.js';
+import { NFL_MODEL_VERSION } from '../src/features/nfl/picks/buildNflPicksV2.js';
 
 let MLB_MODEL_VERSION = 'mlb-picks-unknown';
 try {
@@ -54,6 +55,6 @@ export default function handler(req, res) {
       buildTime,
       deploymentId,
     },
-    model: { nba: NBA_MODEL_VERSION, mlb: MLB_MODEL_VERSION },
+    model: { nba: NBA_MODEL_VERSION, mlb: MLB_MODEL_VERSION, nfl: NFL_MODEL_VERSION },
   });
 }

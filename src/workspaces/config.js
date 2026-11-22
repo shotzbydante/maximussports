@@ -10,6 +10,7 @@ export const WorkspaceId = /** @type {const} */ ({
   CBB: 'cbb',
   MLB: 'mlb',
   NBA: 'nba',
+  NFL: 'nfl',
 });
 
 /**
@@ -35,7 +36,7 @@ export const SeasonState = /** @type {const} */ ({
   PRESEASON: 'preseason',
 });
 
-/** @typedef {'cbb' | 'mlb' | 'nba'} WorkspaceIdType */
+/** @typedef {'cbb' | 'mlb' | 'nba' | 'nfl'} WorkspaceIdType */
 
 /**
  * @typedef {Object} WorkspaceConfig
@@ -69,6 +70,54 @@ export const SeasonState = /** @type {const} */ ({
 
 /** @type {Record<WorkspaceIdType, WorkspaceConfig>} */
 export const WORKSPACES = {
+  [WorkspaceId.NFL]: {
+    id: WorkspaceId.NFL,
+    label: 'National Football League',
+    shortLabel: 'NFL',
+    routeBase: '/nfl',
+    emoji: '\u{1F3C8}',
+    // No local league mark is bundled yet; team logos already load from the
+    // same CDN. WorkspaceLogo falls back to the emoji if this fails to load.
+    logo: 'https://a.espncdn.com/i/teamlogos/leagues/500/nfl.png',
+    sportKey: 'americanfootball_nfl',
+    seasonState: SeasonState.ACTIVE,
+    capabilities: {
+      bracketology: false,
+      seasonIntel: true,
+      // Social slides, captions and autopost are not built for NFL yet.
+      // The admin Content Studio only lists workspaces with this flag.
+      contentStudio: false,
+      champOdds: true,
+      atsLeaders: false,
+      conferenceIntel: true,
+      leagueIntel: false,
+      divisionIntel: true,
+      oddsInsights: true,
+      teamIntel: true,
+      games: true,
+      newsFeed: true,
+      picks: true,
+    },
+    access: { public: true },
+    labels: {
+      sportName: 'NFL Football',
+      intelligence: 'NFL Intelligence',
+      teamIntel: 'Team Intel',
+      picks: 'Odds Insights',
+      games: 'Games',
+      news: 'News Feed',
+    },
+    /** Sport-aware theme — field green */
+    theme: {
+      mascot: '/mascot.png',
+      accent: '#1f9d6b',
+      accentRgb: '31, 157, 107',
+      gradientBg: 'radial-gradient(ellipse at center, #0a1f18 0%, #06130f 60%, #020705 100%)',
+      loadingTitle: 'Initializing NFL Intelligence',
+      loadingSubtext: 'Reading the board\u2026',
+      splashKey: '__maximus_nfl_splash_shown',
+    },
+  },
   [WorkspaceId.CBB]: {
     id: WorkspaceId.CBB,
     label: 'NCAA College Basketball',
@@ -300,6 +349,22 @@ export const WORKSPACES = {
 };
 
 export const WORKSPACE_LIST = Object.values(WORKSPACES);
+
+/**
+ * Order sports appear in wherever every sport is listed together (home
+ * hub, cross-sport navigation). In-season sports lead; within a season
+ * state this fixed order applies.
+ */
+const WORKSPACE_DISPLAY_ORDER = [WorkspaceId.NFL, WorkspaceId.NBA, WorkspaceId.MLB, WorkspaceId.CBB];
+
+/** @param {WorkspaceConfig[]} list */
+export function orderWorkspacesForDisplay(list) {
+  const rank = (ws) => {
+    const i = WORKSPACE_DISPLAY_ORDER.indexOf(ws.id);
+    return (ws.seasonState === SeasonState.ACTIVE ? 0 : 100) + (i === -1 ? 50 : i);
+  };
+  return [...list].sort((a, b) => rank(a) - rank(b));
+}
 
 /** Default workspace — the sport whose nav shows on pages that are not
  *  sport-specific (home, dashboard, settings). NCAAM is in season; MLB held

@@ -32,6 +32,7 @@ import { onPinnedChanged, slugArraysEqual } from '../utils/pinnedSync';
 import { track } from '../analytics/index';
 import { MLB_TEAMS } from '../sports/mlb/teams';
 import { NBA_TEAMS } from '../sports/nba/teams';
+import { NFL_SLUGS } from '../sports/nfl/teams';
 
 const _mlbSlugSet = new Set(MLB_TEAMS.map(t => t.slug));
 const _nbaSlugSet = new Set(NBA_TEAMS.map(t => t.slug));
@@ -94,12 +95,14 @@ export function usePinnedTeamsSync(user) {
         //    Full replace ensures stale pins from prior users are cleared.
         const mlbSlugs = merged.filter(s => _mlbSlugSet.has(s));
         const nbaSlugs = merged.filter(s => _nbaSlugSet.has(s));
-        const ncaamSlugs = merged.filter(s => !_mlbSlugSet.has(s) && !_nbaSlugSet.has(s));
+        // NFL slugs are team nicknames, unique across every sport.
+        const nflSlugs = merged.filter(s => NFL_SLUGS.has(s));
+        const ncaamSlugs = merged.filter(s => !_mlbSlugSet.has(s) && !_nbaSlugSet.has(s) && !NFL_SLUGS.has(s));
 
         // Write all sports to unified v2 (full replace, not additive)
         try {
           const UNIFIED_KEY = 'maximus-pinned-teams-v2';
-          const v2 = { ncaam: ncaamSlugs, mlb: mlbSlugs, nba: nbaSlugs };
+          const v2 = { ncaam: ncaamSlugs, mlb: mlbSlugs, nba: nbaSlugs, nfl: nflSlugs };
           localStorage.setItem(UNIFIED_KEY, JSON.stringify(v2));
           // Notify same-tab usePinnedTeams hooks to re-read
           window.dispatchEvent(new CustomEvent('maximus-pins-updated'));

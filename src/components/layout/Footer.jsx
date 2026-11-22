@@ -95,10 +95,10 @@ export default function Footer() {
         {/* ── SEO footer navigation ── */}
         <nav className={styles.seoNav} aria-label="Explore">
           <Link to="/" className={styles.seoNavLink}>Home</Link>
-          <Link to="/teams" className={styles.seoNavLink}>Teams</Link>
-          <Link to="/games" className={styles.seoNavLink}>Games</Link>
-          <Link to="/insights" className={styles.seoNavLink}>Odds Insights</Link>
-          <Link to="/news" className={styles.seoNavLink}>News</Link>
+          <Link to="/nfl" className={styles.seoNavLink}>NFL</Link>
+          <Link to="/nba" className={styles.seoNavLink}>NBA</Link>
+          <Link to="/mlb" className={styles.seoNavLink}>MLB</Link>
+          <Link to="/ncaam" className={styles.seoNavLink}>College Basketball</Link>
         </nav>
 
         <div className={styles.divider} />
@@ -120,9 +120,9 @@ export default function Footer() {
 
         {/* ── SEO microcopy ── */}
         <p className={styles.seoMicrocopy}>
-          Maximus Sports provides data-driven college basketball betting intelligence, ATS trends,
-          and March Madness insights powered by advanced analytics. NCAAB picks, odds analysis,
-          and tournament projections updated daily.
+          Maximus Sports provides data-driven betting intelligence for the NFL, NBA, MLB and
+          college basketball: model-graded picks, odds analysis, team intel and season
+          projections, updated daily.
         </p>
 
         {/* ── Legal links + support ── */}

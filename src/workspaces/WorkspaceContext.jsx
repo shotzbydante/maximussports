@@ -16,6 +16,7 @@ import {
   DEFAULT_WORKSPACE_ID,
   getWorkspace,
   WorkspaceId,
+  orderWorkspacesForDisplay,
 } from './config';
 import { getVisibleWorkspaces, canAccessWorkspace } from './access';
 
@@ -25,12 +26,22 @@ const WorkspaceContext = createContext(null);
  * Derive workspace id from the current URL pathname.
  * `/ncaam/...` → 'cbb'; `/mlb/...` → 'mlb'; everything else → 'cbb' (default).
  */
-const PREFIX_TO_WORKSPACE = { ncaam: WorkspaceId.CBB, mlb: WorkspaceId.MLB, nba: WorkspaceId.NBA };
+const PREFIX_TO_WORKSPACE = { ncaam: WorkspaceId.CBB, mlb: WorkspaceId.MLB, nba: WorkspaceId.NBA, nfl: WorkspaceId.NFL };
 
 function deriveWorkspaceFromPath(pathname) {
   const segment = pathname.split('/').filter(Boolean)[0]?.toLowerCase();
   if (segment && PREFIX_TO_WORKSPACE[segment]) return PREFIX_TO_WORKSPACE[segment];
   return DEFAULT_WORKSPACE_ID;
+}
+
+/**
+ * True when the URL names a sport ('/nfl/games'). False on cross-sport
+ * pages such as the home hub, settings and the dashboard, where the shell
+ * should offer every sport rather than one sport's pages.
+ */
+function pathHasSportContext(pathname) {
+  const segment = pathname.split('/').filter(Boolean)[0]?.toLowerCase();
+  return !!(segment && PREFIX_TO_WORKSPACE[segment]);
 }
 
 /**
@@ -52,6 +63,7 @@ export function WorkspaceProvider({ children }) {
   const navigate = useNavigate();
 
   const detectedId = deriveWorkspaceFromPath(location.pathname);
+  const hasSportContext = pathHasSportContext(location.pathname);
 
   const activeId = canAccessWorkspace(detectedId, user)
     ? detectedId
@@ -59,7 +71,7 @@ export function WorkspaceProvider({ children }) {
 
   const workspace = getWorkspace(activeId);
   const visibleWorkspaces = useMemo(
-    () => getVisibleWorkspaces(user),
+    () => orderWorkspacesForDisplay(getVisibleWorkspaces(user)),
     [user],
   );
 
@@ -123,13 +135,14 @@ export function WorkspaceProvider({ children }) {
     () => ({
       workspace,
       workspaceId: activeId,
+      hasSportContext,
       visibleWorkspaces,
       switchWorkspace,
       buildPath,
       cacheKey,
       hasCapability: (cap) => !!workspace.capabilities[cap],
     }),
-    [workspace, activeId, visibleWorkspaces, switchWorkspace, buildPath, cacheKey],
+    [workspace, activeId, hasSportContext, visibleWorkspaces, switchWorkspace, buildPath, cacheKey],
   );
 
   return (

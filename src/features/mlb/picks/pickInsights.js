@@ -12,6 +12,7 @@
 
 function marketTypeSituationLabel(pick) {
   const m = pick?.market?.type;
+  if (pick?.sport === 'nfl') return m === 'total' ? 'scoring pace context' : 'rest + recent form';
   if (m === 'total') return 'park + pitching context';
   if (m === 'runline') return 'spread + margin context';
   return 'rotation + bullpen context';
@@ -68,14 +69,16 @@ export function relativeStrength(pick, allPicks) {
     .sort((a, b) => b - a);
   if (scores.length === 0) return null;
   const pickScore = pick?.betScore?.total ?? 0;
+  // The NFL slate is a week, not a day.
+  const when = pick?.sport === 'nfl' ? "this week's" : "today's";
   if (pickScore < scores[0]) {
     // Compute percentile
     const rank = scores.findIndex(s => s <= pickScore);
     const idx = rank === -1 ? scores.length - 1 : Math.max(0, rank - 1);
     const pct = Math.ceil(((idx + 1) / scores.length) * 100);
-    if (pct <= 5) return { kind: 'top_pct', text: "Top 5% of today's edges", pctDisplayed: 5 };
-    if (pct <= 10) return { kind: 'top_pct', text: "Top 10% of today's edges", pctDisplayed: 10 };
+    if (pct <= 5) return { kind: 'top_pct', text: `Top 5% of ${when} edges`, pctDisplayed: 5 };
+    if (pct <= 10) return { kind: 'top_pct', text: `Top 10% of ${when} edges`, pctDisplayed: 10 };
     return null;
   }
-  return { kind: 'highest', text: "Highest conviction on today's slate" };
+  return { kind: 'highest', text: `Highest conviction on ${when} slate` };
 }
