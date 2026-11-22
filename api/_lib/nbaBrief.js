@@ -62,6 +62,26 @@ function pickFact(p) {
     conviction: score(p),
     why: nbaPickSummary(p),
     ...(sample != null ? { builtOnGames: sample } : {}),
+    ...projectionFact(p),
+  };
+}
+
+/**
+ * For a total: what recent scoring projects and how far that is from the
+ * posted number, already worked out. The first production brief did the
+ * subtraction itself and got it wrong ("a 6-point cushion" when the gap was
+ * 8.5), so the gap is handed over as a finished phrase.
+ */
+export function projectionFact(p) {
+  if (p?.market?.type !== 'total') return {};
+  const fair = p.totalDebug?.fairTotal ?? p.expectedTotal;
+  const posted = p.market?.line ?? p.totalDebug?.marketTotal;
+  if (!isNum(fair) || !isNum(posted)) return {};
+  const r1 = (v) => Math.round(v * 10) / 10;
+  const gap = r1(fair - posted);
+  return {
+    projectedTotal: r1(fair),
+    projectionVsTotal: gap === 0 ? 'level with the total' : `${Math.abs(gap)} ${Math.abs(gap) === 1 ? 'point' : 'points'} ${gap > 0 ? 'above' : 'below'} the total`,
   };
 }
 
@@ -174,7 +194,11 @@ function nextLine(g) {
 
 function liveLine(g) {
   if (g.maximusPick?.standing) return `Our pick is ${g.maximusPick.call}. ${g.maximusPick.standing}`;
-  return `${g.awayName} at ${g.homeName} is in the ${g.stage === 'under way' ? 'early going' : g.stage}. No pick on this one.`;
+  // Nothing is said about the absence of a pick: a game that tipped off
+  // before the ledger knew about it may well have had one.
+  const where = g.stage === 'under way' ? 'under way' : g.stage === 'halftime' ? 'at halftime' : `in the ${g.stage}`;
+  const records = g.awayRecord && g.homeRecord ? ` The ${g.awayName} came in ${g.awayRecord}, the ${g.homeName} ${g.homeRecord}.` : '';
+  return `${g.awayName} at ${g.homeName} is ${where}.${records}`;
 }
 
 export function buildNbaEngineBrief(data) {
@@ -258,7 +282,9 @@ TIME
 WHAT TO USE
 - ONLY the JSON data. Every team, player, number, price, record and fact must be in it. Do not add injuries, players, history or storylines from memory. A player may be named only if a headline names him, and only for what that headline says.
 - Every game you write about gets its line: the spread and the total exactly as given. Prices keep their sign (+150, -110).
+- NO ARITHMETIC. Never add, subtract, average, round or compare numbers to make a new one: no "a 6-point cushion", no "about 10 below the number", no "combined". Every number you write must appear in the data as written. For a total, projectedTotal and projectionVsTotal already give the projection and its gap to the line: use those words or leave the gap out.
 - Our picks are only the maximusPick entries. State each call exactly as given and give its reason from "why". When builtOnGames is present the pick rests on that many recent games: say so plainly once. Anything else is context: never call it a pick, a play or a bet.
+- When a game has no maximusPick, write about the game. Do not say we have no pick, no play or no lean on it, and do not explain why not.
 - "conviction" is a ranking out of 100, not a probability. Never call it a win chance.
 - Do NOT state a live score, the clock or time left. The page shows the live score next to your line. Say where our pick stands from "standing".
 - No guarantees, no "lock", no "can't lose", no profanity.
@@ -274,6 +300,7 @@ Reply with one JSON object and nothing else. No markdown, no code fence.
   "take": "Maximus's own read on the best thing left on the board, max ${L.take} characters. If a maximusPick is still to come, this is about it.",
   "also": "optional: one short paragraph on the title market or the day's biggest headline, max ${L.also} characters. Empty string if it adds nothing."
 }
+- The page prints the two teams, the tip time and the network beside every "now" and "next" line. Do not open a line with the matchup ("ORL at WAS"), the team names as a label, or the time. Start with the line or with your read.
 - "now": up to ${L.now} live games, our picks first. Empty array if nothing is live.
 - "next": up to ${L.next} games still to come, in tip-off order. Empty array if none are left.
 - "numbers": exactly 3 when the data supports it. Each must be a different kind of fact.
@@ -281,6 +308,19 @@ Reply with one JSON object and nothing else. No markdown, no code fence.
 
   const user = `DATA:\n${JSON.stringify(forModel(data))}\n\nA plain version of this brief, for reference on what matters (rewrite it, do not copy it):\n${JSON.stringify({ headline: base.headline, now: base.now, next: base.next })}\n\nWrite the brief now as one JSON object.`;
   return { system, user };
+}
+
+/**
+ * The page already shows the matchup and tip time beside each line, so a
+ * line that opens by repeating them ("ORL at WAS, 7:00 PM ET. ORL -4.5...")
+ * has that opener removed. Only a label followed by punctuation is taken
+ * off; "OKC at MIA is in the second quarter" is a sentence and stays.
+ */
+export function dropMatchupLabel(text) {
+  const t = String(text ?? '').trim();
+  const rest = t.replace(/^[A-Z]{2,4} (?:at|@|vs\.?) [A-Z]{2,4}(?:,? (?:at )?\d{1,2}(?::\d{2})? ?[AP]M(?: ET)?)?\s*[.:,;–—-]\s+/, '');
+  if (rest === t || rest.length < 12) return t;
+  return rest.charAt(0).toUpperCase() + rest.slice(1);
 }
 
 const clip = (t, n) => {
@@ -315,7 +355,7 @@ export function parseNbaBrief(raw, data) {
     .filter((x) => x && typeof x.text === 'string' && x.text.trim() && ids.has(String(x.gameId)))
     .filter((x, i, all) => all.findIndex((y) => String(y.gameId) === String(x.gameId)) === i)
     .slice(0, max)
-    .map((x) => ({ gameId: String(x.gameId), text: clip(fix(x.text), L.item) }));
+    .map((x) => ({ gameId: String(x.gameId), text: clip(dropMatchupLabel(fix(x.text)), L.item) }));
   const now = items(obj.now, liveIds, L.now);
   const next = items(obj.next, nextIds, L.next);
   if (liveIds.size > 0 && now.length === 0) return null;
