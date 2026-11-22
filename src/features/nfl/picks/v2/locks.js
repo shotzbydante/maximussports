@@ -105,6 +105,9 @@ export function applyLocks(board, rows = [], { maxPerTier = { tier1: 3, tier2: 5
     const winShare = now && now.win + now.lose > 0 ? now.win / (now.win + now.lose) : null;
     const pick = {
       ...r.payload,
+      // Picks locked before the "why" line existed fall back to their headline.
+      why: r.payload.why || r.payload.rationale?.why || r.payload.rationale?.headline || null,
+      whyShort: r.payload.whyShort || r.payload.why || r.payload.rationale?.headline || null,
       tier: r.tier,
       pickRole: 'hero',
       isLowConviction: false,
@@ -190,12 +193,21 @@ export function applyLocks(board, rows = [], { maxPerTier = { tier1: 3, tier2: 5
   };
 }
 
+const DEMOTE_WHY = {
+  same_side: 'Same opinion as the recommended side bet on this game, so it is tracked, not doubled up.',
+  no_price_edge: 'Tracked only: the board already carries its limit of recommended picks at this level.',
+};
+
 function demote(p, reason) {
+  const why = `${DEMOTE_WHY[reason] || 'Tracked, not recommended.'} ${p.why || ''}`.trim();
+  const whyShort = `${reason === 'same_side' ? 'Tracked, same side as the pick' : 'Tracked, board is full'}. ${p.whyShort || ''}`.trim();
   return {
     ...p,
+    why,
+    whyShort,
     tier: 'tracking', pickRole: 'tracking', isLowConviction: true, lowSignalReason: reason,
     flags: { ...(p.flags || {}), tracking: true },
-    rationale: { ...(p.rationale || {}), pickRole: 'tracking' },
+    rationale: { ...(p.rationale || {}), why, whyShort, pickRole: 'tracking' },
     conviction: { label: 'Lean', score: Math.min(49, p.conviction?.score ?? 49) },
     betScore: { ...(p.betScore || {}), total: Math.min(0.49, p.betScore?.total ?? 0.49) },
   };

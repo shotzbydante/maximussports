@@ -36,7 +36,6 @@ const HELD_BACK = {
   data_gap: 'Thin data',
 };
 
-const isRecommended = (p) => p?.pickRole === 'hero';
 const fmtOdds = (v) => (typeof v === 'number' ? (v > 0 ? `+${v}` : `${v}`) : '');
 
 const nick = (t) => getNflTeamBySlug(t?.slug)?.nickname || t?.shortName || t?.name || '';
@@ -49,22 +48,13 @@ function matchupText(p) {
 }
 
 /**
- * One sentence on why. A recommended pick is about its price; a lean is
- * about where the ratings sit against the market.
+ * Why this pick, in the engine's own words. Every pick carries a full
+ * sentence (`why`) and a few words (`whyShort`) for small tiles. Picks
+ * locked before those fields existed fall back to their headline.
  */
-function reason(p) {
-  const head = p.rationale?.headline || '';
-  if (isRecommended(p)) {
-    const wind = head.match(/(\d+) mph wind/);
-    const fair = fmtOdds(p.fair?.priceAmerican);
-    const parts = [];
-    if (wind) parts.push(`${wind[1]} mph wind in the forecast`);
-    if (fair) parts.push(`${wind ? 'fair' : 'Fair'} price ${fair}`);
-    return parts.join(', ');
-  }
-  const lean = head.match(/^Model lean: .*?\. (.+)$/);
-  return lean ? lean[1] : '';
-}
+const whyOf = (p) => p?.why || p?.rationale?.why || p?.rationale?.headline || '';
+const whyShortOf = (p) => p?.whyShort || p?.rationale?.whyShort || whyOf(p);
+const sentence = (t) => (t && !/[.!?]$/.test(t) ? `${t}.` : t);
 
 /** "-110 at Circa" for spreads and totals; the book alone for a moneyline, whose label is the price. */
 function priceText(p) {
@@ -84,7 +74,7 @@ function Reasons({ pick }) {
   if (bullets.length === 0) return null;
   return (
     <details className={h.why}>
-      <summary>Why this pick</summary>
+      <summary>More on this pick</summary>
       <ul>{bullets.map((b) => <li key={b}>{b}</li>)}</ul>
     </details>
   );
@@ -117,7 +107,8 @@ function TopPlay({ pick, to }) {
           {pick.market?.type === 'moneyline' && pick.book?.title && (
             <p className={h.topPrice}>at {pick.book.title}</p>
           )}
-          <p className={h.topWhy}>{nick(m.awayTeam)} at {nick(m.homeTeam)}{reason(pick) ? `. ${reason(pick)}.` : '.'}</p>
+          <p className={h.topGame}>{nick(m.awayTeam)} at {nick(m.homeTeam)}{pick.environment?.label ? `. ${pick.environment.label}` : ''}</p>
+          {whyOf(pick) && <p className={h.topWhy}><b>Why: </b>{whyOf(pick)}</p>}
         </div>
         <div>
           <ScoreRing value={score(pick)} />
@@ -162,8 +153,13 @@ function PickTile({ pick, to, lean }) {
       </div>
       <ModelMarketBars model={pick.modelProb} market={pick.impliedProb} />
       {to
-        ? reason(pick) && <p className={h.pickWhy}>{reason(pick)}.</p>
-        : <Reasons pick={pick} />}
+        ? whyShortOf(pick) && <p className={h.pickWhy}><b>Why: </b>{sentence(whyShortOf(pick))}</p>
+        : (
+          <>
+            {whyOf(pick) && <p className={h.pickWhyFull}><b>Why: </b>{whyOf(pick)}</p>}
+            <Reasons pick={pick} />
+          </>
+        )}
     </Tag>
   );
 }
@@ -214,6 +210,7 @@ function EveryGame({ picks, recommendedIds }) {
                   {p.book?.title && <span className={h.small}> {p.book.title}</span>}
                 </span>
                 <span className={h.leanScore} aria-label={`Conviction ${score(p)}`}>{score(p)}</span>
+                {whyOf(p) && <span className={h.leanWhy}>{whyOf(p)}</span>}
               </div>
             ))}
           </details>

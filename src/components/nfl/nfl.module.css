@@ -462,6 +462,7 @@ a.video:hover .videoTitle { color: var(--color-primary); }
   background: var(--nfl-warn-soft); color: var(--nfl-warn);
 }
 .note { font-size: 0.8125rem; line-height: 1.55; color: var(--color-text-muted); margin: 0; }
+.pickWhy { display: block; margin-top: 2px; font-size: 0.75rem; font-weight: 400; line-height: 1.4; color: var(--color-text-muted); max-width: 44ch; white-space: normal; }
 
 /* ── Modal ─────────────────────────────────────────────────────────────── */
 .backdrop {

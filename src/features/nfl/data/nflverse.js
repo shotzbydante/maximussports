@@ -29,7 +29,7 @@ const GAME_COLS = [
   'home_team', 'home_score', 'location', 'espn', 'away_rest', 'home_rest',
   'away_moneyline', 'home_moneyline', 'spread_line', 'away_spread_odds', 'home_spread_odds',
   'total_line', 'under_odds', 'over_odds', 'div_game', 'roof', 'temp', 'wind',
-  'away_qb_id', 'home_qb_id', 'away_qb_name', 'home_qb_name', 'away_coach', 'home_coach', 'stadium',
+  'away_qb_id', 'home_qb_id', 'away_qb_name', 'home_qb_name', 'away_coach', 'home_coach', 'stadium', 'stadium_id',
 ];
 
 /**
@@ -76,6 +76,7 @@ export function parseGames(text, { fromSeason = 0 } = {}) {
       homeCoach: r.home_coach || null,
       awayCoach: r.away_coach || null,
       stadium: r.stadium || null,
+      stadiumId: r.stadium_id || null,
     };
   }).sort((a, b) => a.season - b.season || a.week - b.week || String(a.date).localeCompare(String(b.date)));
 }
