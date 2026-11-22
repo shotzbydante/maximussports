@@ -396,7 +396,8 @@
 .leagueMeta { font-size: 0.75rem; color: var(--gl-text-2); }
 .leagueArrow { margin-left: auto; color: var(--gl-sky); display: inline-flex; }
 
-.closing {
+/* .panel.closing: the phone rule for .panel sets a gap, and this stack must not take it. */
+.panel.closing {
   display: flex;
   flex-direction: column;
   align-items: center;

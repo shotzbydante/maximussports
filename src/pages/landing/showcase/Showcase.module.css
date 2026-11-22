@@ -28,18 +28,8 @@
   overflow: hidden;
   font-variant-numeric: tabular-nums;
 }
-.windowBar {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 9px 14px;
-  background: #fff;
-  border-bottom: 1px solid var(--hair);
-}
-.windowDots { display: inline-flex; gap: 5px; }
-.windowDots i { width: 8px; height: 8px; border-radius: 50%; background: #d5deeb; }
-.windowPath { font-size: 0.75rem; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.windowBody { padding: 14px; }
+.windowFlush { background: #fff; }
+.windowTray { padding: 14px; }
 .logo { flex: none; object-fit: contain; vertical-align: -0.2em; }
 
 /* Conviction ring */
@@ -50,7 +40,7 @@
 .ringValue { position: absolute; font-size: 0.8125rem; font-weight: 800; }
 
 /* ── Pick ticket ── */
-.ticket { background: #fff; border: 1px solid var(--hair); border-radius: 12px; }
+.ticket { padding: 6px 6px 2px; }
 .ticketTop {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
@@ -118,7 +108,7 @@
 .stampValue { color: var(--up); font-weight: 600; }
 
 /* ── Every game ── */
-.board { background: #fff; border: 1px solid var(--hair); border-radius: 12px; padding: 14px; }
+.board { padding: 20px; }
 .boardHead { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
 .boardTitle { font-size: 1.0625rem; font-weight: 800; letter-spacing: -0.01em; }
 .boardWeek { font-size: 0.75rem; color: var(--ink-3); }
@@ -178,7 +168,9 @@
 }
 .chipUp { color: var(--up); background: var(--up-soft); }
 .chipWarn { color: var(--warn); background: var(--warn-soft); }
-.rowMeta { flex-basis: 100%; font-size: 0.75rem; color: var(--ink-3); }
+.rowMeta { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 0 6px; font-size: 0.75rem; color: var(--ink-3); }
+.rowMeta > span { white-space: nowrap; }
+.rowMeta > span + span::before { content: '·'; margin-right: 6px; }
 .rowWhy { flex-basis: 100%; font-size: 0.8125rem; color: var(--ink-2); }
 .more { padding-top: 10px !important; border-top: 1px solid var(--hair); font-size: 0.75rem; color: var(--ink-3); }
 
@@ -299,15 +291,20 @@
   .tick::before { left: -7px; top: 3px; }
 }
 @media (max-width: 600px) {
-  .windowBody { padding: 8px; }
-  .board { padding: 12px 10px; }
+  .windowTray { padding: 8px; }
+  .board { padding: 16px 14px; }
+  .ticket { padding: 2px 2px 0; }
   .tab { font-size: 0.75rem; padding: 7px 2px; }
   .panel { min-height: 0; }
   .ticketTop { padding: 14px 8px 8px; }
   .line { padding: 7px 8px; }
-  .edge { grid-template-columns: minmax(0, 1fr) 84px minmax(0, 1fr); gap: 8px; }
+  /* Phone: the two units side by side with room for names, the edge bar under them. */
+  .edge { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px 12px; align-items: start; }
+  .edgeMid { grid-column: 1 / -1; grid-row: 2; flex-direction: row; gap: 10px; }
+  .edgeTrack { flex: 1; }
+  .rowMeta { flex-direction: column; }
+  .rowMeta > span + span::before { content: none; }
   .matchCard { padding: 12px; }
   .stripRow { grid-template-columns: 1fr; gap: 3px; }
   .matchTeams { font-size: 1rem; }
-  .edgeNames > span { white-space: normal; }
 }
