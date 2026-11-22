@@ -1,6 +1,7 @@
 /**
  * NFL Team Detail — one team's outlook: record and seed, power rating,
- * projection, this week's game, full schedule, and its news and videos.
+ * projection, this week's game, roster talent by position group, full
+ * schedule, and its news and videos.
  */
 
 import { useState, useEffect, useMemo } from 'react';
@@ -10,6 +11,7 @@ import { useWorkspace } from '../../workspaces/WorkspaceContext';
 import SEOHead from '../../components/seo/SEOHead';
 import NflGameCard from '../../components/nfl/NflGameCard';
 import NflIntelFeed from '../../components/nfl/NflIntelFeed';
+import { TeamTalent } from '../../components/nfl/NflTalent';
 import usePinnedTeams, { getAllPinnedSlugs } from '../../hooks/usePinnedTeams';
 import { useTeamPin } from '../../hooks/useTeamPin';
 import { usePlan } from '../../hooks/usePlan';
@@ -272,7 +274,7 @@ function TeamDetail({ team }) {
     <div className={s.page}>
       <SEOHead
         title={`${team.name}: Record, Power Rating, Schedule & Odds`}
-        description={`${team.name} intel: record, playoff seed, Maximus power rating, projected wins, schedule, Super Bowl odds and the latest news.`}
+        description={`${team.name} intel: record, playoff seed, Maximus power rating, roster talent by position group, projected wins, schedule, Super Bowl odds and the latest news.`}
       />
 
       <header className={s.pageHeader}>
@@ -344,6 +346,8 @@ function TeamDetail({ team }) {
           <div className={s.empty}>No game on this week’s board.</div>
         )}
       </section>
+
+      <TeamTalent team={team} game={game} />
 
       {injuries?.injuries?.length > 0 && <InjuryReport report={injuries} />}
 

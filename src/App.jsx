@@ -50,6 +50,7 @@ const NflHome        = lazy(() => import('./pages/nfl/NflHome'));
 const NflGames       = lazy(() => import('./pages/nfl/NflGames'));
 const NflTeams       = lazy(() => import('./pages/nfl/NflTeams'));
 const NflTeamDetail  = lazy(() => import('./pages/nfl/NflTeamDetail'));
+const NflGameMatchup = lazy(() => import('./pages/nfl/NflGameMatchup'));
 const NflNewsFeed    = lazy(() => import('./pages/nfl/NflNewsFeed'));
 const NflPicks       = lazy(() => import('./pages/nfl/NflPicks'));
 const NflSeasonModel = lazy(() => import('./pages/nfl/NflSeasonModel'));
@@ -157,6 +158,7 @@ export default function App() {
                   <Route path="nfl" element={<WorkspaceGate workspaceId={WorkspaceId.NFL} />}>
                     <Route index element={<NflHome />} />
                     <Route path="games" element={<RouteGate><NflGames /></RouteGate>} />
+                    <Route path="games/:matchup" element={<RouteGate><NflGameMatchup /></RouteGate>} />
                     <Route path="teams" element={<RouteGate><NflTeams /></RouteGate>} />
                     <Route path="teams/:slug" element={<RouteGate><NflTeamDetail /></RouteGate>} />
                     <Route path="news" element={<RouteGate><NflNewsFeed /></RouteGate>} />

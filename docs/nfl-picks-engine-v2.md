@@ -143,8 +143,16 @@ Run `docs/nfl-picks-v2-migration.sql` in Supabase **before merging**. Additive a
 
 ## Roster talent (context only)
 
-`src/features/nfl/picks/v2/talent.js` adds position-group matchups to each game's engine block (`engine.talent`, `byGame[].talent`) and one context bullet on picks. Team grades are Maximus's own blend of Madden NFL 27 overall ratings, PFF position ranks and 2026 production, built in the player workbook (a Google Sheet, not in this repository). Only the blended team grades are loaded, from the active `picks_config` row for sport `nfl_talent` (`api/_lib/nflTalent.js`); the player ratings behind them are not stored in the repository or served by the app.
+`src/features/nfl/picks/v2/talent.js` adds position-group matchups to each game's engine block (`engine.talent`, `byGame[].talent`) and one context bullet on picks. Team grades are Maximus's own blend of Madden NFL 27 overall ratings, PFF position ranks and 2026 production, built in the player workbook (a Google Sheet, not in this repository). The engine loads only the blended team grades, from the active `picks_config` row for sport `nfl_talent` (`api/_lib/nflTalent.js`).
 
 A matchup edge is the offense unit's distance above league average minus the opposing defense unit's: quarterback v pass defense, pass protection v pass rush, receivers v coverage, run game v run defense. Three points is an edge, six a big one.
 
 It moves no fair number and makes no pick. The blend's weights are judgment, there is one snapshot, and the PFF files held ranks without grades, so it cannot be tested against closing lines yet. To refresh it, rebuild the workbook and insert a new active `nfl_talent` row.
+
+### Talent on the team and game pages
+
+`GET /api/nfl/talent` serves one team (`?team=49ers`) or one game (`?away=vikings&home=49ers`): overall, offense and defense talent with league ranks, the 11 position-group grades, the 8 unit grades, three strengths and three weaknesses, and each team's counted starters with Madden overall, PFF rank, production score, Maximus score, position rank and tier. For a game it adds the unit matchups from `talentMatchups()`.
+
+The page data comes from a second `picks_config` row, sport `nfl_talent_detail`, shaped by `src/features/nfl/talent/talentView.js`. Players are stored one string per team (`group|pos|name|madden|pffRank|production|score|groupRank|xFactor`, joined by `;`). Neither row is in this repository. To refresh both: rebuild the workbook, then replace the two rows.
+
+UI: `TeamTalent` on `/nfl/teams/:slug` and `MatchupTalent` on the new `/nfl/games/:away-at-:home` page (`src/components/nfl/NflTalent.jsx`). Game cards link to the matchup page.

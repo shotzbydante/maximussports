@@ -82,7 +82,7 @@ function InjuryLine({ game }) {
   );
 }
 
-export default function NflGameCard({ game }) {
+export default function NflGameCard({ game, showMatchupLink = true }) {
   const { buildPath } = useWorkspace();
   if (!game) return null;
 
@@ -99,6 +99,7 @@ export default function NflGameCard({ game }) {
   const winProb = model.homeWinProb;
   const favoured = winProb != null ? (winProb >= 0.5 ? home : away) : null;
   const favouredPct = winProb != null ? Math.round(Math.max(winProb, 1 - winProb) * 100) : null;
+  const matchupPath = showMatchupLink && away?.slug && home?.slug ? buildPath(`/games/${away.slug}-at-${home.slug}`) : null;
 
   return (
     <article className={`${s.gameCard} ${gs.isLive ? s.gameCardLive : ''}`}>
@@ -160,17 +161,22 @@ export default function NflGameCard({ game }) {
 
       <InjuryLine game={game} />
 
-      {links?.gamecastUrl && (
+      {(links?.gamecastUrl || matchupPath) && (
         <div className={s.gameFoot}>
           <span className={s.muted}>{game.venue?.name || ''}</span>
-          <a
-            href={links.gamecastUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={() => trackOutboundClick({ sport: 'nfl', surface: 'nfl_game_card', destination: 'espn_gamecast' })}
-          >
-            ESPN Gamecast ↗
-          </a>
+          <span className={s.gameFootLinks}>
+            {matchupPath && <Link to={matchupPath}>Talent matchup</Link>}
+            {links?.gamecastUrl && (
+              <a
+                href={links.gamecastUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => trackOutboundClick({ sport: 'nfl', surface: 'nfl_game_card', destination: 'espn_gamecast' })}
+              >
+                ESPN Gamecast ↗
+              </a>
+            )}
+          </span>
         </div>
       )}
     </article>

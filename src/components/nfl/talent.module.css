@@ -1,0 +1,96 @@
+/* Roster talent: team page and game matchup page. Tokens come from the NFL workspace. */
+
+.strong { color: var(--color-primary); }
+.weak { color: var(--nfl-warn); }
+
+.sentence { margin: 0; font-size: 0.9375rem; line-height: 1.6; color: var(--color-text-secondary); }
+.subTitle { margin: 6px 0 0; font-size: 1rem; line-height: 1.3; color: var(--color-text); }
+
+/* Position-group tiles */
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.tile {
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 12px 14px;
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg, 10px);
+}
+.tileTop { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.tileLabel { font-size: 0.75rem; color: var(--color-text-muted); }
+.tileRank { font-size: 0.75rem; font-weight: 700; color: var(--color-text-secondary); font-variant-numeric: tabular-nums; }
+.tileRank.strong { color: var(--color-primary); }
+.tileRank.weak { color: var(--nfl-warn); }
+.tileGrade { font-size: 1.375rem; font-weight: 700; line-height: 1.1; color: var(--color-text); }
+
+.bar {
+  position: relative; display: block; height: 6px; border-radius: 999px;
+  background: var(--color-border-light); overflow: hidden;
+}
+.barFill { position: absolute; inset: 0 auto 0 0; border-radius: 999px; background: var(--color-text-muted); }
+.barFill.strong { background: var(--color-primary); }
+.barFill.weak { background: var(--nfl-warn); }
+.barTick { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--color-text); opacity: 0.55; }
+
+/* Player tables */
+.tableTitle {
+  padding: 10px 14px; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+  color: var(--color-text-muted); border-bottom: 1px solid var(--color-border-light);
+}
+.xf {
+  display: inline-flex; align-items: center; justify-content: center;
+  margin-left: 6px; width: 16px; height: 16px; border-radius: 4px;
+  font-size: 0.625rem; font-weight: 800; color: #fff; background: var(--color-primary);
+}
+.tier {
+  display: inline-block; padding: 3px 8px; border-radius: 999px;
+  font-size: 0.6875rem; font-weight: 700; white-space: nowrap;
+  border: 1px solid var(--color-border-light); color: var(--color-text-secondary);
+}
+.tierElite { background: var(--color-primary); border-color: var(--color-primary); color: #fff; }
+.tierGood { background: var(--nfl-accent-soft, rgba(22, 104, 227, 0.1)); border-color: var(--nfl-accent-border, rgba(22, 104, 227, 0.25)); color: var(--color-primary); }
+.tierBelow { background: var(--nfl-warn-soft, rgba(245, 158, 11, 0.12)); border-color: transparent; color: var(--nfl-warn); }
+
+.center { text-align: center; }
+.thTeam { display: inline-flex; align-items: center; gap: 6px; }
+
+/* Unit matchups */
+.matchGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px; }
+.matchHead {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 4px;
+  font-size: 0.875rem; font-weight: 700; color: var(--color-text);
+}
+.edge {
+  display: grid; grid-template-columns: minmax(0, 1fr) 132px minmax(0, 1fr); align-items: center; gap: 10px;
+  padding: 10px 0; border-top: 1px solid var(--color-border-light);
+}
+.edgeSide { display: flex; align-items: flex-start; gap: 8px; min-width: 0; }
+.edgeSide > span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.edgeSideRight { justify-content: flex-end; text-align: right; }
+.edgeUnit { font-size: 0.8125rem; font-weight: 600; color: var(--color-text); }
+.edgeGrade { font-size: 0.75rem; color: var(--color-text-muted); }
+.edgeNames { font-size: 0.6875rem; line-height: 1.4; color: var(--color-text-muted); }
+.edgeMid { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.edgeTrack {
+  position: relative; display: block; width: 100%; height: 8px; border-radius: 999px;
+  background: var(--color-border-light);
+}
+.edgeTrack::after {
+  content: ''; position: absolute; left: 50%; top: -3px; bottom: -3px; width: 2px;
+  margin-left: -1px; background: var(--color-text-muted);
+}
+.edgeFill { position: absolute; top: 0; bottom: 0; }
+.edgeToOffense { background: var(--color-primary); border-radius: 999px 0 0 999px; }
+.edgeToDefense { background: var(--nfl-warn); border-radius: 0 999px 999px 0; }
+.chip {
+  padding: 3px 8px; border-radius: 999px; font-size: 0.6875rem; font-weight: 700; white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-muted); border: 1px solid var(--color-border-light);
+}
+.chipEdge { color: var(--color-primary); border-color: var(--nfl-accent-border, rgba(22, 104, 227, 0.25)); background: var(--nfl-accent-soft, rgba(22, 104, 227, 0.1)); }
+.chipBig { color: var(--color-bg-elevated, #fff); border-color: var(--color-text); background: var(--color-text); }
+
+@media (max-width: 560px) {
+  .edge { grid-template-columns: minmax(0, 1fr) 96px minmax(0, 1fr); gap: 6px; }
+  .edgeNames { display: none; }
+  .matchGrid { grid-template-columns: 1fr; }
+}
