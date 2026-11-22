@@ -42,7 +42,7 @@ import {
 } from '../utils/tournamentHelpers';
 import { fetchBracketData } from '../data/bracketData';
 import { REGIONS } from '../config/bracketology';
-import { WorkspaceId, WORKSPACES } from '../workspaces/config';
+import { WorkspaceId, WORKSPACES, SeasonState } from '../workspaces/config';
 import { getVisibleWorkspaces } from '../workspaces/access';
 import { MLB_TEAMS, MLB_DIVISIONS } from '../sports/mlb/teams';
 import { NBA_TEAMS } from '../sports/nba/teams';
@@ -1368,6 +1368,20 @@ export default function Dashboard() {
       : (!isWorking && !!dashData && (activeSection !== 'team' || !!enhancedTeamData) && (activeSection !== 'conference' || !!selectedConference)));
   const previewScale = PREVIEW_SCALES[previewSize] || PREVIEW_SCALES.medium;
 
+  // ── Season guard: these templates assume a live season and do not check for one ──
+  const studioWarning = (() => {
+    if (activeSection === 'videos') return null;
+    if (isMlbStudio && studioWorkspace.seasonState !== SeasonState.ACTIVE) {
+      return 'MLB is in the offseason. These templates present the last game played as today\u2019s news and leave the picks panels empty. Check every date and panel before posting.';
+    }
+    // The NBA templates are written for the playoffs (series, postseason leaders).
+    const month = new Date().getMonth(); // 0 = January
+    if (isNbaStudio && (month < 3 || month > 5)) {
+      return 'NBA templates are written for the playoffs (series scores, postseason leaders). In the regular season they will read wrong. Check before posting.';
+    }
+    return null;
+  })();
+
   // MLB / NBA slide counts — daily gets 3-slide carousel, team intel 1 slide
   const MLB_SLIDE_COUNTS = { 'mlb-daily': 3, 'mlb-team': 1 };
   const NBA_SLIDE_COUNTS = { 'nba-daily': 3, 'nba-team': 1 };
@@ -2210,6 +2224,8 @@ export default function Dashboard() {
               <strong>Error:</strong> {dataError}
             </div>
           )}
+
+          {studioWarning && <div className={styles.errorBanner} role="status">{studioWarning}</div>}
 
           {/* Status */}
           {assetsReady && <div className={styles.readyBadge}>✓ Ready to export</div>}
