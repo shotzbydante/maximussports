@@ -95,6 +95,8 @@
   border: 1px solid var(--picks-conv-t1-border);
   box-shadow: var(--picks-conv-shadow);
   min-width: 116px;
+  /* Never let the header squeeze the badge: its label clipped on phones. */
+  flex-shrink: 0;
 }
 
 .convictionTop { display: inline-flex; align-items: baseline; gap: 6px; }

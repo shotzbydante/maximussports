@@ -19,7 +19,9 @@ import { getNflTeamBySlug } from '../../sports/nfl/teams';
 import { fetchNflChampionshipOdds, fetchNflTeamBoard, fetchNflGames } from '../../api/nfl';
 import NflTeamPickerModal from './NflTeamPickerModal';
 import NflLogo from './NflLogo';
+import { SectionHead, Rail } from './home/HomeParts';
 import s from './nfl.module.css';
+import h from './home/home.module.css';
 
 const FREE_PIN_LIMIT = 3;
 const SUGGESTED = ['chiefs', 'eagles', 'bills', 'lions', '49ers'];
@@ -40,8 +42,8 @@ function nextGameLine(slug, games, byeTeams) {
   }
   if (g.status === 'live') return `Live: ${us.score}–${opp.score} ${isHome ? 'vs' : 'at'} ${opp.abbrev}, ${g.gameState?.periodLabel || ''}`;
   const spread = g.market?.pregameSpread;
-  const line = spread != null ? ` · ${us.abbrev} ${isHome ? fmt(spread) : fmt(-spread)}` : '';
-  return `${isHome ? 'vs' : 'at'} ${opp.abbrev} · ${kickoffLabel(g.startTime)}${line}`;
+  const line = spread != null ? `, ${us.abbrev} ${isHome ? fmt(spread) : fmt(-spread)}` : '';
+  return `${isHome ? 'vs' : 'at'} ${opp.abbrev}, ${kickoffLabel(g.startTime)}${line}`;
 }
 function fmt(v) { return v > 0 ? `+${v}` : v === 0 ? 'PK' : `${v}`; }
 /** Kickoff in the viewer's own time zone. */
@@ -54,38 +56,31 @@ function kickoffLabel(iso) {
 function PinnedCard({ slug, board, odds, nextLine, onRemove, buildPath }) {
   const team = getNflTeamBySlug(slug);
   if (!team) return null;
+  const rating = board?.rating != null ? (board.rating > 0 ? `+${board.rating}` : `${board.rating}`) : null;
+  const facts = [
+    board?.playoffSeed != null ? `Seed ${board.playoffSeed}` : null,
+    rating ? `Rating ${rating}` : null,
+    odds?.bestChanceAmerican != null ? `Title ${fmtOdds(odds.bestChanceAmerican)}` : null,
+  ].filter(Boolean);
   return (
-    <div className={`${s.card} ${s.pinCard}`}>
-      <div className={s.pinHead}>
-        <div className={s.pinIdentity}>
-          <NflLogo slug={slug} size={36} />
-          <div>
-            <Link to={buildPath(`/teams/${slug}`)} className={s.pinName}>{team.name}</Link>
-            <div className={s.pinSub}>{board?.standing || team.division}</div>
-          </div>
-        </div>
-        <button type="button" className={s.iconBtn} onClick={() => onRemove(slug)} aria-label={`Stop following ${team.name}`}>×</button>
+    <article className={h.tile} role="listitem">
+      <div className={h.pickTop}>
+        <span className={h.team}>
+          <NflLogo slug={slug} size={32} />
+          <span>
+            <Link to={buildPath(`/teams/${slug}`)} className={h.teamName}>{team.name}</Link>
+            <span className={h.small} style={{ display: 'block' }}>{[board?.record, board?.standing || team.division].filter(Boolean).join(', ')}</span>
+          </span>
+        </span>
+        <button type="button" className={h.iconBtn} onClick={() => onRemove(slug)} aria-label={`Stop following ${team.name}`}>
+          <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 2.5l7 7M9.5 2.5l-7 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
+        </button>
       </div>
-      <div className={s.stats}>
-        <div className={s.stat}>
-          <span className={s.statLabel}>Record</span>
-          <span className={s.statValue}>{board?.record || '—'}</span>
-        </div>
-        <div className={s.stat}>
-          <span className={s.statLabel}>Seed</span>
-          <span className={s.statValue}>{board?.playoffSeed ?? '—'}</span>
-        </div>
-        <div className={s.stat}>
-          <span className={s.statLabel}>Rating</span>
-          <span className={s.statValue}>{board?.rating != null ? (board.rating > 0 ? `+${board.rating}` : board.rating) : '—'}</span>
-        </div>
-        <div className={s.stat}>
-          <span className={s.statLabel}>Title</span>
-          <span className={s.statValue}>{fmtOdds(odds?.bestChanceAmerican)}</span>
-        </div>
-      </div>
-      {nextLine && <div className={s.pinNext}>{nextLine}</div>}
-    </div>
+      {facts.length > 0 && (
+        <div className={h.chipRow}>{facts.map((f) => <span key={f} className={h.chip}>{f}</span>)}</div>
+      )}
+      {nextLine && <div className={h.gameFoot}><span>{nextLine}</span></div>}
+    </article>
   );
 }
 
@@ -156,13 +151,14 @@ export default function NflPinnedTeamSection() {
   };
 
   return (
-    <section className={s.section}>
-      <div className={s.sectionHead}>
-        <h2 className={s.sectionTitle}>Teams you follow</h2>
+    <section className={h.section} aria-label="Your teams">
+      <SectionHead title="Your teams">
         {pinned.length > 0 && (
-          <button type="button" className={`${s.btn} ${s.btnSmall}`} onClick={openPicker}>Add team</button>
+          <button type="button" className={h.more} style={{ border: 0, background: 'none', cursor: 'pointer', font: 'inherit', fontSize: '0.875rem', fontWeight: 600 }} onClick={openPicker}>
+            Add a team
+          </button>
         )}
-      </div>
+      </SectionHead>
 
       {limitHit && (
         <div className={s.notice}>
@@ -172,12 +168,9 @@ export default function NflPinnedTeamSection() {
       )}
 
       {pinned.length === 0 ? (
-        <div className={`${s.card} ${s.pinEmpty}`}>
-          <div>
-            <strong>Follow a team to keep it on this page.</strong>
-            <p className={s.note}>Record, playoff seed, power rating, title price and this week’s game at a glance.</p>
-          </div>
-          <div className={s.chipRow}>
+        <div className={h.empty}>
+          <b>Follow a team to keep it here</b>
+          <div className={h.chipRow} style={{ marginTop: 10 }}>
             {SUGGESTED.map((slug) => {
               const t = getNflTeamBySlug(slug);
               return (
@@ -186,11 +179,11 @@ export default function NflPinnedTeamSection() {
                 </button>
               );
             })}
-            <button type="button" className={`${s.btn} ${s.btnSmall} ${s.btnPrimary}`} onClick={openPicker}>All teams</button>
+            <button type="button" className={s.chipBtn} onClick={openPicker}>All teams</button>
           </div>
         </div>
       ) : (
-        <div className={s.pinGrid}>
+        <Rail label="Teams you follow">
           {pinned.map((slug) => (
             <PinnedCard
               key={slug}
@@ -202,7 +195,7 @@ export default function NflPinnedTeamSection() {
               buildPath={buildPath}
             />
           ))}
-        </div>
+        </Rail>
       )}
 
       <NflTeamPickerModal

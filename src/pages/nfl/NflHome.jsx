@@ -1,29 +1,32 @@
 /**
  * NFL Home — the briefing page for the NFL workspace.
  *
- * Order: briefing → this week's board → teams you follow → picks →
- * model performance → Super Bowl watch → intel feed.
+ * Order: picks → games → written briefing → your teams → Super Bowl
+ * odds and headlines → videos. Sections are rails on phones and grids
+ * on wide screens; the detail lives on the pages each section links to.
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom';
 import { useWorkspace } from '../../workspaces/WorkspaceContext';
 import FormattedSummary from '../../components/shared/FormattedSummary';
-import MlbMaximusPicksSectionV2 from '../../components/mlb/picks/MlbMaximusPicksSectionV2';
 import SEOHead, { buildOgImageUrl } from '../../components/seo/SEOHead';
-import NflGameCard from '../../components/nfl/NflGameCard';
 import NflPinnedTeamSection from '../../components/nfl/NflPinnedTeamSection';
-import NflScorecardReport from '../../components/nfl/NflScorecardReport';
-import NflSuperBowlWatch from '../../components/nfl/NflSuperBowlWatch';
-import NflIntelFeed from '../../components/nfl/NflIntelFeed';
+import HomeGameTile from '../../components/nfl/home/HomeGameTile';
+import NflSectionTabs from '../../components/nfl/home/NflSectionTabs';
+import HomePicks from '../../components/nfl/home/HomePicks';
+import HomeTitleRace from '../../components/nfl/home/HomeTitleRace';
+import { HomeVideos, HomeHeadlines } from '../../components/nfl/home/HomeFeed';
+import { SectionHead, Rail } from '../../components/nfl/home/HomeParts';
 import { fetchNflGames } from '../../api/nfl';
 import { getNflTeamBySlug } from '../../sports/nfl/teams';
+import { mascotFor } from '../../brand/mascots';
 import s from '../../components/nfl/nfl.module.css';
+import h from '../../components/nfl/home/home.module.css';
 
 const SPLASH_MS = 1400;
 const LLM_TTL_MS = 60_000;
 const CLIENT_TIMEOUT_MS = 15_000;
-const BOARD_PREVIEW = 6;
+const BOARD_PREVIEW = 8;
 
 const _llmCache = { data: null, ts: 0 };
 
@@ -153,7 +156,7 @@ export default function NflHome() {
     : null;
 
   return (
-    <div className={s.page}>
+    <div className={h.page}>
       <SEOHead
         title={seoTitle}
         description={seoDescription}
@@ -172,102 +175,96 @@ export default function NflHome() {
         }}
       />
 
-      <header className={s.pageHeader}>
-        <span className={s.eyebrow}>{workspace.labels.intelligence}</span>
-        <h1 className={s.pageTitle}>{weekLabel ? `${weekLabel} briefing` : 'NFL briefing'}</h1>
-        <div className={s.metaLine}>
-          <span>
-            {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
-          </span>
-          {slate && games.length > 0 && (
-            <span className={s.metaDot}>
-              {slate.counts.live > 0 ? `${slate.counts.live} live · ` : ''}
-              {slate.counts.upcoming} to play · {slate.counts.final} final
-            </span>
-          )}
+      <header className={h.header}>
+        <div>
+          <h1 className={h.title}>{weekLabel ? `NFL ${weekLabel}` : 'NFL'}</h1>
+          <p className={h.meta}>
+            {new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+            {slate && games.length > 0 && (
+              <>
+                {'. '}
+                {slate.counts.live > 0 && <span className={h.metaLive}>{slate.counts.live} live, </span>}
+                {slate.counts.upcoming} to play, {slate.counts.final} final
+              </>
+            )}
+          </p>
         </div>
+        <img className={h.mascot} src={mascotFor('nfl').flat} alt="" width="64" height="64" />
       </header>
 
-      {/* Briefing */}
-      <section className={`${s.card} ${s.cardAccent} ${s.briefing}`} aria-label="Intelligence briefing">
-        <div className={s.sectionHead}>
-          <h2 className={s.sectionTitle}>Today’s intelligence briefing</h2>
-          <button
-            type="button"
-            className={s.iconBtn}
-            onClick={handleRefresh}
-            disabled={refreshing}
-            aria-label="Refresh briefing"
-            title="Refresh briefing"
-          >
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden>
-              <path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9M13.5 2.5v3h-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </button>
-        </div>
-        <div className={`${s.briefingBody} ${!expanded && summary ? s.briefingCollapsed : ''}`}>
-          {summary ? (
-            <FormattedSummary text={summary} />
-          ) : summaryState === 'loading' ? (
-            <p className={s.muted}>Writing this week’s briefing…</p>
-          ) : fallback ? (
-            <p>{fallback}</p>
-          ) : (
-            <p className={s.muted}>The briefing is not available right now. The board and picks below are live.</p>
-          )}
-        </div>
-        {summary && (
-          <button type="button" className={s.textBtn} onClick={() => setExpanded((v) => !v)} aria-expanded={expanded}>
-            {expanded ? 'Show less' : 'Read the full briefing'}
-          </button>
+      <NflSectionTabs />
+
+      <HomePicks />
+
+      <section className={h.section} aria-label="This week's games">
+        <SectionHead
+          title="Games"
+          count={games.length > 0 ? games.length : null}
+          to={buildPath('/games')}
+          moreLabel="All games"
+        />
+        {slate === null ? (
+          <div className={h.skeleton} aria-busy="true" />
+        ) : board.length === 0 ? (
+          <div className={h.empty}>
+            <b>No games this week</b>
+            The next slate shows up here as soon as the schedule and lines are posted.
+          </div>
+        ) : (
+          <Rail label="This week's games" cap={6}>
+            {board.slice(0, BOARD_PREVIEW).map((g) => <HomeGameTile key={g.gameId} game={g} />)}
+          </Rail>
+        )}
+        {slate?.byeTeams?.length > 0 && (
+          <p className={h.fine}>On bye: {slate.byeTeams.map((t) => getNflTeamBySlug(t)?.nickname || t).join(', ')}.</p>
         )}
       </section>
 
-      {/* This week's board */}
-      <section className={s.section}>
-        <div className={s.sectionHead}>
-          <div>
-            <h2 className={s.sectionTitle}>{weekLabel ? `${weekLabel} board` : 'This week’s board'}</h2>
-            <p className={s.sectionSub}>Market lines next to the model’s number for every game.</p>
+      <section className={h.section} aria-label="Weekly briefing">
+        <SectionHead title="The briefing">
+          <button
+            type="button"
+            className={h.iconBtn}
+            onClick={handleRefresh}
+            disabled={refreshing}
+            aria-label="Refresh the briefing"
+            title="Refresh the briefing"
+          >
+            <svg className={refreshing ? h.spin : undefined} width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9M13.5 2.5v3h-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+        </SectionHead>
+        <div className={h.card}>
+          <div className={`${h.briefBody} ${!expanded && summary ? h.briefClamp : ''}`}>
+            {summary ? (
+              <FormattedSummary text={summary} />
+            ) : summaryState === 'loading' ? (
+              <p className={s.muted}>Writing this week’s briefing…</p>
+            ) : fallback ? (
+              <p>{fallback}</p>
+            ) : (
+              <p className={s.muted}>The briefing can’t load right now. Picks and games on this page are still current.</p>
+            )}
           </div>
-          <Link to={buildPath('/games')} className={s.sectionLink}>All {games.length || ''} games →</Link>
+          {summary && (
+            <button type="button" className={h.linkBtn} onClick={() => setExpanded((v) => !v)} aria-expanded={expanded}>
+              {expanded ? 'Show less' : 'Read it all'}
+            </button>
+          )}
         </div>
-        {slate === null ? (
-          <div className={s.gridGames}>
-            <div className={s.skeleton} /><div className={s.skeleton} /><div className={s.skeleton} />
-          </div>
-        ) : board.length === 0 ? (
-          <div className={s.empty}>
-            <span className={s.emptyTitle}>No games on the board</span>
-            The next slate appears here as soon as the schedule and lines post.
-          </div>
-        ) : (
-          <div className={s.gridGames}>
-            {board.slice(0, BOARD_PREVIEW).map((g) => <NflGameCard key={g.gameId} game={g} />)}
-          </div>
-        )}
-        {slate?.byeTeams?.length > 0 && (
-          <p className={s.note}>On bye: {slate.byeTeams.map((t) => getNflTeamBySlug(t)?.nickname || t).join(', ')}.</p>
-        )}
       </section>
 
       <NflPinnedTeamSection />
 
-      {/* Picks: recommended plays for the week */}
-      <MlbMaximusPicksSectionV2
-        mode="home"
-        sport="nfl"
-        endpoint="/api/nfl/picks/built"
-        suppressPerformanceBlocks
-      />
+      <div className={h.split}>
+        <HomeTitleRace limit={5} />
+        <HomeHeadlines max={5} />
+      </div>
 
-      <NflScorecardReport variant="embedded" insightsHref={buildPath('/insights')} />
+      <HomeVideos max={6} />
 
-      <NflSuperBowlWatch limit={6} />
-
-      <NflIntelFeed />
-
-      <p className={s.note}>For entertainment only. Please bet responsibly. 21+.</p>
+      <p className={h.fine}>For entertainment only. Please bet responsibly. 21+.</p>
     </div>
   );
 }
