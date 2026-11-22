@@ -35,7 +35,7 @@ export default function ProfileAvatar({ username, favoriteNumber, isPro, avatarC
       style={{ width: px, height: px }}
       aria-label={`${username || 'User'} avatar`}
     >
-      <MaximusAvatar sport={a.sport} skin={a.skin} number={a.number} size={px} title={`${username || 'User'} avatar`} />
+      <MaximusAvatar sport={a.sport} skin={a.skin} uniform={a.uniform} number={a.number} size={px} title={`${username || 'User'} avatar`} />
       {isPro && <span className={styles.proBadge}>PRO</span>}
     </span>
   );

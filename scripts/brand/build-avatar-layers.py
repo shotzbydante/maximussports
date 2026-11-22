@@ -9,16 +9,25 @@ Writes  public/brand/avatar/, 480px tall, per sport:
   {sport}-blank.webp  the same with the chest letter removed, for a number
   {sport}-mask.webp   alpha = how much each pixel is robot skin
   {sport}-shade.webp  black, alpha = how much darker than the lit skin tone
+  {sport}-umask.webp  alpha = how much each pixel is uniform (the navy cloth)
+  {sport}-ushade.webp black, alpha = how much darker than the lit cloth
 Prints the layout (chest box for the number, bust crop for small sizes);
 paste it into src/brand/avatar.js when the art changes.
 
 The avatar is drawn in the browser as: the mascot, a flat skin colour shown
-through the mask, the shade layer on top, then the number. See
+through the skin mask with its shade layer, a flat uniform colour shown
+through the uniform mask with its shade layer, then the number. See
 src/components/profile/MaximusAvatar.jsx.
+
+Skin and uniform are both blue in the art, so brightness alone cannot tell a
+cap highlight from a cheek. The black outlines can: they fence the drawing
+into regions, and each region is one or the other. A region that is mostly
+dark navy is uniform; one that is mostly bright blue is skin.
 
 Needs: pillow, numpy, scipy.
 """
 import json
+import sys
 import numpy as np
 from PIL import Image
 from scipy import ndimage as ndi
@@ -28,6 +37,11 @@ OUT = 'public/brand/avatar'
 OUT_H = 480
 SPORTS = ['football', 'basketball', 'baseball', 'hockey', 'soccer']
 V_REF = 0.90  # value of the lit skin tone
+V_OUTLINE = 0.22  # outlines and the darkest folds stay as drawn
+
+# Regions the brightness vote gets wrong, by a point inside them (source
+# pixels). The hockey helmet's dome is navy with a large highlight.
+FORCE_UNIFORM = {"hockey": [(214, 90)]}
 
 # Chest letter in source pixels (x0, y0, x1, y1). Found by looking for the
 # largest letter-sized blob on the chest; baseball was set by eye because the
@@ -47,11 +61,39 @@ def ramp(x, a, b):
     return np.clip((x - a) / (b - a), 0, 1)
 
 
-def skin_membership(im):
-    """Robot skin is the bright, saturated blue. Navy cloth and outlines are darker; cyan glows are a different hue."""
+def blue_regions(im):
+    """Label the areas of blue that the outlines fence off, and say which are uniform."""
     h, s, v = hsv(im)
-    m = ramp(v, 0.56, 0.66) * ramp(s, 0.40, 0.55) * ramp(h, 197, 203) * (1 - ramp(h, 222, 230))
-    return m * im[..., 3]
+    region = (im[..., 3] > 0.5) & (v > V_OUTLINE) & (h > 197) & (h < 250) & (s > 0.4)
+    lab, n = ndi.label(region)
+    idx = np.arange(1, n + 1)
+    cloth = ndi.sum((v < 0.52) & region, lab, idx)
+    skin = ndi.sum((v > 0.60) & region, lab, idx)
+    is_uniform = np.zeros(n + 1, bool)
+    is_uniform[1:] = cloth > skin
+    return lab, is_uniform
+
+
+def memberships(im, sport):
+    """(skin, uniform) alpha maps. Skin is the bright, saturated blue; cyan glows are a different hue."""
+    h, s, v = hsv(im)
+    a = im[..., 3]
+    lab, is_uniform = blue_regions(im)
+    for x, y in FORCE_UNIFORM.get(sport, []):
+        assert lab[y, x] > 0, f'{sport}: no blue region at {(x, y)}'
+        is_uniform[lab[y, x]] = True
+    in_uniform = is_uniform[lab]
+    in_skin = (lab > 0) & ~in_uniform
+
+    skin = ramp(v, 0.56, 0.66) * ramp(s, 0.40, 0.55) * ramp(h, 197, 203) * (1 - ramp(h, 222, 230)) * a
+    skin = skin * ~in_uniform
+
+    # Soft edge: reach two pixels past the region into its anti-aliased rim,
+    # never into a skin region.
+    near = ndi.binary_dilation(in_uniform, iterations=2) & ~in_skin
+    blue = ramp(h, 198, 206) * (1 - ramp(h, 242, 250)) * ramp(s, 0.40, 0.55)
+    uniform = blue * ramp(v, V_OUTLINE - 0.02, V_OUTLINE + 0.08) * near * a
+    return skin, uniform
 
 def erase_letter(im, box, navy_letter):
     x0, y0, x1, y1 = box
@@ -93,14 +135,22 @@ def main():
         im = np.array(Image.open(f'{SRC}/{n}-2d.webp').convert('RGBA')).astype(float) / 255
         H, W = im.shape[:2]
         blank = erase_letter(im, BOX[n], navy_letter=(n == 'baseball'))
-        m = skin_membership(im)
+        m, u = memberships(im, n)
         _, _, v = hsv(im)
         shade = np.clip(1 - v / V_REF, 0, 1) * m
+        # The lit cloth tone: brighter than most of the cloth, below its highlights.
+        u_ref = float(np.clip(np.percentile(v[u > 0.9], 80), 0.42, 0.56))
+        ushade = np.clip(1 - v / u_ref, 0, 1) * u
         z = np.zeros_like(m)
         save(resize(im), f'{OUT}/{n}-m.webp')
         save(resize(blank), f'{OUT}/{n}-blank.webp')
         save(resize(np.stack([z + 1, z + 1, z + 1, m], -1)), f'{OUT}/{n}-mask.webp')
         save(resize(np.stack([z, z, z, shade], -1)), f'{OUT}/{n}-shade.webp')
+        save(resize(np.stack([z + 1, z + 1, z + 1, u], -1)), f'{OUT}/{n}-umask.webp')
+        save(resize(np.stack([z, z, z, ushade], -1)), f'{OUT}/{n}-ushade.webp')
+        cloth = im[..., :3][u > 0.9]
+        navy = np.median(cloth[hsv(im)[2][u > 0.9] > u_ref * 0.85], 0)
+        print(f'# {n}: cloth reference value {u_ref:.2f}, lit navy #' + ''.join(f'{round(c * 255):02x}' for c in navy), file=sys.stderr)
 
         x0, y0, x1, y1 = BOX[n]
         alpha = im[..., 3]

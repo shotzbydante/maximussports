@@ -9,13 +9,14 @@ import { DEFAULT_AVATAR } from '../../brand/avatar';
 
 export const DEFAULT_ROBOT_CONFIG = DEFAULT_AVATAR;
 
-export default function RobotAvatar({ jerseyNumber = '', robotColor, mascotType, size = 120, className = '', crop }) {
+export default function RobotAvatar({ jerseyNumber = '', robotColor, uniformColor, mascotType, size = 120, className = '', crop }) {
   // A row with a colour but no sport is a first-generation (basketball) avatar.
   const legacy = !mascotType && robotColor;
   const config = {
     type: legacy ? 'maximus_robot' : 'maximus_2d',
     mascotType,
     robotColor,
+    uniformColor,
     jerseyNumber,
   };
   return <MaximusAvatar config={config} size={size} className={className} crop={crop} />;

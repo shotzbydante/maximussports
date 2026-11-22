@@ -22,7 +22,8 @@
  *    migrate dashboards to auth_account_created
  *
  *  onboarding_completed     — user finishes the onboarding wizard
- *    props: method, username, team_count, teams
+ *    props: method, username, team_count, teams, plus what was chosen in
+ *    setup (teams by sport, email choices, avatar): see analytics/onboarding.js
  *
  *  account_create_skipped   — user dismisses the signup gate
  *    props: reason (string)
@@ -174,9 +175,9 @@ export function trackAuthAccountCreated(user, { method = 'unknown', posthogTrack
  * @param {{ id: string, email?: string, user_metadata?: object, app_metadata?: object }} user
  * @param {{ username?: string } | null} profile
  * @param {string[]} teamSlugs
- * @param {{ method?: string }} [options]
+ * @param {{ method?: string, extra?: Record<string, unknown> }} [options]  extra: what was chosen in setup (see analytics/onboarding.js)
  */
-export function trackOnboardingCompleted(user, profile, teamSlugs = [], { method = 'google' } = {}) {
+export function trackOnboardingCompleted(user, profile, teamSlugs = [], { method = 'google', extra = {} } = {}) {
   if (!user?.id) return;
   identifyUser(user, profile, teamSlugs);
   setUserProperties({ onboarding_completed: true });
@@ -191,6 +192,7 @@ export function trackOnboardingCompleted(user, profile, teamSlugs = [], { method
     utm_source: acq.utm_source,
     utm_campaign: acq.utm_campaign,
     referrer: acq.referrer,
+    ...extra,
   });
 }
 

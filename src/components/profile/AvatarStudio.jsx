@@ -1,28 +1,28 @@
 /**
  * AvatarStudio — build your Maximus.
  *
- * A player card on the left that updates as you go, and four choices on the
- * right: sport, robot colour, number and name. Used in the last onboarding
- * step and in Edit profile.
+ * A player card on the left that updates as you go, and five choices on the
+ * right: sport, robot colour, uniform colour, number and name. Used in the
+ * last onboarding step and in Edit profile.
  *
- * value: { sport, skin, number, name }   onChange(nextValue)
+ * value: { sport, skin, uniform, number, name }   onChange(nextValue)
  */
 import { useId } from 'react';
 import MaximusAvatar from './MaximusAvatar';
-import { AVATAR_SPORTS, AVATAR_SKINS } from '../../brand/avatar';
+import { AVATAR_SPORTS, AVATAR_SKINS, AVATAR_UNIFORMS } from '../../brand/avatar';
 import styles from './AvatarStudio.module.css';
 
 export const NAME_MAX = 18;
 
 /** The card on its own, for places that only show it (the "you're in" screen, the profile header). */
-export function PlayerCard({ sport, skin, number, name, username, size = 'lg' }) {
+export function PlayerCard({ sport, skin, uniform, number, name, username, size = 'lg' }) {
   const sportLabel = AVATAR_SPORTS.find((s) => s.id === sport)?.label || '';
   const shown = (name || '').trim() || (username ? `@${username}` : 'Your name');
   return (
     <div className={`${styles.card} ${size === 'sm' ? styles.cardSm : ''}`}>
       <span className={styles.cardNumber} aria-hidden="true">{number || 'M'}</span>
       <div className={styles.cardArt}>
-        <MaximusAvatar sport={sport} skin={skin} number={number} size={size === 'sm' ? 170 : 250} crop="full" title={`${shown}, ${sportLabel} Maximus`} />
+        <MaximusAvatar sport={sport} skin={skin} uniform={uniform} number={number} size={size === 'sm' ? 170 : 250} crop="full" title={`${shown}, ${sportLabel} Maximus`} />
       </div>
       <div className={styles.plate}>
         <span className={styles.plateName}>{shown}</span>
@@ -34,6 +34,31 @@ export function PlayerCard({ sport, skin, number, name, username, size = 'lg' })
         </span>
       </div>
     </div>
+  );
+}
+
+/** One row of colour choices. A radio group, so arrow keys move between colours. */
+function Swatches({ legend, name, options, value, onPick }) {
+  return (
+    <fieldset className={styles.group}>
+      <legend className={styles.legend}>
+        {legend} <span className={styles.legendValue}>{options.find((c) => c.hex === value)?.label}</span>
+      </legend>
+      <div className={styles.swatches}>
+        {options.map((c) => (
+          <label key={c.id} className={`${styles.swatch} ${value === c.hex ? styles.swatchOn : ''}`} style={{ '--swatch': c.hex }} title={c.label}>
+            <input
+              type="radio"
+              name={name}
+              className={styles.srOnly}
+              checked={value === c.hex}
+              onChange={() => onPick(c.hex)}
+              aria-label={c.label}
+            />
+          </label>
+        ))}
+      </div>
+    </fieldset>
   );
 }
 
@@ -58,32 +83,28 @@ export default function AvatarStudio({ value, onChange, username }) {
                   checked={value.sport === s.id}
                   onChange={() => set({ sport: s.id })}
                 />
-                <MaximusAvatar sport={s.id} skin={value.skin} size={52} crop="head" title="" />
+                <MaximusAvatar sport={s.id} skin={value.skin} uniform={value.uniform} size={52} crop="head" title="" />
                 <span>{s.label}</span>
               </label>
             ))}
           </div>
         </fieldset>
 
-        <fieldset className={styles.group}>
-          <legend className={styles.legend}>
-            Robot colour <span className={styles.legendValue}>{AVATAR_SKINS.find((c) => c.hex === value.skin)?.label}</span>
-          </legend>
-          <div className={styles.swatches}>
-            {AVATAR_SKINS.map((c) => (
-              <label key={c.id} className={`${styles.swatch} ${value.skin === c.hex ? styles.swatchOn : ''}`} style={{ '--swatch': c.hex }} title={c.label}>
-                <input
-                  type="radio"
-                  name={`${id}-skin`}
-                  className={styles.srOnly}
-                  checked={value.skin === c.hex}
-                  onChange={() => set({ skin: c.hex })}
-                  aria-label={c.label}
-                />
-              </label>
-            ))}
-          </div>
-        </fieldset>
+        <Swatches
+          legend="Robot colour"
+          name={`${id}-skin`}
+          options={AVATAR_SKINS}
+          value={value.skin}
+          onPick={(hex) => set({ skin: hex })}
+        />
+
+        <Swatches
+          legend="Uniform colour"
+          name={`${id}-uniform`}
+          options={AVATAR_UNIFORMS}
+          value={value.uniform}
+          onPick={(hex) => set({ uniform: hex })}
+        />
 
         <div className={styles.pair}>
           <div className={styles.group}>
