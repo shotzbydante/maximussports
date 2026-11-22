@@ -46,6 +46,36 @@ export function launchPicks(board, { max = 5, now = Date.now() } = {}) {
     }));
 }
 
+/**
+ * The model's strongest lean on each upcoming game that has no recommended
+ * pick. These are tracking picks: stated, graded, never recommended.
+ */
+export function launchLeans(board, { now = Date.now() } = {}) {
+  const upcoming = (board?.fullSlatePicks || [])
+    .filter((p) => !p.matchup?.startTime || Date.parse(p.matchup.startTime) > now);
+  const recommended = new Set(upcoming.filter((p) => p.pickRole === 'hero').map((p) => p.gameId));
+  const byGame = new Map();
+  for (const p of upcoming) {
+    if (p.pickRole !== 'tracking' || recommended.has(p.gameId)) continue;
+    const cur = byGame.get(p.gameId);
+    const score = (x) => (x?.conviction?.score ?? 0) + (x?.market?.type === 'moneyline' ? -0.5 : 0);
+    if (!cur || score(p) > score(cur)) byGame.set(p.gameId, p);
+  }
+  return [...byGame.values()]
+    .sort((a, b) => Date.parse(a.matchup?.startTime || 0) - Date.parse(b.matchup?.startTime || 0))
+    .map((p) => {
+      const why = String(p.why || '').replace(/^Lean only, not a recommended bet:\s*/i, '');
+      return {
+        ...summarizePick(p),
+        why: why ? why.charAt(0).toUpperCase() + why.slice(1) : '',
+        awayLogo: p.matchup?.awayTeam?.logo || null,
+        homeLogo: p.matchup?.homeTeam?.logo || null,
+        away: p.matchup?.awayTeam?.shortName || '',
+        home: p.matchup?.homeTeam?.shortName || '',
+      };
+    });
+}
+
 export function getSubject({ week } = {}) {
   return week ? `Football is here: Maximus's NFL picks for Week ${week}` : `Football is here: Maximus's NFL picks are live`;
 }
@@ -73,6 +103,31 @@ function pickCard(p) {
           <p style="margin:10px 0 0;font-size:19px;font-weight:800;color:${NAVY};line-height:24px;letter-spacing:-0.01em;font-family:${F};"><span style="color:#16a34a;">&#10003;</span> ${esc(p.pick)} <span style="font-size:13px;font-weight:600;color:${BODY};">${esc(where)}</span></p>
           ${p.expectedValue ? `<p style="margin:6px 0 0;font-family:${F};"><span style="display:inline-block;font-size:10px;font-weight:700;color:#166534;background-color:#ecfdf3;border-radius:3px;padding:2px 7px;letter-spacing:0.04em;text-transform:uppercase;">${esc(p.expectedValue)} expected value at lock</span></p>` : ''}
           ${p.why ? `<p style="margin:8px 0 0;font-size:13px;color:${BODY};line-height:19px;font-family:${F};"><span style="font-weight:700;color:${NAVY};">Why:</span> ${esc(p.why)}</p>` : ''}
+        </td>
+      </tr>
+    </table>
+  </td>
+</tr>`;
+}
+
+function leanCard(p) {
+  const where = [p.price, p.book ? `at ${p.book}` : ''].filter(Boolean).join(' ');
+  return `
+<tr>
+  <td style="padding:0 24px 10px;" class="section-td">
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:separate;border:1px solid ${BORDER};border-left:4px solid #94a3b8;border-radius:8px;">
+      <tr>
+        <td style="padding:12px 16px 11px;font-family:${F};" class="card-td">
+          <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">
+            <tr>
+              <td style="vertical-align:middle;font-size:13px;font-weight:700;color:${TEXT};font-family:${F};">
+                ${logo(p.awayLogo, p.away)}&nbsp;${esc(p.away)}&nbsp;<span style="color:${DIM};font-weight:500;">at</span>&nbsp;${logo(p.homeLogo, p.home)}&nbsp;${esc(p.home)}
+              </td>
+              <td align="right" style="vertical-align:middle;font-size:11px;color:${DIM};font-family:${F};white-space:nowrap;">${esc(kickoff(p.kickoff))}</td>
+            </tr>
+          </table>
+          <p style="margin:8px 0 0;font-size:16px;font-weight:800;color:${NAVY};line-height:21px;font-family:${F};"><span style="font-size:10px;font-weight:700;color:#475569;background-color:#f1f5f9;border-radius:3px;padding:2px 6px;letter-spacing:0.06em;text-transform:uppercase;vertical-align:middle;">Lean</span> ${esc(p.pick)} <span style="font-size:12px;font-weight:600;color:${BODY};">${esc(where)}</span></p>
+          ${p.why ? `<p style="margin:6px 0 0;font-size:13px;color:${BODY};line-height:19px;font-family:${F};"><span style="font-weight:700;color:${NAVY};">Why:</span> ${esc(p.why)}</p>` : ''}
         </td>
       </tr>
     </table>
@@ -137,6 +192,7 @@ export function renderHTML(data = {}) {
   const { board, displayName, userId, screenshots } = data;
   const week = board?.week || null;
   const picks = data.picks || launchPicks(board);
+  const leans = data.leans || launchLeans(board);
   const games = new Set((board?.fullSlatePicks || []).map((p) => p.gameId)).size || null;
   const lead = displayName ? `${esc(displayName)}, the` : 'The';
 
@@ -161,7 +217,7 @@ export function renderHTML(data = {}) {
   const intro = `
 <tr>
   <td style="padding:20px 24px 4px;" class="intro-td">
-    <p style="margin:0;font-size:15px;color:${BODY};line-height:23px;font-family:${F};">${lead} NFL has arrived on Maximus Sports, and we went all in. The app now covers pro football end to end: every game, every team, live odds from a dozen sportsbooks, and <span style="font-weight:700;color:${TEXT};">Maximus&rsquo;s Picks</span> for the week. Here is what Maximus likes right now, and how the new engine decides.</p>
+    <p style="margin:0;font-size:15px;color:${BODY};line-height:23px;font-family:${F};">${lead} NFL has arrived on Maximus Sports, and we went all in. The app now covers pro football end to end: every game, every team, live odds from a dozen sportsbooks, and <span style="font-weight:700;color:${TEXT};">Maximus&rsquo;s Picks</span> for the week. Here is what Maximus likes for the rest of the week, and how the new engine decides.</p>
   </td>
 </tr>`;
 
@@ -170,7 +226,7 @@ export function renderHTML(data = {}) {
 ${picks.map(pickCard).join('')}
 <tr>
   <td style="padding:0 24px 6px;" class="section-td">
-    <p style="margin:0;font-size:12px;color:${DIM};line-height:18px;font-family:${F};">Each pick is locked at the line, price and book shown, then graded in public. Prices move, so check the current number before you act: the pick is only as good as the price.${games ? ` Maximus&rsquo;s lean on all ${games} games is in the app.` : ''}</p>
+    <p style="margin:0;font-size:12px;color:${DIM};line-height:18px;font-family:${F};">Each pick is locked at the line, price and book shown, then graded in public. Prices move, so check the current number before you act: the pick is only as good as the price.</p>
   </td>
 </tr>
 <tr>
@@ -182,6 +238,16 @@ ${picks.map(pickCard).join('')}
 </tr>`
     : `${sectionTitle(week ? `Week ${week}` : 'This week', 'Maximus&rsquo;s Picks')}
 <tr><td style="padding:0 24px 6px;" class="section-td"><p style="margin:0;font-size:14px;color:${BODY};line-height:21px;font-family:${F};"><span style="font-weight:700;color:${NAVY};">No recommended NFL bets right now.</span> Why: no sportsbook is paying enough over the market&rsquo;s fair price to clear our bar. Every game&rsquo;s lean is in the app, tracked and graded.</p></td></tr>`;
+
+  const leansBlock = leans.length > 0
+    ? `${sectionTitle('The rest of the slate', 'Where Maximus leans')}
+<tr>
+  <td style="padding:0 24px 12px;" class="section-td">
+    <p style="margin:0;font-size:14px;color:${BODY};line-height:21px;font-family:${F};">No sportsbook&rsquo;s price beats the market on these games, so they are <span style="font-weight:700;color:${TEXT};">leans, not recommended bets</span>. We still call every game, then track and grade the call.</p>
+  </td>
+</tr>
+${leans.map(leanCard).join('')}`
+    : '';
 
   const method = `
 ${sectionTitle('The new methodology', 'How Maximus picks football')}
@@ -214,7 +280,7 @@ ${bullet('Matchup pages.', 'Position-group matchups, injuries, conditions and an
 ${bullet('All 32 teams.', 'Roster talent, schedule, news and odds for your team, with NFL now on your home page.')}
 ${bullet('A public record.', 'Results and the running scorecard, win or lose.')}`;
 
-  const content = [hero, intro, picksBlock, method, screenshotBlock(screenshots), inside].join('\n');
+  const content = [hero, intro, picksBlock, leansBlock, method, screenshotBlock(screenshots), inside].join('\n');
 
   return EmailShell({
     content,
@@ -231,6 +297,7 @@ export function renderText(data = {}) {
   const { board, displayName } = data;
   const week = board?.week || null;
   const picks = data.picks || launchPicks(board);
+  const leans = data.leans || launchLeans(board);
   const lines = [
     'FOOTBALL IS HERE.',
     '',
@@ -247,6 +314,14 @@ export function renderText(data = {}) {
     lines.push('Each pick is locked at the line, price and book shown, then graded in public. Prices move, so check the current number before you act.');
   } else {
     lines.push("No recommended NFL bets right now. Why: no sportsbook is paying enough over the market's fair price to clear our bar.");
+  }
+  if (leans.length > 0) {
+    lines.push('', 'WHERE MAXIMUS LEANS (not recommended bets: no sportsbook\'s price beats the market on these games)');
+    leans.forEach((p) => {
+      const where = [p.price, p.book ? `at ${p.book}` : ''].filter(Boolean).join(' ');
+      lines.push(`- ${p.matchup}${p.kickoff ? ` (${kickoff(p.kickoff)})` : ''}: lean ${p.pick} ${where}`.trim());
+      if (p.why) lines.push(`  Why: ${p.why}`);
+    });
   }
   lines.push(
     '',

@@ -27,7 +27,7 @@ import { getSupabaseAdmin } from '../_lib/supabaseAdmin.js';
 import { ADMIN_EMAIL } from '../_lib/admin.js';
 import { sendEmailThrottled } from '../_lib/sendEmail.js';
 import { resolvePreferences } from '../_lib/emailDefaults.js';
-import { getSubject, renderHTML, renderText, launchPicks } from '../../src/emails/templates/nflLaunch.js';
+import { getSubject, renderHTML, renderText, launchPicks, launchLeans } from '../../src/emails/templates/nflLaunch.js';
 
 export const config = { maxDuration: 300 };
 
@@ -164,6 +164,7 @@ export default async function handler(req, res) {
   if (picks.length === 0 && Array.isArray(config.fallbackPicks)) {
     picks = config.fallbackPicks.filter((p) => !p.kickoff || Date.parse(p.kickoff) > now);
   }
+  const leans = board ? launchLeans(board) : [];
   const week = board?.week || config.week || null;
   const boardForRender = board || { week, fullSlatePicks: [] };
   const subject = getSubject({ week });
@@ -174,7 +175,7 @@ export default async function handler(req, res) {
   }
 
   if (mode === 'preview') {
-    const html = renderHTML({ board: boardForRender, picks, displayName: 'Dante', screenshots });
+    const html = renderHTML({ board: boardForRender, picks, leans, displayName: 'Dante', screenshots });
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     return res.status(200).send(html);
   }
@@ -183,8 +184,8 @@ export default async function handler(req, res) {
     const remaining = Number(config.testsRemaining) || 0;
     if (remaining <= 0) return res.status(403).json({ error: 'No test sends remaining.' });
     await sb.from('email_broadcasts').update({ config: { ...config, testsRemaining: remaining - 1 } }).eq('id', BROADCAST_ID);
-    const html = renderHTML({ board: boardForRender, picks, displayName: 'Dante', screenshots });
-    const text = renderText({ board: boardForRender, picks, displayName: 'Dante' });
+    const html = renderHTML({ board: boardForRender, picks, leans, displayName: 'Dante', screenshots });
+    const text = renderText({ board: boardForRender, picks, leans, displayName: 'Dante' });
     const result = await sendEmailThrottled({ to: ADMIN_EMAIL, subject: `[TEST] ${subject}`, html, text });
     return res.status(200).json({ ok: true, mode, subject, picks: picks.length, boardLive: Boolean(board), id: result?.id || null });
   }
@@ -201,7 +202,7 @@ export default async function handler(req, res) {
 
   if (mode === 'dry') {
     return res.status(200).json({
-      ok: true, mode, subject, week, picks: picks.map((p) => `${p.matchup}: ${p.pick} ${p.price} ${p.book}`), boardLive: Boolean(board),
+      ok: true, mode, subject, week, picks: picks.map((p) => `${p.matchup}: ${p.pick} ${p.price} ${p.book}`), leans: leans.map((p) => `${p.matchup}: ${p.pick} ${p.price} ${p.book}`), boardLive: Boolean(board),
       audience: config.audience || {}, counts, wouldSend: pending.length, alreadySent: already.size,
       approved: row.approved === true, status: row.status, send_after: row.send_after, expires_at: row.expires_at,
     });
@@ -242,8 +243,8 @@ export default async function handler(req, res) {
         const displayName = greetingName(r.user, r.profile);
         return {
           from, to: [r.email], subject,
-          html: renderHTML({ board: boardForRender, picks, displayName, userId: r.id, screenshots }),
-          text: renderText({ board: boardForRender, picks, displayName }),
+          html: renderHTML({ board: boardForRender, picks, leans, displayName, userId: r.id, screenshots }),
+          text: renderText({ board: boardForRender, picks, leans, displayName }),
           headers: { 'List-Unsubscribe': `<https://maximussports.ai/settings?uid=${r.id}>` },
         };
       }));
