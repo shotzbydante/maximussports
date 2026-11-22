@@ -170,6 +170,40 @@ export function gameFacts(summary) {
 }
 
 /**
+ * Whether a game summary is the finished game. ESPN can serve a summary
+ * from earlier in the game for a while after the final whistle, and a
+ * half-time box score would make every review wrong.
+ *
+ * 'final' when the header says so and its score matches the graded
+ * score, or, with no header to go on, when the two teams' time of
+ * possession adds up to a full game. 'not_final' when either check fails.
+ *
+ * @param {object} summary
+ * @param {{home:number, away:number}} final  the score the picks were graded on
+ * @returns {'final'|'not_final'|'unknown'}
+ */
+export function summaryState(summary, final) {
+  if (!summary) return 'unknown';
+  const comp = summary?.header?.competitions?.[0] || null;
+  const completed = comp?.status?.type?.completed;
+  const scoreOf = (homeAway) => num((comp?.competitors || []).find((c) => c?.homeAway === homeAway)?.score);
+  const hs = scoreOf('home'), as = scoreOf('away');
+  if (isNum(hs) && isNum(as) && isNum(final?.home) && isNum(final?.away)) {
+    if (hs !== final.home || as !== final.away) return 'not_final';
+    if (completed !== false) return 'final';
+  }
+  if (completed === false) return 'not_final';
+  const clock = (team) => {
+    const m = String(statOf(team, 'possessionTime') || '').match(/^(\d+):(\d{2})$/);
+    return m ? Number(m[1]) * 60 + Number(m[2]) : null;
+  };
+  const teams = summary?.boxscore?.teams || [];
+  const a = clock(teams[0]), b = clock(teams[1]);
+  if (isNum(a) && isNum(b)) return a + b >= 58 * 60 ? 'final' : 'not_final';
+  return completed === true ? 'final' : 'unknown';
+}
+
+/**
  * Turn the facts into points. Home view for the margin.
  * `play` is the part the yardage accounts for; turnovers and return
  * touchdowns are counted apart because they do not repeat week to week.
@@ -349,10 +383,18 @@ export function reviewPick({ pick, result = resultOf(pick), close = null, contex
 
   // 4. What changed after the pick was made
   const missed = [];
-  if (move === 'against' && isNum(closingLine) && isNum(line) && closingLine !== line) {
-    missed.push({ key: 'line_moved_against', text: `The market moved against it after the lock: it closed at ${fmtClose(market, closingLine)} against our ${fmtClose(market, line)}.` });
-  } else if (move === 'against') {
-    missed.push({ key: 'line_moved_against', text: 'The price moved against it after the lock.' });
+  let numberText = null;
+  if (isNum(clvPoints) && clvPoints < 0 && isNum(closingLine) && isNum(line)) {
+    numberText = `The line moved against it: closed ${fmtClose(market, closingLine)} against our ${fmtClose(market, line)}`;
+    missed.push({ key: 'line_moved_against', text: `${numberText}.` });
+  } else if (role === 'hero' && value && value !== 'plus') {
+    if (isWindPick(pick) && isNum(closingLine)) {
+      numberText = `The market did not move for the wind: the total closed at ${closingLine}`;
+      missed.push({ key: 'market_disagreed', text: `${numberText}.` });
+    } else {
+      numberText = value === 'fair' ? 'The price edge was gone by kickoff' : 'The closing line did not back it';
+      missed.push({ key: 'edge_closed', text: `${numberText}.` });
+    }
   }
   for (const s of ['home', 'away']) {
     const expected = context?.qbs?.[s]?.name;
@@ -403,7 +445,7 @@ export function reviewPick({ pick, result = resultOf(pick), close = null, contex
     final: { home, away },
     by: r1(by),
     closeness,
-    clv: { ev: clvEv, points: clvPoints, closingLine, evAtLock, moved, value, move },
+    clv: { ev: clvEv, points: clvPoints, closingLine, evAtLock, moved, value, move, text: numberText },
     play: read ? { by: r1(playBy), luck, margin: read.margin, total: read.total } : null,
     factors: factors.slice(0, 4),
     missed,
@@ -431,10 +473,9 @@ export function reviewNote(r) {
   }
   if (r.role === 'hero' && r.clv?.value) {
     if (r.clv.value === 'plus') out.push(`Still a good bet at the close (${pct(r.clv.ev)}).`);
-    else if (r.clv.value === 'fair') out.push('The edge was gone by kickoff: at the closing number it was a fair bet, no more.');
-    else out.push(`The market moved against it: ${pct(r.clv.ev)} at the closing number.`);
+    else out.push(`${r.clv.text || 'The closing line did not back it'} (${pct(r.clv.ev)} at the close).`);
   }
-  const missed = r.missed?.find((m) => m.key !== 'line_moved_against');
+  const missed = r.missed?.find((m) => m.key === 'qb_change' || m.key === 'wind_forecast');
   if (missed) out.push(missed.text);
   if (r.play?.luck === 'unlucky') out.push(`${luckLead(r)} ${topFactor(r, false) || ''}`.trim());
   else if (r.play?.luck === 'fortunate') out.push(`${luckLead(r)} ${topFactor(r, true) || ''}`.trim());

@@ -23,13 +23,15 @@ import { getNflTalent } from './nflTalent.js';
 import { getNflTeamBySlug } from '../../src/sports/nfl/teams.js';
 import { talentMatchups } from '../../src/features/nfl/picks/v2/talent.js';
 import {
-  gameContext, gameFacts, reviewPick, reviewSignals, buildLedger, summarizeReviews,
+  gameContext, gameFacts, summaryState, reviewPick, reviewSignals, buildLedger, summarizeReviews,
 } from '../../src/features/nfl/picks/v2/review.js';
 
 export const REVIEW_VERSION = 'nfl-review-1';
 const ESPN_SUMMARY = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary';
 const FETCH_TIMEOUT_MS = 8000;
 const CONTEXT_TTL_SEC = 21 * 24 * 3600;
+/** After this long a game is reviewed with whatever box score there is, or none. */
+const BOX_SCORE_WAIT_HOURS = 8;
 const ctxKey = (gameId) => `nfl:review:context:${gameId}`;
 const resultOf = (p) => (Array.isArray(p?.pick_results) ? p.pick_results[0] : p?.pick_results);
 const isGraded = (p) => ['won', 'lost', 'push'].includes(resultOf(p)?.status);
@@ -125,8 +127,9 @@ export async function getReviewNotes({ from, to }) {
  * @param {string} args.slateDate
  * @param {boolean} [args.force]  re-review picks that already have a review
  * @param {Function} [args.loadSummary] injected in tests
+ * @param {number} [args.now]
  */
-export async function reviewNflSlate({ slateDate, force = false, loadSummary = fetchGameSummary }) {
+export async function reviewNflSlate({ slateDate, force = false, loadSummary = fetchGameSummary, now = Date.now() }) {
   const stored = await getNflPicks({ from: slateDate });
   if (!stored.ok) return { ok: false, slateDate, error: stored.error };
   const graded = stored.picks.filter(isGraded);
@@ -134,14 +137,15 @@ export async function reviewNflSlate({ slateDate, force = false, loadSummary = f
 
   const existing = (await getReviewArtifacts({ from: slateDate, to: slateDate }))[0] || null;
   const have = new Map((existing?.summary?.reviews || []).map((r) => [r.pickId, r]));
-  const todo = force ? graded : graded.filter((p) => !have.has(p.id));
-  if (todo.length === 0) return { ok: true, slateDate, reviewed: 0, total: have.size, note: 'already reviewed' };
+  const wanted = force ? graded : graded.filter((p) => !have.has(p.id));
+  if (wanted.length === 0) return { ok: true, slateDate, reviewed: 0, total: have.size, note: 'already reviewed' };
 
-  const gameIds = [...new Set(todo.map((p) => String(p.game_id)))];
-  const [closes, talent] = await Promise.all([getLineSnapshots(gameIds), getNflTalent().catch(() => null)]);
+  const wantedIds = [...new Set(wanted.map((p) => String(p.game_id)))];
+  const [closes, talent] = await Promise.all([getLineSnapshots(wantedIds), getNflTalent().catch(() => null)]);
   const perGame = new Map();
-  await Promise.all(gameIds.map(async (gameId) => {
-    const sample = todo.find((p) => String(p.game_id) === gameId);
+  const waiting = [];
+  await Promise.all(wantedIds.map(async (gameId) => {
+    const sample = wanted.find((p) => String(p.game_id) === gameId);
     const home = getNflTeamBySlug(sample.home_team_slug)?.abbrev || null;
     const away = getNflTeamBySlug(sample.away_team_slug)?.abbrev || null;
     const [saved, summary] = await Promise.all([getGameContext(gameId), loadSummary(gameId)]);
@@ -155,8 +159,17 @@ export async function reviewNflSlate({ slateDate, force = false, loadSummary = f
         talent: t ? { leansTo: t.leansTo || null, netHome: t.netHome ?? null } : null, spots: [],
       };
     }
-    perGame.set(gameId, { home, away, context, facts: summary ? gameFacts(summary) : { ok: false }, close: closes.get(gameId) || null });
+    // A summary that is not the finished game is not used. The game waits
+    // for the next run, until it has waited long enough to go without one.
+    const res = resultOf(sample);
+    const state = summaryState(summary, { home: Number(res.final_home_score), away: Number(res.final_away_score) });
+    const hoursSince = (now - Date.parse(sample.start_time || '')) / 3_600_000;
+    if (state !== 'final' && !force && !(hoursSince >= BOX_SCORE_WAIT_HOURS)) { waiting.push(gameId); return; }
+    perGame.set(gameId, { home, away, context, facts: state === 'final' ? gameFacts(summary) : { ok: false }, close: closes.get(gameId) || null });
   }));
+  const gameIds = wantedIds.filter((id) => perGame.has(id));
+  const todo = wanted.filter((p) => perGame.has(String(p.game_id)));
+  if (todo.length === 0) return { ok: true, slateDate, reviewed: 0, total: have.size, waiting: waiting.length, note: 'box scores not final yet' };
 
   const reviews = [];
   for (const p of todo) {
@@ -203,7 +216,7 @@ export async function reviewNflSlate({ slateDate, force = false, loadSummary = f
 
   return {
     ok: !!saved, slateDate,
-    reviewed: reviews.length, total: allReviews.length, games: gameIds.length,
+    reviewed: reviews.length, total: allReviews.length, games: gameIds.length, waiting: waiting.length,
     boxScores: gameIds.filter((id) => perGame.get(id).facts?.ok).length,
     partialContext: gameIds.filter((id) => perGame.get(id).context?.partial).length,
     counts: summarizeReviews(allReviews),

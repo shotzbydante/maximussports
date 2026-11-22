@@ -174,6 +174,7 @@ Every stored pick is reviewed after its game ends, win or lose. The review expla
 ### What runs
 
 - **`api/cron/nfl/review-games.js`**, every half hour. It does nothing until a game with stored picks has had time to finish (170 minutes after kickoff). Then it grades the slate with the same code the overnight cron uses (`api/_lib/nflSettle.js`), so results are on the record soon after the final whistle, and reviews every newly graded pick. `?date=YYYY-MM-DD` backfills a slate; `?force=1` re-reviews.
+- **It waits for a finished box score.** ESPN's game summary can lag the final whistle (a summary with 28 minutes of possession was served for a game the scoreboard already had as final). The review checks the summary against the graded score, or a full game's time of possession, and leaves the game for the next run if it does not match. After eight hours it reviews the game without a box score.
 - **Before kickoff**, each board build saves what the engine believed about every upcoming game (`saveGameContexts` in `api/_lib/nflReview.js`): the line, the ratings projection, wind, the roster-talent lean, the schedule spots, the expected quarterbacks. Kept in KV for three weeks; the last save before kickoff is the one the review reads.
 - **Storage**: `picks_audit_artifacts`, one row per slate date. `summary` holds the slate's pick reviews and input results, `signal_attribution` the season-to-date ledger as of that slate, and `recommended_deltas` is always empty. No migration.
 - **Where it shows**: each graded pick in the results table carries a "What happened" line (`/api/nfl/picks/scorecard` adds `review` to the pick). The full ledger is `GET /api/nfl/picks/review`, admin or cron only.
@@ -190,7 +191,7 @@ Every stored pick is reviewed after its game ends, win or lose. The review expla
    | Total | -19.8 + 0.0863 per combined yard + 6.5 per return touchdown | 9.5 points |
 
    Turnovers add nothing to the total once yards are known (-0.09 ± 0.18). When the yardage alone says the ticket should have finished six or more points the other side of the number, the result is marked unlucky (a loss) or fortunate (a win). The error is about nine points either way, so this describes a game; it does not re-grade it.
-4. **What changed after the lock.** The line moving against the pick, a quarterback starting whom the engine did not expect, a wind forecast that moved five mph or more between lock and kickoff.
+4. **What changed after the lock.** The line moving against the pick, a market that never moved for the wind, a price edge that was gone by kickoff, a quarterback starting whom the engine did not expect, a wind forecast that moved five mph or more between lock and kickoff.
 
 ### Inputs graded against the closing line
 

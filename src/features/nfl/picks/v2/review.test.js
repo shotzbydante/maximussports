@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  gameFacts, boxScoreRead, gameContext, decidedBy, reviewPick, reviewNote, reviewSignals,
+  gameFacts, summaryState, boxScoreRead, gameContext, decidedBy, reviewPick, reviewNote, reviewSignals,
   trendStatus, buildLedger, ledgerFindings, summarizeReviews, weekKeyOf, TREND_RULES, REVIEW_PARAMS,
 } from './review.js';
 
@@ -76,6 +76,33 @@ describe('gameFacts', () => {
   it('is not ok without yardage, and never throws on an empty summary', () => {
     expect(gameFacts({}).ok).toBe(false);
     expect(gameFacts(null).ok).toBe(false);
+  });
+});
+
+describe('summaryState', () => {
+  const half = { boxscore: { teams: [
+    { homeAway: 'away', statistics: [stat('possessionTime', '11:58')] },
+    { homeAway: 'home', statistics: [stat('possessionTime', '16:11')] },
+  ] } };
+  const full = { boxscore: { teams: [
+    { homeAway: 'away', statistics: [stat('possessionTime', '27:34')] },
+    { homeAway: 'home', statistics: [stat('possessionTime', '32:26')] },
+  ] } };
+  const header = (home, away, completed) => ({ header: { competitions: [{ status: { type: { completed } }, competitors: [{ homeAway: 'home', score: String(home) }, { homeAway: 'away', score: String(away) }] }] } });
+
+  it('rejects a box score from earlier in the game', () => {
+    // Seen on ESPN after a final: 28 minutes of possession in the summary.
+    expect(summaryState(half, { home: 21, away: 13 })).toBe('not_final');
+    expect(summaryState(full, { home: 34, away: 7 })).toBe('final');
+  });
+  it('trusts a header that is complete and matches the graded score', () => {
+    expect(summaryState({ ...half, ...header(21, 13, true) }, { home: 21, away: 13 })).toBe('final');
+    expect(summaryState({ ...full, ...header(14, 13, true) }, { home: 21, away: 13 })).toBe('not_final');
+    expect(summaryState({ ...full, ...header(21, 13, false) }, { home: 21, away: 13 })).toBe('not_final');
+  });
+  it('says so when it cannot tell', () => {
+    expect(summaryState(null, { home: 1, away: 0 })).toBe('unknown');
+    expect(summaryState({ boxscore: { teams: [] } }, { home: 1, away: 0 })).toBe('unknown');
   });
 });
 
@@ -159,7 +186,17 @@ describe('reviewPick', () => {
     expect(r.clv.value).toBe('minus');
     expect(r.clv.move).toBe('against');
     expect(r.verdict).toBe('bad_number_won');
-    expect(r.note).toMatch(/The market moved against it/);
+    expect(r.missed.map((m) => m.key)).toEqual(['market_disagreed']);
+    expect(r.note).toMatch(/The market did not move for the wind: the total closed at 40\.5 \(-1\.8% at the close\)\./);
+  });
+
+  it('says when a price edge was simply gone by kickoff', () => {
+    const p = pick({ rationale: { pickRole: 'hero', headline: 'Under 40.5 at -105' }, payload: { modelSource: 'nfl_v2_price' }, clv_ev: '0.001', clv_points: '0', closing_line: '40.5' });
+    const r = reviewPick({ pick: p, result: result('won', 20, 10), facts, teams });
+    expect(r.clv.value).toBe('fair');
+    expect(r.verdict).toBe('good_number_won');
+    expect(r.missed.map((m) => m.key)).toEqual(['edge_closed']);
+    expect(r.note).toMatch(/The price edge was gone by kickoff \(\+0\.1% at the close\)\./);
   });
 
   it('marks a coin flip and a pick that lost the number', () => {
@@ -171,9 +208,9 @@ describe('reviewPick', () => {
     expect(r.clv.move).toBe('against');
     expect(r.verdict).toBe('bad_number_lost');
     expect(r.missed.map((m) => m.key)).toContain('line_moved_against');
-    expect(r.missed[0].text).toMatch(/closed at 40\.5 against our 42\.5/);
+    expect(r.missed[0].text).toBe('The line moved against it: closed 40.5 against our 42.5.');
     expect(r.note).toMatch(/the hook/);
-    expect(r.note).toMatch(/The market moved against it: -3\.1% at the closing number\./);
+    expect(r.note).toMatch(/The line moved against it: closed 40\.5 against our 42\.5 \(-3\.1% at the close\)\./);
   });
 
   it('notices a quarterback the engine did not expect, and a changed wind forecast', () => {

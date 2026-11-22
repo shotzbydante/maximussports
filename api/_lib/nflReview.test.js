@@ -47,8 +47,8 @@ const { slateWork } = await import('../cron/nfl/review-games.js');
 const stat = (name, displayValue) => ({ name, displayValue });
 const summary = {
   boxscore: { teams: [
-    { team: { id: '22' }, homeAway: 'away', statistics: [stat('totalYards', '205'), stat('turnovers', '0'), stat('redZoneAttempts', '1-1')] },
-    { team: { id: '12' }, homeAway: 'home', statistics: [stat('totalYards', '435'), stat('turnovers', '0'), stat('redZoneAttempts', '3-5')] },
+    { team: { id: '22' }, homeAway: 'away', statistics: [stat('totalYards', '205'), stat('turnovers', '0'), stat('redZoneAttempts', '1-1'), stat('possessionTime', '27:34')] },
+    { team: { id: '12' }, homeAway: 'home', statistics: [stat('totalYards', '435'), stat('turnovers', '0'), stat('redZoneAttempts', '3-5'), stat('possessionTime', '32:26')] },
   ] },
 };
 const row = (id, over = {}) => ({
@@ -109,7 +109,12 @@ describe('reviewNflSlate', () => {
 
     state.picks.push(row('p9', { game_id: '409', home_team_slug: 'bears', away_team_slug: 'saints', line_value: '49',
       pick_results: [{ status: 'lost', final_home_score: 31, final_away_score: 27, units: -1 }] }));
-    const later = await reviewNflSlate({ slateDate: '2026-11-22', loadSummary: async () => null });
+    // No summary yet, an hour after the final: the game waits.
+    const soon = await reviewNflSlate({ slateDate: '2026-11-22', loadSummary: async () => null, now: Date.parse('2026-11-22T22:00:00Z') });
+    expect(soon).toMatchObject({ reviewed: 0, waiting: 1, note: 'box scores not final yet' });
+    expect(state.written).toHaveLength(1);
+    // Still none eight hours after kickoff: reviewed without a box score.
+    const later = await reviewNflSlate({ slateDate: '2026-11-22', loadSummary: async () => null, now: Date.parse('2026-11-23T02:30:00Z') });
     expect(later).toMatchObject({ reviewed: 1, total: 2, boxScores: 0 });
     expect(state.written[1].summary.reviews.map((r) => r.pickId)).toEqual(['p1', 'p9']);
     expect(state.written[1].summary.reviews[1].play).toBeNull();          // no box score: still reviewed
@@ -125,6 +130,19 @@ describe('reviewNflSlate', () => {
     expect(out.partialContext).toBe(0);
     expect(state.written[0].summary.signals.map((s) => s.signal).sort()).toEqual(['ratings_side', 'ratings_side_3plus', 'ratings_total', 'talent', 'wind_under']);
     expect(state.written[0].summary.reviews[0].week).toBe(11);
+  });
+
+  it('waits when ESPN is still serving a box score from earlier in the game', async () => {
+    const halftime = { boxscore: { teams: [
+      { team: { id: '22' }, homeAway: 'away', statistics: [stat('totalYards', '128'), stat('possessionTime', '11:58')] },
+      { team: { id: '12' }, homeAway: 'home', statistics: [stat('totalYards', '183'), stat('possessionTime', '16:11')] },
+    ] } };
+    state.picks = [row('p1')];
+    const out = await reviewNflSlate({ slateDate: '2026-11-22', loadSummary: async () => halftime, now: Date.parse('2026-11-22T21:30:00Z') });
+    expect(out).toMatchObject({ reviewed: 0, waiting: 1 });
+    expect(state.written).toHaveLength(0);
+    const next = await reviewNflSlate({ slateDate: '2026-11-22', loadSummary: async () => summary, now: Date.parse('2026-11-22T22:00:00Z') });
+    expect(next).toMatchObject({ reviewed: 1, boxScores: 1, waiting: 0 });
   });
 
   it('reports nothing to do before any pick is graded', async () => {

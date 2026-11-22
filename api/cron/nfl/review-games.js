@@ -60,7 +60,7 @@ export default async function handler(req, res) {
         slateDate, ok: reviewed.ok !== false,
         graded: settled?.graded ?? 0, clvSaved: settled?.clvSaved ?? 0,
         reviewed: reviewed.reviewed ?? 0, total: reviewed.total ?? null,
-        boxScores: reviewed.boxScores ?? null, partialContext: reviewed.partialContext ?? null,
+        boxScores: reviewed.boxScores ?? null, waiting: reviewed.waiting ?? 0, partialContext: reviewed.partialContext ?? null,
         counts: reviewed.counts || null, findings: reviewed.findings || null, note: reviewed.note || null,
         error: reviewed.error || settled?.error || null,
       });
