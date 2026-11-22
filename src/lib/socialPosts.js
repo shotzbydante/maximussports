@@ -454,7 +454,7 @@ export async function fetchPostHistory(filters = {}) {
 
   let res;
   try {
-    res = await fetch(url);
+    res = await fetch(url, { headers: await getAuthHeaders() });
   } catch {
     const err = new Error('Network error — could not reach the post history service.');
     err.stage = 'network';

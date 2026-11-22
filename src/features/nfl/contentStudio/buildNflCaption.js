@@ -1,0 +1,172 @@
+/**
+ * buildNflCaption — Instagram captions for the NFL Content Studio.
+ *
+ * Reads only the normalized payload (normalizeNflStudioPayload), so a caption
+ * can never claim something the slides do not show. Returns the shape
+ * normalizeStudioCaption() expects: { shortCaption, longCaption, hashtags }.
+ * shortCaption is what gets published; longCaption adds the detail lines.
+ *
+ * Voice: say the number, say the price, say why, and admit what was passed
+ * on. No guarantees, no "locks", no invented stats.
+ */
+
+const SITE = 'maximussports.ai';
+const RESPONSIBLE = '21+. For entertainment only. Gambling problem? Call 1-800-GAMBLER.';
+
+function plural(n, one, many = `${one}s`) {
+  return `${n} ${n === 1 ? one : many}`;
+}
+
+function join(lines) {
+  return lines.filter((l) => l != null && l !== false && String(l).trim() !== '').join('\n');
+}
+
+function blocks(parts) {
+  return parts.filter((p) => p != null && String(p).trim() !== '').join('\n\n');
+}
+
+function tagify(s) {
+  return `#${String(s || '').replace(/[^A-Za-z0-9]/g, '')}`;
+}
+
+function baseTags(payload) {
+  const tags = ['#NFL'];
+  if (payload.week != null) tags.push(`#NFLWeek${payload.week}`);
+  tags.push('#NFLPicks', '#NFLBetting', '#SportsBetting', '#MaximusSports');
+  return tags;
+}
+
+function pickLine(p) {
+  const where = p.matchupLabel ? `, ${p.matchupLabel}` : '';
+  const price = p.priceLabel ? ` (${p.priceLabel})` : '';
+  return `${p.label}${where}${price}`;
+}
+
+function pickMath(p) {
+  const bits = [];
+  if (p.fairPrice && p.offeredPrice) bits.push(`Fair price ${p.fairPrice}, offered ${p.offeredPrice}`);
+  if (p.hitPct) bits.push(`wins ${p.hitPct}${p.pushPct ? ` and pushes ${p.pushPct}` : ''}`);
+  if (p.evLabel) bits.push(`expected value ${p.evLabel}`);
+  if (!bits.length) return '';
+  const s = bits.join(', ');
+  return `${s.charAt(0).toUpperCase()}${s.slice(1)}.`;
+}
+
+function passLine(meta) {
+  if (!meta.marketsChecked || !meta.held) return null;
+  return `We checked ${plural(meta.marketsChecked, 'market')} and passed on ${meta.held}. Passing is part of the model.`;
+}
+
+function slateCaption(payload) {
+  const { slateLabel, meta, topPick, upcoming, titleRace } = payload;
+  const games = upcoming.length || meta.gamesOnSlate;
+  const hook = meta.picksPublished > 0
+    ? `${slateLabel}: ${plural(games, 'game')} on the board, ${plural(meta.picksPublished, 'bet')} that cleared the bar. 🏈`
+    : `${slateLabel}: ${plural(games, 'game')} on the board and no bet that clears the bar yet. We wait for a price. 🏈`;
+
+  const withSpread = upcoming.filter((g) => g.spreadHome != null);
+  const biggest = [...withSpread].sort((a, b) => Math.abs(b.spreadHome) - Math.abs(a.spreadHome))[0];
+  const tightest = [...withSpread].sort((a, b) => Math.abs(a.spreadHome) - Math.abs(b.spreadHome))[0];
+  const highTotal = [...upcoming].filter((g) => g.total != null).sort((a, b) => b.total - a.total)[0];
+
+  const detail = join([
+    topPick && `Best number: ${pickLine(topPick)}. ${pickMath(topPick)}`.trim(),
+    biggest && `Biggest favorite: ${biggest.spreadLabel} over ${biggest.favorite.abbrev === biggest.home.abbrev ? biggest.away.abbrev : biggest.home.abbrev}.`,
+    tightest && tightest !== biggest && `Closest line: ${tightest.away.abbrev} @ ${tightest.home.abbrev} (${tightest.spreadLabel}).`,
+    highTotal && `Highest total: ${highTotal.away.abbrev} @ ${highTotal.home.abbrev} at ${highTotal.total}.`,
+    titleRace.length >= 3 && `Title race: ${titleRace.slice(0, 3).map((t) => `${t.abbrev} ${t.titleOddsLabel}`).join(', ')}.`,
+  ]);
+
+  const cta = `Every game, every price, every reason: ${SITE}`;
+  return {
+    shortCaption: blocks([hook, topPick && `Best number: ${pickLine(topPick)}. ${pickMath(topPick)}`.trim(), passLine(meta), cta, RESPONSIBLE]),
+    longCaption: blocks([hook, detail, passLine(meta), cta, RESPONSIBLE]),
+    hashtags: baseTags(payload),
+  };
+}
+
+function picksCaption(payload) {
+  const { slateLabel, heroPicks, meta } = payload;
+  if (heroPicks.length === 0) return null;
+  const hook = `${slateLabel} picks are in. ${plural(heroPicks.length, 'bet')} cleared the bar${meta.marketsChecked ? ` out of ${plural(meta.marketsChecked, 'market')} checked` : ''}. 🏈`;
+
+  const shortList = heroPicks.map((p, i) => `${i + 1}. ${pickLine(p)}`).join('\n');
+  const longList = heroPicks
+    .map((p, i) => join([`${i + 1}. ${pickLine(p)}`, pickMath(p) && `   ${pickMath(p)}`, p.reasons[2] && `   ${p.reasons[2]}`]))
+    .join('\n\n');
+
+  const promise = 'Each pick is locked at a real price at a real book and graded on that ticket. Wins and losses both get posted.';
+  const cta = `Full reasoning for every pick: ${SITE}`;
+  return {
+    shortCaption: blocks([hook, shortList, promise, cta, RESPONSIBLE]),
+    longCaption: blocks([hook, longList, promise, cta, RESPONSIBLE]),
+    hashtags: baseTags(payload),
+  };
+}
+
+function gameCaption(payload) {
+  const g = payload.selectedGame;
+  if (!g || !g.away || !g.home) return null;
+  const hook = `${g.away.name} at ${g.home.name}${g.kickoffLabel ? `, ${g.kickoffLabel}` : ''}${g.network ? ` on ${g.network}` : ''}. 🏈`;
+
+  const proj = g.projection && g.projection.homePoints != null && g.projection.awayPoints != null
+    ? `Maximus projection: ${g.home.abbrev} ${Math.round(g.projection.homePoints)}, ${g.away.abbrev} ${Math.round(g.projection.awayPoints)}${g.winProbLabel ? ` (${g.winProbLabel} to win)` : ''}.`
+    : null;
+  const line = g.spreadLabel || g.total != null
+    ? `Market: ${[g.spreadLabel, g.total != null ? `total ${g.total}` : null].filter(Boolean).join(', ')}.`
+    : null;
+  const qbs = g.quarterbacks.away && g.quarterbacks.home
+    ? `Quarterbacks: ${g.quarterbacks.away.name}${g.quarterbacks.away.changed ? ' (new starter)' : ''} against ${g.quarterbacks.home.name}${g.quarterbacks.home.changed ? ' (new starter)' : ''}.`
+    : null;
+  const wx = g.weather && !g.weather.indoor && g.weather.wind != null
+    ? `Weather: ${g.weather.temp != null ? `${g.weather.temp}°F, ` : ''}${g.weather.wind} mph wind.`
+    : g.weather?.indoor ? 'Indoors, so weather is off the table.' : null;
+  const angle = g.situations[0]?.note ? `Angle: ${g.situations[0].note}` : null;
+  const verdict = g.picks.length > 0
+    ? `Maximus pick: ${g.picks.map((p) => `${p.label}${p.priceLabel ? ` (${p.priceLabel})` : ''}`).join(' and ')}. ${pickMath(g.picks[0])}`.trim()
+    : 'Maximus verdict: no bet. The price is fair, so we pass.';
+
+  const cta = `The full breakdown: ${SITE}`;
+  const tags = [...baseTags(payload)];
+  for (const t of [g.away, g.home]) {
+    const nick = (t.name || '').split(' ').pop();
+    if (nick) tags.splice(2, 0, tagify(nick));
+  }
+  return {
+    shortCaption: blocks([hook, join([line, proj]), verdict, cta, RESPONSIBLE]),
+    longCaption: blocks([hook, join([line, proj, qbs, wx, angle]), verdict, cta, RESPONSIBLE]),
+    hashtags: [...new Set(tags)].slice(0, 8),
+  };
+}
+
+function receiptsCaption(payload) {
+  const r = payload.receipts;
+  if (!r.hasGraded) return null;
+  const hook = `Receipts. ${r.scope}: ${r.recordLabel} on published picks${r.unitsLabel ? `, ${r.unitsLabel}` : ''}${r.roiLabel ? `, ${r.roiLabel} ROI` : ''}.`;
+  const clv = r.beatCloseLabel && r.clvSample > 0
+    ? `Beat the closing line on ${r.beatCloseLabel} of ${plural(r.clvSample, 'ticket')}. That is the number that says whether the price was good, win or lose.`
+    : null;
+  const mark = { won: 'W', lost: 'L', push: 'P' };
+  const list = r.recent
+    .map((p) => `${mark[p.status]}  ${p.label}${p.matchupLabel ? `, ${p.matchupLabel}` : ''}${p.finalScore ? ` (${p.finalScore})` : ''}`)
+    .join('\n');
+  const promise = 'Every pick is locked before kickoff and graded at the price we posted. The losses stay up.';
+  const cta = `The full graded record: ${SITE}`;
+  return {
+    shortCaption: blocks([hook, clv, promise, cta, RESPONSIBLE]),
+    longCaption: blocks([hook, clv, list, promise, cta, RESPONSIBLE]),
+    hashtags: baseTags(payload),
+  };
+}
+
+/** @returns {{shortCaption:string,longCaption:string,hashtags:string[]}|null} null when the section has nothing to say. */
+export function buildNflCaption(payload) {
+  if (!payload) return null;
+  switch (payload.section) {
+    case 'nfl-slate': return slateCaption(payload);
+    case 'nfl-picks': return picksCaption(payload);
+    case 'nfl-game': return gameCaption(payload);
+    case 'nfl-receipts': return receiptsCaption(payload);
+    default: return null;
+  }
+}

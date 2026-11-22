@@ -3,6 +3,7 @@
  *
  * Returns paginated social post history from Supabase, sorted newest-first.
  * Used by the Post History panel in the Content Studio dashboard.
+ * Admin or cron only: rows include drafts, failures and full captions.
  *
  * Query params (all optional):
  *   platform  — filter by platform (default: all)
@@ -16,18 +17,18 @@
 
 import { getSupabaseAdmin } from '../_lib/supabaseAdmin.js';
 import { getQuery } from '../_requestUrl.js';
+import { requireAdminOrCron } from '../_lib/requireAuth.js';
 
 const DEFAULT_LIMIT = 50;
 const MAX_LIMIT     = 200;
 
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Cache-Control', 'no-store');
 
-  if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'GET') {
     return res.status(405).json({ ok: false, error: 'Method not allowed' });
   }
+  if (!(await requireAdminOrCron(req, res))) return;
 
   let supabase;
   try {

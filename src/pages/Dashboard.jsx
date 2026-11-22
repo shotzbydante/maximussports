@@ -19,6 +19,7 @@ import { buildTeamSnapshot } from '../utils/teamSnapshot';
 import CarouselComposer, { getTemplateDimensions } from '../components/dashboard/CarouselComposer';
 import TagSuggestionsPanel from '../components/dashboard/tags/TagSuggestionsPanel';
 import InstagramPublishButton from '../components/dashboard/InstagramPublishButton';
+import InstagramConnectionStatus from '../components/dashboard/InstagramConnectionStatus';
 import PostHistory from '../components/dashboard/PostHistory';
 import NextScheduledPost from '../components/dashboard/NextScheduledPost';
 import VideosEditor from '../components/dashboard/videos/VideosEditor';
@@ -53,9 +54,14 @@ import { normalizeStudioCaption, MIN_PUBLISHABLE_CAPTION_CHARS } from '../featur
 import { buildMlbPicks } from '../features/mlb/picks/buildMlbPicks';
 import { fetchMlbHeadlines } from '../api/mlbNews';
 import { fetchMlbChampionshipOdds } from '../api/mlbChampionshipOdds';
+import { useNflStudioData } from '../features/nfl/contentStudio/useNflStudioData';
+import { normalizeNflStudioPayload, nflSectionReady, nflSlideCount } from '../features/nfl/contentStudio/normalizeNflStudioPayload';
+import { buildNflCaption } from '../features/nfl/contentStudio/buildNflCaption';
 import styles from './Dashboard.module.css';
 
 const isDev = typeof import.meta !== 'undefined' && import.meta.env?.DEV;
+/** Diagnostic logging for local development only; production consoles stay quiet. */
+const devLog = (...args) => { if (isDev) console.log(...args); };
 
 const PREVIEW_SCALES = { small: 0.25, medium: 0.35, large: 0.44 };
 
@@ -92,10 +98,32 @@ const NBA_SECTIONS = [
   { id: 'videos',       label: 'Videos',             icon: '🎬',  requiredCap: null,  shared: true },
 ];
 
+/**
+ * NFL Content Studio sections. Football is weekly, so the lead post is the
+ * slate briefing instead of a daily one. Receipts is the graded record.
+ */
+const NFL_SECTIONS = [
+  { id: 'nfl-slate',    label: 'Slate Briefing',    icon: '🏈',  requiredCap: null },
+  { id: 'nfl-picks',    label: "Maximus's Picks",    icon: '📈',  requiredCap: 'picks' },
+  { id: 'nfl-game',     label: 'Game Breakdown',     icon: '📊',  requiredCap: 'games' },
+  { id: 'nfl-receipts', label: 'Receipts',           icon: '🧾',  requiredCap: 'picks' },
+  { id: 'videos',       label: 'Videos',             icon: '🎬',  requiredCap: null,  shared: true },
+];
+
+/** The studio opens on NFL. Each sport's first section is its default post. */
+const DEFAULT_STUDIO_WORKSPACE = WorkspaceId.NFL;
+const DEFAULT_SECTION_BY_WORKSPACE = {
+  [WorkspaceId.NFL]: 'nfl-slate',
+  [WorkspaceId.MLB]: 'mlb-daily',
+  [WorkspaceId.NBA]: 'nba-daily',
+  [WorkspaceId.CBB]: 'daily',
+};
+
 function getSectionsForWorkspace(workspaceConfig) {
   let sections = CBB_SECTIONS;
   if (workspaceConfig.id === WorkspaceId.MLB) sections = MLB_SECTIONS;
   else if (workspaceConfig.id === WorkspaceId.NBA) sections = NBA_SECTIONS;
+  else if (workspaceConfig.id === WorkspaceId.NFL) sections = NFL_SECTIONS;
   return sections.filter(sec =>
     sec.requiredCap === null || workspaceConfig.capabilities[sec.requiredCap],
   );
@@ -109,6 +137,11 @@ function isMlbSection(sectionId) {
 /** Returns true if the active section is an NBA template */
 function isNbaSection(sectionId) {
   return sectionId?.startsWith('nba-');
+}
+
+/** Returns true if the active section is an NFL template */
+function isNflSection(sectionId) {
+  return sectionId?.startsWith('nfl-');
 }
 
 /** Extracts MLB template type from section id: 'mlb-daily' → 'daily' */
@@ -135,7 +168,7 @@ export default function Dashboard() {
   const isUnauthorized = !authLoading && !isAdminUser(user?.email);
 
   // ── workspace scoping for Content Studio ───────────────
-  const [studioWorkspaceId, setStudioWorkspaceId] = useState(WorkspaceId.MLB);
+  const [studioWorkspaceId, setStudioWorkspaceId] = useState(DEFAULT_STUDIO_WORKSPACE);
   const studioWorkspace = WORKSPACES[studioWorkspaceId] ?? WORKSPACES[WorkspaceId.CBB];
   const availableStudioWorkspaces = useMemo(
     // Only sports with social templates built. A workspace without them
@@ -146,7 +179,7 @@ export default function Dashboard() {
   const isCbbStudio = studioWorkspaceId === WorkspaceId.CBB;
 
   // ── section / template state ────────────────────────────
-  const [activeSection, setActiveSection] = useState('mlb-daily');
+  const [activeSection, setActiveSection] = useState(DEFAULT_SECTION_BY_WORKSPACE[DEFAULT_STUDIO_WORKSPACE]);
 
   // ── section-specific options ─────────────────────────────
   const [dailyStyleMode, setDailyStyleMode] = useState('generic');
@@ -158,8 +191,9 @@ export default function Dashboard() {
   const [tournamentPreset, setTournamentPreset] = useState('1-seeds');
   const [tournamentRegion, setTournamentRegion] = useState(null);
   const [tournamentSelectedMatchups, setTournamentSelectedMatchups] = useState([]);
-  const [picksMode, setPicksMode] = useState('top3');
-  const [riskMode, setRiskMode] = useState('standard');
+  // Fixed today; kept as named values because the slide options read them.
+  const picksMode = 'top3';
+  const riskMode = 'standard';
 
   // ── slide count (per section default) ────────────────────
   const SECTION_SLIDE_DEFAULTS = { daily: 6, team: 4, conference: 1, game: 3, picks: 6, odds: 3 };
@@ -216,6 +250,10 @@ export default function Dashboard() {
   const [nbaGamesLoading, setNbaGamesLoading] = useState(false);
   const isNbaStudio = studioWorkspaceId === WorkspaceId.NBA;
 
+  // ── NFL Content Studio state (data hook + normalized payload live below) ──
+  const isNflStudio = studioWorkspaceId === WorkspaceId.NFL;
+  const [nflSelectedGameId, setNflSelectedGameId] = useState(null);
+
   // ── Gemini image generation state (MLB only) ───────────
   const [geminiImage, setGeminiImage] = useState(null);       // { base64, mimeType }
   const [geminiLoading, setGeminiLoading] = useState(false);
@@ -232,7 +270,7 @@ export default function Dashboard() {
 
   // ── preview size (workspace-scoped via local storage) ─────
   const [previewSize, setPreviewSize] = useState(() => {
-    try { return localStorage.getItem(`workspace:${studioWorkspaceId}:preview_size`) || localStorage.getItem('maximus_preview_size') || 'medium'; } catch { return 'medium'; }
+    try { return localStorage.getItem('maximus_preview_size') || 'medium'; } catch { return 'medium'; }
   });
 
   // ── caption state ────────────────────────────────────────
@@ -358,19 +396,19 @@ export default function Dashboard() {
   }, []); // no atsLeaders dependency — we fetch directly
 
   useEffect(() => {
-    if (isAuthorized) loadData();
-  }, [isAuthorized, refreshKey]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (isAuthorized && isCbbStudio) loadData();
+  }, [isAuthorized, isCbbStudio, refreshKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── ensure tournament helpers use official bracket when available ──
   useEffect(() => {
-    if (!isAuthorized) return;
+    if (!isAuthorized || !isCbbStudio) return;
     if (getTournamentDataMode() === 'official') return;
     fetchBracketData().then(bracket => {
       if (bracket?.bracketMode === 'official') {
         setOfficialBracketData(bracket);
       }
     }).catch(() => {});
-  }, [isAuthorized]);
+  }, [isAuthorized, isCbbStudio]);
 
   // ── MLB data loading ──────────────────────────────────────
   useEffect(() => {
@@ -432,7 +470,7 @@ export default function Dashboard() {
       setNbaStandings(standingsData?.teams ?? null);
       setNbaLeaders(leadersData ?? null);
       setNbaNews(Array.isArray(newsData) ? newsData : newsData?.headlines ?? []);
-      console.log('[NBA_CONTENT_STUDIO_PAYLOAD]', {
+      devLog('[NBA_CONTENT_STUDIO_PAYLOAD]', {
         picksCategoryKeys: Object.keys(picksData?.categories || {}),
         liveGamesCount: liveData?.games?.length || 0,
         windowGamesCount: windowData?.games?.length || 0,
@@ -824,9 +862,36 @@ export default function Dashboard() {
   // ── MLB / NBA active flags (must precede caption useMemo which references them) ──
   const mlbActive = isMlbSection(activeSection);
   const nbaActive = isNbaSection(activeSection);
+  const nflActive = isNflSection(activeSection);
+
+  // ── NFL: one fetch, one normalized payload shared by slides and caption ──
+  const nflData = useNflStudioData(isAuthorized && isNflStudio, refreshKey);
+  const nflPayload = useMemo(() => {
+    if (!nflActive || nflData.loading) return null;
+    return normalizeNflStudioPayload({
+      section: activeSection,
+      picks: nflData.picks,
+      games: nflData.games,
+      season: nflData.season,
+      scorecard: nflData.scorecard,
+      selectedGameId: nflSelectedGameId,
+    });
+  }, [nflActive, activeSection, nflData, nflSelectedGameId]);
+  const nflReady = useMemo(() => nflSectionReady(nflPayload), [nflPayload]);
 
   // ── compute caption ───────────────────────────────────────
   const caption = useMemo(() => {
+    // ── NFL caption: built from the same payload the slides render ──
+    if (nflActive) {
+      if (!nflPayload || !nflReady.ok) return null;
+      try {
+        return normalizeStudioCaption(buildNflCaption(nflPayload));
+      } catch (err) {
+        console.error('[NFL_CAPTION_BUILD_FAILED]', err?.message || err);
+        return { ok: false, reason: 'caption_build_failed', error: err?.message || 'buildNflCaption threw' };
+      }
+    }
+
     // ── NBA caption (playoff-framed, canonical normalizer path) ──
     if (nbaActive) {
       const payloadDiag = {
@@ -838,7 +903,7 @@ export default function Dashboard() {
         hasChampOdds: !!nbaChampOdds && Object.keys(nbaChampOdds).length > 0,
         hasSelectedTeam: !!nbaSelectedTeam,
       };
-      console.log('[NBA_CAPTION_STATE]', payloadDiag);
+      devLog('[NBA_CAPTION_STATE]', payloadDiag);
 
       let payload;
       try {
@@ -868,7 +933,7 @@ export default function Dashboard() {
       }
 
       const normalized = normalizeStudioCaption(built);
-      console.log('[NBA_DAILY_CAPTION_BUILT]', {
+      devLog('[NBA_DAILY_CAPTION_BUILT]', {
         section: payload?.section,
         ok: normalized.ok,
         reason: normalized.reason,
@@ -893,7 +958,7 @@ export default function Dashboard() {
         hasChampOdds: !!mlbChampOdds && Object.keys(mlbChampOdds).length > 0,
         hasSelectedTeam: !!mlbSelectedTeam,
       };
-      console.log('[DASHBOARD_CAPTION_STATE]', payloadDiag);
+      devLog('[DASHBOARD_CAPTION_STATE]', payloadDiag);
 
       let payload;
       try {
@@ -933,7 +998,7 @@ export default function Dashboard() {
       // .fullCaption only. No more shape drift between layers.
       const normalized = normalizeStudioCaption(built);
 
-      console.log('[DAILY_CAPTION_BUILT]', {
+      devLog('[DAILY_CAPTION_BUILT]', {
         section: payload?.section,
         ok: normalized.ok,
         reason: normalized.reason,
@@ -991,7 +1056,7 @@ export default function Dashboard() {
       return { ok: false, reason: 'caption_build_failed', error: err?.message || 'buildCaption threw' };
     }
     return normalizeStudioCaption(cbbBuilt);
-  }, [activeSection, dashData, teamPageData, selectedTeam, selectedGame, dailyStyleMode, dailyDigest, selectedConference, tournamentInsightsData, canonicalRenderedPicks, canonicalPicksGames, mlbActive, mlbGames, mlbLiveGames, mlbPicks, mlbLeaders, mlbStandings, mlbChampOdds, mlbSelectedTeam, mlbSelectedGame, mlbBriefing, mlbHeadlines, mlbLeague, mlbDivision, mlbGameAngle, nbaActive, nbaPicks, nbaLiveGames, nbaWindowGames, nbaLeaders, nbaStandings, nbaChampOdds, nbaNews, nbaSelectedTeam]);
+  }, [activeSection, dashData, teamPageData, selectedTeam, selectedGame, dailyStyleMode, dailyDigest, selectedConference, tournamentInsightsData, canonicalRenderedPicks, canonicalPicksGames, mlbActive, mlbGames, mlbLiveGames, mlbPicks, mlbLeaders, mlbStandings, mlbChampOdds, mlbSelectedTeam, mlbSelectedGame, mlbBriefing, mlbHeadlines, mlbLeague, mlbDivision, mlbGameAngle, nbaActive, nbaPicks, nbaLiveGames, nbaWindowGames, nbaLeaders, nbaStandings, nbaChampOdds, nbaNews, nbaSelectedTeam, nflActive, nflPayload, nflReady]);
 
   // ── Instagram Hero Summary caption (Slide 4 — Team Intel only) ────────────
   // Separate from the generic team caption — this is the viral-optimized caption
@@ -1230,15 +1295,19 @@ export default function Dashboard() {
   const publishMetadata = useMemo(() => {
     const sections = getSectionsForWorkspace(studioWorkspace);
     const section = sections.find(s => s.id === activeSection);
+    const team = activeSection === 'mlb-team' ? mlbSelectedTeam
+      : activeSection === 'nba-team' ? nbaSelectedTeam
+      : activeSection === 'team' ? selectedTeam
+      : null;
     return {
       title:                 section?.label ?? activeSection,
       templateType:          activeSection,
       contentType:           'social_carousel_slide',
       contentStudioSection:  activeSection,
-      teamSlug:              selectedTeam?.slug  ?? null,
-      teamName:              selectedTeam?.name  ?? null,
+      teamSlug:              team?.slug  ?? null,
+      teamName:              team?.name  ?? null,
     };
-  }, [activeSection, selectedTeam, studioWorkspace]);
+  }, [activeSection, selectedTeam, mlbSelectedTeam, nbaSelectedTeam, studioWorkspace]);
 
   const handlePublishSuccess = useCallback(() => {
     setHistoryRefreshKey(k => k + 1);
@@ -1285,10 +1354,14 @@ export default function Dashboard() {
     });
   })();
   // mlbActive / nbaActive are declared earlier (before caption useMemo)
-  const isWorking = nbaActive
+  const isWorking = nflActive
+    ? nflData.loading
+    : nbaActive
     ? nbaGamesLoading
     : (mlbActive ? mlbGamesLoading : (dataLoading || teamPageLoading));
-  const canExport = nbaActive
+  const canExport = nflActive
+    ? (!nflData.loading && nflReady.ok)
+    : nbaActive
     ? (!nbaGamesLoading && (activeSection !== 'nba-team' || !!nbaSelectedTeam))
     : (mlbActive
       ? (!mlbGamesLoading && (activeSection !== 'mlb-game' || !!mlbSelectedGame))
@@ -1298,13 +1371,18 @@ export default function Dashboard() {
   // MLB / NBA slide counts — daily gets 3-slide carousel, team intel 1 slide
   const MLB_SLIDE_COUNTS = { 'mlb-daily': 3, 'mlb-team': 1 };
   const NBA_SLIDE_COUNTS = { 'nba-daily': 3, 'nba-team': 1 };
-  const effectiveSlideCount = nbaActive
+  const effectiveSlideCount = nflActive
+    ? nflSlideCount(nflPayload ?? { section: activeSection, heroPicks: [] })
+    : nbaActive
     ? (NBA_SLIDE_COUNTS[activeSection] ?? 1)
     : (mlbActive
       ? (MLB_SLIDE_COUNTS[activeSection] ?? 1)
       : slideCount);
 
-  const options = nbaActive ? {
+  const options = nflActive ? {
+    nflPickCount: nflPayload?.heroPicks?.length ?? 0,
+    slideCount: effectiveSlideCount,
+  } : nbaActive ? {
     nbaTemplate: nbaTemplateType(activeSection),
     slideCount: effectiveSlideCount,
   } : mlbActive ? {
@@ -1358,12 +1436,7 @@ export default function Dashboard() {
                   onClick={() => {
                     setStudioWorkspaceId(ws.id);
                     setAssetsReady(false);
-                    const nextSection = ws.id === WorkspaceId.MLB
-                      ? 'mlb-daily'
-                      : ws.id === WorkspaceId.NBA
-                        ? 'nba-daily'
-                        : 'daily';
-                    setActiveSection(nextSection);
+                    setActiveSection(DEFAULT_SECTION_BY_WORKSPACE[ws.id] ?? 'daily');
                   }}
                 >
                   {ws.emoji} {ws.shortLabel}
@@ -1889,11 +1962,54 @@ export default function Dashboard() {
               <div className={styles.controlGroup}>
                 <label className={styles.controlLabel}>Format</label>
                 <div className={styles.chipGroup}>
-                  <span className={styles.chip} style={{ opacity: 0.6, cursor: 'default' }}>
+                  <span className={`${styles.chip} ${styles.chipStatic}`}>
                     1080 × 1080
                   </span>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* ─── NFL controls ─────────────────────────── */}
+          {nflActive && (
+            <div className={styles.sectionControls}>
+              <div className={styles.controlGroup}>
+                <label className={styles.controlLabel}>Format</label>
+                <div className={styles.chipGroup}>
+                  <span className={`${styles.chip} ${styles.chipStatic}`}>
+                    {effectiveSlideCount > 1 ? `${effectiveSlideCount}-slide carousel` : 'Single slide'} · 1080 × 1350
+                  </span>
+                </div>
+              </div>
+
+              {activeSection === 'nfl-game' && (nflPayload?.games?.length ?? 0) > 0 && (
+                <div className={styles.controlGroup}>
+                  <label className={styles.controlLabel} htmlFor="nfl-game-picker">Game</label>
+                  <div className={styles.selectWrap}>
+                    <select
+                      id="nfl-game-picker"
+                      className={styles.select}
+                      value={nflPayload.selectedGame?.id || ''}
+                      onChange={e => { setNflSelectedGameId(e.target.value); setAssetsReady(false); }}
+                    >
+                      {nflPayload.games.map(g => (
+                        <option key={g.id} value={g.id}>
+                          {g.away?.abbrev} @ {g.home?.abbrev} · {g.isFinal ? 'Final' : g.kickoffLabel}{g.picks.length ? ' · pick' : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              )}
+
+              {!nflData.loading && !nflReady.ok && (
+                <div className={styles.errorBanner} role="status">{nflReady.reason}</div>
+              )}
+              {!nflData.loading && nflData.errors.length > 0 && (
+                <div className={styles.errorBanner} role="status">
+                  Could not load: {nflData.errors.join(', ')}. Slides show what did load. Regenerate to retry.
+                </div>
+              )}
             </div>
           )}
 
@@ -1903,7 +2019,7 @@ export default function Dashboard() {
               <div className={styles.controlGroup}>
                 <label className={styles.controlLabel}>Format</label>
                 <div className={styles.chipGroup}>
-                  <span className={styles.chip} style={{ opacity: 0.6, cursor: 'default' }}>
+                  <span className={`${styles.chip} ${styles.chipStatic}`}>
                     {activeSection === 'nba-daily' ? '3-Slide Carousel · 1080 × 1350' : 'Single Slide · 1080 × 1350'}
                   </span>
                 </div>
@@ -1946,7 +2062,7 @@ export default function Dashboard() {
               <div className={styles.controlGroup}>
                 <label className={styles.controlLabel}>Format</label>
                 <div className={styles.chipGroup}>
-                  <span className={styles.chip} style={{ opacity: 0.6, cursor: 'default' }}>
+                  <span className={`${styles.chip} ${styles.chipStatic}`}>
                     Single Slide · 1080 × 1350
                   </span>
                 </div>
@@ -2089,7 +2205,7 @@ export default function Dashboard() {
           )}
 
           {/* Error */}
-          {dataError && !mlbActive && (
+          {dataError && !mlbActive && !nbaActive && !nflActive && (
             <div className={styles.errorBanner}>
               <strong>Error:</strong> {dataError}
             </div>
@@ -2121,7 +2237,7 @@ export default function Dashboard() {
 
             <div className={styles.sectionLabel}>Actions</div>
             <button className={styles.btnSecondary} onClick={handleRegenerate} disabled={isWorking || exporting || zipping}>
-              {dataLoading ? 'Loading…' : 'Regenerate'}
+              {isWorking ? 'Loading…' : 'Regenerate'}
             </button>
             <button className={styles.btnPrimary} onClick={handleExport} disabled={!canExport || exporting || zipping}>
               {exporting ? 'Exporting…' : 'Export PNGs'}
@@ -2162,6 +2278,7 @@ export default function Dashboard() {
             <div className={styles.publishDivider} />
             <div className={styles.sectionLabel}>Publish</div>
             <div className={styles.postBlock}>
+              <InstagramConnectionStatus />
               <InstagramPublishButton
                 exportRef={exportRef}
                 caption={caption}
@@ -2169,11 +2286,18 @@ export default function Dashboard() {
                 metadata={publishMetadata}
                 onSuccess={handlePublishSuccess}
                 template={activeSection}
+                slideCount={effectiveSlideCount}
               />
               {canExport && (
                 <div className={styles.postMeta}>
                   {(() => {
                     const labelMap = {
+                      'nfl-slate': 'Slate Briefing',
+                      'nfl-picks': "Maximus's Picks",
+                      'nfl-game': 'Game Breakdown',
+                      'nfl-receipts': 'Receipts',
+                      'nba-daily': 'Daily Briefing',
+                      'nba-team': 'Team Intel',
                       'mlb-daily': 'Daily Briefing',
                       'mlb-team': 'Team Intel',
                       'mlb-picks': "Maximus's Picks",
@@ -2188,7 +2312,7 @@ export default function Dashboard() {
                       odds: 'Odds Insights',
                     };
                     const sectionLabel = labelMap[activeSection] || 'Post';
-                    const slideSuffix = slideCount ? `${slideCount} slide${slideCount === 1 ? '' : 's'}` : '1 slide';
+                    const slideSuffix = `${effectiveSlideCount} slide${effectiveSlideCount === 1 ? '' : 's'}`;
                     return `Posts ${slideSuffix} · ${sectionLabel}`;
                   })()}
                 </div>
@@ -2273,14 +2397,14 @@ export default function Dashboard() {
           )}
 
           {/* Tag Suggestions panel */}
-          <TagSuggestionsPanel
+          {!nflActive && <TagSuggestionsPanel
             template={activeSection}
             teamSlug={selectedTeam?.slug}
             conference={activeSection === 'conference' ? selectedConference : selectedTeam?.conference}
             awaySlug={gameTagContext.awaySlug}
             homeSlug={gameTagContext.homeSlug}
             gameMode={activeSection === 'game' ? gameMode : undefined}
-          />
+          />}
 
           </>)}
         </aside>
@@ -2310,7 +2434,7 @@ export default function Dashboard() {
                 </button>
               </div>
             </div>
-          ) : isWorking || (!mlbActive && !nbaActive && !dashData) ? (
+          ) : isWorking || (nflActive && !nflPayload) || (!mlbActive && !nbaActive && !nflActive && !dashData) ? (
             <div className={styles.skeletonRow}>
               {Array.from({ length: effectiveSlideCount }).map((_, i) => (
                 <div
@@ -2328,6 +2452,8 @@ export default function Dashboard() {
               template={activeSection}
               slideCount={effectiveSlideCount}
               data={(() => {
+                // NFL data path: the normalized payload, nothing hand-built here.
+                if (nflActive) return nflPayload;
                 // NBA data path — route EVERYTHING through normalizeNbaImagePayload
                 // so every slide and the caption consume the same canonical shape.
                 // No hand-rolled payload construction.
@@ -2345,7 +2471,7 @@ export default function Dashboard() {
                       nbaLeaders,
                       nbaNews,
                     });
-                    console.log('[NBA_CONTENT_STUDIO_PAYLOAD_CANONICAL]', {
+                    devLog('[NBA_CONTENT_STUDIO_PAYLOAD_CANONICAL]', {
                       section: payload.section,
                       heroTitle: payload.heroTitle?.slice(0, 80),
                       bulletCount: payload.bullets?.length || 0,
@@ -2358,7 +2484,7 @@ export default function Dashboard() {
                     // Slide 1 + Slide 2 must consume the same bullets array.
                     // Emit the canonical HOTP payload here once so both slides
                     // can never silently diverge.
-                    console.log('[NBA_HOTP_PAYLOAD]', {
+                    devLog('[NBA_HOTP_PAYLOAD]', {
                       count: payload.bullets?.length || 0,
                       sources: (payload.bullets || []).map(b => b.source),
                       first: payload.bullets?.[0]?.text?.slice(0, 120),

@@ -84,9 +84,9 @@ export const WORKSPACES = {
     capabilities: {
       bracketology: false,
       seasonIntel: true,
-      // Social slides, captions and autopost are not built for NFL yet.
-      // The admin Content Studio only lists workspaces with this flag.
-      contentStudio: false,
+      // Slides and captions live in features/nfl/contentStudio. Autopost is
+      // not built for NFL; posting is manual from the admin Content Studio.
+      contentStudio: true,
       champOdds: true,
       atsLeaders: false,
       conferenceIntel: true,
