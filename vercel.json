@@ -34,6 +34,9 @@
     "api/cron/nfl/build-picks.js": {
       "maxDuration": 60
     },
+    "api/cron/nfl/review-games.js": {
+      "maxDuration": 60
+    },
     "api/user/followers.js": {
       "maxDuration": 30
     },
@@ -121,6 +124,7 @@
     {"path": "/api/cron/nfl/settle-yesterday",                     "schedule": "30 9 * * *"},
     {"path": "/api/cron/nfl/build-scorecard",                      "schedule": "45 9 * * *"},
     {"path": "/api/cron/nfl/build-picks",                          "schedule": "*/10 * * * *"},
+    {"path": "/api/cron/nfl/review-games",                         "schedule": "7,37 * * * *"},
     {"path": "/api/cron/instagram/refresh-token",                          "schedule": "17 11 * * 1"}
   ]
 }
