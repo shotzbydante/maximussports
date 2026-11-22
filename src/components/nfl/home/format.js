@@ -46,22 +46,30 @@ for (const t of NFL_TEAMS) {
 }
 // Longest first, so "Kansas City Chiefs" wins over "Chiefs". Case-sensitive:
 // "Bills" is a team, "bills" is not.
-const TEAM_RE = new RegExp(
-  `(?<![A-Za-z0-9])(${[...TEAM_BY_TEXT.keys()].sort((a, b) => b.length - a.length).map(escapeRe).join('|')})(?![A-Za-z0-9])`,
+const buildRe = (keys) => new RegExp(
+  `(?<![A-Za-z0-9])(${[...keys].sort((a, b) => b.length - a.length).map(escapeRe).join('|')})(?![A-Za-z0-9])`,
   'g',
 );
+const TEAM_RE = buildRe(TEAM_BY_TEXT.keys());
+// Abbreviations ("KC", "BUF") are only safe to match in text the picks engine wrote.
+const TEAM_BY_TEXT_ABBREV = new Map(TEAM_BY_TEXT);
+for (const t of NFL_TEAMS) TEAM_BY_TEXT_ABBREV.set(t.abbrev, t.slug);
+const TEAM_RE_ABBREV = buildRe(TEAM_BY_TEXT_ABBREV.keys());
 
 /**
  * Split text into plain strings and team mentions, so a logo can sit next
  * to every team name. Returns [{ text }, { text, slug }, ...].
+ * `abbrev: true` also matches team abbreviations.
  */
-export function splitTeamMentions(text) {
+export function splitTeamMentions(text, { abbrev = false } = {}) {
   if (!text) return [];
+  const re = abbrev ? TEAM_RE_ABBREV : TEAM_RE;
+  const lookup = abbrev ? TEAM_BY_TEXT_ABBREV : TEAM_BY_TEXT;
   const out = [];
   let last = 0;
-  for (const m of String(text).matchAll(TEAM_RE)) {
+  for (const m of String(text).matchAll(re)) {
     if (m.index > last) out.push({ text: text.slice(last, m.index) });
-    out.push({ text: m[0], slug: TEAM_BY_TEXT.get(m[0]) });
+    out.push({ text: m[0], slug: lookup.get(m[0]) });
     last = m.index + m[0].length;
   }
   if (last < text.length) out.push({ text: text.slice(last) });
