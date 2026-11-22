@@ -106,10 +106,14 @@ function unitMismatch(game) {
 function quarterbackNews(game) {
   const out = [];
   for (const side of ['away', 'home']) {
+    const qb = game.engine?.quarterbacks?.[side];
+    // The injury list names every quarterback who is out, backups included.
+    // It is only news when the starter has changed (or we cannot tell).
+    const starterChanged = !qb || qb.changed;
     for (const q of game.injuries?.[side]?.quarterbacks || []) {
+      if (!starterChanged || (qb?.starter && q.name === qb.starter)) continue;
       out.push(`${game.teams[side].abbrev} quarterback ${q.name} is ${String(q.status || 'out').toLowerCase()}`);
     }
-    const qb = game.engine?.quarterbacks?.[side];
     if (qb?.changed && qb?.starter) out.push(`${qb.starter} starts for ${game.teams[side].abbrev}`);
   }
   return out;
@@ -194,7 +198,7 @@ export function buildBriefData({ slate, standings = {}, headlines = [], champOdd
         network: g.broadcast?.network || null,
         spread: spreadText(g, g.market?.pregameSpread),
         total: g.market?.pregameTotal ?? null,
-        favoriteWinChance: fav && isNum(homeWin) ? `${fav.abbrev} ${Math.round(Math.max(homeWin, 1 - homeWin) * 100)}%` : null,
+        marketWinChance: fav && isNum(homeWin) ? `${fav.abbrev} ${Math.round(Math.max(homeWin, 1 - homeWin) * 100)}%` : null,
         ratingsLine: isNum(e.projection?.fairSpreadHome) ? `${g.teams.home.abbrev} ${line(r1(e.projection.fairSpreadHome))}` : null,
         ratingsVsMarket: isNum(gap) && Math.abs(gap) >= 2
           ? `our ratings are ${r1(Math.abs(gap))} points ${gap > 0 ? 'higher' : 'lower'} on ${g.teams.home.abbrev} than the market` : null,
@@ -285,6 +289,42 @@ export function briefSignature(slate) {
   return `w${slate?.week ?? '?'}|l${c.live}|u${c.upcoming}|f${c.final}`;
 }
 
+/* ── Keeping the copy from going stale ──────────────────────────────── */
+
+const CLOCK_IN_STANDING = / at (?:Q\d \d{1,2}:\d{2}|halftime|the half|OT[^.,]*)/i;
+/** "29 points at Q4 13:41." → "29 points so far." The page shows the clock itself. */
+export const withoutClock = (text) => String(text || '').replace(CLOCK_IN_STANDING, ' so far');
+
+const STALE = [
+  /\b\d{1,2}:\d{2}\s+(?:left|remaining|to play|to go)\b/i,          // time left
+  /\bQ[1-4]\s+\d{1,2}:\d{2}\b/,                                       // Q4 5:47
+  /\b[1-4](?:st|nd|rd|th)\s*(?:&|and)\s*(?:goal|inches|\d{1,2})\b/i,  // 3rd & Goal
+  /\b(?:at|on|inside) the [A-Z]{2,3} \d{1,2}\b/,                       // at the MIA 10
+  /\bnear midfield\b/i,
+];
+/** Drop any sentence that states the clock, the down or field position. */
+export function dropStale(text) {
+  const kept = String(text || '').split(/(?<=[.!?])\s+/).filter((sentence) => !STALE.some((re) => re.test(sentence)));
+  return kept.join(' ').trim();
+}
+
+const STAGE = { 1: 'first quarter', 2: 'second quarter', 3: 'third quarter', 4: 'fourth quarter' };
+/** What the model is shown: no clock, no score line, no down and distance. */
+function forModel(data) {
+  return {
+    ...data,
+    liveGames: data.liveGames.map((live) => {
+      const g = { ...live };
+      for (const key of ['score', 'clock', 'situation', 'period']) delete g[key];
+      return {
+        ...g,
+        stage: /half/i.test(live.clock || '') ? 'halftime' : live.period > 4 ? 'overtime' : STAGE[live.period] || 'under way',
+        maximusPick: live.maximusPick ? { ...live.maximusPick, standing: withoutClock(live.maximusPick.standing) } : null,
+      };
+    }),
+  };
+}
+
 /* ── The floor: a brief with no language model ──────────────────────── */
 
 const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
@@ -311,8 +351,7 @@ function liveLine(g) {
   if (g.maximusPick) {
     const lead = (PICK_LEAD[g.maximusPick.verdict] || ((p) => `Our ${p} is live here.`))(g.maximusPick.pick);
     // The page shows the clock beside this line, so the copy leaves it out.
-    const standing = String(g.maximusPick.standing || '').replace(/ at (?:Q\d \d{1,2}:\d{2}|halftime|the half|OT[^.,]*)/i, ' so far');
-    return `${lead} ${standing}`.trim();
+    return `${lead} ${withoutClock(g.maximusPick.standing)}`.trim();
   }
   const late = g.period >= 4;
   if (g.favoriteTrailing && g.againstTheSpread) {
@@ -338,7 +377,7 @@ function nextLine(g) {
     g.lineMove || null,
     g.rest || null,
     (g.stakes || [])[0] || null,
-    g.favoriteWinChance ? `the market gives ${g.favoriteWinChance} to win` : null,
+    g.marketWinChance ? `the market gives ${g.marketWinChance} to win` : null,
   ].filter(Boolean).slice(0, 2);
   return [lines ? `${cap(lines)}.` : null, ...facts.map((f) => `${cap(f)}.`)].filter(Boolean).join(' ');
 }
@@ -409,6 +448,8 @@ VOICE
 - Quick, confident, a little cheeky. Short sentences. Talk to one bettor, like a sharp friend with the model open.
 - One dry joke or vivid image in the whole brief at most. Never mean, never hype, never baby talk.
 - Specific beats clever. A number, a matchup or a consequence in every line.
+- Have a read on everything. Do not just report a number: say what it means for someone holding a ticket, and whether you would be relaxed or nervous. A line that only restates the data is a failure.
+- Sentence case. No word in capitals except team abbreviations. Name a game as away at home: "NYJ at LAC".
 
 TIME
 - It is ${data.now}. Write for this minute. Games in liveGames are being played now; games in gamesToCome have not started; finals are over.
@@ -417,9 +458,11 @@ TIME
 
 WHAT TO USE
 - ONLY the JSON data. Every team, player, number, price, record and fact must be in it. Do not add history, injuries, players or storylines from memory.
-- Use the facts that make a bettor see the game differently: againstTheSpread, againstTheTotal, favoriteTrailing, maximusPick and its standing, quarterbackNews, windMph and conditions, talentEdge, unitMismatch, ratingsVsMarket, spots (they carry real records), rest, lineMove, stakes, favoriteWinChance.
+- Use the facts that make a bettor see the game differently: againstTheSpread, againstTheTotal, favoriteTrailing, maximusPick and its standing, quarterbackNews, windMph and conditions, talentEdge, unitMismatch, ratingsVsMarket, spots (they carry real records), rest, lineMove, stakes, marketWinChance.
 - Our recommended bets are only the maximusPick entries. State each with its price and book exactly as given, and its reason from "why". Anything else is a lean or context: never call it a pick, a play or a bet.
 - Do NOT state a live score or the clock in "now" items. The page shows the live score next to your line. Say what the score means against the spread, the total or our pick.
+- NEVER mention time left, the down, field position or who has the ball, anywhere in the brief, numbers included. Readers see this for several minutes and those go stale in seconds. Saying which quarter it is (from "stage") is fine.
+- marketWinChance is the betting market's number, not ours: say "the market gives". ratingsLine and ratingsVsMarket are ours.
 - Prices keep their sign (+150, -110). Spreads and totals exactly as given.
 - No guarantees, no "lock", no "can't lose", no profanity.
 
@@ -439,7 +482,7 @@ Reply with one JSON object and nothing else. No markdown, no code fence.
 - "numbers": exactly 3 when the data supports it. Each must be a different kind of fact.
 - Do not start two items the same way. Do not repeat a fact across sections.`;
 
-  const user = `DATA:\n${JSON.stringify(data)}\n\nA plain version of this brief, for reference on what matters (rewrite it, do not copy it):\n${JSON.stringify({ headline: base.headline, now: base.now, next: base.next })}\n\nWrite the brief now as one JSON object.`;
+  const user = `DATA:\n${JSON.stringify(forModel(data))}\n\nA plain version of this brief, for reference on what matters (rewrite it, do not copy it):\n${JSON.stringify({ headline: base.headline, now: base.now, next: base.next })}\n\nWrite the brief now as one JSON object.`;
   return { system, user };
 }
 
@@ -492,13 +535,16 @@ export function parseBrief(raw, data) {
   next.sort((a, b) => order.get(String(a.gameId)) - order.get(String(b.gameId)));
   const numbers = (Array.isArray(obj.numbers) ? obj.numbers : [])
     .filter((x) => x && String(x.value ?? '').trim() && typeof x.label === 'string' && x.label.trim());
-  const fix = (t) => fixPositiveOdds(String(t ?? ''));
+  const fix = (t) => dropStale(fixPositiveOdds(String(t ?? '')));
+  const kept = (list) => list.map((x) => ({ gameId: x.gameId, text: fix(x.text) })).filter((x) => x.text);
+  const nowKept = kept(now);
+  if (liveIds.size > 0 && nowKept.length === 0) return null;
   return clampBrief({
     headline: fix(obj.headline),
     dek: fix(obj.dek),
-    now: now.map((x) => ({ gameId: x.gameId, text: fix(x.text) })),
-    next: next.map((x) => ({ gameId: x.gameId, text: fix(x.text) })),
-    numbers: numbers.map((x) => ({ value: fix(x.value), label: fix(x.label) })),
+    now: nowKept,
+    next: kept(next),
+    numbers: numbers.map((x) => ({ value: fixPositiveOdds(String(x.value)), label: fix(x.label) })).filter((x) => x.label),
     take: fix(obj.take),
     also: fix(obj.also),
     source: 'claude',

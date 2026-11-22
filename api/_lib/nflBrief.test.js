@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildBriefData, buildEngineBrief, briefPrompt, parseBrief, briefToText, briefSignature, windowFor, BRIEF_LIMITS } from './nflBrief.js';
+import { buildBriefData, buildEngineBrief, briefPrompt, parseBrief, briefToText, briefSignature, windowFor, dropStale, withoutClock, BRIEF_LIMITS } from './nflBrief.js';
 
 const team = (slug, abbrev, name, score, record) => ({ slug, abbrev, name, score, record });
 const NOW = new Date('2026-11-22T20:26:00Z');           // Sunday 3:26 PM ET
@@ -66,7 +66,7 @@ describe('buildBriefData', () => {
   it('gives each game to come the facts that change how it looks', () => {
     const g = data.gamesToCome[0];
     expect(g).toMatchObject({
-      window: 'Sunday night', spread: 'SF -4', total: 45.5, favoriteWinChance: 'SF 64%', ratingsLine: 'SF -0.3',
+      window: 'Sunday night', spread: 'SF -4', total: 45.5, marketWinChance: 'SF 64%', ratingsLine: 'SF -0.3',
       ratingsVsMarket: 'our ratings are 3.7 points lower on SF than the market',
       quarterbackNews: ['MIN quarterback Kyler Murray is out'],
       talentEdge: 'SF’s quarterback against MIN’s pass defense: a 11.6-point talent edge',
@@ -93,6 +93,24 @@ describe('a finished game with no closing line on file', () => {
     });
     expect(d.finals[0].againstTheSpread).toBeNull();
     expect(d.finals[0].total).toBeNull();
+  });
+});
+
+describe('quarterback news', () => {
+  const g = (engineQb) => ({
+    gameId: 'q1', status: 'upcoming', startTime: '2026-11-22T21:25:00Z',
+    teams: { away: team('raiders', 'LV', 'Las Vegas Raiders', null, '4-6'), home: team('broncos', 'DEN', 'Denver Broncos', null, '7-2') },
+    market: { pregameSpread: -11.5, pregameTotal: 41.5 },
+    injuries: { away: { quarterbacks: [] }, home: { quarterbacks: [{ name: 'Sam Ehlinger', status: 'Out' }] } },
+    engine: { quarterbacks: engineQb },
+  });
+  const news = (engineQb) => buildBriefData({ slate: { week: 11, games: [g(engineQb)] }, now: NOW }).gamesToCome[0].quarterbackNews;
+
+  it('ignores a backup who is out when the starter has not changed', () => {
+    expect(news({ home: { starter: 'Bo Nix', changed: false }, away: { starter: 'Fernando Mendoza', changed: true } })).toEqual(['Fernando Mendoza starts for LV']);
+  });
+  it('reports a quarterback who is out when the starter has changed', () => {
+    expect(news({ home: { starter: 'Jarrett Stidham', changed: true } })).toEqual(['DEN quarterback Sam Ehlinger is out', 'Jarrett Stidham starts for DEN']);
   });
 });
 
@@ -167,6 +185,39 @@ describe('prompt, signature and helpers', () => {
     expect(system).toContain('Lead with what is live or about to kick off.');
     expect(system).toContain('Do NOT state a live score or the clock');
     expect(user).toContain('"liveGames"');
+  });
+
+  it('keeps the clock, the score line and the down away from the writer', () => {
+    const { system, user } = briefPrompt(data, { headline: '', now: [], next: [] });
+    const sent = JSON.parse(user.slice(user.indexOf('{'), user.indexOf('\n\nA plain version')));
+    expect(sent.liveGames[0]).not.toHaveProperty('clock');
+    expect(sent.liveGames[0]).not.toHaveProperty('situation');
+    expect(sent.liveGames[0]).not.toHaveProperty('score');
+    expect(sent.liveGames[0].stage).toBe('fourth quarter');
+    expect(sent.liveGames[0].maximusPick.standing).toBe('29 points so far. Stays under 49 with 19 or fewer more.');
+    expect(system).toContain('NEVER mention time left, the down, field position');
+    expect(system).toContain('marketWinChance is the betting market’s number'.replace('’', "'"));
+  });
+
+  it('drops sentences that would be stale within a minute, and nothing else', () => {
+    expect(dropStale('BUF has 3rd & Goal at the MIA 10 and leads by 14. A touchdown covers it.')).toBe('A touchdown covers it.');
+    expect(dropStale('It sits at 31 with 5:47 left. Still under.')).toBe('Still under.');
+    expect(dropStale('PIT trails by 10, with the ball near midfield.')).toBe('');
+    expect(dropStale('NYJ at LAC kicks at 4:05 on Fox. LAC -3, total 43.5.')).toBe('NYJ at LAC kicks at 4:05 on Fox. LAC -3, total 43.5.');
+    expect(withoutClock('41 points at Q4 9:51, already past 40.5.')).toBe('41 points so far, already past 40.5.');
+  });
+
+  it('removes stale sentences from a model reply and drops an item left empty', () => {
+    const b = parseBrief(JSON.stringify({
+      headline: 'Two live',
+      now: [
+        { gameId: 'g1', text: 'Our under is fine. NO has 1st & 10 at the NO 8.' },
+        { gameId: 'g2', text: 'PIT has 2nd and 5 at the PHI 30.' },
+      ],
+      numbers: [{ value: '17', label: 'points of room. It sits at 31 with 5:47 left.' }, { value: '9', label: 'Q4 5:47 on the clock.' }],
+    }), data);
+    expect(b.now).toEqual([{ gameId: 'g1', text: 'Our under is fine.' }]);
+    expect(b.numbers).toEqual([{ value: '17', label: 'points of room.' }]);
   });
 
   it('changes signature when a game kicks off or ends', () => {
