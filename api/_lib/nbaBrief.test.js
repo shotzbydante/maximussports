@@ -128,3 +128,48 @@ describe('signature and prompt', () => {
     expect(user).toMatch(/"spread":"MIA -4.5"/);
   });
 });
+
+import { projectionFact, dropMatchupLabel } from './nbaBrief.js';
+
+describe('brief fixes after the first production run', () => {
+  const data = buildNbaBriefData({ games: [okcMia, dalUta], board, champOdds, now: NOW });
+
+  it('hands the writer the projection and its gap to the line, already worked out', () => {
+    expect(projectionFact(overPick)).toEqual({ projectedTotal: 243.4, projectionVsTotal: '17.4 points above the total' });
+    expect(projectionFact({ ...overPick, totalDebug: { fairTotal: 218 }, market: { type: 'total', line: 226.5 } }).projectionVsTotal).toBe('8.5 points below the total');
+    expect(projectionFact({ market: { type: 'runline', line: 4.5 } })).toEqual({});
+    expect(projectionFact({ market: { type: 'total', line: 226 } })).toEqual({});
+    expect(data.gamesToCome[0].maximusPick).toMatchObject({ projectedTotal: 243.4, projectionVsTotal: '17.4 points above the total' });
+  });
+
+  it('tells the model not to do arithmetic, not to repeat the matchup, and not to announce a missing pick', () => {
+    const { system, user } = nbaBriefPrompt(data, buildNbaEngineBrief(data));
+    expect(system).toMatch(/NO ARITHMETIC/);
+    expect(system).toMatch(/Do not open a line with the matchup/);
+    expect(system).toMatch(/Do not say we have no pick/);
+    expect(user).toMatch(/"projectionVsTotal":"17.4 points above the total"/);
+  });
+
+  it('takes a repeated matchup label off the front of a line', () => {
+    expect(dropMatchupLabel('ORL at WAS, 7:00 PM ET. ORL -4.5, total 219.5. Our pick is Over 219.5.')).toBe('ORL -4.5, total 219.5. Our pick is Over 219.5.');
+    expect(dropMatchupLabel('DEN at CHI: the Bulls are 4-11 and the market has noticed.')).toBe('The Bulls are 4-11 and the market has noticed.');
+    expect(dropMatchupLabel('IND @ NYK, 8 PM ET - NYK -7.5 and a total of 213.5.')).toBe('NYK -7.5 and a total of 213.5.');
+    // A sentence that starts with the matchup is not a label.
+    expect(dropMatchupLabel('OKC at MIA is in the second quarter.')).toBe('OKC at MIA is in the second quarter.');
+    expect(dropMatchupLabel('BOS -8, total 210.5.')).toBe('BOS -8, total 210.5.');
+    // Never leave a stub behind.
+    expect(dropMatchupLabel('ORL at WAS. Fun one.')).toBe('ORL at WAS. Fun one.');
+  });
+
+  it('applies that to a model reply', () => {
+    const reply = { headline: 'Two on the board', dek: '', now: [], next: [{ gameId: 'g1', text: 'OKC at MIA, 6:00 PM ET. MIA -4.5, total 226. Our pick is Over 226.' }, { gameId: 'g2', text: 'DAL -2.5, total 231.5.' }], numbers: [], take: '', also: '' };
+    expect(parseNbaBrief(JSON.stringify(reply), data).next[0].text).toBe('MIA -4.5, total 226. Our pick is Over 226.');
+  });
+
+  it('does not claim there is no pick on a live game', () => {
+    const live = { ...okcMia, status: 'live', gameState: { isLive: true, period: 2, periodLabel: '6:10 - 2nd' } };
+    const brief = buildNbaEngineBrief(buildNbaBriefData({ games: [live], board: { fullSlatePicks: [] }, now: NOW }));
+    expect(brief.now[0].text).toBe('Thunder at Heat is in the second quarter. The Thunder came in 10-6, the Heat 9-6.');
+    expect(brief.now[0].text).not.toMatch(/pick/i);
+  });
+});
