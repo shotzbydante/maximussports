@@ -21,7 +21,7 @@ import { renderHTML as renderNewsHTML }   from '../../src/emails/templates/break
 import { renderHTML as renderDigestHTML } from '../../src/emails/templates/teamDigest.js';
 import { renderHTML as renderMlbBriefingHTML } from '../../src/emails/templates/mlbBriefing.js';
 import { renderHTML as renderMlbPicksHTML } from '../../src/emails/templates/mlbPicks.js';
-import { renderHTML as renderGlobalHTML } from '../../src/emails/templates/globalBriefing.js';
+import { renderHTML as renderGlobalHTML } from '../../src/emails/templates/theDailyBrief.js';
 import { renderHTML as renderNflPicksHTML } from '../../src/emails/templates/nflPicks.js';
 import { renderHTML as renderMlbDigestHTML } from '../../src/emails/templates/mlbTeamDigest.js';
 import { assembleTeamDigestPayload, TEAM_DIGEST_MAX_TEAMS } from '../_lib/teamDigest.js';

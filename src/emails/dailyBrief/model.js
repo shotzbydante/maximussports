@@ -210,7 +210,7 @@ function nbaSection({ results = [], ledger = null, board = null, brief = null, n
     .slice(0, 3)
     .map((p) => ({
       label: p.selection?.label || '',
-      matchup: `${p.matchup?.awayTeam?.abbrev || ''} at ${p.matchup?.homeTeam?.abbrev || ''}`,
+      matchup: `${p.matchup?.awayTeam?.shortName || p.matchup?.awayTeam?.abbrev || ''} at ${p.matchup?.homeTeam?.shortName || p.matchup?.homeTeam?.abbrev || ''}`,
       tip: clockET(p.matchup.startTime),
       conviction: p.conviction?.score ?? null,
       why: nbaPickSummary(p) || '',

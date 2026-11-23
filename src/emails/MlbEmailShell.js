@@ -448,7 +448,7 @@ const PARTNERS = {
   xbet: {
     name: 'XBet',
     offer: 'Welcome Offer',
-    trust: 'Fast markets \u00B7 broad MLB coverage',
+    trust: 'Fast markets \u00B7 wide coverage',
     url: 'https://record.webpartners.co/_HSjxL9LMlaLhIFuQAd3mRWNd7ZgqdRLk/1/',
   },
   mybookie: {
