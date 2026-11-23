@@ -39,6 +39,12 @@ describe('foldLedger', () => {
     expect(withdrawn.ledger).toEqual({});
   });
 
+  it('keeps the reason the pick was published with', () => {
+    const p = { ...pick('a', 'g1', 'hero', '2026-11-22T23:00:00Z'), totalDebug: { fairTotal: 243.4, marketTotal: 226 } };
+    expect(slimPick(p).why).toBe('Recent scoring projects this game at 243.4 points, 17.4 above the total of 226.');
+    expect(slimPick(pick('b', 'g1', 'hero', '2026-11-22T23:00:00Z')).why).toBeNull();
+  });
+
   it('never records a lean', () => {
     expect(foldLedger({}, { fullSlatePicks: [pick('a', 'g1', 'tracking', '2026-11-22T23:00:00Z')] }, new Set(), NOW).ledger).toEqual({});
   });
