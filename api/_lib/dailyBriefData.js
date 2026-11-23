@@ -13,6 +13,7 @@
  * email out; it never holds up or fails the send.
  */
 import { getJson } from '../_globalCache.js';
+import { internalBaseUrl } from './siteUrl.js';
 import { buildDailyBrief, ymdET, shiftYmd } from '../../src/emails/dailyBrief/model.js';
 
 const SCORECARD_WAIT_MS = 15_000;
@@ -42,6 +43,11 @@ async function getJsonUrl(url, waitMs, label) {
  * @param {Date}   [have.now]
  */
 export async function assembleDailyBrief(baseUrl, { nbaResults = [], nbaBoard = null, now = new Date() } = {}) {
+  // Cron runs on the deployment's own hostname, which answers our routes
+  // with a sign-in page (HTTP 401). Call the public domain instead.
+  let host = '';
+  try { host = new URL(baseUrl).host; } catch { /* keep empty */ }
+  baseUrl = internalBaseUrl({ headers: { host } });
   const yesterday = shiftYmd(ymdET(now), -1);
   const [scorecard, nflBrief, nbaBrief, ledger] = await Promise.all([
     getJsonUrl(`${baseUrl}/api/nfl/picks/scorecard?days=3`, SCORECARD_WAIT_MS, 'nfl scorecard'),
