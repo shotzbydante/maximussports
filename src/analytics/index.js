@@ -111,8 +111,10 @@ export function getContextProps() {
   const out = { session_id: _sessionId };
   try {
     // Sport: the URL says it on sport pages; elsewhere (settings, dashboard)
-    // fall back to the workspace the user is in.
-    const sport = describeRoute(window.location.pathname).sport || _context.sport;
+    // fall back to the workspace the user is in. The public home page belongs
+    // to no sport, whatever the default workspace is.
+    const route = describeRoute(window.location.pathname);
+    const sport = route.sport || (route.page_type === 'landing' ? null : _context.sport);
     if (sport) out.sport = sport;
   } catch { /* SSR safety */ }
   try {

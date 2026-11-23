@@ -28,6 +28,7 @@
 
 import Stripe from 'stripe';
 import { verifyUserToken, getSupabaseAdmin } from '../_lib/supabaseAdmin.js';
+import { resolveCustomerPlan, updateProfile } from '../_lib/stripeBilling.js';
 
 // ── Env-var guardrails ────────────────────────────────────────────────────────
 const STRIPE_SECRET_KEY   = process.env.STRIPE_SECRET_KEY;
@@ -151,6 +152,18 @@ export default async function handler(req, res) {
     const existingCustomerId = profile?.stripe_customer_id || null;
 
     let session;
+
+    // ── Guard: Stripe already has a live subscription for this customer ───────
+    // The profile can lag Stripe (a missed webhook). Without this check a
+    // second checkout creates a second subscription and a second charge.
+    if (existingCustomerId) {
+      const plan = await resolveCustomerPlan(stripe, existingCustomerId).catch(() => null);
+      if (plan?.isPro) {
+        await updateProfile(sb, user.id, plan.fields);
+        console.log('[checkout] Stripe already has a live subscription; profile synced.');
+        return res.status(409).json({ error: 'Already subscribed to Pro' });
+      }
+    }
 
     if (existingCustomerId) {
       console.log(`[checkout] Using existing Stripe customer: ${existingCustomerId.slice(0, 8)}...`);

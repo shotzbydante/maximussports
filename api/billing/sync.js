@@ -5,13 +5,11 @@
  * or missed. Validates the caller's Supabase JWT, looks up their Stripe
  * subscription, and updates the profiles row if active.
  *
- * Columns written to profiles (only columns confirmed to exist):
- *   plan_tier, subscription_status, stripe_customer_id, stripe_subscription_id,
- *   updated_at
+ * It also corrects the other direction: a profile marked Pro whose Stripe
+ * customer has no live subscription is set back to free.
  *
- * NEVER writes: cancel_at_period_end, current_period_end,
- *               payment_method_last4, payment_method_brand, email
- * These columns may not exist in all deployments.
+ * Writes go through updateProfile (api/_lib/stripeBilling.js), which drops
+ * any column the profiles table lacks instead of failing the whole update.
  *
  * Lookup strategy (in order, most → least reliable):
  *   0. session_id in request body → retrieve Checkout Session from Stripe
@@ -31,6 +29,7 @@
 
 import Stripe from 'stripe';
 import { verifyUserToken, getSupabaseAdmin } from '../_lib/supabaseAdmin.js';
+import { resolveCustomerPlan, subscriptionToFields, updateProfile } from '../_lib/stripeBilling.js';
 
 const stripe = process.env.STRIPE_SECRET_KEY
   ? new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2024-06-20' })
@@ -112,6 +111,23 @@ export default async function handler(req, res) {
   const alreadyPro =
     profile?.plan_tier === 'pro' &&
     (profile?.subscription_status === 'active' || profile?.subscription_status === 'trialing');
+
+  // A profile that says Pro is checked against Stripe, so a subscription that
+  // ended while a webhook was missed is corrected the next time this runs.
+  if (alreadyPro && stripe && profile.stripe_customer_id) {
+    try {
+      const plan = await resolveCustomerPlan(stripe, profile.stripe_customer_id);
+      const written = await updateProfile(sb, userId, plan.fields);
+      if (!written.ok) console.error('[billing/sync] reconcile update error:', written.error);
+      if (!plan.isPro) {
+        console.log('[billing/sync] no live subscription: downgraded user', userId.slice(0, 8));
+        return ok200(res, { synced: true, already: false, plan_tier: 'free', subscription_status: plan.fields.subscription_status });
+      }
+    } catch (err) {
+      // Stripe unreachable: leave the plan as it is rather than guess.
+      console.warn('[billing/sync] reconcile skipped:', err.message);
+    }
+  }
 
   if (alreadyPro) {
     log('already pro — skipping Stripe lookup');
@@ -263,19 +279,14 @@ export default async function handler(req, res) {
   }
 
   // ── Active subscription found — update profiles ───────────────────────────
-  // IMPORTANT: only write columns that are confirmed to exist.
-  // Do NOT include: cancel_at_period_end, current_period_end,
-  //                 payment_method_last4, payment_method_brand, email
+  // updateProfile drops any column the table lacks, so the plan change lands
+  // even if an optional billing column is missing.
   const subCustId =
     typeof activeSub.customer === 'string'
       ? activeSub.customer
       : activeSub.customer?.id ?? resolvedCustId;
 
-  const updateFields = {
-    plan_tier:              'pro',
-    subscription_status:    activeSub.status,
-    updated_at:             new Date().toISOString(),
-  };
+  const updateFields = { ...subscriptionToFields(activeSub) };
 
   // Only write stripe IDs if we have them (columns exist per existing checkout code).
   if (subCustId)    updateFields.stripe_customer_id     = subCustId;
@@ -283,12 +294,10 @@ export default async function handler(req, res) {
 
   log('writing fields:', Object.keys(updateFields));
 
-  const { error: updateErr } = await sb
-    .from('profiles')
-    .upsert({ id: userId, ...updateFields }, { onConflict: 'id' });
+  const written = await updateProfile(sb, userId, updateFields);
 
-  if (updateErr) {
-    console.error('[billing/sync] profile update error:', updateErr.message);
+  if (!written.ok) {
+    console.error('[billing/sync] profile update error:', written.error);
     return res.status(500).json({ ok: false, error: 'Could not update subscription state' });
   }
 

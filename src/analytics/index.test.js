@@ -126,6 +126,18 @@ describe('properties attached to every event', () => {
     expect(captured[1].props.sport).toBe('nfl');
   });
 
+  it('leave the public home page without a sport, whatever the default workspace is', async () => {
+    const analytics = await loadAnalytics({ pathname: '/' });
+    analytics.initAnalytics();
+    await vi.advanceTimersByTimeAsync(250);
+    finishLoading();
+    captured.length = 0;
+
+    analytics.setAnalyticsContext({ sport: 'ncaam' });
+    analytics.track('landing_viewed', {});
+    expect(captured[0].props).not.toHaveProperty('sport');
+  });
+
   it('let an explicit sport on the event win', async () => {
     const analytics = await loadAnalytics({ pathname: '/settings' });
     analytics.initAnalytics();
