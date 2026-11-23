@@ -33,6 +33,7 @@ import { resolveFairTotalForGame } from './seriesPaceFairTotal.js';
 import { adjustFairTotal } from './nbaTotalsHistory.js';
 import { computeTeamForm } from '../../src/features/nba/picks/v2/teamForm.js';
 import { nbaPickSummary } from '../../src/features/nba/picks/pickSummary.js';
+import { getNbaSeasonRatings } from './nbaSeasonRatings.js';
 
 // v10: KV cache keys are namespaced by NBA_MODEL_VERSION. A model bump
 // (e.g., v2.0.0 → v2.1.0) automatically invalidates all prior cached
@@ -411,11 +412,15 @@ export async function buildNbaPicksBoard(opts = {}) {
       console.log(`[nbaPicksBuilder] playoff context attached to ${Object.keys(gameContext).length} game(s)`);
     }
 
+    // Season scoring margins for the spread side (best effort; {} on failure).
+    const teamRatings = await getNbaSeasonRatings();
+
     const result = buildNbaPicksV2({
       games: enriched,
       config: activeConfig,
       scorecardSummary,
       gameContext,
+      teamRatings,
       // No injury feed yet — engine assumes worst-case and refuses Top Play
       // for favorites. Flip this to `true` once an injury source is wired.
       injuryDataAvailable: false,

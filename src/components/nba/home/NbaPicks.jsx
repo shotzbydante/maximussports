@@ -2,8 +2,9 @@
  * NbaPicks — Maximus's picks for tonight.
  *
  * The section shows the engine's highest-conviction calls as tickets (see
- * NbaPickCard), up to five on the home page. It never pads the list: if the
- * engine has two picks, two are shown. Everything else on the board is a
+ * NbaPickCard), up to five on the home page, always with the team picks
+ * (spreads) among them. It never pads the list: if the engine has two
+ * picks, two are shown. Everything else on the board is a
  * lean: tracked and graded, not a pick.
  *
  *   variant="home"  up to five tickets, picks already in play, the record
@@ -20,7 +21,7 @@ import NbaEveryGame from './NbaEveryGame';
 import { NbaLogo, Matchup, TeamText } from './NbaTeamTag';
 import { SectionHead, Rail, ScoreRing } from '../../nfl/home/HomeParts';
 import { tipShort } from './nbaFormat';
-import { HELD_BACK, MARKET, leanPicks, nbaPickSummary, pickedTeam, recordText, score, splitByStart } from './nbaPickHelpers';
+import { HELD_BACK, MARKET, leanPicks, nbaPickSummary, pickedTeam, recordText, score, splitByStart, topPicksWithTeams } from './nbaPickHelpers';
 import { trackPicksBoardView } from '../../../analytics/sportEvents';
 import h from '../../nfl/home/home.module.css';
 
@@ -100,7 +101,7 @@ export default function NbaPicks({ variant = 'home', games: gamesProp }) {
   const gameById = new Map(games.map((g) => [String(g.gameId), g]));
   const { toPlay, inPlay } = splitByStart(board, games);
   const leans = leanPicks(board).filter((p) => { const g = gameById.get(String(p.gameId)); return !g || g.status === 'upcoming'; });
-  const shown = full ? toPlay : toPlay.slice(0, HOME_MAX);
+  const shown = full ? toPlay : topPicksWithTeams(toPlay, HOME_MAX);
   const total = toPlay.length + leans.length;
   const title = 'Maximus’s picks for tonight';
 

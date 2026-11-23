@@ -41,6 +41,7 @@ import {
   countIndependentDogSupport,
   totalsSupportScore,
 } from './teamForm.js';
+import { projectHomeMarginFromRatings } from './seasonRatings.js';
 import { seriesContextPrior, isSeriesContextSupportingHero } from './seriesContextPrior.js';
 import { buildDisplayMetrics } from './displayMetrics.js';
 
@@ -52,7 +53,7 @@ const COVERAGE_MAX_PICKS = 15;
 // labels + descriptions. Fixes the "Confidence: 33%" miscommunication
 // where users read modelConfidence (data/model quality) as hit
 // probability. No selection-logic change.
-export const NBA_MODEL_VERSION = 'nba-picks-v2.5.0';
+export const NBA_MODEL_VERSION = 'nba-picks-v2.6.0';
 
 /**
  * Playoff-aware conservative tuning (2026-04-24).
@@ -356,6 +357,11 @@ function makePick(matchup, score, info, bs) {
       projectedHomeMargin: round3(info.projectedHomeMargin),
       awayCoverEdge:       round3(info.awayCoverEdge),
       homeCoverEdge:       round3(info.homeCoverEdge),
+      // Season ratings (v2.6.0); null when the side came from the moneyline
+      ratingsHomeMargin:   round3(info.ratingsHomeMargin),
+      ratingsGap:          round3(info.ratingsGap),
+      awayRating:          info.awayRating ?? null,
+      homeRating:          info.homeRating ?? null,
     } : null,
     // Total-specific debug fields (null for non-total picks)
     totalDebug: info.marketType === 'total' ? {
@@ -426,6 +432,13 @@ export function buildNbaPicksV2({
    * intel should land in `gameContext`.
    */
   injuryDataAvailable = false,
+  /**
+   * Optional season ratings keyed by team slug: { [slug]: { pointDiff, games } }
+   * (scoring margin per game). When both teams in a game have one, the
+   * spread side is called from the ratings instead of from the market's
+   * own moneyline. Omitted or partial: sides build as they did before v2.6.0.
+   */
+  teamRatings = {},
 } = {}) {
   const today = todayET();
   const meta = { totalCandidates: 0, qualifiedGames: 0, skippedGames: 0, picksPublished: 0, flags: [] };
@@ -641,10 +654,16 @@ export function buildNbaPicksV2({
     // moneyline is missing the projected margin collapses to the spread
     // itself → zero cover edge → tracking pick on the favorite.
     if (isNum(m.spread?.homeLine)) {
+      const homeRating = teamRatings?.[g?.teams?.home?.slug] || null;
+      const awayRating = teamRatings?.[g?.teams?.away?.slug] || null;
+      const ratingsHomeMargin = projectHomeMarginFromRatings({
+        home: homeRating, away: awayRating, neutralSite: g?.venue?.neutralSite === true,
+      });
       const sp = pickSpreadSide({
         awayMl: m.moneyline?.away,
         homeMl: m.moneyline?.home,
         homeLine: m.spread.homeLine,
+        ratingsHomeMargin,
       });
       if (sp.side) {
         let bs = computeBetScore({
@@ -700,7 +719,9 @@ export function buildNbaPicksV2({
           // ~1.2-point cushion (CLE projected by ~3.8) and lost cover
           // by 2 — exactly the case this gate should catch.
           let atsDogCushionRisk = null;
-          if (isAtsDogSide && isNum(sp.projectedHomeMargin)) {
+          // Cross-market only: a ratings projection is blended most of the
+          // way to the line, so its cushion is never 3.5 points by design.
+          if (isAtsDogSide && spreadIsCrossMarket && isNum(sp.projectedHomeMargin)) {
             const cushion = atsDogMarginCushion({
               projectedHomeMargin: sp.projectedHomeMargin,
               line: sp.lineValue,
@@ -725,6 +746,11 @@ export function buildNbaPicksV2({
             projectedHomeMargin: sp.projectedHomeMargin,
             awayCoverEdge: sp.awayCoverEdge,
             homeCoverEdge: sp.homeCoverEdge,
+            // v2.6.0 season ratings behind the side (null on the cross-market path)
+            ratingsHomeMargin: sp.ratingsHomeMargin ?? null,
+            ratingsGap: sp.ratingsGap ?? null,
+            awayRating: sp.modelSource === 'season_ratings_v1' ? awayRating : null,
+            homeRating: sp.modelSource === 'season_ratings_v1' ? homeRating : null,
             // v12 team-form context
             awayTeamForm: awayForm,
             homeTeamForm: homeForm,
@@ -903,6 +929,9 @@ export function buildNbaPicksV2({
   for (const p of assigned.published) {
     const score = p.betScore?.total ?? 0;
     if (score < HERO_FLOOR) continue;
+    // v2.6.0: a ratings side the guard held back (gap too wide to trust, or
+    // too thin to matter) is a lean whatever its score.
+    if (p.modelSource === 'season_ratings_v1' && p.lowSignalReason) continue;
     if (isCrossMarketOnly(p)) {
       // Stricter cross-market gate
       if (Math.abs(p.rawEdge ?? 0) < HERO_CROSS_MARKET_EDGE) continue;
@@ -939,6 +968,34 @@ export function buildNbaPicksV2({
       `[buildNbaPicksV2] v10 diversification: demoted ${xmHeroCandidates.length} cross-market underdog hero(es) to tracking`
     );
   }
+  // v2.6.0 team-pick floor. The curated list should not be totals only:
+  // when fewer than `teamPickMin` side picks made hero on their own, the
+  // strongest ratings-backed spreads are added, flagged so the pages can
+  // label them lower conviction. Only sides with an input of the engine's
+  // own qualify (never the cross-market leans the gates above hold back),
+  // and never one the ratings guard or the large-favorite check flagged.
+  const TEAM_PICK_MIN = config?.hero?.teamPickMin ?? 2;
+  const isSideMarket = (p) => p?.market?.type === 'runline' || p?.market?.type === 'moneyline';
+  const teamPickFloorIds = new Set();
+  const sideHeroGames = new Set(clean.filter(p => heroIds.has(p.id) && isSideMarket(p)).map(p => String(p.gameId)));
+  if (sideHeroGames.size < TEAM_PICK_MIN) {
+    const coverPts = (p) => Math.abs(p.selection?.side === 'home' ? p.spreadDebug?.homeCoverEdge : p.spreadDebug?.awayCoverEdge) || 0;
+    const eligible = clean
+      .filter(p => p.market?.type === 'runline'
+        && p.modelSource === 'season_ratings_v1'
+        && !p.lowSignalReason
+        && !heroIds.has(p.id)
+        && !sideHeroGames.has(String(p.gameId))
+        && p.largeFavoriteSpreadRisk?.supported !== false
+        && !p.flags?.largeSpreadSuppressed)
+      .sort((a, b) => coverPts(b) - coverPts(a) || (b.betScore?.total ?? 0) - (a.betScore?.total ?? 0));
+    for (const p of eligible.slice(0, TEAM_PICK_MIN - sideHeroGames.size)) {
+      heroIds.add(p.id);
+      teamPickFloorIds.add(p.id);
+    }
+    if (teamPickFloorIds.size > 0) meta.flags.push('team_pick_floor');
+  }
+
   // Tag every cleaned candidate so persistence knows the pick role.
   // Tracking picks (below tier3 floor) get tier='tracking' so the row
   // passes validation in picksHistory and lands in the scorecard the
@@ -951,10 +1008,16 @@ export function buildNbaPicksV2({
       tier,
       pickRole: isHero ? 'hero' : 'tracking',
       isHeroPick: isHero,
-      isLowConviction: !isHero || p.flags?.tracking === true,
+      isLowConviction: !isHero || p.flags?.tracking === true || teamPickFloorIds.has(p.id),
+      // Hero through the team-pick floor, not on conviction (v2.6.0).
+      teamPickFloor: teamPickFloorIds.has(p.id),
       // Stash the role inside the existing rationale jsonb so persistence
       // (`picksHistory.buildPickRow`) writes it without a schema change.
-      rationale: { ...(p.rationale || {}), pickRole: isHero ? 'hero' : 'tracking' },
+      rationale: {
+        ...(p.rationale || {}),
+        pickRole: isHero ? 'hero' : 'tracking',
+        ...(teamPickFloorIds.has(p.id) ? { teamPickFloor: true } : {}),
+      },
     };
     // v15: attach `displayMetrics` so the UI has canonical labels +
     // descriptions for Edge / Signal Quality / Hit Probability / Bet

@@ -26,9 +26,12 @@
  * `isLowConviction: true`.
  */
 
+import { SEASON_RATINGS, ratingsAgainstSpread } from './seasonRatings.js';
+
 const POINTS_PER_PROB = 28;             // ~3.6%/point — NBA-calibrated
 const LARGE_SPREAD_GUARD_ABS = 12;      // above this, blend toward no-vig
 const RAW_EDGE_CAP = 0.20;              // never report > ±20% rawEdge
+const SEASON_RATINGS_EDGE_CAP = 0.08;   // matches components.edge.spreadCap: the edge score is full at 2.4 kept points
 // v11: ML/spread markets that disagree by more than this absolute
 // probability gap are treated as a data anomaly (stale ML, illiquid book,
 // or one market reflecting a star injury the other hasn't priced in).
@@ -287,7 +290,7 @@ export function pickMoneylineSide({ awayMl, homeMl, homeLine } = {}) {
  * of the spread). When ML is missing we fall back to the spread itself,
  * which produces zero cover edge but preserves per-game selection.
  */
-export function pickSpreadSide({ awayMl, homeMl, homeLine } = {}) {
+export function pickSpreadSide({ awayMl, homeMl, homeLine, ratingsHomeMargin } = {}) {
   if (!isNum(homeLine)) {
     return {
       side: null, awayLine: null, homeLine: null,
@@ -296,6 +299,33 @@ export function pickSpreadSide({ awayMl, homeMl, homeLine } = {}) {
       rawEdge: null, lineValue: null,
       isLowConviction: true, lowSignalReason: 'no_spread',
       modelSource: null,
+    };
+  }
+
+  // v2.6.0: when both teams have a season rating, the side comes from that
+  // (an input of the engine's own) and not from the market's moneyline.
+  if (isNum(ratingsHomeMargin)) {
+    const r = ratingsAgainstSpread(ratingsHomeMargin, homeLine);
+    const edgeCap = SEASON_RATINGS_EDGE_CAP;
+    // A guarded gap is not an edge: the market is far from the ratings because
+    // it knows something they do not (usually who is out). It scores as none.
+    const rawEdge = r.guarded ? 0 : Math.min(edgeCap, (r.coverPts / SEASON_RATINGS.fullEdgePoints) * edgeCap);
+    return {
+      side: r.side,
+      awayLine: -homeLine,
+      homeLine,
+      projectedHomeMargin: r.projectedHomeMargin,
+      awayCoverEdge: r.awayCoverEdge,
+      homeCoverEdge: r.homeCoverEdge,
+      awayRawEdge: r.side === 'away' ? rawEdge : -rawEdge,
+      homeRawEdge: r.side === 'home' ? rawEdge : -rawEdge,
+      rawEdge,
+      lineValue: r.side === 'away' ? -homeLine : homeLine,
+      isLowConviction: r.guarded || r.thin,
+      lowSignalReason: r.guarded ? 'data_gap' : r.thin ? 'low_cover_edge' : null,
+      modelSource: 'season_ratings_v1',
+      ratingsHomeMargin,
+      ratingsGap: r.rawGap,
     };
   }
 
