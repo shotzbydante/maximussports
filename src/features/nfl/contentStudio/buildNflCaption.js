@@ -11,6 +11,9 @@
  */
 
 const SITE = 'maximussports.ai';
+// Short link straight to this week's picks (a redirect in vercel.json), so a
+// post about picks does not send people to the home page first.
+const PICKS = `${SITE}/picks`;
 const RESPONSIBLE = '21+. For entertainment only. Gambling problem? Call 1-800-GAMBLER.';
 
 function plural(n, one, many = `${one}s`) {
@@ -78,7 +81,7 @@ function slateCaption(payload) {
     titleRace.length >= 3 && `Title race: ${titleRace.slice(0, 3).map((t) => `${t.abbrev} ${t.titleOddsLabel}`).join(', ')}.`,
   ]);
 
-  const cta = `Every game, every price, every reason: ${SITE}`;
+  const cta = `Every game, every price, every reason: ${PICKS}`;
   return {
     shortCaption: blocks([hook, topPick && `Best number: ${pickLine(topPick)}. ${pickMath(topPick)}`.trim(), passLine(meta), cta, RESPONSIBLE]),
     longCaption: blocks([hook, detail, passLine(meta), cta, RESPONSIBLE]),
@@ -97,7 +100,7 @@ function picksCaption(payload) {
     .join('\n\n');
 
   const promise = 'Each pick is locked at a real price at a real book and graded on that ticket. Wins and losses both get posted.';
-  const cta = `Full reasoning for every pick: ${SITE}`;
+  const cta = `Full reasoning for every pick: ${PICKS}`;
   return {
     shortCaption: blocks([hook, shortList, promise, cta, RESPONSIBLE]),
     longCaption: blocks([hook, longList, promise, cta, RESPONSIBLE]),
@@ -214,7 +217,7 @@ function explainCaption(payload) {
   const e = payload.explainer;
   if (!e) return null;
   const body = e.points.map((p, i) => `${i + 1}. ${p}`).join('\n');
-  const cta = `See it applied to every game this week: ${SITE}`;
+  const cta = `See it applied to every game this week: ${PICKS}`;
   return {
     shortCaption: blocks([`${e.title} Save this one. 🏈`, body, e.closer, cta, RESPONSIBLE]),
     longCaption: blocks([`${e.title} Save this one. 🏈`, body, e.example, e.closer, cta, RESPONSIBLE]),

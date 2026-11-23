@@ -1121,7 +1121,8 @@
   background: var(--color-bg);
   color: var(--color-text);
   font-family: var(--font-sans);
-  font-size: 0.9rem;
+  /* 16px: anything smaller makes iPhone browsers zoom the page on focus. */
+  font-size: 16px;
   box-sizing: border-box;
   transition: border-color 0.15s, box-shadow 0.15s;
   outline: none;
@@ -3728,4 +3729,83 @@
 .sportTab { display: inline-flex; align-items: center; white-space: nowrap; }
 @media (max-width: 480px) {
   .sportTab { padding: 8px 10px; font-size: 0.75rem; }
+}
+
+
+/* ─── Sign-up: the main action, and the emailed code ───────────────────── */
+.btnEmailSubmit.btnEmailPrimary {
+  height: 48px;
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #fff;
+  font-weight: 600;
+}
+
+.btnEmailSubmit.btnEmailPrimary:hover:not(:disabled) {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #fff;
+  filter: brightness(1.08);
+}
+
+.btnEmailSubmit.btnEmailPrimary:disabled {
+  opacity: 0.55;
+}
+
+.codeForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  width: 100%;
+  max-width: 340px;
+  margin: var(--space-md) auto var(--space-xs);
+}
+
+.codeInput {
+  width: 100%;
+  height: 52px;
+  padding: 0 var(--space-md);
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-mono, ui-monospace, 'SF Mono', Menlo, monospace);
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  box-sizing: border-box;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.codeInput::placeholder {
+  color: var(--color-text-muted);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+.codeInput:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(22, 104, 227, 0.1);
+}
+
+.codeInput[aria-invalid='true'] {
+  border-color: #dc2626;
+}
+
+.codeInput:disabled {
+  opacity: 0.6;
+}
+
+.codeError {
+  margin: 0 auto var(--space-sm);
+  max-width: 340px;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: #b91c1c;
+  text-align: center;
 }

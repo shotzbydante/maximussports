@@ -20,7 +20,14 @@ import { effectivePlanTier, getEntitlements, PRO_PRICE_LABEL } from '../lib/enti
 import { invalidatePlanCache, markSyncing } from '../hooks/usePlan';
 import { invalidateProfileCache } from '../hooks/useUserProfile';
 import { useTeamPin } from '../hooks/useTeamPin';
-import { isEmbeddedBrowser, getEmbeddedSource, getPlatform } from '../utils/embeddedBrowser';
+import {
+  isEmbeddedBrowser, getEmbeddedSource, getPlatform,
+  getPreferredBrowserLabel, openInExternalBrowser,
+} from '../utils/embeddedBrowser';
+import {
+  RESEND_COOLDOWN_SECONDS, nextFromSearch, callbackPath, cleanCode, isCompleteCode,
+  requestSignupEmail, verifySignupCode, codeErrorMessage,
+} from '../features/account/signupFlow';
 import EmbeddedBrowserModal from '../components/auth/EmbeddedBrowserModal';
 import MaximusAvatar from '../components/profile/MaximusAvatar';
 import AvatarStudio, { PlayerCard } from '../components/profile/AvatarStudio';
@@ -34,6 +41,7 @@ import {
   trackSportTabSelected, trackTeamToggled, trackTeamLimitHit, trackEmailChoiceToggled,
   trackAvatarChange, trackUsernameIssue, trackNextAction, setOnboardingPersonProps,
   trackSignupEmailSent, trackSignupEmailFailed, trackSignupEmailInvalid,
+  trackSignupCodeSubmitted, trackSignupCodeFailed, trackSignupCodeVerified,
   teamProps, emailProps, avatarProps, secondsInOnboarding, signupMethod,
 } from '../analytics/onboarding';
 import FollowPanel from '../components/social/FollowPanel';
@@ -2972,6 +2980,12 @@ function UnauthenticatedPanel() {
   const [showBrowserModal, setShowBrowserModal] = useState(false);
   const [focusEmail, setFocusEmail]       = useState(false);
   const emailInputRef                     = useRef(null);
+  const [code, setCode]                   = useState('');
+  const [codeLoading, setCodeLoading]     = useState(false);
+  const [codeError, setCodeError]         = useState('');
+  // Where to go once the account exists: set by the page that sent them here.
+  const nextPath = nextFromSearch(typeof window !== 'undefined' ? window.location.search : '');
+  const wantsNfl = !nextPath || nextPath.startsWith('/nfl');
 
   useEffect(() => {
     trackSignupViewed();
@@ -3053,39 +3067,64 @@ function UnauthenticatedPanel() {
   };
 
   const sendConfirmEmail = async (emailAddress, { resend = false } = {}) => {
-    setEmailLoading(true); setError('');
+    setEmailLoading(true); setError(''); setCodeError('');
     // A resend is the same signup, so it does not start a second one.
     if (!resend) {
       track('auth_start_email', {});
       trackSignupStarted({ method: 'email' });
     }
 
-    // Preserve intended destination from ?next= (set by RouteGate redirects)
-    let nextPath = null;
-    try {
-      const n = new URLSearchParams(window.location.search).get('next');
-      if (n && n.startsWith('/') && !n.startsWith('//') && !/^[a-z]+:/i.test(n)) {
-        nextPath = n;
-      }
-    } catch { /* ignore */ }
-
-    try {
-      const res = await fetch('/api/auth/send-confirm-signup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: emailAddress, next: nextPath }),
-      });
-      // Endpoint always returns { ok: true } — no enumeration possible
-      await res.json().catch(() => ({}));
-      if (res.ok) trackSignupEmailSent({ resend }); else trackSignupEmailFailed({ resend });
-      setEmailSent(true);
-      startResendCooldown(30);
-    } catch {
-      trackSignupEmailFailed({ resend });
-      setError('Could not send confirmation email. Please try again.');
-    } finally {
-      setEmailLoading(false);
+    // The request is capped, so a stalled in-app browser shows an error and a
+    // way to retry instead of a spinner that never ends.
+    const out = await requestSignupEmail({ email: emailAddress, next: nextPath });
+    setEmailLoading(false);
+    if (!out.ok && out.reason !== 'server') {
+      trackSignupEmailFailed({ resend, reason: out.reason });
+      setError(out.reason === 'timeout'
+        ? 'That took too long. Check your connection and try again.'
+        : 'Could not send the email. Check your connection and try again.');
+      return;
     }
+    if (out.ok) trackSignupEmailSent({ resend }); else trackSignupEmailFailed({ resend, reason: out.reason });
+    if (resend) setCode('');
+    setEmailSent(true);
+    // The server sends one email per address per minute; match it, so a
+    // resend that says it sent has sent.
+    startResendCooldown(RESEND_COOLDOWN_SECONDS);
+  };
+
+  // Confirm with the emailed code. This finishes the sign-up in this browser,
+  // which matters inside Instagram and Facebook: the emailed link opens in
+  // Safari or Chrome, not here.
+  const handleCodeSubmit = async (e) => {
+    e.preventDefault();
+    if (codeLoading) return;
+    const token = cleanCode(code);
+    if (!isCompleteCode(token)) {
+      setCodeError('Enter the code from the email. It is 6 digits.');
+      return;
+    }
+    setCodeLoading(true); setCodeError('');
+    const embedded = isEmbeddedBrowser();
+    trackSignupCodeSubmitted({ embedded });
+    const out = await verifySignupCode({ supabase: getSupabase(), email: email.trim().toLowerCase(), code: token });
+    if (!out.ok) {
+      trackSignupCodeFailed({ reason: out.reason, embedded });
+      setCodeError(codeErrorMessage(out.reason));
+      setCodeLoading(false);
+      return;
+    }
+    trackSignupCodeVerified({ embedded });
+    try { await flushAnalytics?.(); } catch { /* never block sign-in on analytics */ }
+    // Same door as the emailed link: it sends a new account into setup and a
+    // returning one to where they were going. A full load, so setup starts
+    // from the saved session and not from a half-updated page.
+    window.location.replace(callbackPath(nextPath));
+  };
+
+  const handleOpenExternal = () => {
+    track('signup_open_browser_clicked', { embedded_source: getEmbeddedSource(), platform: getPlatform() });
+    openInExternalBrowser();
   };
 
   const handleEmailSubmit = async (e) => {
@@ -3106,7 +3145,7 @@ function UnauthenticatedPanel() {
     await sendConfirmEmail(trimmed, { resend: true });
   };
 
-  const anyLoading = googleLoading || emailLoading;
+  const anyLoading = googleLoading || emailLoading || codeLoading;
 
   // ── "Check your email" premium state ──────────────────────────────────────
   if (emailSent) {
@@ -3137,12 +3176,41 @@ function UnauthenticatedPanel() {
           <h2 className={styles.emailSentTitle}>Check your inbox</h2>
 
           <p className={styles.emailSentDesc}>
-            We sent a confirmation link to{' '}
+            We sent a 6-digit code and a link to{' '}
             <strong className={styles.emailSentEmailStr}>{email}</strong>.
           </p>
           <p className={styles.emailSentDescSub}>
-            Tap the link in your email to activate your account and start getting personalized intelligence.
+            {isEmbeddedBrowser()
+              ? 'Enter the code here to finish. The link in the email opens in a different browser, so the code is the quickest way.'
+              : 'Enter the code here, or tap the link in the email. Either one activates your account.'}
           </p>
+
+          <form className={styles.codeForm} onSubmit={handleCodeSubmit} noValidate>
+            <input
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              autoComplete="one-time-code"
+              className={styles.codeInput}
+              placeholder="6-digit code"
+              value={code}
+              onChange={(e) => { setCode(cleanCode(e.target.value)); if (codeError) setCodeError(''); }}
+              disabled={codeLoading}
+              aria-label="Confirmation code"
+              aria-invalid={codeError ? 'true' : undefined}
+              aria-describedby={codeError ? 'signup-code-error' : undefined}
+              maxLength={10}
+            />
+            <button
+              type="submit"
+              className={`${styles.btnEmailSubmit} ${styles.btnEmailPrimary}`}
+              disabled={codeLoading || !isCompleteCode(cleanCode(code))}
+            >
+              {codeLoading ? <><SpinnerIcon /> Confirming…</> : 'Confirm and continue'}
+            </button>
+          </form>
+          {codeError && <p id="signup-code-error" role="alert" className={styles.codeError}>{codeError}</p>}
+          {error && <div className={styles.errorMsg}>{error}</div>}
 
           {/* What you get */}
           <div className={styles.emailSentFeaturesCard}>
@@ -3169,13 +3237,14 @@ function UnauthenticatedPanel() {
 
           <p className={styles.emailSentHint}>
             Email taking a minute? Check <strong>Promotions</strong> or <strong>Spam</strong>.
+            The subject starts with the code.
           </p>
 
           <button
             type="button"
             className={styles.btnResend}
             onClick={handleResend}
-            disabled={resendCooldown > 0 || emailLoading}
+            disabled={resendCooldown > 0 || emailLoading || codeLoading}
           >
             {emailLoading
               ? <><SpinnerIcon /> Sending…</>
@@ -3205,16 +3274,18 @@ function UnauthenticatedPanel() {
           <path d="M9 34c0-6.075 4.925-11 11-11s11 4.925 11 11" stroke="var(--color-primary)" strokeWidth="1.5" strokeLinecap="round"/>
         </svg>
       </div>
-      <h2 className={styles.unauthTitle}>Join Maximus Sports</h2>
+      <h2 className={styles.unauthTitle}>
+        {wantsNfl ? 'See every NFL pick this week' : 'Join Maximus Sports'}
+      </h2>
       <p className={styles.unauthSubtitle}>
         {inEmbedded
-          ? 'Enter your email to get your personalized picks and intel'
-          : 'Your personalized sports intelligence command center'}
+          ? 'Free. Enter your email and we send a 6-digit code. No password, no card.'
+          : 'Free account. No credit card.'}
       </p>
       <div className={styles.unauthBenefits}>
-        <span>✦ AI-powered daily briefings</span>
-        <span>✦ Personalized picks & edges</span>
-        <span>✦ Real-time team intel alerts</span>
+        <span>✦ A call on every NFL game: spread, total and moneyline</span>
+        <span>✦ Picks locked at a real price and graded in public</span>
+        <span>✦ Your teams on your home page, plus NBA, MLB and college basketball</span>
       </div>
 
       {error && <div className={styles.errorMsg}>{error}</div>}
@@ -3237,13 +3308,16 @@ function UnauthenticatedPanel() {
             />
             <button
               type="submit"
-              className={styles.btnEmailSubmit}
+              className={`${styles.btnEmailSubmit} ${styles.btnEmailPrimary}`}
               disabled={anyLoading || !email.trim()}
             >
-              {emailLoading ? <SpinnerIcon /> : 'Get started with email'}
+              {emailLoading ? <><SpinnerIcon /> Sending…</> : 'Email me a code'}
             </button>
           </form>
-          <p className={styles.emailHint}>We'll send a secure sign-in link. No password needed.</p>
+          <p className={styles.emailHint}>You stay right here: type the code from the email and you are in.</p>
+          <button type="button" className={styles.btnResend} onClick={handleOpenExternal}>
+            Or {getPreferredBrowserLabel().replace(/^Open/, 'open')} to use Google
+          </button>
         </>
       ) : (
         <>
@@ -3318,8 +3392,8 @@ export default function Settings() {
   return (
     <div className={`${styles.page} ${styles.pageNarrow}`}>
       <div className={styles.pageHeader}>
-        <h1 className={styles.pageTitle}>Settings</h1>
-        <p className={styles.pageSubtitle}>Sign in to personalize your experience.</p>
+        <h1 className={styles.pageTitle}>Create your free account</h1>
+        <p className={styles.pageSubtitle}>Already have one? The same email signs you in.</p>
       </div>
       <UnauthenticatedPanel />
     </div>

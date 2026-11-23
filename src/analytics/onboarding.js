@@ -7,7 +7,11 @@
  *  signup_viewed            signed-out signup form shown        (lib/analytics/posthog.js)
  *  signup_started           chose Google or email               (lib/analytics/posthog.js)
  *    signup_email_sent      confirmation email request accepted
- *    signup_email_failed    that request failed
+ *    signup_email_failed    that request failed (reason: server, network, timeout)
+ *    signup_code_submitted  typed the emailed code on the sign-up page
+ *    signup_code_failed     the code was wrong, expired or could not be checked
+ *    signup_code_verified   the code confirmed the address; setup follows
+ *    signup_open_browser_clicked  in an app's browser, chose Safari or Chrome instead
  *    signup_email_invalid   typed something that is not an email
  *  auth_account_created     first sign-in, account exists       (context/AuthContext.jsx)
  *  onboarding_started       setup opened
@@ -125,7 +129,10 @@ export function avatarProps(avatar = {}) {
 /* ── Signup form ─────────────────────────────────────────────────────────── */
 
 export function trackSignupEmailSent({ resend = false } = {}) { track('signup_email_sent', { resend }); }
-export function trackSignupEmailFailed({ resend = false } = {}) { track('signup_email_failed', { resend }); }
+export function trackSignupEmailFailed({ resend = false, reason = 'server' } = {}) { track('signup_email_failed', { resend, reason }); }
+export function trackSignupCodeSubmitted({ embedded = false } = {}) { track('signup_code_submitted', { embedded }); }
+export function trackSignupCodeFailed({ reason = 'other', embedded = false } = {}) { track('signup_code_failed', { reason, embedded }); }
+export function trackSignupCodeVerified({ embedded = false } = {}) { track('signup_code_verified', { embedded }); }
 export function trackSignupEmailInvalid() { track('signup_email_invalid', {}); }
 
 /* ── Setup ───────────────────────────────────────────────────────────────── */

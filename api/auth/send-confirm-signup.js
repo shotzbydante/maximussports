@@ -9,6 +9,8 @@
  *  - redirectTo is server-side fixed — no user-supplied redirect targets
  *  - In-memory throttle (per email, 60 s) prevents accidental rapid re-sends
  *  - Errors are logged server-side only; generic response to client
+ *  - The email carries the link and the same token as a short code. Either
+ *    one confirms the address; using one spends the other.
  *
  * Input:  POST { email: string }
  * Output: { ok: true } always (200)
@@ -97,10 +99,17 @@ export default async function handler(req, res) {
 
     const confirmUrl = data.properties.action_link;
 
+    // The same token as a short code. Someone who signs up inside Instagram
+    // or Facebook opens the email link in a different browser, where the
+    // sign-up they started is not; typing the code finishes it where they are.
+    // Only digits are ever put in the email.
+    const rawCode = String(data.properties.email_otp ?? '');
+    const code = /^\d{4,10}$/.test(rawCode) ? rawCode : '';
+
     // Render branded email
-    const html    = renderHTML({ confirmUrl });
-    const text    = renderText({ confirmUrl });
-    const subject = getSubject();
+    const html    = renderHTML({ confirmUrl, code });
+    const text    = renderText({ confirmUrl, code });
+    const subject = getSubject({ code });
 
     await sendEmail({ to: normalised, subject, html, text });
 

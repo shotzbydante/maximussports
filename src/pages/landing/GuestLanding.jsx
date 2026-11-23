@@ -26,7 +26,10 @@ import styles from './GuestLanding.module.css';
 
 const WelcomeModal = lazy(() => import('../../components/marketing/WelcomeModal'));
 
-const SIGNUP_ROUTE = '/settings';
+/* The picks are what people open once they are in, so every button on this
+   page leads there: the picks page itself, or sign-up that returns to it. */
+const PICKS_ROUTE = '/nfl/insights';
+const SIGNUP_ROUTE = `/settings?next=${encodeURIComponent(PICKS_ROUTE)}`;
 
 const META = {
   title: 'Maximus Sports — Sports Intelligence for Prediction Markets and Betting',
@@ -276,18 +279,18 @@ export default function GuestLanding() {
               </p>
               <div className={styles.heroCtas}>
                 <Link
-                  to={SIGNUP_ROUTE}
+                  to={PICKS_ROUTE}
                   className={`${styles.btn} ${styles.btnPrimary}`}
-                  onClick={() => trackCta('explore_free_intelligence', 'hero')}
-                >
-                  Explore free intelligence <Icon name="arrowSm" />
-                </Link>
-                <Link
-                  to="/nfl"
-                  className={`${styles.btn} ${styles.btnGhost}`}
-                  onClick={() => trackCta('see_nfl_board', 'hero')}
+                  onClick={() => trackCta('see_nfl_picks', 'hero')}
                 >
                   See this week&rsquo;s NFL picks <Icon name="right" />
+                </Link>
+                <Link
+                  to={SIGNUP_ROUTE}
+                  className={`${styles.btn} ${styles.btnGhost}`}
+                  onClick={() => trackCta('create_free_account', 'hero')}
+                >
+                  Create a free account <Icon name="arrowSm" />
                 </Link>
               </div>
               <p className={styles.heroMeta}>

@@ -5,6 +5,7 @@
  */
 import { Component } from 'react';
 import { track } from '../analytics/index';
+import { isStaleBuildError, reloadOnceForNewBuild } from '../utils/pageErrors';
 
 export default class ErrorBoundary extends Component {
   constructor(props) {
@@ -18,6 +19,9 @@ export default class ErrorBoundary extends Component {
 
   componentDidCatch(error, info) {
     try {
+      // A page file from a build that has since been replaced: load the new build.
+      if (isStaleBuildError(error?.message) && reloadOnceForNewBuild()) return;
+
       // Extract first meaningful frame from componentStack; drop full trace for brevity.
       const componentHint = info?.componentStack
         ?.split('\n')
