@@ -106,6 +106,7 @@ const NBA_SECTIONS = [
  * slate briefing instead of a daily one. Receipts is the graded record.
  */
 const NFL_SECTIONS = [
+  { id: 'nfl-daily',    label: 'The Daily',         icon: '☀️',  requiredCap: null },
   { id: 'nfl-slate',    label: 'Slate Briefing',    icon: '🏈',  requiredCap: null },
   { id: 'nfl-picks',    label: "Maximus's Picks",    icon: '📈',  requiredCap: 'picks' },
   { id: 'nfl-game',     label: 'Game Breakdown',     icon: '📊',  requiredCap: 'games' },
@@ -882,6 +883,7 @@ export default function Dashboard() {
       games: nflData.games,
       season: nflData.season,
       scorecard: nflData.scorecard,
+      nextWeek: nflData.nextWeek,
       selectedGameId: nflSelectedGameId,
       selectedTeamSlug: nflSelectedTeamSlug,
       explainerId: nflExplainerId,
@@ -2409,6 +2411,7 @@ export default function Dashboard() {
                 <div className={styles.postMeta}>
                   {(() => {
                     const labelMap = {
+                      'nfl-daily': 'The Daily',
                       'nfl-slate': 'Slate Briefing',
                       'nfl-picks': "Maximus's Picks",
                       'nfl-game': 'Game Breakdown',

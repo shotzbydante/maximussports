@@ -207,6 +207,7 @@ const TEMPLATE_LABELS = {
   'mlb-picks':     "MLB Maximus's Picks",
   'nba-daily':     'NBA Daily Briefing',
   'nba-team':      'NBA Team Intel',
+  'nfl-daily':     'NFL The Daily',
   'nfl-slate':     'NFL Slate Briefing',
   'nfl-picks':     "NFL Maximus's Picks",
   'nfl-game':      'NFL Game Breakdown',

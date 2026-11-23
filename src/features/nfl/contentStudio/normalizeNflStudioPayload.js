@@ -15,10 +15,11 @@
  */
 
 import { NFL_EXPLAINERS } from './explainers.js';
+import { buildNflDaily } from './daily.js';
 
 const ET = 'America/New_York';
 
-export const NFL_STUDIO_SECTIONS = ['nfl-slate', 'nfl-picks', 'nfl-game', 'nfl-team', 'nfl-review', 'nfl-receipts', 'nfl-explain'];
+export const NFL_STUDIO_SECTIONS = ['nfl-daily', 'nfl-slate', 'nfl-picks', 'nfl-game', 'nfl-team', 'nfl-review', 'nfl-receipts', 'nfl-explain'];
 
 const TIER_LABEL = { tier1: 'Top play', tier2: 'Strong play', tier3: 'Value play' };
 
@@ -391,7 +392,7 @@ function ptDateLabel(now) {
  * @param {string|null} [input.explainerId]        which explainer to show
  * @param {Date} [input.now]
  */
-export function normalizeNflStudioPayload({ section, picks, games, season, scorecard, selectedGameId = null, selectedTeamSlug = null, explainerId = null, now = new Date() }) {
+export function normalizeNflStudioPayload({ section, picks, games, season, scorecard, nextWeek = null, selectedGameId = null, selectedTeamSlug = null, explainerId = null, now = new Date() }) {
   const heroPicks = (picks?.heroPicks || []).map(normalizePick).filter(Boolean);
 
   const picksByGame = new Map();
@@ -430,6 +431,8 @@ export function normalizeNflStudioPayload({ section, picks, games, season, score
     || null;
 
   const receiptsData = receipts(scorecard);
+  const nextGames = (Array.isArray(nextWeek?.games) ? nextWeek.games : []).map((g) => normalizeGame(g, null, picksByGame));
+  const daily = buildNflDaily({ scorecard, games: allGames, nextGames, nextLabel: nextWeek?.slateLabel || null, now });
   const byeTeams = games?.byeTeams || picks?.byeTeams || [];
   const teamOptions = seasonTeams(season)
     .map((t) => ({ slug: t.slug, name: t.name, conference: t.conference }))
@@ -462,6 +465,7 @@ export function normalizeNflStudioPayload({ section, picks, games, season, score
     titleRace: titleRace(season),
     bubble: bubble(season),
     receipts: receiptsData,
+    daily,
     selectedGame,
     byeTeams,
     teamOptions,
@@ -483,6 +487,10 @@ export function normalizeNflStudioPayload({ section, picks, games, season, score
 export function nflSectionReady(payload) {
   if (!payload) return { ok: false, reason: 'No data loaded yet.' };
   switch (payload.section) {
+    case 'nfl-daily':
+      return payload.daily?.ready
+        ? { ok: true }
+        : { ok: false, reason: 'No results, no game today and no schedule ahead yet.' };
     case 'nfl-slate':
       return payload.games.length > 0
         ? { ok: true, reason: null }
@@ -517,7 +525,7 @@ export function nflSectionReady(payload) {
 /** Slides per section, given the data. The picks carousel is a cover plus one slide per pick. */
 export function nflSlideCount(payload) {
   if (!payload) return 1;
-  if (payload.section === 'nfl-slate') return 3;
+  if (payload.section === 'nfl-slate' || payload.section === 'nfl-daily') return 3;
   if (payload.section === 'nfl-picks') return 1 + Math.min(payload.heroPicks.length, 4);
   return 1;
 }

@@ -13,9 +13,10 @@ const SOURCES = {
   games: '/api/nfl/live/games?status=all&sort=startTime',
   season: '/api/nfl/season-model',
   scorecard: '/api/nfl/picks/scorecard',
+  nextWeek: '/api/nfl/live/next-week',
 };
 
-const EMPTY = { picks: null, games: null, season: null, scorecard: null };
+const EMPTY = { picks: null, games: null, season: null, scorecard: null, nextWeek: null };
 
 async function getJson(url, signal) {
   const res = await fetch(url, { signal });
