@@ -691,10 +691,10 @@ export function NflDailyAheadSlide({ data: p, slideNumber, slideTotal, ...rest }
   if (games.length === 0) {
     return <DailyEmpty payload={p} slideNumber={slideNumber} slideTotal={slideTotal} rest={rest} title="Schedule not posted" note="Next week's games appear here once the lines are up." />;
   }
-  const rowH = Math.max(96, Math.min(128, Math.floor(700 / games.length)));
+  const rowH = Math.max(92, Math.min(112, Math.floor(660 / games.length)));
   return (
     <Shell payload={p} kicker={`NFL · ${a.label || 'The week ahead'}`} slideNumber={slideNumber} slideTotal={slideTotal} rest={rest}>
-      <div className={styles.kicker}>{a.totalGames} games in the next seven days</div>
+      <div className={styles.kicker}>{a.totalGames} games in the next seven days · times Eastern</div>
       <h2 className={`${styles.h2} ${styles.h2Tight}`}>{a.thanksgivingGames > 0 ? <>Circle these. <span className={styles.accent}>Thanksgiving included.</span></> : 'Circle these.'}</h2>
       <div className={styles.aheadList} style={{ '--row-h': `${rowH}px` }}>
         {games.map((g) => (
@@ -710,8 +710,8 @@ export function NflDailyAheadSlide({ data: p, slideNumber, slideTotal, ...rest }
         ))}
       </div>
       <div className={styles.promise}>
-        <b>Send this to the group chat that argues about the Thanksgiving games.</b>
-        <span>Picks lock before every kickoff: maximussports.ai/picks. Times Eastern.</span>
+        <b>{a.thanksgivingGames > 0 ? 'Send this to your Thanksgiving group chat.' : 'Send this to the friend with a take.'}</b>
+        <span>Picks lock before kickoff: maximussports.ai/picks</span>
       </div>
     </Shell>
   );
