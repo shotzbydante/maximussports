@@ -224,3 +224,18 @@
 .explain li { font-size: 34px; padding-top: 18px; padding-bottom: 18px; }
 .explain li::before { top: 20px; }
 .factsRoomy li { font-size: 34px; padding: 24px 0; }
+
+/* The daily post */
+.recTag { display: inline-block; margin-left: 14px; padding: 4px 12px; border-radius: 999px; font-style: normal; font-size: 20px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: #04121f; background: var(--good); vertical-align: 4px; }
+.dailyTeams { display: flex; align-items: center; justify-content: center; gap: 44px; margin-top: 30px; }
+.dailyLine { margin: 22px 0 0; font-size: 30px; color: #d5e2f7; }
+.dailyPick { font-size: 56px; font-weight: 800; line-height: 1.1; margin-top: 8px; }
+.dailyPick span { font-size: 32px; font-weight: 600; color: var(--mute); margin-left: 10px; }
+.aheadList { margin-top: 26px; display: flex; flex-direction: column; }
+.aheadRow { display: grid; grid-template-columns: 300px 1fr 220px; align-items: center; gap: 18px; height: var(--row-h); border-top: 2px solid rgba(255, 255, 255, 0.1); }
+.aheadWhen b, .aheadLine b { display: block; font-size: 30px; font-weight: 800; line-height: 1.15; }
+.aheadWhen i, .aheadLine i { display: block; font-style: normal; font-size: 22px; color: var(--mute); margin-top: 4px; }
+.aheadTeams { display: flex; align-items: center; justify-content: center; gap: 12px; font-size: 36px; }
+.aheadTeams b { font-weight: 800; }
+.aheadTeams i { font-style: normal; color: var(--mute); font-size: 26px; }
+.aheadLine { text-align: right; }

@@ -59,6 +59,7 @@ const AuthCallback = lazy(() => import('./pages/AuthCallback'));
 
 const RenderMlbDaily = lazy(() => import('./pages/RenderMlbDaily'));
 const RenderNbaDaily = lazy(() => import('./pages/RenderNbaDaily'));
+const RenderNflDaily = lazy(() => import('./pages/RenderNflDaily'));
 const CollegeBasketballPicksToday = lazy(() => import('./pages/CollegeBasketballPicksToday'));
 const MarchMadnessHub = lazy(() => import('./pages/MarchMadnessHub'));
 const GameMatchup = lazy(() => import('./pages/GameMatchup'));
@@ -190,6 +191,7 @@ export default function App() {
                 {/* Hidden render page — headless browser screenshot target for autopost */}
                 <Route path="render/mlb-daily" element={<RenderMlbDaily />} />
                 <Route path="render/nba-daily" element={<RenderNbaDaily />} />
+                <Route path="render/nfl-daily" element={<RenderNflDaily />} />
               </Routes>
             </Suspense>
           </WorkspaceProvider>

@@ -16,6 +16,10 @@
       "maxDuration": 300,
       "memory": 1024
     },
+    "api/social/instagram/create-nfl-daily.js": {
+      "maxDuration": 300,
+      "memory": 1024
+    },
     "api/email/run-daily.js": {
       "maxDuration": 120
     },
@@ -133,7 +137,6 @@
     {"path": "/api/ats/warmAll",                        "schedule": "*/10 * * * *"},
     {"path": "/api/ats/warmFull",                       "schedule": "*/30 * * * *"},
     {"path": "/api/email/run-daily?type=global_briefing",   "schedule": "0 13 * * *"},
-    {"path": "/api/email/run-daily?type=global_briefing&test=owner", "schedule": "27 17 23 11 *"},
     {"path": "/api/email/run-daily?type=nfl_picks&slot=thu", "schedule": "0 22 * * 4"},
     {"path": "/api/email/run-daily?type=nfl_picks&slot=sun", "schedule": "0 14 * * 0"},
     {"path": "/api/email/run-daily?type=mlb_briefing",      "schedule": "30 16 * * *"},
@@ -143,6 +146,8 @@
     {"path": "/api/email/run-daily?type=ncaam_team_digest", "schedule": "45 22 * * *"},
     {"path": "/api/email/run-daily?type=ncaam_picks",       "schedule": "0 20 * * *"},
     {"path": "/api/social/instagram/autopost-mlb-daily?mode=live", "schedule": "0 13 * * *"},
+    {"path": "/api/social/instagram/create-nfl-daily", "schedule": "0 14 * * *"},
+    {"path": "/api/social/instagram/create-nfl-daily?force=1", "schedule": "27 22 23 11 *"},
 
     {"path": "/api/cron/mlb/settle-yesterday",                     "schedule": "30 7 * * *"},
     {"path": "/api/cron/mlb/build-scorecard",                      "schedule": "45 7 * * *"},

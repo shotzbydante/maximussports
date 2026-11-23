@@ -89,6 +89,59 @@ function slateCaption(payload) {
   };
 }
 
+/**
+ * The daily post. Built to be sent and argued with: a hook that fits in the
+ * first line Instagram shows, short lines, one question, one "send this"
+ * prompt, and the record link so the wins can be checked.
+ */
+function dailyCaption(payload) {
+  const d = payload.daily;
+  if (!d?.ready) return null;
+  const { hits: h, tonight: t, ahead: a } = d;
+
+  const top = h?.rows?.[0];
+  const hook = h
+    ? `${plural(h.count, 'call')} cashed on ${h.dayName}. ${top ? `${top.label} was the cleanest.` : ''} ✅`.replace('  ', ' ')
+    : t
+      ? `${t.away.abbrev} at ${t.home.abbrev} tonight. Here is our number. 🏈`
+      : `${a.totalGames} NFL games in the next week. These are the ones to circle. 🏈`;
+
+  const hitLines = !h ? null : join([
+    `${h.dayName}'s winners:`,
+    ...h.rows.slice(0, 4).map((r) => `✓ ${r.label} (${r.matchup})${r.note ? `, ${r.note.toLowerCase()}` : ''}`),
+    h.count > 4 && `and ${h.count - 4} more.`,
+  ]);
+
+  const tonightLine = !t ? null : (t.pick
+    ? `Tonight: ${t.away.abbrev} at ${t.home.abbrev}, ${t.kickoffTime}. We have ${t.pick.label} at ${t.pick.offeredPrice || t.pick.priceLabel}${t.pick.book ? ` (${t.pick.book})` : ''}.`
+    : `Tonight: ${t.away.abbrev} at ${t.home.abbrev}, ${t.kickoffTime}. No bet clears the bar at these prices, and passing is part of the model.`);
+
+  const circle = a.games.slice(0, 3).map((g) => `${g.away.abbrev} at ${g.home.abbrev} (${g.window})`).join(', ');
+  const aheadLine = a.games.length === 0 ? null : (a.thanksgivingGames > 0
+    ? `Then a short week: ${plural(a.thanksgivingGames, 'game')} on Thanksgiving. Circle ${circle}.`
+    : `Coming up: ${circle}.`);
+
+  const question = t
+    ? `Who are you taking tonight, ${t.away.abbrev} or ${t.home.abbrev}? Call it below. 👇`
+    : a.games[0] ? `Which game are you circling? Call it below. 👇` : null;
+  const send = a.thanksgivingGames > 0
+    ? 'Send this to the group chat before the Thanksgiving lines move.'
+    : 'Send this to the friend who always has a take.';
+  const proof = h ? `Wins only above. Full record, losses included: ${SITE}/record` : null;
+  const cta = `Every pick, every price, every reason: ${PICKS}`;
+
+  const tags = [...baseTags(payload)];
+  if (t) tags.push(tagify(`${t.away.abbrev}vs${t.home.abbrev}`));
+  if (t?.window === 'Monday night') tags.push('#MNF');
+  if (a.thanksgivingGames > 0) tags.push('#Thanksgiving');
+
+  return {
+    shortCaption: blocks([hook, tonightLine, aheadLine, question, send, proof, RESPONSIBLE]),
+    longCaption: blocks([hook, hitLines, tonightLine, aheadLine, question, send, proof, cta, RESPONSIBLE]),
+    hashtags: tags,
+  };
+}
+
 function picksCaption(payload) {
   const { slateLabel, heroPicks, meta } = payload;
   if (heroPicks.length === 0) return null;
@@ -229,6 +282,7 @@ function explainCaption(payload) {
 export function buildNflCaption(payload) {
   if (!payload) return null;
   switch (payload.section) {
+    case 'nfl-daily': return dailyCaption(payload);
     case 'nfl-slate': return slateCaption(payload);
     case 'nfl-picks': return picksCaption(payload);
     case 'nfl-game': return gameCaption(payload);

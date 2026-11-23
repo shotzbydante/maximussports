@@ -568,3 +568,151 @@ export function NflExplainerSlide({ data: p, slideNumber, slideTotal, ...rest })
     </Shell>
   );
 }
+
+/* ───────────────────────── The daily post: hits, tonight, the week ahead ───────────────────────── */
+
+function DailyEmpty({ payload, slideNumber, slideTotal, rest, title, note }) {
+  return (
+    <Shell payload={payload} kicker="NFL · The daily" slideNumber={slideNumber} slideTotal={slideTotal} rest={rest}>
+      <Empty title={title} note={note} />
+    </Shell>
+  );
+}
+
+/** Slide 1: the calls that won on the most recent game day. Wins only; the full record is one tap away. */
+export function NflDailyHitsSlide({ data: p, slideNumber, slideTotal, ...rest }) {
+  const h = p?.daily?.hits;
+  if (!h) {
+    return <DailyEmpty payload={p} slideNumber={slideNumber} slideTotal={slideTotal} rest={rest} title="Nothing graded yet" note="This slide fills in the morning after a game day." />;
+  }
+  return (
+    <Shell payload={p} kicker="NFL · The daily" slideNumber={slideNumber} slideTotal={slideTotal} rest={rest}>
+      <div className={styles.kicker}>{h.dayName} · {p.slateLabel}</div>
+      <h1 className={`${styles.h1} ${styles.h1Cover}`}>
+        The ones<br /><span className={styles.accent}>that hit.</span>
+      </h1>
+      <div className={styles.stats}>
+        <Stat label="Calls that cashed" value={h.count} tone="good" />
+        <Stat label="Totals" value={h.totalsCount} />
+        <Stat label="Spreads" value={h.spreadsCount} />
+        <Stat label="Moneylines" value={h.moneylinesCount} />
+      </div>
+      <div className={styles.ledger}>
+        {h.rows.map((r) => (
+          <div key={r.id} className={styles.ledgerRow}>
+            <span className={`${styles.mark} ${styles.won}`}>✓</span>
+            <span className={styles.ledgerMain}>
+              <b>{r.label}{r.recommended ? <em className={styles.recTag}>Pick</em> : null}</b>
+              <i>{r.finalScore || r.matchup}{r.note ? ` · ${r.note}` : ''}</i>
+            </span>
+            <span className={styles.ledgerScore}>{r.priceLabel}</span>
+          </div>
+        ))}
+      </div>
+      <div className={styles.promise}>
+        <b>{h.more > 0 ? `Plus ${h.more} more that got home.` : 'Every one locked before kickoff.'}</b>
+        <span>Wins only here. Full record: maximussports.ai/record</span>
+      </div>
+    </Shell>
+  );
+}
+
+/** Slide 2: tonight's game, with our call when we have one. */
+export function NflDailyTonightSlide({ data: p, slideNumber, slideTotal, ...rest }) {
+  const t = p?.daily?.tonight;
+  const ahead = p?.daily?.ahead;
+  if (!t) {
+    const next = ahead?.games?.[0];
+    if (!next) return <DailyEmpty payload={p} slideNumber={slideNumber} slideTotal={slideTotal} rest={rest} title="No game today" note="Nothing on the schedule yet." />;
+    return (
+      <Shell payload={p} kicker="NFL · Next up" slideNumber={slideNumber} slideTotal={slideTotal} rest={rest}>
+        <div className={styles.kicker}>No game today · next kickoff</div>
+        <h1 className={`${styles.h1} ${styles.h1Cover}`}>{next.window}:<br /><span className={styles.accent}>{next.away.abbrev} @ {next.home.abbrev}</span></h1>
+        <div className={styles.dailyTeams}>
+          <Logo team={next.away} size={190} /><span className={styles.at}>@</span><Logo team={next.home} size={190} />
+        </div>
+        <div className={styles.stats}>
+          <Stat label="Kickoff" value={`${next.kickoffDay} ${next.kickoffTime || ''}`.trim()} />
+          <Stat label="Line" value={next.spreadLabel} />
+          <Stat label="Total" value={next.total} />
+        </div>
+        <div className={styles.promise}>
+          <b>{ahead.totalGames} games over the next week.</b>
+          <span>Swipe for the ones to circle.</span>
+        </div>
+      </Shell>
+    );
+  }
+  const g = t.game;
+  const pick = t.pick;
+  const wx = g.weather
+    ? (g.weather.indoor ? 'Indoors' : [g.weather.temp != null ? `${g.weather.temp}°F` : null, g.weather.wind != null ? `${g.weather.wind} mph wind` : null].filter(Boolean).join(' · '))
+    : null;
+  const qb = (q) => (q ? q.name : null);
+  return (
+    <Shell payload={p} kicker={`NFL · ${t.window}`} slideNumber={slideNumber} slideTotal={slideTotal} rest={rest}>
+      <div className={styles.kicker}>Tonight · {g.kickoffTime}{g.network ? ` · ${g.network}` : ''}</div>
+      <h1 className={`${styles.h1} ${styles.h1Cover}`}>{g.away.abbrev} at <span className={styles.accent}>{g.home.abbrev}</span></h1>
+      <div className={styles.dailyTeams}>
+        <Logo team={g.away} size={190} /><span className={styles.at}>@</span><Logo team={g.home} size={190} />
+      </div>
+      <div className={styles.stats}>
+        <Stat label="Line" value={g.spreadLabel} />
+        <Stat label="Total" value={g.total} />
+        {wx && <Stat label="Conditions" value={wx} />}
+      </div>
+      {qb(g.quarterbacks?.away) && qb(g.quarterbacks?.home) && (
+        <p className={styles.dailyLine}>{qb(g.quarterbacks?.away)} against {qb(g.quarterbacks?.home)}.</p>
+      )}
+      {pick ? (
+        <section className={styles.card}>
+          <div className={styles.cardLabel}>Our pick</div>
+          <div className={styles.dailyPick}>{pick.label} <span>{pick.offeredPrice || pick.priceLabel}{pick.book ? ` at ${pick.book}` : ''}</span></div>
+          {pick.fairPrice && <div className={styles.passNote}>Fair price {pick.fairPrice}. Offered {pick.offeredPrice || pick.priceLabel}. {pick.evLabel ? `Expected value ${pick.evLabel}.` : ''}</div>}
+        </section>
+      ) : (
+        <section className={styles.card}>
+          <div className={styles.cardLabel}>Our call</div>
+          <div className={styles.passNote}>No bet clears the bar at these prices{g.winProbLabel ? `. We make it ${g.winProbLabel}` : ''}. Passing is part of the model.</div>
+        </section>
+      )}
+      <div className={styles.promise}>
+        <b>Who are you taking tonight?</b>
+        <span>Tell us in the comments before kickoff.</span>
+      </div>
+    </Shell>
+  );
+}
+
+/** Slide 3: the games to circle over the next week. */
+export function NflDailyAheadSlide({ data: p, slideNumber, slideTotal, ...rest }) {
+  const a = p?.daily?.ahead;
+  const games = a?.games || [];
+  if (games.length === 0) {
+    return <DailyEmpty payload={p} slideNumber={slideNumber} slideTotal={slideTotal} rest={rest} title="Schedule not posted" note="Next week's games appear here once the lines are up." />;
+  }
+  const rowH = Math.max(96, Math.min(128, Math.floor(700 / games.length)));
+  return (
+    <Shell payload={p} kicker={`NFL · ${a.label || 'The week ahead'}`} slideNumber={slideNumber} slideTotal={slideTotal} rest={rest}>
+      <div className={styles.kicker}>{a.totalGames} games in the next seven days</div>
+      <h2 className={`${styles.h2} ${styles.h2Tight}`}>{a.thanksgivingGames > 0 ? <>Circle these. <span className={styles.accent}>Thanksgiving included.</span></> : 'Circle these.'}</h2>
+      <div className={styles.aheadList} style={{ '--row-h': `${rowH}px` }}>
+        {games.map((g) => (
+          <div key={g.id} className={styles.aheadRow}>
+            <span className={styles.aheadWhen}><b>{g.window}</b><i>{g.kickoffDay} {g.kickoffTime?.replace(' ET', '')}{g.network ? ` · ${g.network}` : ''}</i></span>
+            <span className={styles.aheadTeams}>
+              <Logo team={g.away} size={Math.round(rowH * 0.5)} />
+              <b>{g.away?.abbrev}</b><i>@</i><b>{g.home?.abbrev}</b>
+              <Logo team={g.home} size={Math.round(rowH * 0.5)} />
+            </span>
+            <span className={styles.aheadLine}><b>{g.spreadLabel || 'Line soon'}</b><i>{g.total != null ? `Total ${g.total}` : ''}</i></span>
+          </div>
+        ))}
+      </div>
+      <div className={styles.promise}>
+        <b>Send this to the group chat that argues about the Thanksgiving games.</b>
+        <span>Picks lock before every kickoff: maximussports.ai/picks. Times Eastern.</span>
+      </div>
+    </Shell>
+  );
+}

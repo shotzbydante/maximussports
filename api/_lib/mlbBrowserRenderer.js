@@ -122,7 +122,12 @@ async function waitForSlidesReady(page, log) {
  * @param {object} log — logger with info/warn/error methods
  * @returns {Promise<Buffer[]|null>} — 3 PNG buffers, or null if browser unavailable
  */
-export async function renderSlidesWithBrowser(baseUrl, data, log) {
+/**
+ * @param {object} [opts]
+ * @param {string} [opts.route]    render page to open (default: the MLB daily page)
+ * @param {Function} [opts.collect] runs in the page after capture; its result is returned as `.extra` on the array
+ */
+export async function renderSlidesWithBrowser(baseUrl, data, log, opts = {}) {
   const config = await getChromiumConfig();
   if (!config) {
     log.warn('headless Chromium not available — browser renderer disabled');
@@ -169,7 +174,7 @@ export async function renderSlidesWithBrowser(baseUrl, data, log) {
     }, INTER_FONT_CSS);
 
     // Navigate to render page
-    const renderUrl = `${baseUrl}/render/mlb-daily`;
+    const renderUrl = `${baseUrl}${opts.route || '/render/mlb-daily'}`;
     log.info(`navigating to ${renderUrl} (DPR=${DEVICE_SCALE_FACTOR})`);
     const navStart = Date.now();
 
@@ -234,6 +239,7 @@ export async function renderSlidesWithBrowser(baseUrl, data, log) {
     }
 
     log.info(`all ${SLIDE_COUNT} slides captured successfully`);
+    if (opts.collect) slideBuffers.extra = await page.evaluate(opts.collect);
     return slideBuffers;
   } catch (e) {
     log.error(`browser renderer failed: ${e.message}`);
