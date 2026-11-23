@@ -152,6 +152,17 @@ describe('team-pick floor', () => {
     expect(spread.pickRole).toBe('tracking');
   });
 
+  it('never makes a guarded side a pick, on a slate shaped like Nov 23 (MEM -3 with an 9.7-point gap)', () => {
+    const mem = { ...SLATE[1], gameId: 'g-mem', market: { moneyline: { away: -155, home: +130 }, pregameSpread: +3, pregameTotal: 224 } };
+    const wide = { ...RATINGS, okc: { pointDiff: 9.06, games: 17 }, ind: { pointDiff: -10.53, games: 15 } };
+    const r = buildNbaPicksV2({ games: [mem, SLATE[0], SLATE[2], SLATE[3], SLATE[4]], config: NBA_DEFAULT_CONFIG, teamRatings: wide });
+    const spread = r.fullSlatePicks.find((p) => p.gameId === 'g-mem' && p.market.type === 'runline');
+    expect(spread.lowSignalReason).toBe('data_gap');
+    expect(spread.rawEdge).toBe(0);
+    expect(spread.pickRole).toBe('tracking');
+    for (const p of maximusPicks(r)) expect(p.lowSignalReason).toBeNull();
+  });
+
   it('writes the reason from the season margins, not the moneyline', () => {
     const r = buildNbaPicksV2({ games: SLATE, config: NBA_DEFAULT_CONFIG, teamRatings: RATINGS });
     const side = maximusPicks(r).find(isSide);

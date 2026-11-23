@@ -307,7 +307,9 @@ export function pickSpreadSide({ awayMl, homeMl, homeLine, ratingsHomeMargin } =
   if (isNum(ratingsHomeMargin)) {
     const r = ratingsAgainstSpread(ratingsHomeMargin, homeLine);
     const edgeCap = SEASON_RATINGS_EDGE_CAP;
-    const rawEdge = Math.min(edgeCap, (r.coverPts / SEASON_RATINGS.fullEdgePoints) * edgeCap);
+    // A guarded gap is not an edge: the market is far from the ratings because
+    // it knows something they do not (usually who is out). It scores as none.
+    const rawEdge = r.guarded ? 0 : Math.min(edgeCap, (r.coverPts / SEASON_RATINGS.fullEdgePoints) * edgeCap);
     return {
       side: r.side,
       awayLine: -homeLine,

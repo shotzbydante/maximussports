@@ -929,6 +929,9 @@ export function buildNbaPicksV2({
   for (const p of assigned.published) {
     const score = p.betScore?.total ?? 0;
     if (score < HERO_FLOOR) continue;
+    // v2.6.0: a ratings side the guard held back (gap too wide to trust, or
+    // too thin to matter) is a lean whatever its score.
+    if (p.modelSource === 'season_ratings_v1' && p.lowSignalReason) continue;
     if (isCrossMarketOnly(p)) {
       // Stricter cross-market gate
       if (Math.abs(p.rawEdge ?? 0) < HERO_CROSS_MARKET_EDGE) continue;
