@@ -54,6 +54,7 @@ const NflGameMatchup = lazy(() => import('./pages/nfl/NflGameMatchup'));
 const NflNewsFeed    = lazy(() => import('./pages/nfl/NflNewsFeed'));
 const NflPicks       = lazy(() => import('./pages/nfl/NflPicks'));
 const NflSeasonModel = lazy(() => import('./pages/nfl/NflSeasonModel'));
+const NflAsk         = lazy(() => import('./pages/nfl/NflAsk'));
 
 const AuthCallback = lazy(() => import('./pages/AuthCallback'));
 
@@ -170,6 +171,7 @@ export default function App() {
                     <Route path="teams/:slug" element={<RouteGate><NflTeamDetail /></RouteGate>} />
                     <Route path="news" element={<RouteGate><NflNewsFeed /></RouteGate>} />
                     <Route path="insights" element={<RouteGate><NflPicks /></RouteGate>} />
+                    <Route path="ask" element={<NflAsk />} />
                     <Route path="season-model" element={<RouteGate><NflSeasonModel /></RouteGate>} />
                     <Route path="season-intel" element={<Navigate to="/nfl/season-model" replace />} />
                     <Route path="dashboard" element={<Navigate to="/dashboard" replace />} />

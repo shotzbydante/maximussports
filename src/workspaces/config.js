@@ -99,6 +99,8 @@ export const WORKSPACES = {
       games: true,
       newsFeed: true,
       picks: true,
+      // Ask Maximus, the chat about picks and matchups. NFL only for now.
+      ask: true,
     },
     access: { public: true },
     labels: {

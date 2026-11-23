@@ -116,6 +116,25 @@ identify('user-123', { plan: 'pro' });
 | `video_modal_open` | `video_id`, `title`, `source` | Modal opens |
 | `video_modal_close` | `source` | Modal dismissed |
 
+### Ask Maximus
+
+All carry `sport: 'nfl'`. Client events come from `src/components/ask/AskMaximus.jsx`; server events from `api/ask/chat.js`.
+
+| Event | Where | Properties |
+|---|---|---|
+| `ask_opened` | client | |
+| `ask_message_sent` | client | `source` (typed, starter, followup, refresh), `length` |
+| `ask_answer_shown` | client | `source`, `cards`, `locked`, `duration_ms` |
+| `ask_card_opened` | client | `card_type`, `game_id` |
+| `ask_upgrade_clicked` | client | `surface` (locked_card, cap) |
+| `ask_cleared` | client | |
+| `ask_error` | client | `code` |
+| `ask_answered` | server | `plan`, `channel`, `rounds`, `tools`, `cards`, `card_types`, `corrections`, `fell_back`, `model`, `duration_ms`, token counts |
+| `ask_cap_hit` | server | `plan`, `cap` |
+| `ask_failed` | server | `plan`, `channel`, `code`, `duration_ms` |
+
+`corrections` and `fell_back` are the ones to watch: they count answers the server sent back because the model wrote a number that was not in the data.
+
 ### Errors
 | Event | Properties | Fired when |
 |---|---|---|

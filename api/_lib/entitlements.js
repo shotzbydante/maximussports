@@ -21,6 +21,8 @@ export const PLAN_LIMITS = {
     advancedIntelEnabled: false,
     premiumEmailsEnabled: false,
     premiumDepth:         'limited',
+    askDailyMessages:     5,   // Ask Maximus: messages a day
+    askPicksPerAnswer:    3,   // Ask Maximus: picks shown per answer
   },
   pro: {
     maxPinnedTeams:       Infinity,
@@ -30,6 +32,8 @@ export const PLAN_LIMITS = {
     advancedIntelEnabled: true,
     premiumEmailsEnabled: true,
     premiumDepth:         'full',
+    askDailyMessages:     150,
+    askPicksPerAnswer:    8,
   },
 };
 

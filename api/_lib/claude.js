@@ -30,7 +30,7 @@
  *     the answer.
  */
 
-const API_URL = 'https://api.anthropic.com/v1/messages';
+export const API_URL = 'https://api.anthropic.com/v1/messages';
 const API_VERSION = '2023-06-01';
 
 export const DEFAULT_CLAUDE_MODEL = 'claude-sonnet-5-5';
@@ -98,16 +98,18 @@ export function buildClaudeRequest({ system, user, maxTokens, model, stream = fa
     messages: [{ role: 'user', content: user }],
   };
   if (stream) body.stream = true;
+  return Object.assign(body, modelShape(resolvedModel, maxTokens));
+}
 
-  if (/^claude-haiku/i.test(resolvedModel)) {
-    body.thinking = { type: 'disabled' };
-  } else if (/^claude-sonnet-5-5/i.test(resolvedModel)) {
-    body.thinking = { type: 'between_tools' };
-  } else {
-    body.output_config = { effort: 'low' };
-    body.max_tokens = maxTokens + THINKING_HEADROOM_TOKENS;
-  }
-  return body;
+/**
+ * The thinking settings and output budget for a model, as request fields.
+ * Shared with the Ask Maximus agent (api/_lib/ask/claudeTools.js) so every
+ * caller sends a shape the model is known to accept.
+ */
+export function modelShape(model, maxTokens) {
+  if (/^claude-haiku/i.test(model)) return { thinking: { type: 'disabled' } };
+  if (/^claude-sonnet-5-5/i.test(model)) return { thinking: { type: 'between_tools' } };
+  return { output_config: { effort: 'low' }, max_tokens: maxTokens + THINKING_HEADROOM_TOKENS };
 }
 
 /** The API refused this model or request shape; worth one retry on the fallback model. */
@@ -139,7 +141,7 @@ async function postWithFallback({ apiKey, request, signal }) {
   }
 }
 
-function requestHeaders(apiKey) {
+export function requestHeaders(apiKey) {
   return {
     'content-type': 'application/json',
     'x-api-key': apiKey,
