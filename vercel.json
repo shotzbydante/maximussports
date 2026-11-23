@@ -147,7 +147,6 @@
     {"path": "/api/email/run-daily?type=ncaam_picks",       "schedule": "0 20 * * *"},
     {"path": "/api/social/instagram/autopost-mlb-daily?mode=live", "schedule": "0 13 * * *"},
     {"path": "/api/social/instagram/create-nfl-daily", "schedule": "0 14 * * *"},
-    {"path": "/api/social/instagram/create-nfl-daily?force=1", "schedule": "27 22 23 11 *"},
 
     {"path": "/api/cron/mlb/settle-yesterday",                     "schedule": "30 7 * * *"},
     {"path": "/api/cron/mlb/build-scorecard",                      "schedule": "45 7 * * *"},
