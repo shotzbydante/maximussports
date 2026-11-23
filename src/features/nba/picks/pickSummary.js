@@ -13,6 +13,7 @@
  */
 
 import { nbaNickname } from '../../../sports/nba/teams.js';
+import { pickLiveStatus } from '../../nfl/picks/pickLive.js';
 
 export const score = (p) => p?.conviction?.score ?? Math.round((p?.betScore?.total || 0) * 100);
 
@@ -207,4 +208,69 @@ export function splitByStart(board, games) {
   const order = { live: 0, final: 1 };
   const inPlay = [...started.values()].sort((a, b) => (order[a.game.status] ?? 2) - (order[b.game.status] ?? 2));
   return { toPlay, inPlay };
+}
+
+/**
+ * Minutes of game time played, from the period and the clock ESPN shows
+ * ("6:10 - 2nd" is 6:10 left in the second). Null when it cannot be told.
+ */
+export function minutesPlayed(game) {
+  const gs = game?.gameState || {};
+  const period = Number(gs.period);
+  if (!Number.isFinite(period) || period < 1) return null;
+  const label = String(gs.periodLabel || '');
+  const before = period <= 4 ? (period - 1) * 12 : 48 + (period - 5) * 5;
+  const length = period <= 4 ? 12 : 5;
+  if (/half/i.test(label)) return 24;
+  if (/^end\b/i.test(label)) return before + length;
+  const clock = /(\d{1,2}):(\d{2})/.exec(label);
+  // A date ("11/22 - 6:00 PM") is not a game clock.
+  if (!clock || /\d{1,2}\/\d{1,2}/.test(label) || /[AP]M/i.test(label)) return null;
+  const left = Number(clock[1]) + Number(clock[2]) / 60;
+  if (left > length) return null;
+  return before + (length - left);
+}
+
+const EARLY_MINUTES = 6;
+
+/**
+ * Where a pick stands in a live or finished NBA game.
+ *
+ * Sides, moneylines and anything already decided use the shared scoreboard
+ * logic. A live total is different in basketball: points come all game, so
+ * "needs 213 more" in the first quarter says nothing. A live total is read
+ * against the pace it needs instead, and not at all in the first minutes.
+ *
+ * `text` is for the page, which shows the live score beside it. `plain`
+ * has no score or clock in it, for copy that is read minutes later.
+ */
+export function nbaLiveStatus(pick, game) {
+  const base = pickLiveStatus(pick, game);
+  const settled = ['won', 'lost', 'push'].includes(base.verdict);
+  const PLAIN = { won: 'won', lost: 'lost', push: 'a push', ahead: 'in front', behind: 'behind', level: 'right on the number' };
+  if (pick?.market !== 'total' || base.state !== 'live' || settled) {
+    return { ...base, plain: base.verdict ? PLAIN[base.verdict] : '' };
+  }
+  const home = Number(game.teams?.home?.score);
+  const away = Number(game.teams?.away?.score);
+  const line = Number(pick.line);
+  const played = minutesPlayed(game);
+  if (!Number.isFinite(home + away) || !Number.isFinite(line)) return { ...base, plain: '' };
+  const points = home + away;
+  // No readable clock: give the score and make no claim about the pace.
+  if (played == null) return { state: 'live', verdict: null, text: `${points} points so far against a total of ${line}.`, plain: 'under way' };
+  if (played < EARLY_MINUTES) {
+    return { state: 'live', verdict: null, text: `${points} points so far. Too early to read the pace.`, plain: 'too early to read' };
+  }
+  // In overtime the game is already longer than 48 minutes; project to the end of the current period.
+  const full = played <= 48 ? 48 : 48 + Math.ceil((played - 48) / 5) * 5;
+  const pace = Math.round((points / played) * full);
+  const over = pick.side === 'over';
+  const verdict = pace === Math.round(line) ? 'level' : (pace > line) === over ? 'ahead' : 'behind';
+  return {
+    state: 'live',
+    verdict,
+    text: `${points} points so far, on pace for about ${pace} against a total of ${line}.`,
+    plain: verdict === 'level' ? 'on pace to land right on the total' : pace > line ? 'on pace to go over the total' : 'on pace to stay under the total',
+  };
 }

@@ -118,3 +118,47 @@ describe('splitByStart', () => {
     expect(splitByStart({ startedPicks: [{ id: 'x', gameId: 'old' }] }, [g('g1', 'upcoming')]).inPlay).toEqual([]);
   });
 });
+
+import { minutesPlayed, nbaLiveStatus } from './pickSummary.js';
+
+describe('live standing for an NBA total', () => {
+  const live = (a, h, label, period) => ({ status: 'live', gameState: { isLive: true, period, periodLabel: label },
+    teams: { away: { abbrev: 'OKC', score: a }, home: { abbrev: 'MIA', score: h } } });
+  const over = { market: 'total', side: 'over', line: 226, label: 'Over 226' };
+  const under = { market: 'total', side: 'under', line: 226, label: 'Under 226' };
+
+  it('reads the game clock', () => {
+    expect(minutesPlayed(live(0, 0, '6:00 - 2nd', 2))).toBe(18);
+    expect(minutesPlayed(live(0, 0, 'Halftime', 2))).toBe(24);
+    expect(minutesPlayed(live(0, 0, 'End of 3rd', 3))).toBe(36);
+    expect(minutesPlayed(live(0, 0, '2:30 - OT', 5))).toBe(50.5);
+    expect(minutesPlayed(live(0, 0, '11/22 - 6:00 PM EST', 1))).toBeNull();
+    expect(minutesPlayed({ gameState: {} })).toBeNull();
+  });
+
+  it('says nothing about pace in the first minutes', () => {
+    const s = nbaLiveStatus(over, live(4, 3, '9:30 - 1st', 1));
+    expect(s).toMatchObject({ verdict: null, plain: 'too early to read', text: '7 points so far. Too early to read the pace.' });
+  });
+
+  it('makes no claim about pace when the clock cannot be read', () => {
+    expect(nbaLiveStatus(over, live(70, 66, 'In Progress', 3))).toMatchObject({ verdict: null, plain: 'under way', text: '136 points so far against a total of 226.' });
+  });
+
+  it('judges a total by pace, not by points still needed', () => {
+    // 118 points at halftime is a pace of 236.
+    expect(nbaLiveStatus(over, live(60, 58, 'Halftime', 2))).toMatchObject({ verdict: 'ahead', plain: 'on pace to go over the total', text: '118 points so far, on pace for about 236 against a total of 226.' });
+    expect(nbaLiveStatus(under, live(60, 58, 'Halftime', 2))).toMatchObject({ verdict: 'behind', plain: 'on pace to go over the total' });
+    expect(nbaLiveStatus(under, live(50, 48, 'Halftime', 2))).toMatchObject({ verdict: 'ahead', plain: 'on pace to stay under the total' });
+  });
+
+  it('still calls it once the total is passed, and at the final', () => {
+    expect(nbaLiveStatus(over, live(120, 110, '3:00 - 4th', 4))).toMatchObject({ verdict: 'won', plain: 'won' });
+    expect(nbaLiveStatus(under, { ...live(100, 99, 'Final', 4), status: 'final' })).toMatchObject({ verdict: 'won', plain: 'won' });
+  });
+
+  it('leaves sides to the scoreboard', () => {
+    const side = { market: 'runline', side: 'away', line: 4.5, label: 'OKC +4.5' };
+    expect(nbaLiveStatus(side, live(50, 52, '6:00 - 2nd', 2))).toMatchObject({ verdict: 'ahead', plain: 'in front' });
+  });
+});

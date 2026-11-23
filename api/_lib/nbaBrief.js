@@ -18,8 +18,7 @@
  */
 
 import { nbaNickname } from '../../src/sports/nba/teams.js';
-import { pickLiveStatus } from '../../src/features/nfl/picks/pickLive.js';
-import { maximusPicks, nbaPickSummary, totalSample, score } from '../../src/features/nba/picks/pickSummary.js';
+import { maximusPicks, nbaLiveStatus, nbaPickSummary, totalSample, score } from '../../src/features/nba/picks/pickSummary.js';
 import { fixPositiveOdds } from './oddsText.js';
 
 export const NBA_BRIEF_LIMITS = Object.freeze({ headline: 72, dek: 220, item: 230, take: 340, also: 440, value: 9, label: 110, now: 4, next: 5, numbers: 3 });
@@ -114,12 +113,17 @@ export function buildNbaBriefData({ games = [], board = null, champOdds = {}, he
   });
 
   const standing = (g) => {
-    // A pick still on the board for a game that has tipped off, or one the ledger carried over.
+    // A pick the ledger carried past tip-off, or one still on the board for a game that has started.
+    const boardPick = pickByGame.get(String(g.gameId));
     const live = startedByGame.get(String(g.gameId))
-      || (pickByGame.has(String(g.gameId)) ? (() => { const p = pickByGame.get(String(g.gameId)); return { market: p.market?.type, side: p.selection?.side, line: p.market?.line ?? null, label: p.selection?.label }; })() : null);
+      || (boardPick ? { market: boardPick.market?.type, side: boardPick.selection?.side, line: boardPick.market?.line ?? null, label: boardPick.selection?.label, why: nbaPickSummary(boardPick) } : null);
     if (!live) return null;
-    const s = pickLiveStatus(live, g);
-    return { call: live.label, verdict: s.verdict, standing: withoutClock(s.text) };
+    const s = nbaLiveStatus(live, g);
+    // While a game is on, the standing carries no score: this copy is read
+    // for several minutes and an NBA score is out of date in seconds. A
+    // final is final, so it keeps its numbers.
+    const words = g.status === 'final' ? withoutClock(s.text) : s.plain;
+    return { call: live.label, verdict: s.verdict, standing: words, ...(live.why ? { why: live.why } : {}) };
   };
 
   const order = (a, b) => Date.parse(a.startTime) - Date.parse(b.startTime);
@@ -193,7 +197,11 @@ function nextLine(g) {
 }
 
 function liveLine(g) {
-  if (g.maximusPick?.standing) return `Our pick is ${g.maximusPick.call}. ${g.maximusPick.standing}`;
+  const our = g.maximusPick;
+  if (our?.standing) {
+    const how = our.verdict === 'won' ? 'It has already won.' : our.verdict === 'lost' ? 'It has already lost.' : `It is ${our.standing}.`;
+    return [`Our pick is ${our.call}.`, how, our.why].filter(Boolean).join(' ');
+  }
   // Nothing is said about the absence of a pick: a game that tipped off
   // before the ledger knew about it may well have had one.
   const where = g.stage === 'under way' ? 'under way' : g.stage === 'halftime' ? 'at halftime' : `in the ${g.stage}`;
@@ -286,7 +294,9 @@ WHAT TO USE
 - Our picks are only the maximusPick entries. State each call exactly as given and give its reason from "why". When builtOnGames is present the pick rests on that many recent games: say so plainly once. Anything else is context: never call it a pick, a play or a bet.
 - When a game has no maximusPick, write about the game. Do not say we have no pick, no play or no lean on it, and do not explain why not.
 - "conviction" is a ranking out of 100, not a probability. Never call it a win chance.
-- Do NOT state a live score, the clock or time left. The page shows the live score next to your line. Say where our pick stands from "standing".
+- Do NOT state a live score, points scored so far, points still needed, the clock or time left. The page shows the live score next to your line and yours would be out of date in a minute. Say where our pick stands in the words of "standing" and nothing more precise.
+- The reason for a pick is its "why", before the game and during it. If a pick has no "why", give no reason. Never make one up ("the model's read of the pace", "a number this high").
+- Write only about what the data has. Never mention what it lacks: no "no line in our data", no "nothing from us", no "you're on your own".
 - No guarantees, no "lock", no "can't lose", no profanity.
 
 FORMAT
@@ -296,7 +306,7 @@ Reply with one JSON object and nothing else. No markdown, no code fence.
   "dek": "one or two sentences, max ${L.dek} characters, setting up tonight",
   "now": [{ "gameId": "from liveGames", "text": "one or two sentences, max ${L.item} characters" }],
   "next": [{ "gameId": "from gamesToCome", "text": "one or two sentences, max ${L.item} characters" }],
-  "numbers": [{ "value": "a number or price from the data, max ${L.value} characters", "label": "what it is and why it matters, max ${L.label} characters" }],
+  "numbers": [{ "value": "digits only: a number, a price or a record from the data (77, 237.5, +260, 10-6). Never a word and never a pick such as Over 219.5", "label": "what it is and why it matters, max ${L.label} characters" }],
   "take": "Maximus's own read on the best thing left on the board, max ${L.take} characters. If a maximusPick is still to come, this is about it.",
   "also": "optional: one short paragraph on the title market or the day's biggest headline, max ${L.also} characters. Empty string if it adds nothing."
 }
@@ -308,6 +318,16 @@ Reply with one JSON object and nothing else. No markdown, no code fence.
 
   const user = `DATA:\n${JSON.stringify(forModel(data))}\n\nA plain version of this brief, for reference on what matters (rewrite it, do not copy it):\n${JSON.stringify({ headline: base.headline, now: base.now, next: base.next })}\n\nWrite the brief now as one JSON object.`;
   return { system, user };
+}
+
+/**
+ * The three big numbers are set in display type. A value has to be a figure
+ * (77, 237.5, +260, 10-6, 42%): the first live brief sent "Over 219.5",
+ * which was cut to "Over…" on the page.
+ */
+export function isFigure(value) {
+  const v = String(value ?? '').trim();
+  return v.length > 0 && v.length <= NBA_BRIEF_LIMITS.value && /^[+-]?\$?\d[\d.,]*(?:-\d+)?%?$/.test(v);
 }
 
 /**
@@ -369,7 +389,7 @@ export function parseNbaBrief(raw, data) {
     now,
     next,
     numbers: (Array.isArray(obj.numbers) ? obj.numbers : [])
-      .filter((x) => x && String(x.value ?? '').trim() && typeof x.label === 'string' && x.label.trim())
+      .filter((x) => x && isFigure(x.value) && typeof x.label === 'string' && x.label.trim())
       .slice(0, L.numbers)
       .map((x) => ({ value: clip(fixPositiveOdds(String(x.value)), L.value), label: clip(fix(x.label), L.label) })),
     take: clip(fix(obj.take), L.take),

@@ -9,7 +9,7 @@
 
 import { NbaLogo } from './NbaTeamTag';
 import { statusText } from './nbaFormat';
-import { pickLiveStatus } from '../../../features/nfl/picks/pickLive';
+import { nbaLiveStatus } from './nbaPickHelpers';
 import h from '../../nfl/home/home.module.css';
 
 const VERDICT = {
@@ -23,12 +23,7 @@ const VERDICT = {
 
 function Row({ pick, game }) {
   const live = game.status === 'live';
-  // The status sentence reads "... at 4:12 - 3rd" or "... at halftime"; a bare "Live" adds nothing.
-  const clock = statusText(game);
-  const status = pickLiveStatus(pick, {
-    ...game,
-    gameState: { ...game.gameState, isHalftime: clock === 'Half', periodLabel: clock === 'Live' || clock === 'Half' ? '' : clock },
-  });
+  const status = nbaLiveStatus(pick, game);
   const v = VERDICT[status.verdict] || null;
   const settled = ['won', 'lost', 'push'].includes(status.verdict);
   const { away, home } = game.teams;

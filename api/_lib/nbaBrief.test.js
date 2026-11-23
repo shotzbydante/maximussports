@@ -47,8 +47,9 @@ describe('buildNbaBriefData', () => {
       teams: { away: team('okc', 'OKC', 'Oklahoma City Thunder', '10-6', 88), home: team('mia', 'MIA', 'Miami Heat', '9-6', 90) } };
     const started = { startedPicks: [{ id: 'g1-total-over', gameId: 'g1', market: 'total', side: 'over', line: 226, label: 'Over 226' }] };
     const d = buildNbaBriefData({ games: [live], board: started, now: NOW });
-    expect(d.liveGames[0]).toMatchObject({ stage: 'third quarter', maximusPick: { call: 'Over 226', verdict: 'behind' } });
-    expect(d.liveGames[0].maximusPick.standing).toBe('178 points. Needs 49 more to go over 226.');
+    // 178 points with 4:12 left in the third is a pace of about 269: well over 226.
+    expect(d.liveGames[0]).toMatchObject({ stage: 'third quarter', maximusPick: { call: 'Over 226', verdict: 'ahead', standing: 'on pace to go over the total' } });
+    expect(d.liveGames[0].maximusPick.standing).not.toMatch(/\d/);
   });
 });
 
@@ -171,5 +172,50 @@ describe('brief fixes after the first production run', () => {
     const brief = buildNbaEngineBrief(buildNbaBriefData({ games: [live], board: { fullSlatePicks: [] }, now: NOW }));
     expect(brief.now[0].text).toBe('Thunder at Heat is in the second quarter. The Thunder came in 10-6, the Heat 9-6.');
     expect(brief.now[0].text).not.toMatch(/pick/i);
+  });
+});
+
+import { isFigure } from './nbaBrief.js';
+
+describe('brief fixes after the first brief with picks in play', () => {
+  const liveGame = (score, label, period) => ({ ...okcMia, status: 'live', gameState: { isLive: true, period, periodLabel: label },
+    teams: { away: team('okc', 'OKC', 'Oklahoma City Thunder', '10-6', score[0]), home: team('mia', 'MIA', 'Miami Heat', '9-6', score[1]) } });
+  const started = (extra = {}) => ({ startedPicks: [{ id: 'g1-total-over', gameId: 'g1', market: 'total', side: 'over', line: 226, label: 'Over 226', ...extra }] });
+
+  it('gives a live pick its published reason, and no score', () => {
+    const why = 'The Thunder’s last 3 games averaged 234 points and the Heat’s last 2 averaged 253, against a total of 226.';
+    const data = buildNbaBriefData({ games: [liveGame([60, 58], '2:00 - 2nd', 2)], board: started({ why }), now: NOW });
+    expect(data.liveGames[0].maximusPick).toEqual({ call: 'Over 226', verdict: 'ahead', standing: 'on pace to go over the total', why });
+    expect(buildNbaEngineBrief(data).now[0].text).toBe(`Our pick is Over 226. It is on pace to go over the total. ${why}`);
+  });
+
+  it('does not read a total in the first minutes', () => {
+    const data = buildNbaBriefData({ games: [liveGame([4, 3], '9:30 - 1st', 1)], board: started(), now: NOW });
+    expect(data.liveGames[0].maximusPick).toEqual({ call: 'Over 226', verdict: null, standing: 'too early to read' });
+    expect(buildNbaEngineBrief(data).now[0].text).toBe('Our pick is Over 226. It is too early to read.');
+  });
+
+  it('keeps the numbers once a game is final', () => {
+    const final = { ...liveGame([101, 99], 'Final', 4), status: 'final' };
+    const data = buildNbaBriefData({ games: [final], board: started(), now: NOW });
+    expect(data.finals[0].maximusPick).toMatchObject({ verdict: 'lost', standing: 'Finished with 200 points against a total of 226.' });
+  });
+
+  it('only lets a figure into the number tiles', () => {
+    for (const ok of ['77', '237.5', '+260', '-415', '10-6', '42%']) expect(isFigure(ok), ok).toBe(true);
+    for (const bad of ['Over 219.5', 'Under…', 'Spurs', '', '1234567890']) expect(isFigure(bad), bad).toBe(false);
+    const data = buildNbaBriefData({ games: [okcMia, dalUta], board, champOdds, now: NOW });
+    const reply = { headline: 'Two on the board', dek: '', now: [], next: [{ gameId: 'g1', text: 'MIA -4.5, total 226.' }],
+      numbers: [{ value: 'Over 226', label: 'Our pick.' }, { value: '+260', label: 'Spurs to win it all.' }], take: '', also: '' };
+    expect(parseNbaBrief(JSON.stringify(reply), data).numbers).toEqual([{ value: '+260', label: 'Spurs to win it all.' }]);
+  });
+
+  it('tells the model what it got wrong the first time games were live', () => {
+    const data = buildNbaBriefData({ games: [okcMia], board, now: NOW });
+    const { system } = nbaBriefPrompt(data, buildNbaEngineBrief(data));
+    expect(system).toMatch(/points scored so far, points still needed/);
+    expect(system).toMatch(/If a pick has no "why", give no reason/);
+    expect(system).toMatch(/Never mention what it lacks/);
+    expect(system).toMatch(/Never a word and never a pick/);
   });
 });

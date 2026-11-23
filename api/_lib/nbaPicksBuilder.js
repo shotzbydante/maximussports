@@ -32,6 +32,7 @@ import { yesterdayET } from './dateWindows.js';
 import { resolveFairTotalForGame } from './seriesPaceFairTotal.js';
 import { adjustFairTotal } from './nbaTotalsHistory.js';
 import { computeTeamForm } from '../../src/features/nba/picks/v2/teamForm.js';
+import { nbaPickSummary } from '../../src/features/nba/picks/pickSummary.js';
 
 // v10: KV cache keys are namespaced by NBA_MODEL_VERSION. A model bump
 // (e.g., v2.0.0 → v2.1.0) automatically invalidates all prior cached
@@ -148,6 +149,8 @@ export function slimPick(p) {
     away: p.matchup?.awayTeam?.slug || null,
     home: p.matchup?.homeTeam?.slug || null,
     startTime: p.matchup?.startTime || null,
+    // The reason as published, so the page and the brief can still give it once the game is on.
+    why: nbaPickSummary(p) || null,
   };
 }
 
