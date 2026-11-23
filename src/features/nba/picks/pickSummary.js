@@ -6,6 +6,7 @@
  * The NBA engine is not the NFL one. It has no book-by-book prices, so a
  * pick here is not "a price that beats the market". A total is called from
  * each team's recent scoring; a side and a moneyline are called from the
+ * team's season scoring margin where the engine has one, otherwise from the
  * gap between what the spread says and what the moneyline says. The
  * sentences below say exactly that, from the engine's own numbers, so the
  * page never claims more than the engine computed. No language model is
@@ -39,6 +40,9 @@ export const HELD_BACK = {
 
 export const isMaximusPick = (p) => p?.pickRole === 'hero';
 
+/** One of Maximus's picks that is there so the list has a team pick, not on conviction. */
+export const isLowerConviction = (p) => isMaximusPick(p) && (p?.teamPickFloor === true || p?.rationale?.teamPickFloor === true);
+
 /** Maximus's picks, strongest first. Older payloads without roles fall back to the top two tiers. */
 export function maximusPicks(board) {
   if (!board) return [];
@@ -48,6 +52,32 @@ export function maximusPicks(board) {
     ? heroes
     : (all.length > 0 ? [] : [...(board.tiers?.tier1 || []), ...(board.tiers?.tier2 || [])]);
   return [...list].sort(byConviction);
+}
+
+const isTeamPick = (p) => p?.market?.type === 'runline' || p?.market?.type === 'moneyline';
+
+/**
+ * Trim a list of picks to `max` without losing the team picks.
+ *
+ * Totals usually carry the highest conviction, so a plain top-`max` cut can
+ * leave a short list with no spread or moneyline on it. This keeps up to
+ * `minTeam` team picks in the cut, in place of the weakest totals, and
+ * returns the result strongest first.
+ */
+export function topPicksWithTeams(picks, max, minTeam = 2) {
+  const ranked = [...(picks || [])].sort(byConviction);
+  if (ranked.length <= max) return ranked;
+  const top = ranked.slice(0, max);
+  const need = Math.min(minTeam, ranked.filter(isTeamPick).length) - top.filter(isTeamPick).length;
+  if (need <= 0) return top;
+  const extra = ranked.slice(max).filter(isTeamPick).slice(0, need);
+  const keep = [];
+  let drop = extra.length;
+  for (let i = top.length - 1; i >= 0; i -= 1) {
+    if (drop > 0 && !isTeamPick(top[i])) drop -= 1;
+    else keep.unshift(top[i]);
+  }
+  return [...keep, ...extra].sort(byConviction);
 }
 
 /** Every other call on the board: tracked and graded, not picks. */
@@ -78,7 +108,8 @@ export function totalSample(pick) {
  * One sentence on why, from the engine's numbers.
  *
  *   total      each team's recent scoring against the posted total
- *   spread     the margin the moneyline implies against the spread
+ *   spread     each team's season scoring margin and home court against the
+ *              spread; without ratings, the margin the moneyline implies
  *   moneyline  the win chance the spread implies against the price
  */
 export function nbaPickSummary(pick) {
@@ -109,6 +140,24 @@ export function nbaPickSummary(pick) {
     const side = pick.selection?.side;
     const team = side === 'home' ? home : away;
     const line = pick.market?.line;
+    // Called from season scoring margins (engine 2.6.0), not from the moneyline.
+    if (d?.awayRating && d?.homeRating && typeof d.ratingsHomeMargin === 'number' && line != null) {
+      const perGame = (name, r) => {
+        const v = round(Math.abs(r.pointDiff), 1);
+        if (v === 0) return `the ${name} are level on points`;
+        return `the ${name} ${r.pointDiff > 0 ? 'outscore teams' : 'are outscored'} by ${v} a game`;
+      };
+      const first = side === 'home' ? [home, d.homeRating] : [away, d.awayRating];
+      const second = side === 'home' ? [away, d.awayRating] : [home, d.homeRating];
+      const firstClause = perGame(...first);
+      const by = round(Math.abs(d.ratingsHomeMargin), 1);
+      const ratingsFav = d.ratingsHomeMargin >= 0 ? home : away;
+      const lineText = line > 0 ? `getting ${line}` : line < 0 ? `laying ${Math.abs(line)}` : 'at pick’em';
+      const read = by === 0
+        ? 'Season margins and home court make this a toss-up'
+        : `Season margins and home court make the ${ratingsFav} ${by} better here`;
+      return `${firstClause.charAt(0).toUpperCase()}${firstClause.slice(1)} and ${perGame(...second)}. ${read}, and the ${team} are ${lineText}.`;
+    }
     if (d && typeof d.projectedHomeMargin === 'number' && line != null) {
       const margin = round(Math.abs(d.projectedHomeMargin), 1);
       const favored = d.projectedHomeMargin >= 0 ? home : away;

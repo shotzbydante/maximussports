@@ -15,7 +15,7 @@ import { Fragment } from 'react';
 import { Link } from 'react-router-dom';
 import { NbaLogo } from './NbaTeamTag';
 import { fmtLine, fmtOdds, nbaNickname, tipLong, tipShort } from './nbaFormat';
-import { MARKET_NAME, linesFor, nbaPickSummary, score, totalSample } from './nbaPickHelpers';
+import { MARKET_NAME, isLowerConviction, linesFor, nbaPickSummary, score, totalSample } from './nbaPickHelpers';
 import { trackPickOpen } from '../../../analytics/sportEvents';
 import h from '../../nfl/home/home.module.css';
 
@@ -92,6 +92,8 @@ export default function NbaPickCard({ pick, game, rank, to, asOf, children }) {
   const summary = nbaPickSummary(pick);
   const sample = pick.market?.type === 'total' ? totalSample(pick) : null;
   const priceText = pick.market?.type === 'moneyline' ? 'at the consensus price' : 'at the consensus line';
+  const lower = isLowerConviction(pick);
+  const onRatings = pick.market?.type === 'runline' && !!pick.spreadDebug?.homeRating;
 
   return (
     <article className={h.pick} role="listitem">
@@ -99,6 +101,7 @@ export default function NbaPickCard({ pick, game, rank, to, asOf, children }) {
         <span className={h.chipRow}>
           {rank != null && <span className={h.rank} aria-label={`Pick ${rank}`}>{rank}</span>}
           <span className={h.chip}>{MARKET_NAME[pick.market?.type] || 'Pick'}</span>
+          {lower && <span className={`${h.chip} ${h.chipWarn}`}>Lower conviction</span>}
         </span>
         <span>{[tipShort(m.startTime || game?.startTime), game?.broadcast?.network].filter(Boolean).join(', ')}</span>
       </div>
@@ -132,6 +135,7 @@ export default function NbaPickCard({ pick, game, rank, to, asOf, children }) {
       <div className={h.pickFoot}>
         <span className={h.footFacts}>
           {sample != null && <span>Small sample: {sample === 1 ? '1 recent game' : `${sample} recent games`}</span>}
+          {onRatings && <span>Season margins only: no injuries or rest in the model</span>}
         </span>
         {to && (
           <Link to={to} className={h.footLink} onClick={() => trackPickOpen({ sport: 'nba', surface: 'nba_home', pick, rank })}>
