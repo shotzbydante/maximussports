@@ -46,7 +46,7 @@ function isValidResult(row) {
  * Fetch yesterday's NBA final games directly from ESPN scoreboard.
  * Uses canonical date context (product TZ, not UTC).
  */
-async function fetchYesterdayResults(dateCtx) {
+async function fetchYesterdayResults(dateCtx, maxResults = 6) {
   const dateStr = espnDateString(dateCtx?.yesterdayDate || '');
   if (!dateStr) {
     console.warn('[nbaEmailData] no yesterday date provided to results fetcher');
@@ -96,7 +96,7 @@ async function fetchYesterdayResults(dateCtx) {
     }
 
     return {
-      results: validRows.slice(0, 6),
+      results: validRows.slice(0, maxResults),
       totalEvents: events.length,
       finalsCount: finals.length,
       validCount: validRows.length,
@@ -249,7 +249,7 @@ export async function assembleNbaEmailData(baseUrl, opts = {}) {
   const dateCtx = opts.dateCtx || resolveEmailDateContext();
   console.log(`[nbaEmailData] dateCtx: yesterday=${dateCtx.yesterdayDate} tz=${dateCtx.timezone}`);
   fetchPromises.push(
-    fetchYesterdayResults(dateCtx).then(r => ({ data: r, source: 'fresh' }))
+    fetchYesterdayResults(dateCtx, opts.maxResults || 6).then(r => ({ data: r, source: 'fresh' }))
   );
 
   const results = await Promise.all(fetchPromises);

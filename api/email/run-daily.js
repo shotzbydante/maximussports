@@ -44,7 +44,8 @@ import { getSubject as getDigestSubject, renderHTML as renderDigestHTML, renderT
 import { getSubject as getMlbBriefingSubject, renderHTML as renderMlbBriefingHTML, renderText as renderMlbBriefingText } from '../../src/emails/templates/mlbBriefing.js';
 import { getSubject as getMlbPicksSubject, renderHTML as renderMlbPicksHTML, renderText as renderMlbPicksText } from '../../src/emails/templates/mlbPicks.js';
 import { getSubject as getMlbDigestSubject, renderHTML as renderMlbDigestHTML, renderText as renderMlbDigestText } from '../../src/emails/templates/mlbTeamDigest.js';
-import { getSubject as getGlobalSubject, renderHTML as renderGlobalHTML, renderText as renderGlobalText } from '../../src/emails/templates/globalBriefing.js';
+import { isAdminEmail } from '../_lib/admin.js';
+import { getSubject as getGlobalSubject, renderHTML as renderGlobalHTML, renderText as renderGlobalText } from '../../src/emails/templates/theDailyBrief.js';
 import { getSubject as getNflPicksSubject, renderHTML as renderNflPicksHTML, renderText as renderNflPicksText, hasNflPicksContent } from '../../src/emails/templates/nflPicks.js';
 import { assembleTeamDigestPayload, TEAM_DIGEST_MAX_TEAMS } from '../_lib/teamDigest.js';
 import { getProfileEntitlements } from '../_lib/entitlements.js';
@@ -301,6 +302,10 @@ export default async function handler(req, res) {
 
   const _url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   const type = _url.searchParams.get('type');
+  // ?test=owner sends this run to the owner's address only. It ignores the
+  // once-a-day guard and leaves no row in the send log, so the real send
+  // that day still goes to everyone, the owner included.
+  const ownerTest = _url.searchParams.get('test') === 'owner';
   if (!type || !VALID_TYPES.includes(type)) {
     return res.status(400).json({ error: `Invalid type. Must be one of: ${VALID_TYPES.join(', ')}` });
   }
@@ -417,11 +422,12 @@ export default async function handler(req, res) {
     }
 
     // ── 4. Check already-sent for today
-    const alreadySent = await fetchAlreadySent(sb, type);
+    const alreadySent = ownerTest ? new Set() : await fetchAlreadySent(sb, type);
     skipCounts.already_sent = alreadySent.size;
 
     // ── 5. Determine who still needs to receive
     const toSend = subscribedUsers.filter(u => {
+      if (ownerTest && !isAdminEmail(u.email)) return false;
       if (alreadySent.has(u.id)) {
         console.log(`[run-daily] SKIP user=${u.id} reason=already_sent_today`);
         return false;
@@ -732,7 +738,10 @@ export default async function handler(req, res) {
 
         switch (tpl) {
           case 'globalBriefing':
-            subject = getGlobalSubject(emailData);
+            // Nothing to say (every source was down): send nothing.
+            if (!emailData.dailyBrief || emailData.dailyBrief.empty) { skipCounts.no_content++; continue; }
+            emailData.userId = userId;
+            subject = `${ownerTest ? '[Test] ' : ''}${getGlobalSubject(emailData)}`;
             html    = renderGlobalHTML(emailData);
             text    = renderGlobalText(emailData);
             break;
@@ -902,7 +911,7 @@ export default async function handler(req, res) {
 
         console.log(`[run-daily] Sending ${i + 1}/${total} to=${email}`);
         await sendEmailThrottled({ to: email, subject, html, text });
-        await logEmailSend(sb, { userId, email, type, dateKey });
+        if (!ownerTest) await logEmailSend(sb, { userId, email, type, dateKey });
         sent++;
         console.log(`[run-daily] SENT ${i + 1}/${total} type=${type} to=${email}`);
 

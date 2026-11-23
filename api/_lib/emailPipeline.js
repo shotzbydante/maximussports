@@ -360,6 +360,10 @@ export async function assembleEmailData(type, baseUrl, opts = {}) {
       const flags = config.nbaFlags || {};
       result.nbaData = await assembleNbaEmailData(baseUrl, {
         includeSummary: flags.includeSummary ?? false,
+        // The registry asked for picks all along; the flag was never passed on,
+        // which is why the NBA picks and scorecard blocks were always empty.
+        includePicks: flags.includePicks ?? false,
+        maxResults: config.sport === 'global' ? 15 : undefined,
         dateCtx,
       });
     } catch (err) {
@@ -382,6 +386,22 @@ export async function assembleEmailData(type, baseUrl, opts = {}) {
     } catch (err) {
       console.warn(`[emailPipeline] NFL assembly failed: ${err.message}`);
       result.nflData = null;
+    }
+  }
+
+  // The Daily Brief is laid out from one view model, built here once for
+  // every recipient.
+  if (type === 'global_briefing') {
+    try {
+      const { assembleDailyBrief } = await import('./dailyBriefData.js');
+      result.dailyBrief = await assembleDailyBrief(baseUrl, {
+        nbaResults: result.nbaData?.yesterdayResults || [],
+        nbaBoard: result.nbaData?.picksBoard || null,
+        now: opts.now || new Date(),
+      });
+    } catch (err) {
+      console.warn(`[emailPipeline] Daily Brief assembly failed: ${err.message}`);
+      result.dailyBrief = null;
     }
   }
 
@@ -468,6 +488,8 @@ export function buildEmailData(type, assembledData, recipientContext = {}) {
     nbaPicksScorecard: assembledData.nbaData?.picksScorecard || null,
     // NFL picks board: recommended picks, each with its reason.
     nflPicksBoard: assembledData.nflData?.picksBoard || null,
+    // The Daily Brief's view model (see dailyBriefData.js).
+    dailyBrief: assembledData.dailyBrief || null,
     // NBA picks/scorecard diagnostics — surface which source the email is
     // rendering from so missing sections never go unexplained.
     nbaPicksSource: assembledData.nbaData?.picksSource || 'not_requested',

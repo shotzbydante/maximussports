@@ -41,7 +41,7 @@ const FALLBACK_PINNED_TEAMS = [
 
 /** Template import map — matches the centralized EMAIL_REGISTRY */
 const TEMPLATE_IMPORTS = {
-  globalBriefing: () => import('../../src/emails/templates/globalBriefing.js'),
+  globalBriefing: () => import('../../src/emails/templates/theDailyBrief.js'),
   daily:          () => import('../../src/emails/templates/dailyBriefing.js'),
   pinned:         () => import('../../src/emails/templates/pinnedTeamsAlerts.js'),
   odds:           () => import('../../src/emails/templates/oddsIntel.js'),
