@@ -473,7 +473,7 @@ Reply with one JSON object and nothing else. No markdown, no code fence.
   "dek": "one or two sentences, max ${BRIEF_LIMITS.dek} characters, setting up the next few hours",
   "now": [{ "gameId": "from liveGames", "text": "one or two sentences, max ${BRIEF_LIMITS.item} characters" }],
   "next": [{ "gameId": "from gamesToCome", "text": "one or two sentences, max ${BRIEF_LIMITS.item} characters" }],
-  "numbers": [{ "value": "a number or price from the data, max ${BRIEF_LIMITS.value} characters", "label": "what it is and why it matters, max ${BRIEF_LIMITS.label} characters" }],
+  "numbers": [{ "value": "ONE number or price from the data, 6 characters or fewer ('16.3', '-107', '73%'). Never a pair or ratio like '5th/27th': put the second figure in the label", "label": "what it is and why it matters, max ${BRIEF_LIMITS.label} characters" }],
   "take": "Maximus's own read on the best thing left on the board, max ${BRIEF_LIMITS.take} characters. If there is a maximusPick still to come, this is about it.",
   "also": "optional: one short paragraph on the playoff picture or the Super Bowl market, max ${BRIEF_LIMITS.also} characters. Empty string if it adds nothing."
 }

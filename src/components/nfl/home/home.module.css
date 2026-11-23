@@ -30,6 +30,7 @@
   width: 100%;
   max-width: 1120px;
   margin: 0 auto;
+  padding-top: 14px;
   color: var(--ink);
   font-family: var(--font-sans);
 }
@@ -209,6 +210,7 @@ a.tile:hover { border-color: rgba(11, 27, 51, 0.24); color: var(--ink); }
 .picks::-webkit-scrollbar { display: none; }
 .picks > * { scroll-snap-align: start; min-width: 0; }
 .picksOne { grid-auto-columns: 100%; }
+.picksStack, .picksPair { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 
 .pick {
   display: flex;
@@ -373,11 +375,13 @@ a.tile:hover { border-color: rgba(11, 27, 51, 0.24); color: var(--ink); }
 .gameTop { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 0.75rem; color: var(--ink-3); }
 .gameGrid { display: grid; grid-template-columns: minmax(0, 1fr) 56px 60px; align-items: center; column-gap: 6px; row-gap: 8px; }
 .gameGridScore { grid-template-columns: minmax(0, 1fr) 44px; }
+/* With two line columns there is no room for the record beside a long name on a phone. */
+@media (max-width: 899px) { .gameGrid:not(.gameGridScore) .teamRecord { display: none; } }
 .colHead { font-size: 0.75rem; color: var(--ink-3); text-align: right; }
 .team { display: flex; align-items: center; gap: 9px; min-width: 0; }
-.teamName { font-weight: 700; font-size: 0.9375rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ink); text-decoration: none; }
+.teamName { flex: 0 1 auto; min-width: 3.2em; font-weight: 700; font-size: 0.9375rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ink); text-decoration: none; }
 a.teamName:hover { text-decoration: underline; }
-.teamRecord { font-size: 0.75rem; color: var(--ink-3); font-variant-numeric: tabular-nums; flex-shrink: 0; }
+.teamRecord { flex: 0 100 auto; min-width: 0; overflow: hidden; white-space: nowrap; font-size: 0.75rem; color: var(--ink-3); font-variant-numeric: tabular-nums; }
 .ball { width: 7px; height: 7px; border-radius: 50%; background: var(--warn); flex-shrink: 0; }
 .cellNum {
   text-align: right;
@@ -420,17 +424,20 @@ a.teamName:hover { text-decoration: underline; }
   overflow: hidden;
 }
 .recordLine {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 4px 12px;
-  padding: 12px 14px;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 8px;
+  padding: 11px 14px;
   border-radius: 14px;
   background: var(--wash);
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   color: var(--ink-2);
+  text-decoration: none;
 }
-.recordLine b { font-family: var(--font-display); font-size: 1.0625rem; color: var(--ink); font-variant-numeric: tabular-nums; }
+.recordLine span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.recordLine span + span { padding-left: 12px; border-left: 1px solid var(--hair); }
+.recordLine b { font-family: var(--font-display); font-size: 1.125rem; line-height: 1.1; color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 /* Reasons, opened on demand */
 .why { font-size: 0.875rem; color: var(--ink-2); }
@@ -577,9 +584,10 @@ a.teamName:hover { text-decoration: underline; }
 .brRowHead { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .brText { margin: 0; font-size: 0.9375rem; line-height: 1.5; color: var(--ink); max-width: 68ch; }
 .brNumbers { display: grid; border-top: 1px solid var(--hair-soft); border-bottom: 1px solid var(--hair-soft); }
-.brNumber { display: grid; grid-template-columns: 76px minmax(0, 1fr); align-items: center; gap: 10px; padding: 9px 14px; min-width: 0; }
+.brNumber { display: grid; grid-template-columns: 84px minmax(0, 1fr); align-items: center; gap: 10px; padding: 9px 14px; min-width: 0; }
 .brNumber + .brNumber { border-top: 1px solid var(--hair-soft); }
 .brNumber b { font-family: var(--font-display); font-size: 1.5rem; font-weight: 800; letter-spacing: -0.03em; line-height: 1; font-variant-numeric: tabular-nums; }
+.brNumber b.brNumberLong { font-size: 1.0625rem; letter-spacing: -0.02em; line-height: 1.15; overflow-wrap: anywhere; }
 .brNumber span { font-size: 0.8125rem; line-height: 1.4; color: var(--ink-2); }
 .brTake { margin: 14px 14px 0; padding: 12px 14px; border-radius: 14px; background: var(--up-soft); }
 .brTakeLabel { font-size: 0.75rem; font-weight: 700; color: var(--up); }
@@ -736,6 +744,8 @@ a.raceRow:hover { background: var(--wash); color: var(--ink); }
   }
   .picksTwo { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .picksOne { grid-template-columns: minmax(0, 560px); }
+  .picksPair { display: grid; grid-template-columns: minmax(0, 560px) minmax(0, 1fr); gap: 16px; align-items: start; }
+  .picksPair .picksOne { grid-template-columns: minmax(0, 1fr); }
   .sideCol { gap: 38px; }
   .brHero { padding: 24px; }
   .brMascot { width: 72px; height: 72px; }
