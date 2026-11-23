@@ -33,4 +33,22 @@ describe('confirm signup email', () => {
     expect(html).toContain('https://maximussports.ai/nfl');
     expect(getSubject({ isWelcome: true })).toBe('Welcome to Maximus Sports');
   });
+
+  it('shows the code under the button and leads the subject with it', () => {
+    const html = renderHTML({ confirmUrl: URL, code: '482913' });
+    const button = html.indexOf('>\n                Confirm email');
+    const code = html.indexOf('482913');
+    expect(code).toBeGreaterThan(button);
+    expect(code).toBeLessThan(html.indexOf(BENEFITS[0][0]));
+    expect(renderText({ confirmUrl: URL, code: '482913' })).toContain('482913');
+    expect(getSubject({ code: '482913' })).toBe('482913 is your Maximus Sports code');
+  });
+
+  it('leaves the code out when there is none or it is not digits', () => {
+    expect(renderHTML({ confirmUrl: URL })).not.toMatch(/Enter this code/);
+    expect(renderHTML({ confirmUrl: URL, code: '<b>1</b>' })).not.toMatch(/Enter this code/);
+    expect(renderHTML({ isWelcome: true, code: '482913' })).not.toContain('482913');
+    expect(getSubject({ code: 'abc' })).toBe('Confirm your email for Maximus Sports');
+    expect(getSubject()).toBe('Confirm your email for Maximus Sports');
+  });
 });

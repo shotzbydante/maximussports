@@ -53,12 +53,32 @@
   "redirects": [
     {
       "source": "/ig",
-      "destination": "/?utm_source=instagram&utm_medium=social&utm_campaign=bio",
+      "destination": "/nfl/insights?utm_source=instagram&utm_medium=social&utm_campaign=bio",
       "permanent": false
     },
     {
       "source": "/ig/record",
       "destination": "/record?utm_source=instagram&utm_medium=social&utm_campaign=record",
+      "permanent": false
+    },
+    {
+      "source": "/ig/home",
+      "destination": "/?utm_source=instagram&utm_medium=social&utm_campaign=home",
+      "permanent": false
+    },
+    {
+      "source": "/picks",
+      "destination": "/nfl/insights?utm_medium=social&utm_campaign=picks_link",
+      "permanent": false
+    },
+    {
+      "source": "/fb/picks",
+      "destination": "/nfl/insights?utm_source=facebook&utm_medium=social&utm_campaign=picks",
+      "permanent": false
+    },
+    {
+      "source": "/ads/picks",
+      "destination": "/nfl/insights?utm_source=meta&utm_medium=paid_social&utm_campaign=picks",
       "permanent": false
     },
     {

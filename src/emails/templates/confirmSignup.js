@@ -7,7 +7,11 @@
  * button comes first, right under the headline. What they get comes after it,
  * football first. The raw link is the fallback and sits last, small.
  *
- * @param {{ confirmUrl: string, isWelcome?: boolean }} opts
+ * The code is the same confirmation as the button, for someone who signed up
+ * inside an app's browser (Instagram, Facebook) and wants to finish there. It
+ * also leads the subject line, so it can be read off the notification.
+ *
+ * @param {{ confirmUrl: string, code?: string, isWelcome?: boolean }} opts
  */
 
 import { EmailShell, spacerRow, sectionLabel } from '../EmailShell.js';
@@ -23,10 +27,16 @@ export const BENEFITS = [
   ['Emails worth opening.', 'The Daily Brief every morning, and NFL Picks on Thursday and Sunday.'],
 ];
 
-export function getSubject({ isWelcome = false } = {}) {
-  return isWelcome
-    ? 'Welcome to Maximus Sports'
-    : 'Confirm your email for Maximus Sports';
+/** Digits only, or nothing: the code is shown and typed, never linked. */
+function cleanCode(code) {
+  const c = String(code ?? '').trim();
+  return /^\d{4,10}$/.test(c) ? c : '';
+}
+
+export function getSubject({ isWelcome = false, code = '' } = {}) {
+  if (isWelcome) return 'Welcome to Maximus Sports';
+  const c = cleanCode(code);
+  return c ? `${c} is your Maximus Sports code` : 'Confirm your email for Maximus Sports';
 }
 
 const esc = (t) => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -41,12 +51,13 @@ function benefitRow([title, text], last) {
               </table>`;
 }
 
-export function renderHTML({ confirmUrl = '#', isWelcome = false } = {}) {
+export function renderHTML({ confirmUrl = '#', code = '', isWelcome = false } = {}) {
   const url = esc(confirmUrl);
+  const otp = isWelcome ? '' : cleanCode(code);
   const headline = isWelcome ? 'Welcome to Maximus Sports' : 'Confirm your email';
   const subhead = isWelcome
     ? 'Your account is ready. Here is what is inside.'
-    : 'One tap and your account is ready.';
+    : otp ? 'Tap the button, or type the code on the sign-up page.' : 'One tap and your account is ready.';
   const actionUrl = isWelcome ? `${SITE}/nfl` : url;
   const actionLabel = isWelcome ? 'See this week&rsquo;s NFL picks' : 'Confirm email';
 
@@ -85,6 +96,21 @@ export function renderHTML({ confirmUrl = '#', isWelcome = false } = {}) {
         </table>
       </td>
     </tr>
+    ${otp ? `
+    <!-- CODE: the same confirmation, typed where the sign-up was started -->
+    <tr>
+      <td align="center" style="padding:0 24px 26px;" class="section-td">
+        <p style="margin:0 0 8px;font-size:13px;color:#4a5568;font-family:${F};line-height:1.5;">
+          Signing up inside Instagram or Facebook? Enter this code there:
+        </p>
+        <p style="margin:0;font-size:30px;font-weight:800;color:#1a1a2e;letter-spacing:0.22em;font-family:'Courier New',Courier,monospace;line-height:1.2;">
+          ${otp}
+        </p>
+        <p style="margin:8px 0 0;font-size:12px;color:#8a94a6;font-family:${F};line-height:1.5;">
+          The code and the button do the same thing. Use either one, once.
+        </p>
+      </td>
+    </tr>` : ''}
 
     <!-- WHAT YOU GET -->
     <tr>
@@ -166,7 +192,8 @@ ${BENEFITS.map((b, i) => benefitRow(b, i === BENEFITS.length - 1)).join('')}
   });
 }
 
-export function renderText({ confirmUrl = '', isWelcome = false } = {}) {
+export function renderText({ confirmUrl = '', code = '', isWelcome = false } = {}) {
+  const otp = isWelcome ? '' : cleanCode(code);
   const year = new Date().getFullYear();
   const lines = [isWelcome ? 'Welcome to Maximus Sports' : 'Confirm your email for Maximus Sports', '='.repeat(40), ''];
 
@@ -174,6 +201,7 @@ export function renderText({ confirmUrl = '', isWelcome = false } = {}) {
     lines.push('Your account is ready. Here is what is inside.');
   } else {
     lines.push('One tap and your account is ready. Confirm here:', '', confirmUrl);
+    if (otp) lines.push('', `Signing up inside Instagram or Facebook? Enter this code there: ${otp}`);
   }
 
   lines.push(

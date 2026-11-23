@@ -28,6 +28,9 @@ export default function StickyGuestCTA({
   if (dismissed) return null;
   // Hide on preview-gated pages (they have their own in-page CTA)
   if (getRouteAccess(location.pathname) === 'preview') return null;
+  // The sign-up page is the thing this bar asks for. Over it, the bar only
+  // covers the form, and on a phone that is the email field and the code field.
+  if (location.pathname === '/settings' || location.pathname.startsWith('/auth/')) return null;
 
   return (
     <div className={styles.stickyBar}>
