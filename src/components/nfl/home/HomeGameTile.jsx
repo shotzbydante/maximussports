@@ -99,20 +99,28 @@ export default function HomeGameTile({ game }) {
         </div>
       )}
 
-      <div className={h.gameFoot}>
-        {gs.isLive && gs.downDistance ? (
-          <span>{gs.downDistance}{gs.isRedZone ? ', red zone' : ''}</span>
-        ) : (
-          <span>{market.pregameTotal != null ? <>Total <b>{market.pregameTotal}</b></> : 'No total posted'}</span>
-        )}
-        {showScore ? (
-          spread != null && <span>{gs.isLive ? 'Live line' : 'Closed'} <b><TeamTag slug={home?.slug} logo={home?.logo} label="abbrev" size={14} /> {fmtLine(spread)}</b></span>
-        ) : (
-          model.fairSpread != null && (
-            <span>Ratings <b><TeamTag slug={home?.slug} logo={home?.logo} label="abbrev" size={14} /> {fmtLine(Math.round(model.fairSpread * 10) / 10)}</b>{model.fairTotal != null ? <>, <b>{model.fairTotal.toFixed(1)}</b></> : null}</span>
-          )
-        )}
-      </div>
+      {(() => {
+        // A finished game often has no line left in the feed. Say how it ended, or say nothing.
+        const noLine = market.pregameTotal == null && spread == null;
+        const ending = gs.isFinal && game.insight?.headline && !/^final\.?$/i.test(game.insight.headline.trim()) ? game.insight.headline : null;
+        if (gs.isFinal && noLine) return ending ? <div className={h.gameFoot}><span>{ending}</span></div> : null;
+        return (
+          <div className={h.gameFoot}>
+            {gs.isLive && gs.downDistance ? (
+              <span>{gs.downDistance}{gs.isRedZone ? ', red zone' : ''}</span>
+            ) : (
+              <span>{market.pregameTotal != null ? <>Total <b>{market.pregameTotal}</b></> : 'Total not posted yet'}</span>
+            )}
+            {showScore ? (
+              spread != null && <span>{gs.isLive ? 'Live line' : 'Closed'} <b><TeamTag slug={home?.slug} logo={home?.logo} label="abbrev" size={14} /> {fmtLine(spread)}</b></span>
+            ) : (
+              model.fairSpread != null && (
+                <span>Ratings <b><TeamTag slug={home?.slug} logo={home?.logo} label="abbrev" size={14} /> {fmtLine(Math.round(model.fairSpread * 10) / 10)}</b>{model.fairTotal != null ? <>, <b>{model.fairTotal.toFixed(1)}</b></> : null}</span>
+              )
+            )}
+          </div>
+        );
+      })()}
     </article>
   );
 }

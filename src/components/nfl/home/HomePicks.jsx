@@ -201,13 +201,16 @@ export default function HomePicks({ variant = 'home', games: gamesProp, weekLabe
         moreLabel="All picks and results"
       />
 
-      {inPlayFirst && <HomeInPlay picks={inPlay} />}
+      {/* One pick to come and picks already played: side by side on a wide screen. */}
+      <div className={shown.length === 1 && inPlay.length > 0 ? h.picksPair : h.picksStack}>
+        {inPlayFirst && <HomeInPlay picks={inPlay} />}
 
-      {board === undefined
-        ? <div className={h.skeleton} aria-busy="true" />
-        : (cards || (inPlay.length > 0 ? null : nothingYet))}
+        {board === undefined
+          ? <div className={h.skeleton} aria-busy="true" />
+          : (cards || (inPlay.length > 0 ? null : nothingYet))}
 
-      {!inPlayFirst && <HomeInPlay picks={inPlay} />}
+        {!inPlayFirst && <HomeInPlay picks={inPlay} />}
+      </div>
 
       {showLeans && (
         <>

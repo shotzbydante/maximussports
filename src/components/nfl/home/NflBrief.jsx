@@ -117,7 +117,7 @@ export default function NflBrief({ brief, games = [], generatedAt, onRefresh, re
         <div className={h.brNumbers}>
           {brief.numbers.map((n) => (
             <div key={`${n.value}-${n.label}`} className={h.brNumber}>
-              <b>{n.value}</b>
+              <b className={String(n.value).length > 5 ? h.brNumberLong : undefined}>{n.value}</b>
               <span>{n.label}</span>
             </div>
           ))}
