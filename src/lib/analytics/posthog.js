@@ -42,12 +42,14 @@
  *  plan                   string   — "free" for now
  *  signup_source          string   — auth provider
  *  onboarding_completed   boolean  — true after wizard finish
- *  utm_source, utm_medium, utm_campaign, referrer, referral_code
+ *  utm_source, utm_medium, utm_campaign, utm_content, referrer, referral_code
+ *  first_touch_utm_*, last_touch_utm_*  (see analytics/attribution.js)
  *
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
 import { identify, alias, track, setUserProperties } from '../../analytics/index';
+import { getAttribution } from '../../analytics/attribution';
 
 const DEV = import.meta.env.DEV;
 
@@ -68,11 +70,16 @@ function getStoredReferralCode() {
  */
 function captureAcquisitionProps() {
   try {
+    // The landing page's tags, stored on arrival: by the time someone signs
+    // up they are on another page, often back from Google sign-in.
     const params = new URLSearchParams(window.location.search);
+    const { last } = getAttribution();
+    const tag = (k) => params.get(k) || last?.[k] || null;
     return {
-      utm_source:   params.get('utm_source')   || null,
-      utm_medium:   params.get('utm_medium')    || null,
-      utm_campaign: params.get('utm_campaign')  || null,
+      utm_source:   tag('utm_source'),
+      utm_medium:   tag('utm_medium'),
+      utm_campaign: tag('utm_campaign'),
+      utm_content:  tag('utm_content'),
       referrer:     (document.referrer || '').slice(0, 200) || null,
       referral_code: getStoredReferralCode(),
     };
@@ -157,6 +164,7 @@ export function trackAuthAccountCreated(user, { method = 'unknown', posthogTrack
     utm_source: acq.utm_source,
     utm_medium: acq.utm_medium,
     utm_campaign: acq.utm_campaign,
+    utm_content: acq.utm_content,
     referrer: acq.referrer,
   };
   dbg('trackAuthAccountCreated', { ...props, posthogTracked });
@@ -191,6 +199,7 @@ export function trackOnboardingCompleted(user, profile, teamSlugs = [], { method
     referral_code: acq.referral_code,
     utm_source: acq.utm_source,
     utm_campaign: acq.utm_campaign,
+    utm_content: acq.utm_content,
     referrer: acq.referrer,
     ...extra,
   });
@@ -270,6 +279,7 @@ export function trackSignupStarted({ method = 'unknown' } = {}) {
     referral_code: acq.referral_code,
     utm_source: acq.utm_source,
     utm_campaign: acq.utm_campaign,
+    utm_content: acq.utm_content,
     referrer: acq.referrer,
   });
 }
