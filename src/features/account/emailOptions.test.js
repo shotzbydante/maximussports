@@ -6,16 +6,19 @@ import { EMAIL_REGISTRY } from '../../../api/_lib/emailPipeline.js';
 const opt = (id) => EMAIL_OPTIONS.find((o) => o.id === id);
 
 describe('email options', () => {
-  it('offers five choices, not one per server email type', () => {
-    expect(EMAIL_OPTIONS.map((o) => o.id)).toEqual(['daily', 'nfl', 'ncaam', 'mlb', 'teams']);
+  it('offers five choices and one Pro alert, not one per server email type', () => {
+    expect(EMAIL_OPTIONS.map((o) => o.id)).toEqual(['daily', 'nfl', 'alerts', 'ncaam', 'mlb', 'teams']);
+    expect(EMAIL_OPTIONS.filter((o) => o.pro).map((o) => o.id)).toEqual(['alerts']);
   });
 
   it('covers every email the server can send, each exactly once', () => {
     const owned = EMAIL_OPTIONS.flatMap((o) => o.keys).sort();
     const sendable = Object.values(EMAIL_REGISTRY).map((e) => e.prefKey).sort();
-    expect(owned).toEqual(sendable);
+    // Pick alerts are sent when a pick locks, not by the scheduled pipeline.
+    const withAlerts = [...sendable, 'nfl_pick_alerts'].sort();
+    expect(owned).toEqual(withAlerts);
     expect(Object.keys(SIGNUP_PREFS).sort()).toEqual(sendable);
-    expect(Object.keys(DEFAULT_EMAIL_PREFS).sort()).toEqual(sendable);
+    expect(Object.keys(DEFAULT_EMAIL_PREFS).sort()).toEqual(withAlerts);
   });
 
   it('starts a new account on the daily brief and NFL picks only', () => {

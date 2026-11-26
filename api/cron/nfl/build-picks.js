@@ -16,6 +16,9 @@
  *   - nothing is close, but six hours have passed
  *
  *   ?force=1   build regardless
+ *
+ * Every call, built or not, also sends pick alerts for any recommended pick
+ * locked since the last call (see api/_lib/nflPickAlerts.js).
  */
 
 import { fetchScoreboardPage } from '../../nfl/live/_normalize.js';
@@ -23,11 +26,17 @@ import { buildNflPicksBoard, canPersist } from '../../_lib/nflPicksBuilder.js';
 import { getJson, setJson } from '../../_globalCache.js';
 import { requireAdminOrCron } from '../../_lib/requireAuth.js';
 import { NFL_DEFAULT_CONFIG } from '../../../src/features/nfl/picks/buildNflPicksV2.js';
+import { sendNewPickAlerts } from '../../_lib/nflPickAlerts.js';
 
 const STATE_KEY = 'nfl:cron:build-picks:last';
 const CLOSING_WINDOW_MIN = 25;
 const CLOSING_INTERVAL_MIN = 8;
 const IDLE_INTERVAL_MIN = 360;
+
+/** Never lets an alert problem fail the build call. */
+async function alerts() {
+  try { return await sendNewPickAlerts(); } catch (e) { console.error('[cron/nfl/build-picks] alerts:', e?.message || e); return { ok: false, reason: 'exception' }; }
+}
 
 /** Exported for tests. */
 export function buildDecision({ kickoffs = [], lastAt = 0, now = Date.now(), intervalMin = 60, lockWindowHours = NFL_DEFAULT_CONFIG.lockWindowHours }) {
@@ -57,7 +66,7 @@ export default async function handler(req, res) {
     const state = await getJson(STATE_KEY).catch(() => null);
     const intervalMin = Math.max(10, Number(process.env.NFL_BUILD_INTERVAL_MIN) || 60);
     const decision = force ? { build: true, reason: 'forced' } : buildDecision({ kickoffs, lastAt: state?.at || 0, intervalMin });
-    if (!decision.build) return res.status(200).json({ ok: true, built: false, ...decision });
+    if (!decision.build) return res.status(200).json({ ok: true, built: false, ...decision, alerts: await alerts() });
 
     const { board, source, counts } = await buildNflPicksBoard({ preferFresh: true });
     await setJson(STATE_KEY, { at: Date.now(), reason: decision.reason }, { exSeconds: 24 * 3600 }).catch(() => {});
@@ -68,6 +77,7 @@ export default async function handler(req, res) {
       persist: canPersist(),
       persisted: board?._debug?.persisted || null,
       engine: board?.engine || null,
+      alerts: await alerts(),
       durationMs: Date.now() - t0,
     });
   } catch (e) {

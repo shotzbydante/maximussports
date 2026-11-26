@@ -778,3 +778,35 @@ a.raceRow:hover { background: var(--wash); color: var(--ink); }
   .evScroller { transition: none; }
   .rail { scroll-behavior: auto; }
 }
+
+/* ── Pro: pick alerts ───────────────────────────────────────────────── */
+.proCard {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 20px;
+  padding: 16px;
+  border: 1px solid var(--hair);
+  border-left: 4px solid #16a34a;
+  border-radius: 16px;
+  background: var(--surface);
+}
+.proText { flex: 1 1 260px; min-width: 0; }
+.proTitle { display: block; font-size: 1rem; font-weight: 800; letter-spacing: -0.01em; color: var(--ink); }
+.proBody { margin: 4px 0 0; font-size: 0.8125rem; line-height: 1.5; color: var(--ink-3); }
+.proError { margin: 6px 0 0; font-size: 0.78rem; color: #b42318; }
+.proBtn {
+  flex: 0 0 auto;
+  padding: 12px 18px;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #fff;
+  background: #0b1b33;
+  border: 0;
+  border-radius: 12px;
+  cursor: pointer;
+}
+.proBtn:disabled { opacity: 0.65; cursor: default; }
+.proBtn:focus-visible { outline: 2px solid var(--color-primary, #1668e3); outline-offset: 2px; }

@@ -139,10 +139,30 @@
 .btn_ncaam { background: #3885e0; }
 
 .ctaFoot {
-  font-size: 0.64rem;
+  font-size: 0.72rem;
   color: var(--color-text-muted);
   margin: 4px 0 0;
 }
+
+.ctaForm { display: flex; flex-direction: column; gap: 8px; width: 100%; max-width: 340px; }
+/* 16px: anything smaller makes an iPhone zoom the page when the field is tapped. */
+.ctaInput {
+  width: 100%;
+  padding: 12px 14px;
+  font-size: 16px;
+  color: var(--color-text);
+  background: var(--color-bg, #fff);
+  border: 1px solid rgba(0, 0, 0, 0.18);
+  border-radius: 10px;
+}
+.ctaInput:focus-visible { outline: 2px solid #1668e3; outline-offset: 1px; }
+.ctaInput[aria-invalid='true'] { border-color: #b42318; }
+button.ctaPrimary { border: 0; cursor: pointer; font-family: inherit; padding: 13px 26px; font-size: 0.9rem; }
+button.ctaPrimary:disabled { opacity: 0.7; cursor: default; transform: none; }
+.ctaError { margin: 0; font-size: 0.78rem; color: #b42318; text-align: left; }
+.ctaFoot { line-height: 1.5; max-width: 340px; }
+.ctaAlt { color: inherit; font-weight: 700; text-decoration: underline; white-space: nowrap; }
+.srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
 /* ── Responsive ── */
 @media (max-width: 640px) {

@@ -5,7 +5,9 @@
  *   1. Supabase's JS client auto-processes the token in the URL hash/query.
  *   2. We wait for session establishment (onAuthStateChange listener in AuthContext).
  *   3. Once a session exists, we check the user's profile state:
- *        - No profile row or no username  → new user, route to /settings?step=password&next=...
+ *        - No profile row or no username  → new user: straight to the page they came for
+ *          (the NFL picks when the link did not say). Setup (teams, emails, avatar)
+ *          waits in Settings; nothing blocks the first visit.
  *        - Profile complete + next param  → route to the original destination
  *        - Profile complete, no next      → route to /settings
  *   4. Token errors or timeout → fallback to /settings with a soft error.
@@ -17,6 +19,9 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { getSupabase } from '../lib/supabaseClient';
+import { DEFAULT_AFTER_SIGNUP } from '../features/account/signupFlow';
+import { clearGuestPass } from '../features/account/guestPass';
+import { trackOnboardingDeferred } from '../analytics/onboarding';
 
 // Safe next-path check — prevents open-redirect to external hosts.
 function sanitizeNext(raw) {
@@ -70,21 +75,26 @@ export default function AuthCallback() {
         hasUsername = Boolean(data?.username);
       } catch { /* treat as no username */ }
 
-      const hasProvider = user.app_metadata?.provider && user.app_metadata.provider !== 'email';
-      // Email users without a username → password-first onboarding
-      // OAuth users always have a provider identity, skip password step
-      const forcePassword = !hasUsername && !hasProvider;
-
-      const qs = new URLSearchParams();
-      if (forcePassword) qs.set('step', 'password');
-      if (next) qs.set('next', next);
-      const suffix = qs.toString() ? `?${qs.toString()}` : '';
-
       if (cancelled) return;
+      // Signed in: the guest pass has done its job.
+      clearGuestPass();
 
       if (!hasUsername) {
-        // New user → send them into onboarding (password-first if email signup)
-        navigate(`/settings${suffix}`, { replace: true });
+        // New account: the page they signed up to see comes first. Setup is
+        // still offered, in Settings and from the nudge on the NFL pages.
+        const destination = next || DEFAULT_AFTER_SIGNUP;
+        try {
+          if (sessionStorage.getItem('mx_welcome_requested') !== '1') {
+            sessionStorage.setItem('mx_welcome_requested', '1');
+            trackOnboardingDeferred({ method: user.app_metadata?.provider || 'email', destination: destination.split('?')[0] });
+            const { data: { session } } = await sb.auth.getSession();
+            if (session?.access_token) {
+              fetch('/api/auth/send-welcome', { method: 'POST', headers: { Authorization: `Bearer ${session.access_token}` } }).catch(() => {});
+            }
+          }
+        } catch { /* best effort */ }
+        if (cancelled) return;
+        navigate(destination, { replace: true });
       } else if (next) {
         // Returning user with an intended destination
         navigate(next, { replace: true });

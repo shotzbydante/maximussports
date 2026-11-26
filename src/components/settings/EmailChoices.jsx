@@ -7,7 +7,7 @@ import { useState } from 'react';
 import { groupOptions, isOptionOn } from '../../features/account/emailOptions';
 import styles from './EmailChoices.module.css';
 
-function Row({ option, on, onToggle, note }) {
+function Row({ option, on, onToggle, note, locked = false }) {
   const id = `email-${option.id}`;
   return (
     <div className={`${styles.row} ${on ? styles.rowOn : ''}`}>
@@ -27,6 +27,7 @@ function Row({ option, on, onToggle, note }) {
         aria-describedby={`${id}-desc`}
         className={`${styles.switch} ${on ? styles.switchOn : ''}`}
         onClick={() => onToggle(option)}
+        disabled={locked}
       >
         <span className={styles.thumb} />
       </button>
@@ -34,15 +35,25 @@ function Row({ option, on, onToggle, note }) {
   );
 }
 
-export default function EmailChoices({ prefs, onToggle, notes = {} }) {
-  const { current, offseason } = groupOptions();
+/**
+ * `plan` decides what happens to Pro-only emails: left out when it is not
+ * given (setup, before there is a plan), shown switched off and locked on
+ * the free plan, and a normal switch on Pro.
+ */
+export default function EmailChoices({ prefs, onToggle, notes = {}, plan }) {
+  const groups = groupOptions();
+  const allowed = (o) => !o.pro || plan === 'pro' || plan === 'free';
+  const current = groups.current.filter(allowed);
+  const offseason = groups.offseason.filter(allowed);
+  const locked = (o) => Boolean(o.pro) && plan !== 'pro';
+  const noteFor = (o) => (locked(o) ? 'Included with Pro. Upgrade under Billing to switch this on.' : notes[o.id]);
   // Open the offseason list if the person already has one of those on.
   const [showOffseason, setShowOffseason] = useState(() => offseason.some((o) => isOptionOn(prefs, o)));
 
   return (
     <div className={styles.list}>
       {current.map((o) => (
-        <Row key={o.id} option={o} on={isOptionOn(prefs, o)} onToggle={onToggle} note={notes[o.id]} />
+        <Row key={o.id} option={o} on={!locked(o) && isOptionOn(prefs, o)} onToggle={onToggle} note={noteFor(o)} locked={locked(o)} />
       ))}
 
       {offseason.length > 0 && (
