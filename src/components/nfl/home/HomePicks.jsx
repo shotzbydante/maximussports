@@ -27,6 +27,9 @@ import { MARKET, HELD_BACK, score, byConviction, pickedTeam, whyShortOf, sentenc
 import { useAuth } from '../../../context/AuthContext';
 import { GateStart } from '../../common/GatedContent';
 import { trackSignupCtaClicked } from '../../../analytics/onboarding';
+import useGuestPass from '../../../hooks/useGuestPass';
+import { usePlan } from '../../../hooks/usePlan';
+import ProAlerts from './ProAlerts';
 import h from './home.module.css';
 import { trackPicksBoardView } from '../../../analytics/sportEvents';
 
@@ -88,7 +91,10 @@ export default function HomePicks({ variant = 'home', games: gamesProp, weekLabe
   const full = variant === 'full';
   const { buildPath } = useWorkspace();
   const { user, loading: authLoading } = useAuth();
-  const guest = !user && !authLoading;
+  // A guest pass (an email given at the wall) opens the whole page, so that reader gets the full board.
+  const pass = useGuestPass();
+  const guest = !user && !authLoading && !pass;
+  const { planTier } = usePlan();
   const [board, setBoard] = useState(undefined);
   const [card, setCard] = useState(null);
   const [inPlay, setInPlay] = useState([]);
@@ -173,7 +179,7 @@ export default function HomePicks({ variant = 'home', games: gamesProp, weekLabe
           <SectionHead title={title} countBelow count={recommended.length > 0 ? `${recommended.length} ${recommended.length === 1 ? 'pick' : 'picks'}, ranked by conviction` : null} />
           {/* Signed out, the wall sits right under this section: a short placeholder would put the wall on the first screen before any pick. */}
           {board === undefined
-            ? <div className={h.skeleton} style={guest || authLoading ? { minHeight: '70vh' } : undefined} aria-busy="true" />
+            ? <div className={h.skeleton} style={!user ? { minHeight: '70vh' } : undefined} aria-busy="true" />
             : (cards || (free.length > 0 ? null : nothingYet))}
           {free.length > 0 && (
             <>
@@ -191,10 +197,14 @@ export default function HomePicks({ variant = 'home', games: gamesProp, weekLabe
           )}
         </section>
 
+        {user && planTier && board && (
+          <ProAlerts isPro={planTier === 'pro'} userId={user.id} recommended={recommended} byGame={board.byGame || []} />
+        )}
+
         {guest && total > 0 && (
           <GateStart
             title={gameCount > 1 ? `See the call on all ${gameCount} games` : 'See the call on every game'}
-            sub="Create a free account for every spread, total and moneyline this week, the reasons behind each, and the graded record."
+            sub="Enter your email to open every spread, total and moneyline this week, with the reasons and the graded record. The picks also reach your inbox Thursday and Sunday."
             freePicks={recommended.length + free.length}
           />
         )}

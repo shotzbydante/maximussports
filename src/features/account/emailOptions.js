@@ -31,6 +31,15 @@ export const EMAIL_OPTIONS = [
     description: 'The week’s recommended picks with the price, the sportsbook and the reasoning, the lean on every other game, and your teams’ matchups.',
   },
   {
+    id: 'alerts',
+    keys: ['nfl_pick_alerts'],
+    workspace: 'nfl',
+    pro: true,
+    label: 'NFL Pick Alerts',
+    when: 'The moment a pick locks',
+    description: 'One short email each time Maximus locks a recommended pick, with the line, the price and the sportsbook, before the market moves. Included with Pro.',
+  },
+  {
     id: 'ncaam',
     keys: ['ncaam_briefing', 'ncaam_picks'],
     workspace: 'cbb',

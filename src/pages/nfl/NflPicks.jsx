@@ -11,6 +11,7 @@ import NflSectionTabs from '../../components/nfl/home/NflSectionTabs';
 import NflScorecardReport from '../../components/nfl/NflScorecardReport';
 import { SectionHead } from '../../components/nfl/home/HomeParts';
 import SEOHead from '../../components/seo/SEOHead';
+import FinishSetupNudge from '../../components/common/FinishSetupNudge';
 import h from '../../components/nfl/home/home.module.css';
 
 export default function NflPicks() {
@@ -27,6 +28,7 @@ export default function NflPicks() {
         </div>
       </header>
       <NflSectionTabs />
+      <FinishSetupNudge />
 
       <HomePicks variant="full" />
 

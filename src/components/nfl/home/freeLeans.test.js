@@ -41,3 +41,23 @@ describe('freeLeans', () => {
     expect(freeLeans(undefined, undefined)).toEqual([]);
   });
 });
+
+import { movedSinceLock } from './pickHelpers';
+
+describe('movedSinceLock', () => {
+  const lock = (line) => ({ lockedAt: '2026-11-25T05:20:00Z', line });
+  const under = { gameId: 'g1', market: { type: 'total' }, selection: { side: 'under', label: 'Under 47.5' }, lock: lock(47.5) };
+  it('finds a total the market has moved past since the lock', () => {
+    const out = movedSinceLock([under], [{ gameId: 'g1', market: { total: 46.5 } }]);
+    expect(out).toMatchObject({ label: 'Under 47.5', taken: '47.5', now: '46.5' });
+  });
+  it('says nothing when the market has not moved our way by half a point', () => {
+    expect(movedSinceLock([under], [{ gameId: 'g1', market: { total: 47.5 } }])).toBeNull();
+    expect(movedSinceLock([under], [{ gameId: 'g1', market: { total: 48.5 } }])).toBeNull();
+    expect(movedSinceLock([{ ...under, lock: undefined }], [{ gameId: 'g1', market: { total: 40 } }])).toBeNull();
+  });
+  it('reads a spread from the side that was taken', () => {
+    const dog = { gameId: 'g2', market: { type: 'runline' }, selection: { side: 'away', label: 'PIT +4' }, lock: lock(4) };
+    expect(movedSinceLock([dog], [{ gameId: 'g2', market: { spreadHome: -3 } }])).toMatchObject({ taken: '+4', now: '+3' });
+  });
+});

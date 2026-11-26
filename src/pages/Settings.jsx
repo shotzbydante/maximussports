@@ -146,6 +146,7 @@ const USERNAME_RE = /^[a-zA-Z0-9_]{3,20}$/;
 const DEFAULT_PREFS = {
   global_briefing:     true,
   nfl_picks:           true,
+  nfl_pick_alerts:     true,
   mlb_briefing:        true,
   mlb_team_digest:     false,
   mlb_picks:           false,
@@ -1636,6 +1637,7 @@ function PlanBadge({ tier }) {
 
 /* ─── Plan comparison table ──────────────────────────────────────────────── */
 const COMPARISON_ROWS = [
+  { label: 'NFL pick alerts',       free: '—',          pro: 'Email the moment a pick locks' },
   { label: 'Verified account',      free: '—',          pro: 'Verified badge' },
   { label: 'Pinned teams',          free: 'Up to 3',    pro: 'Unlimited' },
   { label: 'Team Digest teams',     free: 'Up to 3',    pro: 'Unlimited' },
@@ -1814,7 +1816,7 @@ function BillingSection({
           <div className={styles.billingUpgradeCta}>
             <div className={styles.billingUpgradeText}>
               <span className={styles.billingUpgradeTitle}>Unlock the full Maximus experience</span>
-              <span className={styles.billingUpgradeSubline}>Verified badge, beta access, future merch drops, and more.</span>
+              <span className={styles.billingUpgradeSubline}>An email the moment an NFL pick locks, before the line moves. Plus unlimited teams and a verified badge.</span>
               <span className={styles.billingUpgradePrice}>{PRO_PRICE_LABEL}</span>
             </div>
             <button
@@ -2716,6 +2718,7 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
               prefs={prefs}
               onToggle={handleOptionToggle}
               notes={{ teams: followsOtherSports ? null : 'You do not follow a baseball or college basketball team yet, so nothing will send.' }}
+              plan={planTier === 'pro' ? 'pro' : 'free'}
             />
           </div>
 

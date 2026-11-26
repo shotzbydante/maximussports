@@ -3,6 +3,8 @@
  * and the groupings behind the "Every game" tabs.
  */
 
+import { fmtLine } from './format';
+
 export const MARKET = { moneyline: 'To win', runline: 'Spread', total: 'Total' };
 
 /** Why a game is held to tracking. A plain "no price edge" needs no chip. */
@@ -152,3 +154,40 @@ export function bestPerGame(picks, floor = VALUE_FLOOR) {
   }
   return [...best.values()].sort((a, b) => (isRecommended(b) - isRecommended(a)) || byConviction(a, b));
 }
+
+/**
+ * The recommended pick whose market has moved furthest in its favour since
+ * it was locked: a total or spread now harder to get than the number taken.
+ * @returns {{ label:string, taken:string, now:string, when:string }|null}
+ */
+export function movedSinceLock(recommended = [], byGame = []) {
+  const games = new Map(byGame.map((g) => [String(g.gameId), g]));
+  let best = null;
+  for (const p of recommended) {
+    const took = p?.lock?.line;
+    const market = games.get(String(p.gameId))?.market;
+    const type = p?.market?.type;
+    if (!Number.isFinite(took) || !market) continue;
+    let now = null;
+    let gain = 0;
+    if (type === 'total' && Number.isFinite(market.total)) {
+      now = market.total;
+      gain = p.selection?.side === 'under' ? took - now : now - took;
+    } else if (type === 'runline' && Number.isFinite(market.spreadHome)) {
+      now = p.selection?.side === 'home' ? market.spreadHome : -market.spreadHome;
+      gain = took - now; // our side's number: +3 taken, +2.5 now, is half a point better
+    }
+    if (now === null || gain < 0.5) continue;
+    if (!best || gain > best.gain) {
+      best = {
+        gain,
+        label: p.selection?.label || '',
+        taken: type === 'total' ? String(took) : fmtLine(took),
+        now: type === 'total' ? String(now) : fmtLine(now),
+        when: p.lock.lockedAt,
+      };
+    }
+  }
+  return best;
+}
+

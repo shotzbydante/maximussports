@@ -17,7 +17,10 @@
 import { useRef, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import styles from './GatedContent.module.css';
-import { trackSignupWallViewed, trackSignupCtaClicked } from '../../analytics/onboarding';
+import { trackSignupWallViewed, trackSignupCtaClicked, trackEmailCaptureSubmitted, trackSignupEmailSent, trackSignupEmailFailed, trackSignupEmailInvalid } from '../../analytics/onboarding';
+import { trackSignupStarted } from '../../lib/analytics/posthog';
+import { requestSignupEmail } from '../../features/account/signupFlow';
+import { grantGuestPass, isEmail } from '../../features/account/guestPass';
 
 /** How much of the gated part shows, faded, below the free part. */
 const PEEK_PX = 96;
@@ -57,6 +60,9 @@ export default function GatedContent({
   const wallRef = useRef(null);
   const [previewPx, setPreviewPx] = useState(420);
   const [mark, setMark] = useState(null);
+  const [email, setEmail] = useState('');
+  const [sending, setSending] = useState(false);
+  const [formError, setFormError] = useState('');
   const copy = { ...(SPORT_COPY[sport] || SPORT_COPY.mlb), ...(mark?.title ? { title: mark.title } : {}), ...(mark?.sub ? { sub: mark.sub } : {}) };
   const ctaHref = next
     ? `/settings?next=${encodeURIComponent(next)}`
@@ -116,6 +122,28 @@ export default function GatedContent({
     return () => { clearTimeout(timer); io.disconnect(); };
   }, [sport, freePicks]);
 
+  // The email is the whole ask. The page opens as soon as it is accepted;
+  // the confirmation email finishes the account.
+  async function onSubmit(e) {
+    e.preventDefault();
+    if (sending) return;
+    const value = email.trim();
+    if (!isEmail(value)) { setFormError('That does not look like an email address.'); trackSignupEmailInvalid(); return; }
+    setFormError('');
+    setSending(true);
+    trackEmailCaptureSubmitted({ placement: 'gate_wall', sport });
+    trackSignupStarted({ method: 'email' });
+    const result = await requestSignupEmail({ email: value, next });
+    setSending(false);
+    if (!result.ok) {
+      trackSignupEmailFailed({ reason: result.reason });
+      setFormError(result.reason === 'network' ? 'Could not reach the server. Check your connection and try again.' : 'That did not go through. Try again in a moment.');
+      return;
+    }
+    trackSignupEmailSent();
+    grantGuestPass(value);
+  }
+
   return (
     <div className={styles.root}>
       {/* Preview: real content, clipped */}
@@ -135,14 +163,33 @@ export default function GatedContent({
           </div>
           <h3 className={styles.ctaTitle}>{copy.title}</h3>
           <p className={styles.ctaSub}>{copy.sub}</p>
-          <Link
-            to={ctaHref}
-            className={`${styles.ctaPrimary} ${styles[`btn_${sport}`] || ''}`}
-            onClick={() => trackSignupCtaClicked({ placement: 'gate_wall', sport })}
-          >
-            Create Free Account &rarr;
-          </Link>
-          <p className={styles.ctaFoot}>Free forever. No credit card required.</p>
+          <form className={styles.ctaForm} onSubmit={onSubmit} noValidate>
+            <label className={styles.srOnly} htmlFor="gate-email">Email address</label>
+            <input
+              id="gate-email"
+              className={styles.ctaInput}
+              type="email"
+              inputMode="email"
+              autoComplete="email"
+              autoCapitalize="none"
+              spellCheck={false}
+              placeholder="you@example.com"
+              value={email}
+              onChange={(e) => { setEmail(e.target.value); if (formError) setFormError(''); }}
+              aria-invalid={formError ? 'true' : undefined}
+              aria-describedby={formError ? 'gate-email-error' : undefined}
+            />
+            <button type="submit" className={`${styles.ctaPrimary} ${styles[`btn_${sport}`] || ''}`} disabled={sending}>
+              {sending ? 'Opening…' : (sport === 'nfl' ? 'Email me every pick' : 'Continue with email')}
+            </button>
+            {formError && <p id="gate-email-error" className={styles.ctaError} role="alert">{formError}</p>}
+          </form>
+          <p className={styles.ctaFoot}>
+            Free. No password, no card. The page opens right away and we email a link to confirm.{' '}
+            <Link to={ctaHref} className={styles.ctaAlt} onClick={() => trackSignupCtaClicked({ placement: 'gate_wall', sport })}>
+              Use Google or sign in
+            </Link>
+          </p>
         </div>
       </div>
     </div>

@@ -32,6 +32,8 @@ export const DEFAULT_EMAIL_PREFS = {
   // NFL. For an account with no stored choice this follows global_briefing,
   // see resolvePreferences().
   nfl_picks:           true,
+  // Pro only: an email the moment a recommended pick is locked. On unless switched off.
+  nfl_pick_alerts:     true,
 
   // MLB
   mlb_briefing:        true,
