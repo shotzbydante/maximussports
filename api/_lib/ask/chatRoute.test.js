@@ -29,7 +29,7 @@ const guestLimit = await import('./guestLimit.js');
 const agent = await import('./agent.js');
 const posthog = await import('../posthogServer.js');
 const { getUserEntitlements } = await import('../subscription.js');
-const { default: handler, cleanPage, cleanGuestHistory } = await import('../../ask/chat.js');
+const { default: handler, cleanPage, cleanGuestHistory, cleanVisitorId, forAnalytics } = await import('../../ask/chat.js');
 
 const DEVICE = '0b9c2f6e-1a2b-4c3d-9e8f-001122334455';
 
@@ -182,6 +182,25 @@ describe('guests', () => {
     expect(done).toMatchObject({ type: 'done', userMessageId: null, message: { role: 'assistant', text: 'No bet. The price is fair.' }, usage: { tier: 'guest', used: 2, cap: 3, left: 1 } });
     expect(String(done.message.id)).toMatch(/^g\d+$/);
     expect(posthog.captureEvent).toHaveBeenCalledWith(expect.objectContaining({ event: 'ask_answered', distinctId: DEVICE }));
+  });
+
+  it('records the question and answer, under the browser\'s analytics id when it sends one', async () => {
+    agent.reply.mockResolvedValueOnce({ text: 'Raiders +3.5.', cards: [], meta: { rounds: 2, tools: ['get_picks'], corrections: 0, model: 'm', usage: { input: 1, output: 1, cacheRead: 0, cacheWrite: 0 } } });
+    const res = await asGuest({ body: { text: '  Who do you\n like this week? ', visitor: '0193a2b4-aaaa-7bbb-8ccc-1234567890ab', context: { page: { kind: 'game', teams: ['raiders', 'chiefs'] } } } });
+    expect(res.events.at(-1).type).toBe('done');
+    const sent = posthog.captureEvent.mock.calls.map((c) => c[0]).find((e) => e.event === 'ask_answered');
+    expect(sent.distinctId).toBe('0193a2b4-aaaa-7bbb-8ccc-1234567890ab');
+    expect(sent.properties).toMatchObject({ question: 'Who do you like this week?', answer: 'Raiders +3.5.', plan: 'guest', signed_in: false, page: 'game', page_teams: ['raiders', 'chiefs'] });
+  });
+
+  it('records the question on a failed turn and at the cap, and ignores a malformed analytics id', async () => {
+    agent.reply.mockRejectedValueOnce(new Error('boom'));
+    await asGuest({ body: { text: 'Best bets?', visitor: 'bad id!' } });
+    const failed = posthog.captureEvent.mock.calls.map((c) => c[0]).find((e) => e.event === 'ask_failed');
+    expect(failed.distinctId).toBe(DEVICE);
+    expect(failed.properties.question).toBe('Best bets?');
+    expect(cleanVisitorId('x')).toBe(null);
+    expect(forAnalytics('a'.repeat(900)).length).toBe(600);
   });
 
   it('gives a guest who has left an email a higher cap', async () => {

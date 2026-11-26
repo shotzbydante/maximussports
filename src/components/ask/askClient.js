@@ -12,6 +12,7 @@
 
 import { getAuthHeaders } from '../../lib/authHeaders';
 import { readGuestPass } from '../../features/account/guestPass';
+import { getDistinctId } from '../../analytics/index';
 
 const ENDPOINT = '/api/ask/chat';
 const DEVICE_KEY = 'mx_ask_device';
@@ -103,7 +104,9 @@ async function* decode(body) {
  */
 export async function sendMessage(text, { page = null, history = null, onEvent = () => {} } = {}) {
   const headers = { 'Content-Type': 'application/json', ...(await whoHeaders()) };
-  const payload = { text, ...(page ? { context: { page } } : {}), ...(history ? { history } : {}) };
+  // The analytics id rides along so the server's record of this question joins this visitor's other events.
+  const visitor = getDistinctId();
+  const payload = { text, ...(page ? { context: { page } } : {}), ...(history ? { history } : {}), ...(visitor ? { visitor } : {}) };
   let r;
   try {
     r = await fetch(ENDPOINT, { method: 'POST', headers, body: JSON.stringify(payload) });

@@ -106,6 +106,16 @@ export function cleanPage(raw) {
   return { kind, teams };
 }
 
+/** The browser's analytics id, if it sent a plausible one. Used only to file events under the right visitor. */
+export function cleanVisitorId(raw) {
+  return typeof raw === 'string' && /^[A-Za-z0-9_.:-]{8,100}$/.test(raw) ? raw : null;
+}
+
+/** A question or answer as it is recorded for analytics: one line, bounded. */
+export function forAnalytics(text, max = 600) {
+  return String(text || '').replace(/\s+/g, ' ').trim().slice(0, max);
+}
+
 /** A guest's conversation as the page sent it: bounded, text only, roles checked. */
 export function cleanGuestHistory(raw) {
   if (!Array.isArray(raw)) return [];
@@ -162,8 +172,13 @@ export default async function handler(req, res) {
   if (!asked.ok) return refuse(asked.code);
 
   const started = Date.now();
-  const who = guest ? (device || 'guest') : user.id;
-  const base = { sport: 'nfl', channel: 'web', plan: limits.tier };
+  const page = cleanPage(body.context?.page);
+  // File the server's events under the same visitor as the browser's: the account id, or the browser's analytics id.
+  const who = guest ? (cleanVisitorId(body.visitor) || device || 'guest') : user.id;
+  const base = {
+    sport: 'nfl', channel: 'web', plan: limits.tier, signed_in: !guest, page: page?.kind || null,
+    page_teams: page?.teams || [], rollout: rolloutMode(), question: forAnalytics(asked.text),
+  };
 
   // Count the question, or stop here.
   let turn;
@@ -198,7 +213,6 @@ export default async function handler(req, res) {
   // leaves does not stop it: an account's answer is still stored for when
   // they return.
   const signal = AbortSignal.timeout(TURN_DEADLINE_MS);
-  const page = cleanPage(body.context?.page);
 
   try {
     const teams = guest ? [] : await followedNflTeams(user.id);
@@ -229,7 +243,7 @@ export default async function handler(req, res) {
       distinctId: who,
       event: 'ask_answered',
       properties: {
-        ...base, page: page?.kind || null, rollout: rolloutMode(),
+        ...base, answer: forAnalytics(out.text, 800), turn: turn.used,
         rounds: out.meta.rounds, tools: out.meta.tools, cards: out.cards.length,
         card_types: [...new Set(out.cards.map((c) => c.type))],
         corrections: out.meta.corrections, fell_back: !!out.meta.fellBack, pro_only: out.meta.proOnly || null,

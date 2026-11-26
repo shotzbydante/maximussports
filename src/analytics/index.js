@@ -330,6 +330,15 @@ export function identify(userId, traits = {}) {
 }
 
 /**
+ * The id PostHog files this browser's events under. Sent with a chat
+ * question so the server's events for it land on the same person.
+ * Null until PostHog has loaded, or when analytics is off.
+ */
+export function getDistinctId() {
+  try { return (ENABLED && _posthog?.get_distinct_id?.()) || null; } catch { return null; }
+}
+
+/**
  * Alias an anonymous distinct_id to a known stable user ID.
  * Call before identify() on first signup/login so PostHog merges the
  * anonymous session into the authenticated person record.

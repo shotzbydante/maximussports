@@ -131,9 +131,11 @@ All carry `sport: 'nfl'`. Client events come from `src/components/ask/`; server 
 | `ask_upgrade_clicked` | client | `surface` (ask_answer, ask_cap), `reason` |
 | `ask_cleared` | client | |
 | `ask_error` | client | `code`, `page` |
-| `ask_answered` | server | `plan`, `channel`, `rounds`, `tools`, `cards`, `card_types`, `corrections`, `fell_back`, `model`, `duration_ms`, token counts |
-| `ask_cap_hit` | server | `plan`, `cap` |
-| `ask_failed` | server | `plan`, `channel`, `code`, `duration_ms` |
+| `ask_answered` | server | `question`, `answer`, `plan`, `signed_in`, `page`, `page_teams`, `turn`, `channel`, `rollout`, `rounds`, `tools`, `cards`, `card_types`, `corrections`, `fell_back`, `pro_only`, `model`, `duration_ms`, token counts |
+| `ask_cap_hit` | server | `question`, `plan`, `signed_in`, `page`, `cap` |
+| `ask_failed` | server | `question`, `plan`, `signed_in`, `page`, `code`, `duration_ms` |
+
+**What people ask.** Every server event carries `question` (the text as typed, one line, up to 600 characters); `ask_answered` also carries `answer` (up to 800). To read them: filter events to `ask_answered` and show the `question` column, or break `ask_answered` down by `question`. Server events are filed under the account id when signed in, and under the browser's PostHog id for guests (the page sends it as `visitor`), so a question sits on the same person as their page views and sign-up.
 
 Email given inside chat fires the site's existing email-capture events with `placement` `ask_locked_card` or `ask_cap`.
 
