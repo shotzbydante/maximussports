@@ -11,6 +11,7 @@ const TABS = [
   { path: '', label: 'This week', end: true },
   { path: '/games', label: 'Games' },
   { path: '/insights', label: 'Picks' },
+  { path: '/ask', label: 'Ask' },
   { path: '/teams', label: 'Teams' },
   { path: '/news', label: 'News' },
   { path: '/season-model', label: 'Season' },

@@ -6,6 +6,7 @@ import AnalyticsRouteListener from './components/layout/AnalyticsRouteListener';
 import ErrorBoundary from './components/ErrorBoundary';
 import Home from './pages/Home';
 import Landing from './pages/Landing';
+import { AskProvider } from './components/ask/AskProvider';
 import ToastContainer from './components/common/Toast';
 import { AuthProvider } from './context/AuthContext';
 import { initOfficialBracket } from './utils/bracketInit';
@@ -54,6 +55,7 @@ const NflGameMatchup = lazy(() => import('./pages/nfl/NflGameMatchup'));
 const NflNewsFeed    = lazy(() => import('./pages/nfl/NflNewsFeed'));
 const NflPicks       = lazy(() => import('./pages/nfl/NflPicks'));
 const NflSeasonModel = lazy(() => import('./pages/nfl/NflSeasonModel'));
+const NflAsk         = lazy(() => import('./pages/nfl/NflAsk'));
 
 const AuthCallback = lazy(() => import('./pages/AuthCallback'));
 
@@ -86,6 +88,7 @@ export default function App() {
         <ToastContainer />
         <ErrorBoundary>
           <WorkspaceProvider>
+           <AskProvider>
             <Suspense fallback={null}>
               <Routes>
                 <Route path="/" element={<Layout />}>
@@ -170,6 +173,7 @@ export default function App() {
                     <Route path="teams/:slug" element={<RouteGate><NflTeamDetail /></RouteGate>} />
                     <Route path="news" element={<RouteGate><NflNewsFeed /></RouteGate>} />
                     <Route path="insights" element={<RouteGate><NflPicks /></RouteGate>} />
+                    <Route path="ask" element={<NflAsk />} />
                     <Route path="season-model" element={<RouteGate><NflSeasonModel /></RouteGate>} />
                     <Route path="season-intel" element={<Navigate to="/nfl/season-model" replace />} />
                     <Route path="dashboard" element={<Navigate to="/dashboard" replace />} />
@@ -183,6 +187,7 @@ export default function App() {
                   <Route path="settings" element={<Settings />} />
                   <Route path="dashboard" element={<Dashboard />} />
                   <Route path="record" element={<Record />} />
+                  <Route path="ask" element={<NflAsk />} />
                   <Route path="privacy" element={<Privacy />} />
                   <Route path="terms" element={<Terms />} />
                   <Route path="contact" element={<Contact />} />
@@ -194,6 +199,7 @@ export default function App() {
                 <Route path="render/nfl-daily" element={<RenderNflDaily />} />
               </Routes>
             </Suspense>
+           </AskProvider>
           </WorkspaceProvider>
         </ErrorBoundary>
       </BrowserRouter>

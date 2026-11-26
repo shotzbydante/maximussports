@@ -30,6 +30,7 @@ import { trackSignupCtaClicked } from '../../../analytics/onboarding';
 import useGuestPass from '../../../hooks/useGuestPass';
 import { usePlan } from '../../../hooks/usePlan';
 import ProAlerts from './ProAlerts';
+import AskAbout from '../../ask/AskAbout';
 import h from './home.module.css';
 import { trackPicksBoardView } from '../../../analytics/sportEvents';
 
@@ -158,6 +159,7 @@ export default function HomePicks({ variant = 'home', games: gamesProp, weekLabe
           asOf={board?.generatedAt}
         >
           {full && <Reasons pick={p} />}
+          {full && <AskAbout question={`Why ${p.selection?.label}?`} label="Ask Maximus why" source="pick_card" />}
         </HomePickCard>
       ))}
     </div>

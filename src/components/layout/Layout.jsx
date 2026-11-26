@@ -3,6 +3,7 @@ import TopNav from './TopNav';
 import Sidebar from './Sidebar';
 import Footer from './Footer';
 import StickyGuestCTA from '../common/StickyGuestCTA';
+import AskLauncher from '../ask/AskLauncher';
 import { useAuth } from '../../context/AuthContext';
 import { usePinnedTeamsSync } from '../../hooks/usePinnedTeamsSync';
 import styles from './Layout.module.css';
@@ -23,6 +24,7 @@ export default function Layout() {
     return (
       <div className={styles.root}>
         <Outlet />
+        <AskLauncher />
       </div>
     );
   }
@@ -56,6 +58,7 @@ export default function Layout() {
       </div>
       <Footer />
       {!user && <StickyGuestCTA />}
+      <AskLauncher />
     </div>
   );
 }

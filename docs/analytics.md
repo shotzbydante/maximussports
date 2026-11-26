@@ -116,6 +116,31 @@ identify('user-123', { plan: 'pro' });
 | `video_modal_open` | `video_id`, `title`, `source` | Modal opens |
 | `video_modal_close` | `source` | Modal dismissed |
 
+### Ask Maximus
+
+All carry `sport: 'nfl'`. Client events come from `src/components/ask/`; server events from `api/ask/chat.js`.
+
+| Event | Where | Properties |
+|---|---|---|
+| `ask_peek_shown` | client | `page` (home, picks, game, team) |
+| `ask_peek_dismissed` | client | |
+| `ask_opened` | client | `source` (launcher, peek, pick_card, game_page, team_page, page), `page` |
+| `ask_message_sent` | client | `source` (typed, starter, followup, refresh, or the in-page button), `length`, `page`, `signed_in` |
+| `ask_answer_shown` | client | `source`, `page`, `plan`, `cards`, `locked`, `pro_offer`, `duration_ms` |
+| `ask_card_opened` | client | `card_type`, `game_id` |
+| `ask_upgrade_clicked` | client | `surface` (ask_answer, ask_cap), `reason` |
+| `ask_cleared` | client | |
+| `ask_error` | client | `code`, `page` |
+| `ask_answered` | server | `question`, `answer`, `plan`, `signed_in`, `page`, `page_teams`, `turn`, `channel`, `rollout`, `rounds`, `tools`, `cards`, `card_types`, `corrections`, `fell_back`, `pro_only`, `model`, `duration_ms`, token counts |
+| `ask_cap_hit` | server | `question`, `plan`, `signed_in`, `page`, `cap` |
+| `ask_failed` | server | `question`, `plan`, `signed_in`, `page`, `code`, `duration_ms` |
+
+**What people ask.** Every server event carries `question` (the text as typed, one line, up to 600 characters); `ask_answered` also carries `answer` (up to 800). To read them: filter events to `ask_answered` and show the `question` column, or break `ask_answered` down by `question`. Server events are filed under the account id when signed in, and under the browser's PostHog id for guests (the page sends it as `visitor`), so a question sits on the same person as their page views and sign-up.
+
+Email given inside chat fires the site's existing email-capture events with `placement` `ask_locked_card` or `ask_cap`.
+
+The funnel to watch: `ask_peek_shown` → `ask_opened` → `ask_message_sent` → email capture (guests) or `ask_upgrade_clicked` (free accounts). `corrections` and `fell_back` count answers the server sent back because the model wrote a number that was not in the data.
+
 ### Errors
 | Event | Properties | Fired when |
 |---|---|---|

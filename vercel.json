@@ -32,6 +32,9 @@
     "api/nfl/chat/homeSummary.js": {
       "maxDuration": 60
     },
+    "api/ask/chat.js": {
+      "maxDuration": 60
+    },
     "api/nba/chat/homeSummary.js": {
       "maxDuration": 60
     },

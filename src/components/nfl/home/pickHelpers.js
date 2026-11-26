@@ -3,7 +3,7 @@
  * and the groupings behind the "Every game" tabs.
  */
 
-import { fmtLine } from './format';
+import { fmtLine } from './format.js';
 
 export const MARKET = { moneyline: 'To win', runline: 'Spread', total: 'Total' };
 

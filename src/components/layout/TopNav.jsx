@@ -70,7 +70,14 @@ const NavSettingsIcon = () => (
   </svg>
 );
 
+const NavAskIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <path d="M2.5 3.5h11v7.5H7l-3 2.5V11H2.5z" />
+  </svg>
+);
+
 const ICON_COMPONENTS = {
+  ask: NavAskIcon,
   home: NavHomeIcon,
   briefing: NavBriefingIcon,
   games: NavGamesIcon,
@@ -145,6 +152,9 @@ export default function TopNav() {
         { to: buildPath('/insights'), end: false, label: workspace.labels.picks, iconKey: 'insights' },
         { to: buildPath('/news'), end: false, label: workspace.labels.news, iconKey: 'news' },
       );
+      if (hasCapability('ask')) {
+        links.push({ to: buildPath('/ask'), end: false, label: 'Ask Maximus', iconKey: 'ask' });
+      }
       if (hasCapability('seasonIntel')) {
         links.push({ to: buildPath('/season-model'), end: false, label: 'Season Intelligence', iconKey: 'insights' });
       }
