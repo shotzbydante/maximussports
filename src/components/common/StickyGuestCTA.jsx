@@ -11,6 +11,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { getRouteAccess } from '../../hooks/useAuthGate';
 import styles from './StickyGuestCTA.module.css';
+import { trackSignupCtaClicked } from '../../analytics/onboarding';
 
 export default function StickyGuestCTA({
   headline = 'Get the full Maximus Sports experience',
@@ -40,7 +41,10 @@ export default function StickyGuestCTA({
           <p className={styles.sub}>Save teams, unlock insights, and personalize your feed.</p>
         </div>
         <div className={styles.actions}>
-          <button className={styles.ctaBtn} onClick={() => navigate(ctaRoute)}>
+          <button
+            className={styles.ctaBtn}
+            onClick={() => { trackSignupCtaClicked({ placement: 'sticky_bar' }); navigate(ctaRoute); }}
+          >
             {ctaLabel}
           </button>
           <button

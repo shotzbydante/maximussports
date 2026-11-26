@@ -97,6 +97,32 @@ export function rankMarket(picks, type) {
 const MARKET_ORDER = { runline: 0, total: 1, moneyline: 2 };
 const isHeld = (p) => Boolean(HELD_BACK[p?.lowSignalReason]);
 
+const NEXT_UP_HOURS = 48;
+
+/**
+ * The leans a signed-out reader sees for free beside the recommended picks:
+ * the strongest call in each market the recommended picks do not already
+ * cover (spread, total, to win), so the page opens with up to `want` calls.
+ * Drawn from the games kicking off within two days of the next kickoff, so
+ * a Thursday visitor gets Thursday's games, and from the whole board when
+ * that window holds fewer than three games. Held-back calls are left out.
+ */
+export function freeLeans(leans, recommended = [], want = 3) {
+  const need = Math.max(0, want - recommended.length);
+  if (need === 0) return [];
+  const start = (p) => Date.parse(p?.matchup?.startTime) || Infinity;
+  const open = (leans || []).filter((p) => !isHeld(p));
+  const first = Math.min(...[...open, ...recommended].map(start));
+  const soon = open.filter((p) => start(p) <= first + NEXT_UP_HOURS * 3600e3);
+  const pool = new Set(soon.map((p) => p.gameId)).size >= 3 ? soon : open;
+  const covered = new Set(recommended.map((p) => p?.market?.type));
+  return Object.keys(MARKET_ORDER)
+    .filter((type) => !covered.has(type))
+    .map((type) => rankMarket(pool, type)[0])
+    .filter(Boolean)
+    .slice(0, need);
+}
+
 /**
  * Which of two decisions on the same game should represent it: a
  * recommended pick first; then one that is not held back (a -1500
