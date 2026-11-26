@@ -1,8 +1,9 @@
 /**
  * POST /api/auth/send-welcome
  *
- * Sends a branded welcome email to the authenticated user after onboarding.
- * Called client-side when a new user completes the onboarding wizard.
+ * Sends a branded welcome email to the authenticated user.
+ * Called client-side the first time a new account signs in, and again when
+ * setup is saved; the log check below keeps it to one email.
  *
  * Dedup: checks email_send_log for an existing 'welcome' entry for the user.
  * Always returns { ok: true } — non-critical, best-effort send.
@@ -43,7 +44,7 @@ export default async function handler(req, res) {
       .from('email_send_log')
       .select('id')
       .eq('user_id', user.id)
-      .eq('type', 'welcome')
+      .eq('digest_type', 'welcome')
       .limit(1);
 
     if (existing && existing.length > 0) {
@@ -59,11 +60,11 @@ export default async function handler(req, res) {
 
     // Log the send for dedup
     const { error: logError } = await sb.from('email_send_log').insert({
-      user_id:  user.id,
-      email:    user.email,
-      type:     'welcome',
-      date_key: `welcome_${user.id}`,
-      sent_at:  new Date().toISOString(),
+      user_id:     user.id,
+      email:       user.email,
+      digest_type: 'welcome',
+      run_mode:    'transactional',
+      sent_at:     new Date().toISOString(),
     });
     if (logError) {
       console.warn('[send-welcome] Failed to log send:', logError.message);

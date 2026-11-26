@@ -4,6 +4,11 @@
  *
  * ─── THE FUNNEL, IN ORDER ────────────────────────────────────────────────
  *
+ *  signup_wall_viewed       the create-account wall or bar came on screen   placement, sport
+ *  signup_cta_clicked       tapped a create-account button                  placement: gate_wall | free_lean | sticky_bar
+ *  email_capture_submitted  typed an email into the wall on a preview page; the page opens at once (guest pass)
+ *  guest_pass_confirmed     confirmed that email with the code, from the bar above the opened page
+ *  onboarding_deferred      new account sent straight to the page it came for; setup waits in Settings
  *  signup_viewed            signed-out signup form shown        (lib/analytics/posthog.js)
  *  signup_started           chose Google or email               (lib/analytics/posthog.js)
  *    signup_email_sent      confirmation email request accepted
@@ -134,6 +139,23 @@ export function trackSignupCodeSubmitted({ embedded = false } = {}) { track('sig
 export function trackSignupCodeFailed({ reason = 'other', embedded = false } = {}) { track('signup_code_failed', { reason, embedded }); }
 export function trackSignupCodeVerified({ embedded = false } = {}) { track('signup_code_verified', { embedded }); }
 export function trackSignupEmailInvalid() { track('signup_email_invalid', {}); }
+
+/* ── Before the form: the walls and buttons that ask for an account ──────── */
+
+const here = () => (typeof window === 'undefined' ? '' : window.location.pathname);
+export function trackSignupWallViewed({ placement = 'gate_wall', sport, freePicks } = {}) {
+  track('signup_wall_viewed', { placement, sport, path: here(), free_picks: freePicks });
+}
+export function trackSignupCtaClicked({ placement = 'gate_wall', sport } = {}) {
+  track('signup_cta_clicked', { placement, sport, path: here() });
+}
+export function trackEmailCaptureSubmitted({ placement = 'gate_wall', sport } = {}) {
+  track('email_capture_submitted', { placement, sport, path: here() });
+}
+export function trackGuestPassConfirmed() { track('guest_pass_confirmed', { path: here() }); }
+export function trackOnboardingDeferred({ method, destination } = {}) {
+  track('onboarding_deferred', { method, destination });
+}
 
 /* ── Setup ───────────────────────────────────────────────────────────────── */
 

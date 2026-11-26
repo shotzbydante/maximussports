@@ -14,6 +14,7 @@
  */
 
 import { describeRoute } from './routeProps.js';
+import { recordAttribution, attributionEventProps, attributionPersonProps } from './attribution.js';
 
 const ENABLED  = import.meta.env.VITE_ANALYTICS_ENABLED !== 'false';
 const PH_KEY   = import.meta.env.VITE_POSTHOG_KEY   ?? '';
@@ -117,6 +118,8 @@ export function getContextProps() {
     const sport = route.sport || (route.page_type === 'landing' ? null : _context.sport);
     if (sport) out.sport = sport;
   } catch { /* SSR safety */ }
+  // Where this visitor came from (utm_* and first_utm_*), read once on landing.
+  try { Object.assign(out, attributionEventProps()); } catch { /* storage blocked */ }
   try {
     out.vw     = window.innerWidth;
     out.vh     = window.innerHeight;
@@ -161,6 +164,12 @@ async function loadPostHog(key, host) {
       disable_session_recording: false,
       loaded: (instance) => {
         _posthog = instance;
+        // Person properties for the campaign that brought this visitor in.
+        // They carry over when the anonymous visitor signs up and is identified.
+        try {
+          const { set, setOnce } = attributionPersonProps();
+          if (Object.keys(set).length || Object.keys(setOnce).length) instance.setPersonProperties?.(set, setOnce);
+        } catch { /* ignore */ }
         if (isDebug()) console.log('[Analytics] PostHog ready');
         _flushBuffer();
       },
@@ -216,6 +225,8 @@ export function initAnalytics() {
   if (!ENABLED || typeof window === 'undefined') return;
   try {
     _sessionId = getOrCreateSessionId();
+    // Before anything is tracked: the landing URL still has its campaign tags.
+    recordAttribution();
 
     // GA4: dynamic script tag, async
     if (GA4_ID) loadGA4(GA4_ID);

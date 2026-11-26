@@ -3,6 +3,8 @@
  * and the groupings behind the "Every game" tabs.
  */
 
+import { fmtLine } from './format';
+
 export const MARKET = { moneyline: 'To win', runline: 'Spread', total: 'Total' };
 
 /** Why a game is held to tracking. A plain "no price edge" needs no chip. */
@@ -97,6 +99,32 @@ export function rankMarket(picks, type) {
 const MARKET_ORDER = { runline: 0, total: 1, moneyline: 2 };
 const isHeld = (p) => Boolean(HELD_BACK[p?.lowSignalReason]);
 
+const NEXT_UP_HOURS = 48;
+
+/**
+ * The leans a signed-out reader sees for free beside the recommended picks:
+ * the strongest call in each market the recommended picks do not already
+ * cover (spread, total, to win), so the page opens with up to `want` calls.
+ * Drawn from the games kicking off within two days of the next kickoff, so
+ * a Thursday visitor gets Thursday's games, and from the whole board when
+ * that window holds fewer than three games. Held-back calls are left out.
+ */
+export function freeLeans(leans, recommended = [], want = 3) {
+  const need = Math.max(0, want - recommended.length);
+  if (need === 0) return [];
+  const start = (p) => Date.parse(p?.matchup?.startTime) || Infinity;
+  const open = (leans || []).filter((p) => !isHeld(p));
+  const first = Math.min(...[...open, ...recommended].map(start));
+  const soon = open.filter((p) => start(p) <= first + NEXT_UP_HOURS * 3600e3);
+  const pool = new Set(soon.map((p) => p.gameId)).size >= 3 ? soon : open;
+  const covered = new Set(recommended.map((p) => p?.market?.type));
+  return Object.keys(MARKET_ORDER)
+    .filter((type) => !covered.has(type))
+    .map((type) => rankMarket(pool, type)[0])
+    .filter(Boolean)
+    .slice(0, need);
+}
+
 /**
  * Which of two decisions on the same game should represent it: a
  * recommended pick first; then one that is not held back (a -1500
@@ -126,3 +154,40 @@ export function bestPerGame(picks, floor = VALUE_FLOOR) {
   }
   return [...best.values()].sort((a, b) => (isRecommended(b) - isRecommended(a)) || byConviction(a, b));
 }
+
+/**
+ * The recommended pick whose market has moved furthest in its favour since
+ * it was locked: a total or spread now harder to get than the number taken.
+ * @returns {{ label:string, taken:string, now:string, when:string }|null}
+ */
+export function movedSinceLock(recommended = [], byGame = []) {
+  const games = new Map(byGame.map((g) => [String(g.gameId), g]));
+  let best = null;
+  for (const p of recommended) {
+    const took = p?.lock?.line;
+    const market = games.get(String(p.gameId))?.market;
+    const type = p?.market?.type;
+    if (!Number.isFinite(took) || !market) continue;
+    let now = null;
+    let gain = 0;
+    if (type === 'total' && Number.isFinite(market.total)) {
+      now = market.total;
+      gain = p.selection?.side === 'under' ? took - now : now - took;
+    } else if (type === 'runline' && Number.isFinite(market.spreadHome)) {
+      now = p.selection?.side === 'home' ? market.spreadHome : -market.spreadHome;
+      gain = took - now; // our side's number: +3 taken, +2.5 now, is half a point better
+    }
+    if (now === null || gain < 0.5) continue;
+    if (!best || gain > best.gain) {
+      best = {
+        gain,
+        label: p.selection?.label || '',
+        taken: type === 'total' ? String(took) : fmtLine(took),
+        now: type === 'total' ? String(now) : fmtLine(now),
+        when: p.lock.lockedAt,
+      };
+    }
+  }
+  return best;
+}
+

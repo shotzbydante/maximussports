@@ -7,11 +7,28 @@
  * Renders children clipped to ~25% of their full height, with a gradient
  * fade and a centered create-account CTA below. Shared across MLB and NBA
  * (and any future preview-gated surfaces).
+ *
+ * A page can say where its free part ends by rendering an element with
+ * `data-gate-start` (see GateStart below). The preview then runs to that
+ * element instead of to a share of the page, and the wall can take its
+ * heading from it, so the ask names what is behind the wall.
  */
 
 import { useRef, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import styles from './GatedContent.module.css';
+import { trackSignupWallViewed, trackSignupCtaClicked, trackEmailCaptureSubmitted, trackSignupEmailSent, trackSignupEmailFailed, trackSignupEmailInvalid } from '../../analytics/onboarding';
+import { trackSignupStarted } from '../../lib/analytics/posthog';
+import { requestSignupEmail } from '../../features/account/signupFlow';
+import { grantGuestPass, isEmail } from '../../features/account/guestPass';
+
+/** How much of the gated part shows, faded, below the free part. */
+const PEEK_PX = 96;
+
+/** Marks where a page's free part ends. Renders nothing a reader can see. */
+export function GateStart({ title, sub, freePicks }) {
+  return <div data-gate-start="" data-gate-title={title || undefined} data-gate-sub={sub || undefined} data-gate-free={freePicks ?? undefined} aria-hidden="true" />;
+}
 
 const SPORT_COPY = {
   mlb: {
@@ -39,8 +56,14 @@ export default function GatedContent({
   children,
 }) {
   const clipRef = useRef(null);
+  const innerRef = useRef(null);
+  const wallRef = useRef(null);
   const [previewPx, setPreviewPx] = useState(420);
-  const copy = SPORT_COPY[sport] || SPORT_COPY.mlb;
+  const [mark, setMark] = useState(null);
+  const [email, setEmail] = useState('');
+  const [sending, setSending] = useState(false);
+  const [formError, setFormError] = useState('');
+  const copy = { ...(SPORT_COPY[sport] || SPORT_COPY.mlb), ...(mark?.title ? { title: mark.title } : {}), ...(mark?.sub ? { sub: mark.sub } : {}) };
   const ctaHref = next
     ? `/settings?next=${encodeURIComponent(next)}`
     : '/settings';
@@ -49,6 +72,16 @@ export default function GatedContent({
     function measure() {
       const el = clipRef.current;
       if (!el) return;
+      const start = el.querySelector('[data-gate-start]');
+      if (start) {
+        const top = start.getBoundingClientRect().top - el.getBoundingClientRect().top;
+        setPreviewPx(Math.round(top) + PEEK_PX);
+        const d = start.dataset;
+        setMark((m) => (m && m.title === d.gateTitle && m.sub === d.gateSub && m.free === d.gateFree
+          ? m : { title: d.gateTitle, sub: d.gateSub, free: d.gateFree }));
+        return;
+      }
+      setMark(null);
       const full = el.scrollHeight;
       const viewport = window.innerHeight || 800;
       const minDesktop = 400;
@@ -63,21 +96,65 @@ export default function GatedContent({
     measure();
     const ro = new ResizeObserver(measure);
     if (clipRef.current) ro.observe(clipRef.current);
+    // The clip's own box stops growing once it is capped; the content inside is what changes as data loads.
+    if (innerRef.current) ro.observe(innerRef.current);
     window.addEventListener('resize', measure);
     return () => { ro.disconnect(); window.removeEventListener('resize', measure); };
   }, [previewPercent]);
+
+  // One signup_wall_viewed per mount, the first time the wall is on screen.
+  const freePicks = mark?.free;
+  useEffect(() => {
+    const el = wallRef.current;
+    if (!el || typeof IntersectionObserver === 'undefined') return undefined;
+    // Half the wall, on screen for a full second: a page that is still loading can flash it past.
+    let timer = null;
+    const io = new IntersectionObserver((entries) => {
+      const on = entries[entries.length - 1]?.isIntersecting;
+      clearTimeout(timer);
+      if (!on) return;
+      timer = setTimeout(() => {
+        io.disconnect();
+        trackSignupWallViewed({ placement: 'gate_wall', sport, freePicks: freePicks === undefined ? undefined : Number(freePicks) });
+      }, 1000);
+    }, { threshold: 0.5 });
+    io.observe(el);
+    return () => { clearTimeout(timer); io.disconnect(); };
+  }, [sport, freePicks]);
+
+  // The email is the whole ask. The page opens as soon as it is accepted;
+  // the confirmation email finishes the account.
+  async function onSubmit(e) {
+    e.preventDefault();
+    if (sending) return;
+    const value = email.trim();
+    if (!isEmail(value)) { setFormError('That does not look like an email address.'); trackSignupEmailInvalid(); return; }
+    setFormError('');
+    setSending(true);
+    trackEmailCaptureSubmitted({ placement: 'gate_wall', sport });
+    trackSignupStarted({ method: 'email' });
+    const result = await requestSignupEmail({ email: value, next });
+    setSending(false);
+    if (!result.ok) {
+      trackSignupEmailFailed({ reason: result.reason });
+      setFormError(result.reason === 'network' ? 'Could not reach the server. Check your connection and try again.' : 'That did not go through. Try again in a moment.');
+      return;
+    }
+    trackSignupEmailSent();
+    grantGuestPass(value);
+  }
 
   return (
     <div className={styles.root}>
       {/* Preview: real content, clipped */}
       <div className={styles.contentClip} ref={clipRef} style={{ maxHeight: `${previewPx}px` }}>
-        <div className={styles.contentInner}>{children}</div>
-        <div className={`${styles.fadeBand} ${styles[`fade_${sport}`] || ''}`} aria-hidden />
+        <div className={styles.contentInner} ref={innerRef}>{children}</div>
+        <div className={`${styles.fadeBand} ${styles[`fade_${sport}`] || ''}`} style={mark ? { height: `${PEEK_PX}px` } : undefined} aria-hidden />
       </div>
 
       {/* CTA card */}
       <div className={`${styles.ctaFill} ${styles[`fill_${sport}`] || ''}`}>
-        <div className={styles.ctaCard}>
+        <div className={styles.ctaCard} ref={wallRef}>
           <div className={styles.lockIcon} aria-hidden>
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
@@ -86,10 +163,33 @@ export default function GatedContent({
           </div>
           <h3 className={styles.ctaTitle}>{copy.title}</h3>
           <p className={styles.ctaSub}>{copy.sub}</p>
-          <Link to={ctaHref} className={`${styles.ctaPrimary} ${styles[`btn_${sport}`] || ''}`}>
-            Create Free Account &rarr;
-          </Link>
-          <p className={styles.ctaFoot}>Free forever. No credit card required.</p>
+          <form className={styles.ctaForm} onSubmit={onSubmit} noValidate>
+            <label className={styles.srOnly} htmlFor="gate-email">Email address</label>
+            <input
+              id="gate-email"
+              className={styles.ctaInput}
+              type="email"
+              inputMode="email"
+              autoComplete="email"
+              autoCapitalize="none"
+              spellCheck={false}
+              placeholder="you@example.com"
+              value={email}
+              onChange={(e) => { setEmail(e.target.value); if (formError) setFormError(''); }}
+              aria-invalid={formError ? 'true' : undefined}
+              aria-describedby={formError ? 'gate-email-error' : undefined}
+            />
+            <button type="submit" className={`${styles.ctaPrimary} ${styles[`btn_${sport}`] || ''}`} disabled={sending}>
+              {sending ? 'Opening…' : (sport === 'nfl' ? 'Email me every pick' : 'Continue with email')}
+            </button>
+            {formError && <p id="gate-email-error" className={styles.ctaError} role="alert">{formError}</p>}
+          </form>
+          <p className={styles.ctaFoot}>
+            Free. No password, no card. The page opens right away and we email a link to confirm.{' '}
+            <Link to={ctaHref} className={styles.ctaAlt} onClick={() => trackSignupCtaClicked({ placement: 'gate_wall', sport })}>
+              Use Google or sign in
+            </Link>
+          </p>
         </div>
       </div>
     </div>

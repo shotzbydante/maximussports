@@ -23,7 +23,13 @@ import { Matchup } from './NflTeamTag';
 import { SectionHead, Rail, ScoreRing, ModelMarketBars } from './HomeParts';
 import { kickoffShort } from './format';
 import HomeEveryGame from './HomeEveryGame';
-import { MARKET, HELD_BACK, score, byConviction, pickedTeam, whyShortOf, sentence } from './pickHelpers';
+import { MARKET, HELD_BACK, score, byConviction, pickedTeam, whyShortOf, sentence, freeLeans } from './pickHelpers';
+import { useAuth } from '../../../context/AuthContext';
+import { GateStart } from '../../common/GatedContent';
+import { trackSignupCtaClicked } from '../../../analytics/onboarding';
+import useGuestPass from '../../../hooks/useGuestPass';
+import { usePlan } from '../../../hooks/usePlan';
+import ProAlerts from './ProAlerts';
 import h from './home.module.css';
 import { trackPicksBoardView } from '../../../analytics/sportEvents';
 
@@ -50,11 +56,11 @@ function Reasons({ pick }) {
 }
 
 /** A lean, shown on the home page only when nothing is recommended. */
-function LeanTile({ pick, to }) {
+function LeanTile({ pick, to, onClick }) {
   const m = pick.matchup || {};
   const team = pickedTeam(pick);
   return (
-    <Link to={to} className={h.tile} role="listitem">
+    <Link to={to} className={h.tile} role="listitem" onClick={onClick}>
       <div className={h.pickTop}>
         <span className={h.chipRow}>
           <span className={h.chip}>{MARKET[pick.market?.type] || 'Pick'}</span>
@@ -84,6 +90,11 @@ function LeanTile({ pick, to }) {
 export default function HomePicks({ variant = 'home', games: gamesProp, weekLabel }) {
   const full = variant === 'full';
   const { buildPath } = useWorkspace();
+  const { user, loading: authLoading } = useAuth();
+  // A guest pass (an email given at the wall) opens the whole page, so that reader gets the full board.
+  const pass = useGuestPass();
+  const guest = !user && !authLoading && !pass;
+  const { planTier } = usePlan();
   const [board, setBoard] = useState(undefined);
   const [card, setCard] = useState(null);
   const [inPlay, setInPlay] = useState([]);
@@ -114,6 +125,10 @@ export default function HomePicks({ variant = 'home', games: gamesProp, weekLabe
     .filter((p) => !recommendedIds.has(p.id))
     .sort(byConviction);
   const total = recommended.length + leans.length;
+  // Signed out, the picks page opens with three calls: the recommended picks, topped up with the strongest leans.
+  const free = full && guest ? freeLeans(leans, recommended, 3) : [];
+  const gameCount = new Set((board?.fullSlatePicks || [...recommended, ...leans]).map((p) => p.gameId)).size;
+  const signupHref = `/settings?next=${encodeURIComponent(insights)}`;
   const shown = full ? recommended : recommended.slice(0, HOME_MAX);
   const week = weekLabel || (board?.week ? `Week ${board.week}` : null);
   const title = week ? `Maximus’s picks for ${week}` : 'Maximus’s picks for the week';
@@ -162,8 +177,37 @@ export default function HomePicks({ variant = 'home', games: gamesProp, weekLabe
       <>
         <section className={h.section} aria-label="Recommended picks">
           <SectionHead title={title} countBelow count={recommended.length > 0 ? `${recommended.length} ${recommended.length === 1 ? 'pick' : 'picks'}, ranked by conviction` : null} />
-          {board === undefined ? <div className={h.skeleton} aria-busy="true" /> : (cards || nothingYet)}
+          {/* Signed out, the wall sits right under this section: a short placeholder would put the wall on the first screen before any pick. */}
+          {board === undefined
+            ? <div className={h.skeleton} style={!user ? { minHeight: '70vh' } : undefined} aria-busy="true" />
+            : (cards || (free.length > 0 ? null : nothingYet))}
+          {free.length > 0 && (
+            <>
+              <p className={h.sectionNote}>
+                {recommended.length > 0
+                  ? `The ratings’ strongest ${free.length === 1 ? 'lean' : 'leans'} in the other markets. Tracked and graded, not recommended.`
+                  : 'No price clears the bar for a recommendation right now. These are the ratings’ strongest leans, tracked and graded.'}
+              </p>
+              <div className={h.picksStack} role="list">
+                {free.map((p) => (
+                  <LeanTile key={p.id} pick={p} to={signupHref} onClick={() => trackSignupCtaClicked({ placement: 'free_lean', sport: 'nfl' })} />
+                ))}
+              </div>
+            </>
+          )}
         </section>
+
+        {user && planTier && board && (
+          <ProAlerts isPro={planTier === 'pro'} userId={user.id} recommended={recommended} byGame={board.byGame || []} />
+        )}
+
+        {guest && total > 0 && (
+          <GateStart
+            title={gameCount > 1 ? `See the call on all ${gameCount} games` : 'See the call on every game'}
+            sub="Enter your email to open every spread, total and moneyline this week, with the reasons and the graded record. The picks also reach your inbox Thursday and Sunday."
+            freePicks={recommended.length + free.length}
+          />
+        )}
 
         {total > 0 && (
           <HomeEveryGame
