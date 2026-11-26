@@ -1,24 +1,37 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { reply, toClaudeMessages, toPlain, buildContext, HOUSE_RULES, AskError, MAX_ROUNDS } from './agent.js';
 import { ClaudeError } from '../claude.js';
-import { fakeConnector, FREE, PRO, NOW } from './fixtures.js';
+import { fakeConnector, GUEST, FREE, PRO, NOW } from './fixtures.js';
 
 afterEach(() => vi.restoreAllMocks());
 
 let n = 0;
 const use = (name, input = {}) => ({ type: 'tool_use', id: `tu_${++n}`, name, input });
 const say = (text) => ({ type: 'text', text });
+const thought = () => ({ type: 'thinking', thinking: '', signature: 'sig' });
 const turn = (...content) => ({ content, usage: { input: 10, output: 5, cacheRead: 0, cacheWrite: 0 } });
 
-/** A scripted model: each call returns the next response and records what it was sent. */
+/**
+ * A scripted model. Each call returns the next response and records what it
+ * was sent. Text blocks stream through onText; a display tool's input
+ * streams through onToolInput in two pieces, as the API delivers it.
+ */
 function scripted(responses) {
   const calls = [];
   const callModel = async (req) => {
-    calls.push(JSON.parse(JSON.stringify({ system: req.system, messages: req.messages })));
+    calls.push(JSON.parse(JSON.stringify({ system: req.system, messages: req.messages, effort: req.effort, model: req.model })));
     const next = responses[calls.length - 1];
     if (!next) throw new Error('model called more times than scripted');
     if (next instanceof Error) throw next;
-    for (const b of next.content) if (b.type === 'text') req.onText(b.text);
+    for (const b of next.content) {
+      if (b.type === 'text') req.onText(b.text);
+      if (b.type === 'tool_use' && !b.truncated) {
+        const json = JSON.stringify(b.input);
+        const half = Math.ceil(json.length / 2);
+        req.onToolInput(b, json.slice(0, half));
+        req.onToolInput(b, json);
+      }
+    }
     return next;
   };
   return { callModel, calls };
@@ -35,93 +48,143 @@ function run(responses, { limits = PRO(), connector, history = [], text = 'Who d
     onStatus: (l) => stream.push(['status', l]),
     ...rest,
   });
-  return { promise, calls, stream, fake };
+  const words = () => stream.reduce((acc, [t, d]) => (t === 'reset' ? '' : t === 'text' ? acc + d : acc), '');
+  return { promise, calls, stream, words, fake };
 }
 
 describe('reply', () => {
-  it('reads, then answers with words and cards the server built', async () => {
-    const { promise, calls, stream } = run([
-      turn(use('get_picks')),
-      turn(say('Two spreads beat the market. LV +3.5 at -110 is the cleaner one.'), use('show_picks', { ids: ['g1-runline-away', 'g3-runline-home'], followups: ['Why LV?'] })),
+  it('reads, then answers in one display call: words streamed, cards built by the server', async () => {
+    const answer = 'Two spreads beat the market. LV +3.5 at -110 is the cleaner one.';
+    const { promise, calls, stream, words } = run([
+      turn(thought(), use('get_picks')),
+      turn(thought(), use('show_picks', { say: answer, ids: ['g1-runline-away', 'g3-runline-home'], followups: ['Why LV?'] })),
     ]);
     const out = await promise;
-    expect(out.text).toBe('Two spreads beat the market. LV +3.5 at -110 is the cleaner one.');
+    expect(out.text).toBe(answer);
     expect(out.cards.map((c) => c.type)).toEqual(['pick', 'pick', 'chips']);
     expect(out.cards[0]).toMatchObject({ label: 'LV +3.5', price: -110, book: 'betmgm' });
     expect(out.meta).toMatchObject({ rounds: 2, tools: ['get_picks', 'show_picks'], corrections: 0 });
     expect(out.meta.usage.input).toBe(20);
     // The display call ended the turn: no third model call.
     expect(calls).toHaveLength(2);
-    expect(stream).toEqual([['status', 'Pulling the board'], ['text', out.text]]);
-    // The second request carries the tool result back.
+    // The words reached the page as they were written, in pieces, with no reset.
+    expect(stream[0]).toEqual(['status', 'Pulling the board']);
+    expect(stream.filter(([t]) => t === 'text').length).toBeGreaterThan(1);
+    expect(stream.some(([t]) => t === 'reset')).toBe(false);
+    expect(words()).toBe(answer);
+    // Thinking blocks go back exactly as they came, with the tool result after them.
+    expect(calls[1].messages.at(-2).content[0]).toEqual(thought());
     expect(calls[1].messages.at(-1).content[0]).toMatchObject({ type: 'tool_result' });
   });
 
   it('answers in plain words with no cards when nothing needs showing', async () => {
-    const { promise, calls } = run([turn(say('I only cover the NFL here. Ask me about this week\'s picks.'))], { text: 'Who wins the World Cup?' });
+    const { promise, calls, words } = run([turn(say('I only cover the NFL here. Ask me about this week\'s picks.'))], { text: 'Who wins the World Cup?' });
     const out = await promise;
     expect(out.cards).toEqual([]);
     expect(calls).toHaveLength(1);
+    expect(words()).toBe(out.text);
   });
 
   it('caches the house rules and keeps per-turn context out of the cached block', async () => {
-    const { promise, calls } = run([turn(say('No bet.'))], { context: { teams: ['chiefs', 'not-a-team'] }, limits: FREE() });
+    const { promise, calls } = run([turn(say('No bet.'))], {
+      context: { teams: ['chiefs', 'not-a-team'], page: { kind: 'game', teams: ['raiders', 'chiefs'] } }, limits: FREE(),
+    });
     await promise;
     const [rules, context] = calls[0].system;
     expect(rules).toEqual({ type: 'text', text: HOUSE_RULES, cache_control: { type: 'ephemeral' } });
     expect(context.cache_control).toBeUndefined();
-    expect(context.text).toContain('This member follows: Chiefs.');
-    expect(context.text).toContain('Plan: free (the top 3 recommended picks of the week).');
+    expect(context.text).toContain('They follow: Chiefs.');
+    expect(context.text).toContain('Visitor: free account.');
+    expect(context.text).toContain('They opened chat from the Raiders at Chiefs game page.');
     expect(HOUSE_RULES).not.toMatch(/\b20\d\d\b/);
   });
 
-  it('asks for words when the model showed cards and said nothing', async () => {
-    const { promise, calls } = run([
-      turn(use('get_slate')),
-      turn(use('show_games', { game_ids: ['g1'] })),
-      turn(say('One game on the board.')),
-    ]);
-    const out = await promise;
-    expect(out.text).toBe('One game on the board.');
-    expect(out.cards.map((c) => c.type)).toEqual(['game']);
-    expect(calls[2].messages.at(-1).content.at(-1).text).toMatch(/cards are on screen/);
+  it('tells the model who it is talking to, by tier', () => {
+    expect(buildContext({ limits: GUEST(), now: NOW })).toMatch(/Visitor: no account\..*Nothing they say is saved/s);
+    expect(buildContext({ limits: PRO(), now: NOW })).toMatch(/Visitor: Pro member\..*up to 120 words/s);
+    expect(buildContext({ limits: PRO(), channel: 'sms', now: NOW })).toMatch(/over text message/);
+    expect(buildContext({ limits: PRO(), now: NOW })).toMatch(/^Today is Sunday, November 22, 2026 \(Eastern\)\./);
+    expect(buildContext({ limits: FREE(), context: { page: { kind: 'team', teams: ['lions'] } }, now: NOW })).toContain('the Lions team page');
+    expect(buildContext({ limits: FREE(), context: { page: { kind: 'game', teams: ['lions'] } }, now: NOW })).not.toContain('game page');
   });
 
-  it('discards preamble written before a read', async () => {
-    const { promise, stream } = run([
-      turn(say('Let me check.'), use('get_record')),
-      turn(say('13-9 on the season.'), use('show_record')),
+  it('holds a display call made in the same step as a read, until the data is back', async () => {
+    const { promise, calls, words } = run([
+      turn(use('get_record'), use('show_record', { say: 'Probably around 60 percent.' })),
+      turn(use('show_record', { say: '13-9 on the season.' })),
     ]);
     const out = await promise;
     expect(out.text).toBe('13-9 on the season.');
-    expect(stream).toEqual([['text', 'Let me check.'], ['status', 'Opening the ledger'], ['reset'], ['text', '13-9 on the season.']]);
+    expect(out.meta.tools).toEqual(['get_record', 'show_record']);
+    const results = calls[1].messages.at(-1).content;
+    expect(results[1]).toMatchObject({ type: 'tool_result', is_error: true });
+    expect(results[1].content).toMatch(/same step as a read tool/);
+    expect(words()).toBe('13-9 on the season.');
   });
 
-  it('does not let an invented number stand: one correction, then the answer', async () => {
-    const { promise, calls, stream } = run([
+  it('discards loose text written before a read', async () => {
+    const { promise, stream } = run([
+      turn(say('Let me check.'), use('get_record')),
+      turn(use('show_record', { say: '13-9 on the season.' })),
+    ]);
+    const out = await promise;
+    expect(out.text).toBe('13-9 on the season.');
+    expect(stream.slice(0, 3)).toEqual([['text', 'Let me check.'], ['reset'], ['status', 'Opening the ledger']]);
+  });
+
+  it('lets the words in the display call win over loose text beside it', async () => {
+    const { promise, words } = run([
       turn(use('get_picks')),
-      turn(say('LV +3.5 hits 62% of the time.'), use('show_picks', { ids: ['g1-runline-away'] })),
-      turn(say('LV +3.5 at -110 is worth +3.5% in expected value.')),
+      turn(say('Here you go.'), use('show_picks', { say: 'LV +3.5 at -110.', ids: ['g1-runline-away'] })),
+    ]);
+    expect((await promise).text).toBe('LV +3.5 at -110.');
+    expect(words()).toBe('LV +3.5 at -110.');
+  });
+
+  it('does not let an invented number stand: one rewrite, then the answer, with the cards kept once', async () => {
+    const { promise, calls, words } = run([
+      turn(use('get_picks')),
+      turn(use('show_picks', { say: 'LV +3.5 hits 62% of the time.', ids: ['g1-runline-away'] })),
+      turn(use('show_picks', { say: 'LV +3.5 at -110 is worth +3.5% in expected value.', ids: ['g1-runline-away'] })),
     ]);
     const out = await promise;
     expect(out.text).toBe('LV +3.5 at -110 is worth +3.5% in expected value.');
     expect(out.meta.corrections).toBe(1);
     expect(out.cards.filter((c) => c.type === 'pick')).toHaveLength(1);
-    const note = calls[2].messages.at(-1).content.at(-1).text;
-    expect(note).toMatch(/not in any tool result: 62/);
-    expect(stream.filter(([t]) => t === 'reset')).toHaveLength(1);
+    expect(calls[2].messages.at(-1).content.at(-1).text).toMatch(/not in any tool result: 62.*calling the display tool again/s);
+    expect(words()).toBe(out.text);
   });
 
-  it('falls back to a safe line when the correction is wrong too', async () => {
+  it('keeps the cards when the rewrite comes back as plain text', async () => {
     const { promise } = run([
       turn(use('get_picks')),
-      turn(say('LV covers 62% of the time.'), use('show_picks', { ids: ['g1-runline-away'] })),
-      turn(say('Make that 64%.')),
+      turn(use('show_picks', { say: 'LV covers 62% of the time.', ids: ['g1-runline-away'] })),
+      turn(say('LV +3.5 at -110 is the pick.')),
+    ]);
+    const out = await promise;
+    expect(out.text).toBe('LV +3.5 at -110 is the pick.');
+    expect(out.cards.map((c) => c.label)).toEqual(['LV +3.5']);
+  });
+
+  it('falls back to a safe line when the rewrite is wrong too', async () => {
+    const { promise, words } = run([
+      turn(use('get_picks')),
+      turn(use('show_picks', { say: 'LV covers 62% of the time.', ids: ['g1-runline-away'] })),
+      turn(use('show_picks', { say: 'Make that 64%.', ids: ['g1-runline-away'] })),
     ]);
     const out = await promise;
     expect(out.text).toBe('Here is what the board shows.');
     expect(out.meta.fellBack).toBe(true);
     expect(out.cards[0].label).toBe('LV +3.5');
+    expect(words()).toBe('Here is what the board shows.');
+  });
+
+  it('accepts a number that is on a card it is showing', async () => {
+    // The record card is built from data the model never read this turn.
+    const { promise } = run([turn(use('show_record', { say: 'Recommended picks are 13-9 on the season.' }))]);
+    const out = await promise;
+    expect(out.meta.corrections).toBe(0);
+    expect(out.text).toBe('Recommended picks are 13-9 on the season.');
   });
 
   it('will not publish a promise of an outcome', async () => {
@@ -133,29 +196,58 @@ describe('reply', () => {
     expect(calls[1].messages.at(-1).content[0].text).toMatch(/Do not promise an outcome/);
   });
 
-  it('never runs a tool call that was cut off, and asks for it again', async () => {
+  it('never runs a tool call that was cut off, drops that step\'s thinking, and asks again', async () => {
     const cut = { ...use('show_picks'), truncated: true };
     const { promise, calls, fake } = run([
       turn(use('get_picks')),
-      turn(say('Two spreads.'), cut),
-      turn(say('Two spreads beat the market.'), use('show_picks', { ids: ['g1-runline-away'] })),
+      turn(thought(), cut),
+      turn(use('show_picks', { say: 'Two spreads beat the market.', ids: ['g1-runline-away'] })),
     ]);
     const out = await promise;
     expect(out.cards.filter((c) => c.type === 'pick')).toHaveLength(1);
     expect(fake.calls.picks).toBe(2); // get_picks, then the complete show_picks only
-    expect(JSON.stringify(calls[2].messages)).not.toContain(cut.id);
+    const sent = JSON.stringify(calls[2].messages);
+    expect(sent).not.toContain(cut.id);
+    expect(calls[2].messages.at(-2).content).toEqual([{ type: 'text', text: '(tool call cut off)' }]);
     expect(calls[2].messages.at(-1).content.at(-1).text).toMatch(/cut off/);
   });
 
-  it('keeps a free account inside its plan even when the model asks for more', async () => {
-    const limits = { ...FREE(), picksPerAnswer: 1 };
+  it('keeps a guest to the calls they have been shown, even when the model asks for more', async () => {
     const { promise } = run([
       turn(use('get_picks')),
-      turn(say('One pick is open on your plan.'), use('show_picks', { ids: ['g1-runline-away', 'g3-runline-home'] })),
-    ], { limits });
+      turn(use('show_picks', { say: 'Three calls are open to you.', ids: ['g1-runline-away', 'g3-moneyline-home'] })),
+    ], { limits: GUEST() });
     const out = await promise;
     expect(out.cards.map((c) => c.type)).toEqual(['pick', 'locked']);
-    expect(JSON.stringify(out.cards)).not.toContain('DET');
+    expect(out.cards[1]).toMatchObject({ count: 6, games: 3 });
+  });
+
+  it('adds the Pro offer itself when a free account asks for a Pro feature', async () => {
+    const { promise } = run([
+      turn(use('shop_prices', { team: 'Chiefs' })),
+      turn(say('Shopping every book is a Pro feature. The consensus is KC by a field goal.')),
+    ], { limits: FREE(), text: 'Where is the best price on the Chiefs?' });
+    const out = await promise;
+    expect(out.cards).toEqual([{ type: 'upgrade', id: 'upgrade', reason: 'shop_prices' }]);
+    expect(out.meta.proOnly).toBe('shop_prices');
+  });
+
+  it('shops the books for Pro and makes no offer', async () => {
+    const { promise } = run([
+      turn(use('shop_prices', { team: 'Chiefs' })),
+      turn(use('show_prices', { say: 'BetMGM is the outlier: LV +3.5 at -110.', game_id: 'g1' })),
+    ], { limits: PRO() });
+    const out = await promise;
+    expect(out.cards.map((c) => c.type)).toEqual(['prices']);
+    expect(out.cards[0].best.spreadAway).toEqual({ book: 'betmgm', line: 3.5, price: -110 });
+  });
+
+  it('stays on the model and effort that answered, for the rest of the turn', async () => {
+    const first = { ...turn(use('get_picks')), model: 'claude-haiku-5-5', effort: null };
+    const { promise, calls } = run([first, turn(say('No bet.'))]);
+    const out = await promise;
+    expect(calls[1]).toMatchObject({ model: 'claude-haiku-5-5', effort: null });
+    expect(out.meta.model).toBe('claude-haiku-5-5');
   });
 
   it('stops after the round limit with a safe answer instead of looping', async () => {
@@ -200,14 +292,15 @@ describe('reply', () => {
 });
 
 describe('toClaudeMessages', () => {
-  it('writes history as plain text with what was shown, and ends on the new message', () => {
+  it('writes history as plain text with what was shown, and warns that prices move', () => {
     const history = [
       { role: 'user', text: 'best bet?' },
-      { role: 'assistant', text: 'LV +3.5.', cards: [{ type: 'locked', id: 'locked', count: 2 }] },
+      { role: 'assistant', text: 'LV +3.5.', cards: [{ type: 'locked', id: 'locked', count: 2, games: 2 }] },
     ];
     const out = toClaudeMessages(history, 'why?');
     expect(out.map((m) => m.role)).toEqual(['user', 'assistant', 'user']);
-    expect(out[1].content).toContain('[locked] 2 more recommended picks are for Pro members');
+    expect(out[1].content).toContain('[locked] 2 more calls are open with a free account');
+    expect(out[1].content).toMatch(/may have moved since: read them again/);
     expect(out[2].content).toBe('why?');
   });
 
@@ -221,14 +314,9 @@ describe('toClaudeMessages', () => {
   });
 });
 
-describe('toPlain and buildContext', () => {
+describe('toPlain', () => {
   it('strips markdown the model was told not to write', () => {
     expect(toPlain('**LV +3.5** at `-110`.\n\n- One\n- Two\n# Head')).toBe('LV +3.5 at -110.\n\nOne\nTwo\nHead');
     expect(toPlain('Under 44.5 is *fine* here.')).toBe('Under 44.5 is fine here.');
-  });
-
-  it('tells a text conversation to stay shorter', () => {
-    expect(buildContext({ limits: PRO(), channel: 'sms', now: NOW })).toMatch(/over text message/);
-    expect(buildContext({ limits: PRO(), now: NOW })).toMatch(/^Today is Sunday, November 22, 2026 \(Eastern\)\.\nPlan: Pro/);
   });
 });

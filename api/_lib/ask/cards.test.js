@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
-  pickCard, inPlayPickCard, gameCard, recordCard, lockedCard, chipsCard,
-  asPlainText, asTexts, cardLine, fmtOdds, fmtLine, fmtPct, kickoffET,
+  pickCard, inPlayPickCard, gameCard, recordCard, lockedCard, upgradeCard, chipsCard, pricesCard, bestPrices, teamCard, newsCard,
+  asPlainText, asTexts, cardLine, fmtOdds, fmtLine, fmtPct, pct, kickoffET,
 } from './cards.js';
 import { sampleWeek, liveGame, inPlayRow, scorecard, NOW } from './fixtures.js';
 
@@ -18,6 +18,8 @@ describe('formatting', () => {
     expect(fmtLine(-7)).toBe('-7');
     expect(fmtPct(0.035)).toBe('+3.5%');
     expect(fmtPct(-0.012)).toBe('-1.2%');
+    expect(pct(0.987)).toBe('99%');
+    expect(pct(null)).toBe('');
   });
 
   it('gives kickoff in Eastern time and nothing for a bad date', () => {
@@ -90,6 +92,65 @@ describe('recordCard', () => {
   });
 });
 
+describe('pricesCard', () => {
+  const card = pricesCard(games[0], { asOf: 1 });
+
+  it('lists every book and marks the best number on each side', () => {
+    expect(card.rows).toHaveLength(6);
+    expect(card.rows.find((r) => r.book === 'betmgm').spread).toEqual({ home: -3.5, homePrice: -110, awayPrice: -110 });
+    expect(card.best.spreadAway).toEqual({ book: 'betmgm', line: 3.5, price: -110 });
+    expect(card.best.spreadHome).toMatchObject({ line: -3, price: -110 });
+    expect(card.best.moneylineAway).toMatchObject({ price: 140 });
+  });
+
+  it('takes the better line first, then the better price at that line', () => {
+    const rows = [
+      { book: 'A', spread: { home: -3, homePrice: -105, awayPrice: -115 }, total: { line: 44.5, overPrice: -110, underPrice: -110 }, moneyline: { home: -150, away: 130 } },
+      { book: 'B', spread: { home: -3, homePrice: -112, awayPrice: -108 }, total: { line: 45, overPrice: -105, underPrice: -115 }, moneyline: { home: -165, away: 145 } },
+      { book: 'C', spread: { home: -2.5, homePrice: -125, awayPrice: 105 }, total: null, moneyline: null },
+    ];
+    expect(bestPrices(rows)).toEqual({
+      spreadHome: { book: 'C', line: -2.5, price: -125 },
+      spreadAway: { book: 'B', line: 3, price: -108 },
+      over: { book: 'A', line: 44.5, price: -110 },
+      under: { book: 'B', line: 45, price: -115 },
+      moneylineHome: { book: 'A', price: -150 },
+      moneylineAway: { book: 'B', price: 145 },
+    });
+  });
+
+  it('is null when no book has posted', () => {
+    expect(pricesCard({ ...games[0], market: {} })).toBeNull();
+  });
+
+  it('reads as one line of text', () => {
+    expect(cardLine(card)).toMatch(/^Prices at 6 books for LV at KC, best KC -3 -110 at .+, best LV \+3\.5 -110 at betmgm$/);
+  });
+});
+
+describe('teamCard, newsCard, upgradeCard', () => {
+  it('carries a team\'s season numbers as given', () => {
+    const card = teamCard({ slug: 'chiefs', abbrev: 'KC', nickname: 'Chiefs', conference: 'AFC', division: 'West', record: '9-2', divisionRank: 1, powerRank: 2, projectedWins: 13.4, playoffPct: 0.987, titleOdds: 450 });
+    expect(card).toMatchObject({ type: 'team', id: 'team-chiefs', team: { name: 'Chiefs' }, record: '9-2', division: 'AFC West', powerRank: 2, projectedWins: 13.4, playoffPct: 0.987, titleOdds: 450 });
+    expect(cardLine(card)).toBe('Chiefs 9-2, power rank 2, playoffs 99%');
+    expect(teamCard(null)).toBeNull();
+  });
+
+  it('links headlines to their outlet and drops anything without a real link', () => {
+    const card = newsCard([
+      { title: 'A', source: 'ESPN', time: '1h ago', url: 'https://example.com/a' },
+      { title: 'B', source: 'X', url: 'javascript:alert(1)' },
+      { title: '', url: 'https://example.com/c' },
+    ]);
+    expect(card.items).toEqual([{ title: 'A', source: 'ESPN', time: '1h ago', url: 'https://example.com/a' }]);
+    expect(newsCard([])).toBeNull();
+  });
+
+  it('records that Pro was offered without saying what was withheld', () => {
+    expect(cardLine(upgradeCard('shop_prices'))).toBe('Offered Pro');
+  });
+});
+
 describe('chipsCard', () => {
   it('keeps at most three short, distinct suggestions', () => {
     expect(chipsCard(['Why LV?', ' Why LV? ', 'How is the record?', 'x'.repeat(60), 'Any totals?', 'One more'])).toEqual({
@@ -102,7 +163,7 @@ describe('chipsCard', () => {
 describe('text renderers', () => {
   const message = {
     text: 'Two spreads beat the market this week.',
-    cards: [pickCard(hero), inPlayPickCard(inPlayRow()), lockedCard(2), chipsCard(['Why LV?'])],
+    cards: [pickCard(hero), inPlayPickCard(inPlayRow()), lockedCard(2, { games: 2 }), chipsCard(['Why LV?'])],
   };
 
   it('writes a pick as one line with its price and book', () => {
@@ -117,7 +178,8 @@ describe('text renderers', () => {
     const text = asPlainText(message);
     expect(text.startsWith('Two spreads beat the market this week.')).toBe(true);
     expect(text).toContain(`- [${hero.id}] LV +3.5 (-110 at betmgm)`);
-    expect(text).toContain('- [locked] 2 more recommended picks are for Pro members');
+    expect(text).toContain('- [locked] 2 more calls are open with a free account');
+    expect(text).toMatch(/Prices and scores may have moved since/);
     expect(text).not.toContain('Why LV?');
   });
 

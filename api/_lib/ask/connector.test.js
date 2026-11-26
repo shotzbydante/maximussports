@@ -13,6 +13,8 @@ function make(deps) {
     getInjuries: vi.fn(async () => ({ teams: { chiefs: [{ name: 'A', position: 'QB', status: 'out', statusLabel: 'Out' }] }, generatedAt: new Date(NOW).toISOString(), ok: true })),
     getStandings: vi.fn(async () => ({ teams: { chiefs: { record: '9-2' } }, generatedAt: new Date(NOW).toISOString() })),
     getScorecard: vi.fn(async () => ({ sport: 'nfl', season: null })),
+    getSeason: vi.fn(async () => ({ teams: [{ slug: 'chiefs', record: '9-2' }], week: 12, generatedAt: new Date(NOW).toISOString() })),
+    getHeadlines: vi.fn(async ({ team }) => ({ headlines: [{ id: 'h1', title: team ? `${team.nickname} news` : 'League news' }], fetchedAt: new Date(NOW).toISOString() })),
     now: () => NOW,
     ...deps,
   });
@@ -65,11 +67,35 @@ describe('other reads', () => {
 
   it('treats a scorecard that reports an error as no record', async () => {
     expect(await make({ getScorecard: async () => ({ _error: 'query_failed' }) }).record()).toBeNull();
+    expect(await make({ getScorecard: async () => null }).record()).toBeNull();
     expect(await make({ getScorecard: async () => { throw new Error('x'); } }).record()).toBeNull();
   });
 });
 
+describe('season and news', () => {
+  it('returns the season model, or null when it has no teams', async () => {
+    expect(await make().season()).toEqual({ teams: [{ slug: 'chiefs', record: '9-2' }], week: 12, asOf: NOW });
+    expect(await make({ getSeason: async () => ({ teams: [] }) }).season()).toBeNull();
+    expect(await make({ getSeason: async () => { throw new Error('x'); } }).season()).toBeNull();
+  });
+
+  it('reads headlines for a team or the league, once each', async () => {
+    const getHeadlines = vi.fn(async ({ team }) => ({ headlines: [{ id: team?.slug || 'league' }], fetchedAt: null }));
+    const c = make({ getHeadlines });
+    expect((await c.news('chiefs')).headlines[0].id).toBe('chiefs');
+    expect((await c.news()).headlines[0].id).toBe('league');
+    await c.news('chiefs');
+    expect(getHeadlines).toHaveBeenCalledTimes(2);
+    expect((await make({ getHeadlines: async () => { throw new Error('rss down'); } }).news()).headlines).toEqual([]);
+  });
+});
+
 describe('callJsonHandler and getConnector', () => {
+  it('treats a handler that answers with an error status as no data', async () => {
+    const handler = (_req, res) => res.status(500).json({ error: 'boom' });
+    expect(await callJsonHandler(handler)).toBeNull();
+  });
+
   it('runs a route handler in-process and returns its JSON', async () => {
     const handler = (req, res) => res.setHeader('x', 'y').status(200).json({ days: req.query.days, method: req.method });
     expect(await callJsonHandler(handler, { days: '9' })).toEqual({ days: '9', method: 'GET' });

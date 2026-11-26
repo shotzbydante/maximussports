@@ -54,10 +54,23 @@ export function withCacheBreakpoint(messages) {
   return out;
 }
 
-/** Build the request body. Exported for tests. */
-export function buildToolRequest({ system, messages, tools, maxTokens, model }) {
+/** How hard the model thinks between tool calls: ASK_EFFORT, else low. Chat wants speed. */
+export function getAskEffort() {
+  const v = String(process.env.ASK_EFFORT || '').trim().toLowerCase();
+  return ['low', 'medium', 'high'].includes(v) ? v : 'low';
+}
+
+/**
+ * Build the request body. Exported for tests.
+ *
+ * `effort` is sent only to a model that thinks. Sonnet 5.5 defaults to high
+ * effort when the field is absent, which is slower than a chat reply should
+ * be. Pass `effort: null` to leave it out.
+ */
+export function buildToolRequest({ system, messages, tools, maxTokens, model, effort = getAskEffort() }) {
   const shape = modelShape(model, maxTokens);
   const thinks = shape.thinking?.type !== 'disabled';
+  const outputConfig = shape.output_config || (thinks && effort ? { effort } : null);
   return {
     model,
     max_tokens: thinks ? maxTokens + THINKING_HEADROOM_TOKENS : maxTokens,
@@ -66,17 +79,49 @@ export function buildToolRequest({ system, messages, tools, maxTokens, model }) 
     messages: withCacheBreakpoint(thinks ? messages : stripThinking(messages)),
     stream: true,
     ...(shape.thinking ? { thinking: shape.thinking } : {}),
-    ...(shape.output_config ? { output_config: shape.output_config } : {}),
+    ...(outputConfig ? { output_config: outputConfig } : {}),
   };
 }
 
 /**
+ * The value of one string field in a JSON object that is still being
+ * written, as far as it has got. Used to stream a tool's `say` field to the
+ * page while the rest of the tool call is still arriving.
+ *
+ *   partialString('{"say":"Two spreads be', 'say')  →  'Two spreads be'
+ */
+export function partialString(json, field) {
+  const m = new RegExp(`"${field}"\\s*:\\s*"`).exec(json);
+  if (!m) return '';
+  let out = '';
+  for (let i = m.index + m[0].length; i < json.length; i += 1) {
+    const ch = json[i];
+    if (ch === '"') return out;
+    if (ch !== '\\') { out += ch; continue; }
+    const next = json[i + 1];
+    if (next === undefined) return out; // an escape cut in half: wait for the rest
+    if (next === 'u') {
+      const hex = json.slice(i + 2, i + 6);
+      if (hex.length < 4) return out;
+      out += String.fromCharCode(parseInt(hex, 16));
+      i += 5;
+    } else {
+      out += ({ n: '\n', t: '\t', r: '', b: '', f: '' })[next] ?? next;
+      i += 1;
+    }
+  }
+  return out;
+}
+
+/**
  * Read a Messages API event stream into content blocks.
- * Exported for tests; `lines` is an async iterable of SSE `data:` payloads.
+ * Exported for tests; `events` is an async iterable of parsed stream events.
+ * `onText` receives answer text as it arrives; `onToolInput` receives a
+ * tool-use block and its input JSON so far, each time more arrives.
  *
  * @returns {Promise<{ content: Array, stopReason: string|null, usage: object }>}
  */
-export async function readEvents(events, { onText } = {}) {
+export async function readEvents(events, { onText, onToolInput } = {}) {
   const blocks = [];
   const partialJson = new Map();
   let stopReason = null;
@@ -100,7 +145,9 @@ export async function readEvents(events, { onText } = {}) {
         block.text = (block.text || '') + (d.text || '');
         if (d.text && onText) onText(d.text);
       } else if (d.type === 'input_json_delta') {
-        partialJson.set(event.index, (partialJson.get(event.index) || '') + (d.partial_json || ''));
+        const soFar = (partialJson.get(event.index) || '') + (d.partial_json || '');
+        partialJson.set(event.index, soFar);
+        if (onToolInput) onToolInput(block, soFar);
       } else if (d.type === 'thinking_delta') {
         block.thinking = (block.thinking || '') + (d.thinking || '');
       } else if (d.type === 'signature_delta') {
@@ -162,35 +209,43 @@ async function* sseEvents(body) {
  * route can turn into an exact message: not_configured, busy, timeout,
  * http_error, api_error, network_error.
  *
- * If the API rejects the configured model's request, the call is retried
- * once on the fallback model, and `model` in the result says which answered
- * so the caller can stay on it for the rest of the turn.
+ * If the API rejects the request (400 or 404) it is retried in two steps
+ * that each give something up: first without the effort setting, then on
+ * the fallback model. `model` and `effort` in the result say what answered,
+ * so the caller can stay on that for the rest of the turn.
  */
-export async function streamMessage({ system, messages, tools, maxTokens, model, signal, onText, fetchImpl = fetch }) {
+export async function streamMessage({
+  system, messages, tools, maxTokens, model, effort, signal, onText, onToolInput, fetchImpl = fetch,
+}) {
   const apiKey = getClaudeApiKey();
   if (!apiKey) throw new ClaudeError('not_configured', 'ANTHROPIC_API_KEY not set');
 
   let useModel = model || getAskModel();
+  let useEffort = effort === undefined ? getAskEffort() : effort;
   try {
     for (;;) {
-      const r = await fetchImpl(API_URL, {
-        method: 'POST',
-        headers: requestHeaders(apiKey),
-        body: JSON.stringify(buildToolRequest({ system, messages, tools, maxTokens, model: useModel })),
-        signal,
-      });
+      const body = buildToolRequest({ system, messages, tools, maxTokens, model: useModel, effort: useEffort });
+      const r = await fetchImpl(API_URL, { method: 'POST', headers: requestHeaders(apiKey), body: JSON.stringify(body), signal });
       if (r.ok) {
-        const out = await readEvents(sseEvents(r.body), { onText });
-        return { ...out, model: useModel };
+        const out = await readEvents(sseEvents(r.body), { onText, onToolInput });
+        return { ...out, model: useModel, effort: useEffort };
       }
-      const body = await r.text().catch(() => '');
-      if ((r.status === 400 || r.status === 404) && useModel !== FALLBACK_CLAUDE_MODEL) {
-        console.warn(`[ask/claude] ${useModel} rejected (${r.status}): ${body.slice(0, 160)} — retrying on ${FALLBACK_CLAUDE_MODEL}`);
-        useModel = FALLBACK_CLAUDE_MODEL;
-        continue;
+      const text = await r.text().catch(() => '');
+      if (r.status === 400 || r.status === 404) {
+        // Only an effort setting we chose ourselves is ours to drop.
+        if (useEffort && body.output_config && !modelShape(useModel, maxTokens).output_config) {
+          console.warn(`[ask/claude] ${useModel} rejected (${r.status}): ${text.slice(0, 160)} — retrying without effort`);
+          useEffort = null;
+          continue;
+        }
+        if (useModel !== FALLBACK_CLAUDE_MODEL) {
+          console.warn(`[ask/claude] ${useModel} rejected (${r.status}): ${text.slice(0, 160)} — retrying on ${FALLBACK_CLAUDE_MODEL}`);
+          useModel = FALLBACK_CLAUDE_MODEL;
+          continue;
+        }
       }
       const code = r.status === 429 || r.status === 529 || r.status === 503 ? 'busy' : 'http_error';
-      throw new ClaudeError(code, `Claude API ${r.status}: ${body.slice(0, 200)}`, r.status);
+      throw new ClaudeError(code, `Claude API ${r.status}: ${text.slice(0, 200)}`, r.status);
     }
   } catch (err) {
     if (err instanceof ClaudeError) throw err;

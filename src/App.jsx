@@ -6,6 +6,7 @@ import AnalyticsRouteListener from './components/layout/AnalyticsRouteListener';
 import ErrorBoundary from './components/ErrorBoundary';
 import Home from './pages/Home';
 import Landing from './pages/Landing';
+import { AskProvider } from './components/ask/AskProvider';
 import ToastContainer from './components/common/Toast';
 import { AuthProvider } from './context/AuthContext';
 import { initOfficialBracket } from './utils/bracketInit';
@@ -87,6 +88,7 @@ export default function App() {
         <ToastContainer />
         <ErrorBoundary>
           <WorkspaceProvider>
+           <AskProvider>
             <Suspense fallback={null}>
               <Routes>
                 <Route path="/" element={<Layout />}>
@@ -185,6 +187,7 @@ export default function App() {
                   <Route path="settings" element={<Settings />} />
                   <Route path="dashboard" element={<Dashboard />} />
                   <Route path="record" element={<Record />} />
+                  <Route path="ask" element={<NflAsk />} />
                   <Route path="privacy" element={<Privacy />} />
                   <Route path="terms" element={<Terms />} />
                   <Route path="contact" element={<Contact />} />
@@ -196,6 +199,7 @@ export default function App() {
                 <Route path="render/nfl-daily" element={<RenderNflDaily />} />
               </Routes>
             </Suspense>
+           </AskProvider>
           </WorkspaceProvider>
         </ErrorBoundary>
       </BrowserRouter>

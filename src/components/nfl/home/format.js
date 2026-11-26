@@ -1,6 +1,6 @@
 /** Formatting helpers shared by the NFL home page sections. */
 
-import { NFL_TEAMS } from '../../../sports/nfl/teams';
+import { NFL_TEAMS } from '../../../sports/nfl/teams.js';
 
 /** Kickoff in the viewer's own time zone, e.g. "Sun 10:00 AM". */
 export function kickoffShort(iso) {

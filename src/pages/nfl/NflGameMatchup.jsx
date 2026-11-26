@@ -14,6 +14,7 @@ import { MatchupTalent } from '../../components/nfl/NflTalent';
 import { getNflTeamBySlug } from '../../sports/nfl/teams';
 import { fetchNflGames } from '../../api/nfl';
 import s from '../../components/nfl/nfl.module.css';
+import AskAbout from '../../components/ask/AskAbout';
 
 export default function NflGameMatchup() {
   const { matchup = '' } = useParams();
@@ -64,6 +65,7 @@ export default function NflGameMatchup() {
               </div>
             </div>
           </div>
+          <AskAbout question={`Break down ${away.nickname} at ${home.nickname}`} label="Ask Maximus about this game" source="game_page" />
         </div>
       </header>
 

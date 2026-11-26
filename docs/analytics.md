@@ -118,22 +118,26 @@ identify('user-123', { plan: 'pro' });
 
 ### Ask Maximus
 
-All carry `sport: 'nfl'`. Client events come from `src/components/ask/AskMaximus.jsx`; server events from `api/ask/chat.js`.
+All carry `sport: 'nfl'`. Client events come from `src/components/ask/`; server events from `api/ask/chat.js`.
 
 | Event | Where | Properties |
 |---|---|---|
-| `ask_opened` | client | |
-| `ask_message_sent` | client | `source` (typed, starter, followup, refresh), `length` |
-| `ask_answer_shown` | client | `source`, `cards`, `locked`, `duration_ms` |
+| `ask_peek_shown` | client | `page` (home, picks, game, team) |
+| `ask_peek_dismissed` | client | |
+| `ask_opened` | client | `source` (launcher, peek, pick_card, game_page, team_page, page), `page` |
+| `ask_message_sent` | client | `source` (typed, starter, followup, refresh, or the in-page button), `length`, `page`, `signed_in` |
+| `ask_answer_shown` | client | `source`, `page`, `plan`, `cards`, `locked`, `pro_offer`, `duration_ms` |
 | `ask_card_opened` | client | `card_type`, `game_id` |
-| `ask_upgrade_clicked` | client | `surface` (locked_card, cap) |
+| `ask_upgrade_clicked` | client | `surface` (ask_answer, ask_cap), `reason` |
 | `ask_cleared` | client | |
-| `ask_error` | client | `code` |
+| `ask_error` | client | `code`, `page` |
 | `ask_answered` | server | `plan`, `channel`, `rounds`, `tools`, `cards`, `card_types`, `corrections`, `fell_back`, `model`, `duration_ms`, token counts |
 | `ask_cap_hit` | server | `plan`, `cap` |
 | `ask_failed` | server | `plan`, `channel`, `code`, `duration_ms` |
 
-`corrections` and `fell_back` are the ones to watch: they count answers the server sent back because the model wrote a number that was not in the data.
+Email given inside chat fires the site's existing email-capture events with `placement` `ask_locked_card` or `ask_cap`.
+
+The funnel to watch: `ask_peek_shown` → `ask_opened` → `ask_message_sent` → email capture (guests) or `ask_upgrade_clicked` (free accounts). `corrections` and `fell_back` count answers the server sent back because the model wrote a number that was not in the data.
 
 ### Errors
 | Event | Properties | Fired when |

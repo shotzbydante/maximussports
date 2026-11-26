@@ -27,6 +27,7 @@ import {
 } from '../../api/nfl';
 import s from '../../components/nfl/nfl.module.css';
 import { trackFilterChange } from '../../analytics/sportEvents';
+import AskAbout from '../../components/ask/AskAbout';
 
 const FREE_PIN_LIMIT = 3;
 
@@ -306,6 +307,7 @@ function TeamDetail({ team }) {
             {pinned ? 'Following' : 'Follow team'}
           </button>
         </div>
+        <AskAbout question={`How do the ${team.nickname || team.name} look this week?`} label={`Ask Maximus about the ${team.nickname || team.name}`} source="team_page" />
         {pinError && (
           <div className={s.notice}>
             <span>{pinError}</span>

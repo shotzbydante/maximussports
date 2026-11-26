@@ -112,6 +112,21 @@ export async function incrWithTtl(key, exSeconds) {
   }
 }
 
+/**
+ * Take one back off a counter, never below zero. For undoing an increment
+ * whose work then failed. Best effort: resolves quietly when KV is down.
+ * @param {string} key
+ */
+export async function decrCounter(key) {
+  const client = await getKv();
+  if (!client) return;
+  try {
+    if (Number(await client.decr(key)) < 0) await client.set(key, 0, { keepTtl: true });
+  } catch (err) {
+    console.warn('[globalCache] decrCounter error:', err?.message);
+  }
+}
+
 const LOCK_TTL_SECONDS = 60;
 
 /**

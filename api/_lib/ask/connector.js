@@ -18,6 +18,9 @@
  *           graded record: season, recent window and closing-line value
  * @property {(teamSlug: string) => Promise<{ injuries: Array, summary: object, asOf: number|null, stale: boolean }>} injuries
  * @property {() => Promise<{ teams: object, asOf: number|null }>} standings
+ * @property {() => Promise<{ teams: Array, week: number|null, asOf: number|null }|null>} season
+ *           every team's rating, projected wins, playoff chances and title price
+ * @property {(teamSlug?: string) => Promise<{ headlines: Array, asOf: number|null }>} news
  *
  * Each call is made at most once per turn: a connector instance memoizes
  * its results, and the route creates one per request.
@@ -29,27 +32,39 @@ import { getWeekPicksInPlay } from '../nflWeekPicks.js';
 import { getNflInjuries, summarizeTeamInjuries } from '../nflInjuries.js';
 import { getNflStandings } from '../nflStandings.js';
 import scorecardHandler from '../../nfl/picks/scorecard.js';
+import seasonModelHandler from '../../nfl/season-model.js';
+import { loadNflHeadlines } from '../../nfl/news/headlines.js';
+import { getNflTeamBySlug } from '../../../src/sports/nfl/teams.js';
 
 /** A stored board newer than this is used as is, without building. */
 const BOARD_FRESH_MS = 15 * 60 * 1000;
-/** How long a turn waits for a fresh board before falling back to the stored one. */
-const BOARD_BUILD_WAIT_MS = 20_000;
+/**
+ * How long a turn waits for a fresh board before falling back to the stored
+ * one. Short on purpose: the turn has one 50 second deadline and the model
+ * still has to answer inside it.
+ */
+const BOARD_BUILD_WAIT_MS = 12_000;
 
 const ms = (iso) => {
   const t = Date.parse(iso || '');
   return Number.isFinite(t) ? t : null;
 };
 
-/** Run one of our own JSON route handlers in-process and return what it sent. */
+/**
+ * Run one of our own JSON route handlers in-process and return what it
+ * sent. Resolves to null for anything but a 200, so a handler's error body
+ * is never mistaken for data.
+ */
 export function callJsonHandler(handler, query = {}) {
   return new Promise((resolve, reject) => {
+    let status = 200;
     const res = {
       setHeader() { return res; },
-      status() { return res; },
-      json(body) { resolve(body); return res; },
+      status(code) { status = code; return res; },
+      json(body) { resolve(status === 200 ? body : null); return res; },
       end() { resolve(null); return res; },
     };
-    Promise.resolve(handler({ method: 'GET', query, headers: {} }, res)).catch(reject);
+    Promise.resolve(handler({ method: 'GET', query, headers: {}, url: '/' }, res)).catch(reject);
   });
 }
 
@@ -74,6 +89,8 @@ export function createNflConnector(deps = {}) {
     getInjuries: getNflInjuries,
     getStandings: getNflStandings,
     getScorecard: () => callJsonHandler(scorecardHandler, { days: '9' }),
+    getSeason: () => callJsonHandler(seasonModelHandler),
+    getHeadlines: loadNflHeadlines,
     now: () => Date.now(),
     ...deps,
   };
@@ -136,6 +153,18 @@ export function createNflConnector(deps = {}) {
     standings: () => once('standings', async () => {
       const data = await d.getStandings();
       return { teams: data?.teams || {}, asOf: ms(data?.generatedAt), stale: !!data?.stale };
+    }),
+
+    season: () => once('season', async () => {
+      const data = await d.getSeason().catch(() => null);
+      if (!data?.teams?.length) return null;
+      return { teams: data.teams, week: data.week ?? null, asOf: ms(data.generatedAt) };
+    }),
+
+    news: (teamSlug) => once(`news:${teamSlug || 'league'}`, async () => {
+      const team = teamSlug ? getNflTeamBySlug(teamSlug) : null;
+      const data = await d.getHeadlines({ team }).catch(() => null);
+      return { headlines: data?.headlines || [], asOf: ms(data?.fetchedAt) };
     }),
   };
 }

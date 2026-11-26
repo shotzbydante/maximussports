@@ -23,6 +23,8 @@ export const MARKET_LABEL = { runline: 'Spread', moneyline: 'Moneyline', total: 
 const num = (v) => (v == null || v === '' || !Number.isFinite(Number(v)) ? null : Number(v));
 export const fmtOdds = (v) => (num(v) == null ? '' : num(v) > 0 ? `+${num(v)}` : `${num(v)}`);
 export const fmtLine = (v) => (num(v) == null ? '' : num(v) > 0 ? `+${num(v)}` : num(v) === 0 ? 'PK' : `${num(v)}`);
+/** 0.412 → "41%". Probabilities from the season model. */
+export const pct = (v) => (num(v) == null ? '' : `${Math.round(num(v) * 100)}%`);
 export const fmtPct = (v, digits = 1) => (num(v) == null ? '' : `${num(v) >= 0 ? '+' : ''}${(num(v) * 100).toFixed(digits)}%`);
 
 function team(t) {
@@ -190,9 +192,17 @@ export function recordCard(scorecard, { asOf = null } = {}) {
   };
 }
 
-/** Picks the account's plan does not include. Never carries the picks themselves. */
-export function lockedCard(count) {
-  return { type: 'locked', id: 'locked', count };
+/**
+ * Calls a signed-out visitor has not been shown. Never carries the calls
+ * themselves, only how many and across how many games.
+ */
+export function lockedCard(count, { games = null } = {}) {
+  return { type: 'locked', id: 'locked', count, games };
+}
+
+/** The Pro offer, shown when an answer ran into something only Pro includes. */
+export function upgradeCard(reason) {
+  return { type: 'upgrade', id: 'upgrade', reason };
 }
 
 /** Follow-up suggestions. Tapping one sends it as an ordinary message. */
@@ -201,6 +211,96 @@ export function chipsCard(items = []) {
     .filter((s) => s.length <= 48)
     .slice(0, 3);
   return clean.length ? { type: 'chips', id: 'chips', items: clean } : null;
+}
+
+const better = (a, b) => (b == null ? true : a > b);
+
+/**
+ * The best number on each side of each market across the books, by the
+ * rule a bettor uses: the most favourable line first, then the best price
+ * at that line. Worked out here, never by the model.
+ */
+export function bestPrices(rows) {
+  const pick = (score) => {
+    let best = null;
+    for (const r of rows) {
+      const s = score(r);
+      if (!s || s.line == null || s.price == null) continue;
+      if (!best || better(s.rank, best.rank) || (s.rank === best.rank && s.price > best.price)) best = { ...s, book: r.book };
+    }
+    return best ? { book: best.book, line: best.line, price: best.price } : null;
+  };
+  const ml = (side) => {
+    let best = null;
+    for (const r of rows) {
+      const price = r.moneyline?.[side];
+      if (price != null && (!best || price > best.price)) best = { book: r.book, price };
+    }
+    return best;
+  };
+  return {
+    spreadHome: pick((r) => r.spread && { line: r.spread.home, rank: r.spread.home, price: r.spread.homePrice }),
+    spreadAway: pick((r) => r.spread && { line: -r.spread.home, rank: -r.spread.home, price: r.spread.awayPrice }),
+    over: pick((r) => r.total && { line: r.total.line, rank: -r.total.line, price: r.total.overPrice }),
+    under: pick((r) => r.total && { line: r.total.line, rank: r.total.line, price: r.total.underPrice }),
+    moneylineHome: ml('home'),
+    moneylineAway: ml('away'),
+  };
+}
+
+/** Every book's number for one game, with the best on each side marked. */
+export function pricesCard(game, { asOf = null } = {}) {
+  const rows = (game.market?.books || []).map((b) => ({
+    book: b.title || b.key,
+    spread: num(b.spread?.homeLine) != null
+      ? { home: num(b.spread.homeLine), homePrice: num(b.spread.homePrice), awayPrice: num(b.spread.awayPrice) } : null,
+    total: num(b.total?.line) != null
+      ? { line: num(b.total.line), overPrice: num(b.total.overPrice), underPrice: num(b.total.underPrice) } : null,
+    moneyline: num(b.h2h?.home) != null && num(b.h2h?.away) != null
+      ? { home: num(b.h2h.home), away: num(b.h2h.away) } : null,
+  })).filter((r) => r.spread || r.total || r.moneyline);
+  if (rows.length === 0) return null;
+  return {
+    type: 'prices',
+    id: `prices-${game.gameId}`,
+    gameId: String(game.gameId),
+    away: team(game.teams?.away),
+    home: team(game.teams?.home),
+    startTime: game.startTime || null,
+    rows,
+    best: bestPrices(rows),
+    asOf,
+    stale: false,
+  };
+}
+
+/** One team's season at a glance, from the season model. */
+export function teamCard(t, { asOf = null } = {}) {
+  if (!t) return null;
+  return {
+    type: 'team',
+    id: `team-${t.slug}`,
+    team: { slug: t.slug, abbrev: t.abbrev, name: t.nickname || t.name },
+    record: t.record || null,
+    division: t.division ? `${t.conference} ${t.division}`.trim() : null,
+    divisionRank: num(t.divisionRank),
+    playoffSeed: num(t.playoffSeed),
+    powerRank: num(t.powerRank),
+    projectedWins: num(t.projectedWins),
+    playoffPct: num(t.playoffPct),
+    divisionPct: num(t.divisionPct),
+    titleOdds: num(t.titleOdds),
+    asOf,
+    stale: false,
+  };
+}
+
+/** Headlines, each linking to the outlet that wrote it. */
+export function newsCard(items = []) {
+  const clean = items.filter((h) => h?.title && /^https?:\/\//.test(h.url || '')).slice(0, 5).map((h) => ({
+    title: String(h.title).slice(0, 160), source: h.source || 'News', time: h.time || '', url: h.url,
+  }));
+  return clean.length ? { type: 'news', id: 'news', items: clean } : null;
 }
 
 // ── Text renderers ──────────────────────────────────────────────────────────
@@ -244,8 +344,25 @@ export function cardLine(card) {
     return card.rows.map((r) => `${r.label}: ${recordText(r)}${r.units != null ? `, ${r.units > 0 ? '+' : ''}${r.units} units` : ''}`).join('. ');
   }
   if (card.type === 'locked') {
-    return `${card.count} more recommended ${card.count === 1 ? 'pick is' : 'picks are'} for Pro members`;
+    return `${card.count} more ${card.count === 1 ? 'call is' : 'calls are'} open with a free account`;
   }
+  if (card.type === 'upgrade') return 'Offered Pro';
+  if (card.type === 'prices') {
+    const b = card.best || {};
+    return [
+      `Prices at ${card.rows.length} books for ${matchupText(card)}`,
+      b.spreadHome ? `best ${card.home.abbrev} ${fmtLine(b.spreadHome.line)} ${fmtOdds(b.spreadHome.price)} at ${b.spreadHome.book}` : null,
+      b.spreadAway ? `best ${card.away.abbrev} ${fmtLine(b.spreadAway.line)} ${fmtOdds(b.spreadAway.price)} at ${b.spreadAway.book}` : null,
+    ].filter(Boolean).join(', ');
+  }
+  if (card.type === 'team') {
+    return [
+      `${card.team.name} ${card.record || ''}`.trim(),
+      card.powerRank != null ? `power rank ${card.powerRank}` : null,
+      card.playoffPct != null ? `playoffs ${pct(card.playoffPct)}` : null,
+    ].filter(Boolean).join(', ');
+  }
+  if (card.type === 'news') return `${card.items.length} headlines: ${card.items.map((h) => h.source).join(', ')}`;
   return '';
 }
 
@@ -263,7 +380,7 @@ export function asPlainText(message) {
   }).filter(Boolean);
   const text = String(message?.text || '').trim();
   if (lines.length === 0) return text;
-  return `${text}\n\n[Shown to the user as cards]\n${lines.join('\n')}`.trim();
+  return `${text}\n\n[Shown to the user as cards at the time. Prices and scores may have moved since: read them again before quoting.]\n${lines.join('\n')}`.trim();
 }
 
 /**

@@ -21,8 +21,8 @@ export const PLAN_LIMITS = {
     advancedIntelEnabled: false,
     premiumEmailsEnabled: false,
     premiumDepth:         'limited',
-    askDailyMessages:     5,   // Ask Maximus: messages a day
-    askPicksPerAnswer:    3,   // Ask Maximus: picks shown per answer
+    askDailyMessages:     10,  // Ask Maximus: questions a day
+    askShopPrices:        false, // Ask Maximus: prices shopped across every book
   },
   pro: {
     maxPinnedTeams:       Infinity,
@@ -33,7 +33,7 @@ export const PLAN_LIMITS = {
     premiumEmailsEnabled: true,
     premiumDepth:         'full',
     askDailyMessages:     150,
-    askPicksPerAnswer:    8,
+    askShopPrices:        true,
   },
 };
 

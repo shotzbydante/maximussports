@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { buildToolRequest, readEvents, withCacheBreakpoint, stripThinking, streamMessage, getAskModel } from './claudeTools.js';
+import { buildToolRequest, readEvents, withCacheBreakpoint, stripThinking, streamMessage, getAskModel, getAskEffort, partialString } from './claudeTools.js';
 import { ClaudeError, FALLBACK_CLAUDE_MODEL } from '../claude.js';
 
 async function* events(list) { for (const e of list) yield e; }
@@ -18,7 +18,7 @@ const toolTurn = [
   { type: 'message_stop' },
 ];
 
-afterEach(() => { delete process.env.ASK_MODEL; delete process.env.ANTHROPIC_API_KEY; vi.restoreAllMocks(); });
+afterEach(() => { delete process.env.ASK_MODEL; delete process.env.ASK_EFFORT; delete process.env.ANTHROPIC_API_KEY; vi.restoreAllMocks(); });
 
 describe('readEvents', () => {
   it('rebuilds thinking and tool-use blocks exactly, with usage', async () => {
@@ -29,6 +29,12 @@ describe('readEvents', () => {
     ]);
     expect(out.stopReason).toBe('tool_use');
     expect(out.usage).toEqual({ input: 40, output: 31, cacheRead: 900, cacheWrite: 12 });
+  });
+
+  it('reports a tool call\'s input as it grows, so its words can be streamed', async () => {
+    const seen = [];
+    await readEvents(events(toolTurn), { onToolInput: (block, json) => seen.push([block.name, json]) });
+    expect(seen).toEqual([['get_picks', '{"market":'], ['get_picks', '{"market":"spread"}']]);
   });
 
   it('streams text as it arrives', async () => {
@@ -78,15 +84,25 @@ describe('request building', () => {
     expect(withCacheBreakpoint([{ role: 'user', content: 'hi' }])[0].content).toEqual([{ type: 'text', text: 'hi', cache_control: { type: 'ephemeral' } }]);
   });
 
-  it('keeps thinking blocks for a model that thinks and adds headroom for it', () => {
+  it('keeps thinking blocks for a model that thinks, adds headroom, and asks for low effort', () => {
     const body = buildToolRequest({ system: 's', messages, tools: [], maxTokens: 900, model: 'claude-sonnet-5-5' });
-    expect(body).toMatchObject({ model: 'claude-sonnet-5-5', stream: true, max_tokens: 2900, thinking: { type: 'between_tools' } });
+    expect(body).toMatchObject({ model: 'claude-sonnet-5-5', stream: true, max_tokens: 2900, thinking: { type: 'between_tools' }, output_config: { effort: 'low' } });
     expect(body.messages[1].content[0].type).toBe('thinking');
+  });
+
+  it('takes effort from ASK_EFFORT, ignores a bad value, and can leave it out', () => {
+    process.env.ASK_EFFORT = 'medium';
+    expect(getAskEffort()).toBe('medium');
+    process.env.ASK_EFFORT = 'ludicrous';
+    expect(getAskEffort()).toBe('low');
+    const body = buildToolRequest({ system: 's', messages, tools: [], maxTokens: 900, model: 'claude-sonnet-5-5', effort: null });
+    expect(body.output_config).toBeUndefined();
   });
 
   it('drops thinking blocks for a model that runs with thinking off', () => {
     const body = buildToolRequest({ system: 's', messages, tools: [], maxTokens: 900, model: FALLBACK_CLAUDE_MODEL });
     expect(body).toMatchObject({ max_tokens: 900, thinking: { type: 'disabled' } });
+    expect(body.output_config).toBeUndefined();
     expect(JSON.stringify(body.messages)).not.toContain('"thinking"');
     expect(stripThinking(messages)).toHaveLength(3);
   });
@@ -106,16 +122,40 @@ describe('streamMessage', () => {
     expect(fetchImpl).not.toHaveBeenCalled();
   });
 
-  it('retries once on the fallback model when the configured one is rejected', async () => {
+  it('when a request is rejected, drops the effort setting first and keeps the model', async () => {
+    process.env.ANTHROPIC_API_KEY = 'k';
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const fetchImpl = vi.fn()
+      .mockResolvedValueOnce(new Response('output_config.effort: not allowed', { status: 400 }))
+      .mockResolvedValueOnce(sse(toolTurn));
+    const out = await streamMessage({ system: 's', messages: [{ role: 'user', content: 'hi' }], tools: [], maxTokens: 10, model: 'claude-sonnet-5-5', fetchImpl });
+    expect(out).toMatchObject({ model: 'claude-sonnet-5-5', effort: null });
+    const [first, second] = fetchImpl.mock.calls.map((c) => JSON.parse(c[1].body));
+    expect(first.output_config).toEqual({ effort: 'low' });
+    expect(second.output_config).toBeUndefined();
+    expect(second.model).toBe('claude-sonnet-5-5');
+  });
+
+  it('then falls back to the other model, and reports which answered', async () => {
     process.env.ANTHROPIC_API_KEY = 'k';
     vi.spyOn(console, 'warn').mockImplementation(() => {});
     const fetchImpl = vi.fn()
       .mockResolvedValueOnce(new Response('unknown model', { status: 404 }))
+      .mockResolvedValueOnce(new Response('unknown model', { status: 404 }))
       .mockResolvedValueOnce(sse(toolTurn));
     const out = await streamMessage({ system: 's', messages: [{ role: 'user', content: 'hi' }], tools: [], maxTokens: 10, model: 'claude-sonnet-5-5', fetchImpl });
     expect(out.model).toBe(FALLBACK_CLAUDE_MODEL);
-    expect(JSON.parse(fetchImpl.mock.calls[1][1].body).model).toBe(FALLBACK_CLAUDE_MODEL);
+    expect(JSON.parse(fetchImpl.mock.calls[2][1].body).model).toBe(FALLBACK_CLAUDE_MODEL);
     expect(out.content[1].input).toEqual({ market: 'spread' });
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
+  });
+
+  it('gives up with an error when even the fallback is rejected', async () => {
+    process.env.ANTHROPIC_API_KEY = 'k';
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const fetchImpl = vi.fn().mockImplementation(async () => new Response('bad request', { status: 400 }));
+    await expect(streamMessage({ system: 's', messages: [], tools: [], maxTokens: 10, model: 'claude-sonnet-5-5', fetchImpl })).rejects.toMatchObject({ code: 'http_error', status: 400 });
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
   });
 
   it('maps rate limits to busy and an aborted call to timeout', async () => {
@@ -126,5 +166,31 @@ describe('streamMessage', () => {
     const err = await streamMessage({ system: 's', messages: [], tools: [], maxTokens: 10, fetchImpl: aborted }).catch((e) => e);
     expect(err).toBeInstanceOf(ClaudeError);
     expect(err.code).toBe('timeout');
+  });
+});
+
+describe('partialString', () => {
+  it('returns a field\'s text as far as it has been written', () => {
+    expect(partialString('{"say":"Two spreads be', 'say')).toBe('Two spreads be');
+    expect(partialString('{"say": "Done.","ids":["a"]}', 'say')).toBe('Done.');
+    expect(partialString('{"ids":["a"]', 'say')).toBe('');
+    expect(partialString('', 'say')).toBe('');
+  });
+
+  it('decodes escapes and waits for one that is cut in half', () => {
+    expect(partialString('{"say":"He said \\"no\\"\\nand left', 'say')).toBe('He said "no"\nand left');
+    expect(partialString('{"say":"caf\\u00e9 \\u00', 'say')).toBe('café ');
+    expect(partialString('{"say":"end\\', 'say')).toBe('end');
+  });
+
+  it('only ever grows, so a page can append the difference', () => {
+    const full = JSON.stringify({ say: 'LV +3.5 at -110 is "the" one.\nSmall edge.', ids: ['g1'] });
+    let prev = '';
+    for (let i = 1; i <= full.length; i += 1) {
+      const now = partialString(full.slice(0, i), 'say');
+      expect(now.startsWith(prev)).toBe(true);
+      prev = now;
+    }
+    expect(prev).toBe('LV +3.5 at -110 is "the" one.\nSmall edge.');
   });
 });
