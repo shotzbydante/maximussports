@@ -64,6 +64,8 @@ function AskState({ userId, authLoading, status, children }) {
   // The panel.
   const [open, setOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  // The ideas page (what Maximus can do) is opened from the panel's header and shown by the thread.
+  const [ideasOpen, setIdeasOpen] = useState(false);
 
   // The thread.
   const [messages, setMessages] = useState([]);
@@ -215,12 +217,12 @@ function AskState({ userId, authLoading, status, children }) {
     track('ask_opened', { sport: SPORT, source, page: pageContext(pathRef.current).kind, with_question: !!question });
     if (question) setQueued({ question, source });
   }, []);
-  const close = useCallback(() => { setOpen(false); setExpanded(false); }, []);
+  const close = useCallback(() => { setOpen(false); setExpanded(false); setIdeasOpen(false); }, []);
 
   // On the full page the panel is shut: the same thread is the page itself.
   const ui = useMemo(
-    () => ({ enabled, status, open: open && !onFullPage, expanded, openAsk, close, setExpanded }),
-    [enabled, status, open, onFullPage, expanded, openAsk, close],
+    () => ({ enabled, status, open: open && !onFullPage, expanded, openAsk, close, setExpanded, ideasOpen, setIdeasOpen }),
+    [enabled, status, open, onFullPage, expanded, openAsk, close, ideasOpen],
   );
   const thread = useMemo(() => ({
     messages, usage, ready, reason, loading: wanted && !loaded, busy, streamed, working, draft, setDraft, notice,

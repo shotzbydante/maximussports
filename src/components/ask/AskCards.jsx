@@ -125,7 +125,7 @@ const PickCard = memo(function PickCard({ card, now, onAsk, onOpen }) {
       <div className={a.foot}>
         <span className={a.facts}>
           {card.ev && <b>{card.ev} expected value{card.lockedAt ? ' at lock' : ''}</b>}
-          {card.lockedAt && <span>Locked {kickoffShort(card.lockedAt)}</span>}
+          {card.lockedAt && <span>Locked {stampShort(card.lockedAt)}</span>}
           {!started && <AsOf card={card} now={now} onAsk={onAsk} what="Price" />}
           {started && card.game.status !== 'final' && <AsOf card={card} now={now} onAsk={onAsk} what="Score" />}
         </span>
