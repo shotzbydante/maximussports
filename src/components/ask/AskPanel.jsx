@@ -17,6 +17,7 @@ import { mascotFor } from '../../brand/mascots';
 import { useAsk } from './askState';
 import AskThread from './AskThread';
 import a from './ask.module.css';
+import { track } from '../../analytics/index';
 
 const PHONE = '(max-width: 719px)';
 const DRAG_STEP_PX = 70;
@@ -34,7 +35,7 @@ function usePhone() {
 }
 
 export default function AskPanel() {
-  const { close, expanded, setExpanded } = useAsk();
+  const { close, expanded, setExpanded, ideasOpen, setIdeasOpen } = useAsk();
   const phone = usePhone();
   const panelRef = useRef(null);
   const titleRef = useRef(null);
@@ -129,6 +130,18 @@ export default function AskPanel() {
           <b id="ask-panel-title" ref={titleRef} tabIndex={-1}>Maximus</b>
           <span>NFL picks, prices and matchups</span>
         </p>
+        <button
+          type="button"
+          className={`${a.ideasPill} ${ideasOpen ? a.ideasPillOn : ''}`}
+          aria-pressed={ideasOpen}
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={() => {
+            if (!ideasOpen) track('ask_ideas_opened', { sport: 'nfl', from: 'header' });
+            setIdeasOpen(!ideasOpen);
+          }}
+        >
+          <span aria-hidden="true">💡</span> {ideasOpen ? 'Chat' : 'Ideas'}
+        </button>
         {phone ? (
           <button type="button" className={a.panelBtn} onClick={() => setExpanded(!expanded)} aria-label={expanded ? 'Make smaller' : 'Make full screen'}>
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">

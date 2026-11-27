@@ -22,7 +22,7 @@ import { TeamText } from '../nfl/home/NflTeamTag';
 import ConfirmEmailBar from '../common/ConfirmEmailBar';
 import AskCards, { Chips, UpgradeCard } from './AskCards';
 import AskEmailGate from './AskEmailGate';
-import { useAskThread } from './askState';
+import { useAsk, useAskThread } from './askState';
 import AskIdeas from './AskIdeas';
 import { ideas, pageContext, starters } from './askContext';
 import a from './ask.module.css';
@@ -91,7 +91,7 @@ export default function AskThread({ variant = 'page', autoFocus = false, seed = 
   const { messages, usage, ready, reason, loading, busy, streamed, working, draft, setDraft, notice, ask, clear, want, tier, userId, guestPass, maxChars } = t;
 
   const [confirmClear, setConfirmClear] = useState(false);
-  const [showIdeas, setShowIdeas] = useState(false);
+  const { ideasOpen: showIdeas, setIdeasOpen: setShowIdeas } = useAsk();
   const [now, setNow] = useState(() => Date.now());
   const [tick, setTick] = useState(0);
   const scrollRef = useRef(null);
@@ -164,7 +164,7 @@ export default function AskThread({ variant = 'page', autoFocus = false, seed = 
 
   useEffect(() => { if (autoFocus && !loading) inputRef.current?.focus(); }, [autoFocus, loading]);
 
-  const send = useCallback((text, source) => { setShowIdeas(false); ask(text, source); }, [ask]);
+  const send = useCallback((text, source) => { setShowIdeas(false); ask(text, source); }, [ask, setShowIdeas]);
   const onSubmit = (e) => { e.preventDefault(); send(draft, 'typed'); };
   const onKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); send(draft, 'typed'); }
@@ -182,12 +182,11 @@ export default function AskThread({ variant = 'page', autoFocus = false, seed = 
     [ctx, pinnedTeams, usage?.shopPrices],
   );
   const toggleIdeas = () => {
-    setShowIdeas((on) => {
-      if (!on) track('ask_ideas_opened', { sport: SPORT, page: ctx.kind });
-      return !on;
-    });
-    if (scrollRef.current) scrollRef.current.scrollTop = 0;
+    if (!showIdeas) track('ask_ideas_opened', { sport: SPORT, page: ctx.kind, from: 'page' });
+    setShowIdeas(!showIdeas);
   };
+  // Opening the ideas page starts it from the top.
+  useEffect(() => { if (showIdeas && scrollRef.current) scrollRef.current.scrollTop = 0; }, [showIdeas]);
   const capped = !!usage && usage.left === 0;
   const off = !ready;
   const lastAssistantId = [...messages].reverse().find((m) => m.role === 'assistant')?.id;
@@ -200,9 +199,9 @@ export default function AskThread({ variant = 'page', autoFocus = false, seed = 
       <div className={a.scroll} ref={scrollRef}>
         {messages.length > 0 && (
           <div className={a.bar}>
-            <button type="button" className={`${a.clear} ${a.barLeft}`} onClick={toggleIdeas} aria-pressed={showIdeas}>
-              {showIdeas ? 'Back to the conversation' : '💡 Ideas'}
-            </button>
+            {showIdeas && (
+              <button type="button" className={`${a.clear} ${a.barLeft}`} onClick={() => setShowIdeas(false)}>Back to the conversation</button>
+            )}
             {showIdeas ? null : confirmClear ? (
               <span className={a.confirm}>
                 Clear this conversation?
@@ -267,6 +266,11 @@ export default function AskThread({ variant = 'page', autoFocus = false, seed = 
       </p>
 
       <div className={a.dock}>
+        {variant === 'page' && !empty && (
+          <button type="button" className={a.ideasPill} onClick={toggleIdeas} aria-pressed={showIdeas}>
+            <span aria-hidden="true">💡</span> {showIdeas ? 'Back to chat' : 'See what I can do'}
+          </button>
+        )}
         {notice && <p className={a.notice} role="alert">{notice.message}</p>}
         {off && !loading && (
           <p className={a.notice} role="status">
