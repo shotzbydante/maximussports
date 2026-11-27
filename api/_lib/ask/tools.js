@@ -202,7 +202,7 @@ function pickFact(p) {
     book: lock?.book || p.book?.title || null,
     game: fullMatchup(m.awayTeam, m.homeTeam),
     kickoff: kickoffET(m.startTime),
-    status: p.pickRole === 'hero' ? 'recommended' : 'lean (tracked and graded, not recommended)',
+    status: p.pickRole === 'hero' ? 'recommended' : 'lean (the model\'s call at lower conviction; tracked and graded)',
     conviction: `${p.conviction?.score ?? Math.round((p.betScore?.total || 0) * 100)} of 100`,
     expected_value: typeof p.ev === 'number' ? fmtPct(lock?.evAtLock ?? p.ev) : null,
     fair_price: p.fair?.priceAmerican != null ? fmtOdds(p.fair.priceAmerican) : null,
@@ -295,16 +295,26 @@ async function getPicks(input, ctx) {
   const team = input?.team ? resolveTeamArg(input.team) : null;
   if (input?.team && !team) return { error: `No NFL team matches "${input.team}".` };
 
+  const select = (pool) => {
+    const seen = new Set();
+    return rankPicks(pool)
+      .filter((p) => p && open.has(p.id) && !seen.has(p.id) && seen.add(p.id))
+      .filter((p) => !market || p.market?.type === market)
+      .filter((p) => !team || inGame(team.slug)(p))
+      .slice(0, 12);
+  };
+  const heroes = board?.heroPicks || [];
+  const all = [...heroes, ...(board?.fullSlatePicks || []), ...(board?.trackingPicks || [])];
   // A guest's free calls include leans, so they are always in a guest's result.
   const withLeans = input?.include_leans || isGuest(ctx);
-  const pool = [...(board?.heroPicks || []), ...(withLeans ? [...(board?.fullSlatePicks || []), ...(board?.trackingPicks || [])] : [])];
-  const seen = new Set();
-  const picks = rankPicks(pool)
-    .filter((p) => p && open.has(p.id) && !seen.has(p.id) && seen.add(p.id))
-    .filter((p) => !market || p.market?.type === market)
-    .filter((p) => !team || inGame(team.slug)(p))
-    .slice(0, 12)
-    .map(pickFact);
+  let chosen = select(withLeans ? all : heroes);
+  // Maximus always has a call: when no recommended pick matches, the leans answer.
+  let leansOnly = false;
+  if (!chosen.some((p) => p.pickRole === 'hero')) {
+    if (!withLeans) chosen = select(all);
+    leansOnly = chosen.length > 0;
+  }
+  const picks = chosen.map(pickFact);
   const inPlay = (live.picks || [])
     .filter((r) => !market || r.market === market)
     .filter((r) => !team || inGame(team.slug)(r))
@@ -316,8 +326,10 @@ async function getPicks(input, ctx) {
     stale: stale ? 'These prices are older than 15 minutes. Say so if you quote them.' : undefined,
     picks,
     already_kicked_off: inPlay,
+    leans_only: leansOnly
+      ? 'These are leans: the model\'s calls at lower conviction than a recommended pick. Lead with the strongest ones and why. Say once that they are leans. Do not open with "no recommended picks".' : undefined,
     none: picks.length === 0 && inPlay.length === 0
-      ? 'No recommended pick matches. Most games are a pass: a pick is published only when a book\'s price beats the market.' : undefined,
+      ? 'No pick or lean matches this.' : undefined,
     account_note: guestNote(lockedCount, games),
     rule: QUOTE_RULE,
   };
@@ -360,7 +372,7 @@ async function getGame(input, ctx) {
       if (detail.projection) {
         const p = detail.projection;
         const fav = p.margin >= 0 ? detail.homeTeam : detail.awayTeam;
-        fact.maximus_projection = `${abbr(fav)} by ${Math.abs(p.margin)}, total ${p.total}. This is the model's lean. It is graded, but it is not a recommended pick.`;
+        fact.maximus_projection = `${abbr(fav)} by ${Math.abs(p.margin)}, total ${p.total}. This is the model's lean: a lower-conviction call, graded like the rest.`;
       }
     }
     const onGame = Object.values(detail.picks || {}).filter(Boolean);

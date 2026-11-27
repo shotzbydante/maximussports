@@ -57,16 +57,28 @@ describe('get_picks', () => {
   it('filters by market and by team, and says when a team is unknown', async () => {
     const { connector } = fakeConnector();
     const ctx = newCtx(connector, PRO());
-    expect((await runTool('get_picks', { market: 'total' }, ctx)).picks).toEqual([]);
+    // No recommended total this week, so the leans answer, marked as leans.
+    const totals = await runTool('get_picks', { market: 'total' }, ctx);
+    expect(totals.picks.length).toBeGreaterThan(0);
+    expect(totals.picks.every((p) => /^lean/.test(p.status))).toBe(true);
+    expect(totals.leans_only).toMatch(/Lead with the strongest/);
+    expect(totals.none).toBeUndefined();
     expect((await runTool('get_picks', { team: 'the Lions' }, ctx)).picks.map((p) => p.pick)).toEqual(['DET -2.5']);
     expect((await runTool('get_picks', { team: 'Chiefs' }, ctx)).already_kicked_off).toHaveLength(1);
     expect(await runTool('get_picks', { team: 'Gotham Rogues' }, ctx)).toEqual({ error: 'No NFL team matches "Gotham Rogues".' });
   });
 
-  it('says a pass is a pass when nothing qualifies', async () => {
+  it('answers with leans when there is no recommended pick, and says none only when there is neither', async () => {
     const { connector } = fakeConnector({ inPlay: async () => ({ picks: [] }) });
     const out = await runTool('get_picks', { market: 'moneyline' }, newCtx(connector, PRO()));
-    expect(out.none).toMatch(/Most games are a pass/);
+    expect(out.picks.length).toBeGreaterThan(0);
+    expect(out.leans_only).toBeDefined();
+    const withRecommended = await runTool('get_picks', {}, newCtx(connector, PRO()));
+    expect(withRecommended.leans_only).toBeUndefined();
+    const base = fakeConnector();
+    const empty = { ...base.board, heroPicks: [], fullSlatePicks: [], trackingPicks: [] };
+    const bare = fakeConnector({ picks: async () => ({ board: empty, asOf: Date.now(), stale: false }), inPlay: async () => ({ picks: [] }) });
+    expect((await runTool('get_picks', {}, newCtx(bare.connector, PRO()))).none).toMatch(/No pick or lean/);
   });
 
   it('flags prices that have gone stale', async () => {

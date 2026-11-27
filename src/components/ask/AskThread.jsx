@@ -137,10 +137,14 @@ export default function AskThread({ variant = 'page', autoFocus = false, seed = 
       return;
     }
     // Room under a short answer, so the question can still reach the top.
-    spacer.style.height = '0px';
+    // Measured from where the content ends (the spacer's own top), never by
+    // collapsing the spacer first: collapsing it lets the browser pull the
+    // view back down to the bottom, which hid the answer under the question.
     if (turn) {
-      const below = el.scrollHeight - turn.offsetTop;
-      spacer.style.height = `${Math.max(0, el.clientHeight - below - 12)}px`;
+      const content = spacer.offsetTop - turn.offsetTop;
+      spacer.style.height = `${Math.max(0, el.clientHeight - content - 20)}px`;
+    } else {
+      spacer.style.height = '0px';
     }
     if (turn && placed.current !== lastUserId) {
       placed.current = lastUserId;
@@ -200,7 +204,7 @@ export default function AskThread({ variant = 'page', autoFocus = false, seed = 
             {variant === 'page' && <img className={a.hero} src={mascot} alt="" width="72" height="72" />}
             <h2 className={a.hello}>I’m Maximus. I’ve done the math on this week.</h2>
             <p className={a.sub}>
-              Ask about a pick, a price or a matchup. Most games are a pass, and I’ll say so.
+              Ask about a pick, a price or a matchup. I’ll give you my call and the reason, and say how strong it is.
               {tier === 'guest' && usage?.left > 0 && ` Your first ${usage.cap} questions need no account.`}
             </p>
             {!off && !capped && <Chips items={prompts} onAsk={send} disabled={busy} source="starter" />}
