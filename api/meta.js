@@ -44,8 +44,8 @@ function titleCase(slug) {
 function resolvePageMeta(pathname) {
   if (pathname === '/' || pathname === '') {
     return {
-      title: `College Basketball Betting Intelligence & March Madness Picks (${CURRENT_YEAR})`,
-      description: `AI-powered college basketball betting intelligence for the ${CURRENT_YEAR} season — ATS picks, model-driven predictions, and March Madness insights across every major NCAAB matchup.`,
+      title: 'NFL Picks, Predictions and Betting Insights',
+      description: 'Free NFL picks against the spread, over/under and moneyline for every game, locked at a real sportsbook price and graded in public. Ask Maximus, the AI betting assistant, about any game.',
       ogImage: DEFAULT_OG_IMAGE,
       canonicalPath: '/',
     };
