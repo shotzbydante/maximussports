@@ -89,6 +89,16 @@
       "permanent": false
     },
     {
+      "source": "/ig/ask",
+      "destination": "/ask?utm_source=instagram&utm_medium=social&utm_campaign=ask_maximus",
+      "permanent": false
+    },
+    {
+      "source": "/ads/ask",
+      "destination": "/ask?utm_source=instagram&utm_medium=paid_social&utm_campaign=ask_maximus_ads",
+      "permanent": false
+    },
+    {
       "source": "/ig/picks",
       "destination": "/nfl/insights?utm_source=instagram&utm_medium=social&utm_campaign=picks",
       "permanent": false
