@@ -307,26 +307,30 @@
   position: fixed; z-index: 950;
   right: max(14px, env(safe-area-inset-right, 0px));
   bottom: calc(14px + env(safe-area-inset-bottom, 0px));
-  display: flex; align-items: center; gap: 8px;
+  display: flex; flex-direction: column; align-items: flex-end; gap: 8px;
   font-family: var(--ask-body);
   pointer-events: none;
 }
 .aboveBar { bottom: calc(118px + env(safe-area-inset-bottom, 0px)); }
 .puck, .peek { pointer-events: auto; }
 .puck {
-  display: grid; place-items: center; width: 56px; height: 56px; padding: 0;
-  border: 1px solid var(--hair); border-radius: 50%;
-  background: var(--surface); cursor: pointer;
-  box-shadow: 0 6px 20px rgba(11, 27, 51, 0.22), 0 1px 3px rgba(11, 27, 51, 0.12);
-  transition: transform 0.15s ease;
+  display: inline-flex; align-items: center; gap: 9px;
+  height: 54px; padding: 5px 20px 5px 5px;
+  border: 2px solid #fff; border-radius: 999px;
+  background: #1668e3; color: #fff; cursor: pointer;
+  font-family: var(--ask-display); font-size: 1rem; font-weight: 800; letter-spacing: -0.01em; white-space: nowrap;
+  box-shadow: 0 10px 26px rgba(22, 104, 227, 0.45), 0 2px 6px rgba(11, 27, 51, 0.25);
+  transition: transform 0.15s ease, background 0.15s ease;
 }
-.puck:hover { transform: translateY(-1px); }
-.puck:active { transform: scale(0.96); }
-.puck img { width: 44px; height: 44px; object-fit: contain; }
+.puck:hover { transform: translateY(-1px); background: #0f57c7; }
+.puck:active { transform: scale(0.97); }
+.puckFace { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; background: #fff; flex-shrink: 0; }
+.puckFace img { width: 34px; height: 34px; object-fit: contain; }
+.puckLabel { line-height: 1; }
 
 .peek {
   display: flex; align-items: stretch;
-  max-width: min(290px, calc(100vw - 100px));
+  max-width: min(290px, calc(100vw - 28px));
   border: 1px solid var(--hair); border-radius: 16px 16px 4px 16px;
   background: var(--surface); color: var(--ink);
   box-shadow: 0 6px 20px rgba(11, 27, 51, 0.18);
@@ -386,10 +390,12 @@
 
 .clear:focus-visible, .confirm button:focus-visible, .chipBtn:focus-visible, .send:focus-visible,
 .more:focus-visible, .proBtn:focus-visible, .gateBtn:focus-visible, .refresh:focus-visible,
-.puck:focus-visible, .peekLine:focus-visible, .peekClose:focus-visible, .panelBtn:focus-visible,
+.peekLine:focus-visible, .peekClose:focus-visible, .panelBtn:focus-visible,
 .about:focus-visible, .books summary:focus-visible, .news a:focus-visible, .gateFoot a:focus-visible {
   outline: 2px solid var(--link); outline-offset: 2px;
 }
+
+.puck:focus-visible { outline: 3px solid #0b1b33; outline-offset: 3px; }
 
 @media (prefers-reduced-motion: no-preference) {
   .faceBusy { animation: nod 1.6s ease-in-out infinite; }
