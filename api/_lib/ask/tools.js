@@ -62,7 +62,7 @@ export const TOOL_DEFS = [
   },
   {
     name: 'get_slate',
-    description: 'Every NFL game this week: teams, kickoff, live score or final, and the consensus spread, total and moneyline. Use for schedule, scores and "what are the lines" questions.',
+    description: 'Every NFL game this week: teams, kickoff, live score or final, and the consensus spread, total and moneyline, plus each game\'s angles: weather, a quarterback in doubt, the biggest position-group mismatch and schedule spots. Use for schedule, scores and "what are the lines" questions, and for questions about the whole week such as "which game has the biggest mismatch", "does weather matter anywhere" or "any trap games".',
     input_schema: { type: 'object', properties: {} },
   },
   {
@@ -335,9 +335,42 @@ async function getPicks(input, ctx) {
   };
 }
 
+const unitWords = (s) => String(s).replace(/([A-Z])/g, ' $1').toLowerCase();
+const mismatchLine = (u) =>
+  `${u.offenseTeam} ${unitWords(u.offense)} (grade ${u.offenseGrade}) against ${u.defenseTeam} ${unitWords(u.defense)} (grade ${u.defenseGrade})`;
+const quarterbackLines = (detail) => ['away', 'home'].map((side) => {
+  const q = detail.quarterbacks?.[side];
+  if (!q?.starter) return null;
+  return `${q.team}: ${q.starter}${q.uncertain ? ` (in doubt${q.reason ? `: ${q.reason}` : ''})` : ''}${q.changed ? ' (change at quarterback)' : ''}`;
+}).filter(Boolean);
+
+/** The one-line angles on a game, so a question about the whole week needs one read. */
+function gameAngles(detail) {
+  if (!detail) return undefined;
+  const top = (detail.units?.mismatches || [])[0];
+  const out = {
+    conditions: detail.environment?.label || undefined,
+    quarterback_watch: quarterbackLines(detail).filter((l) => /in doubt|change at quarterback/.test(l)),
+    biggest_unit_mismatch: top ? mismatchLine(top) : undefined,
+    schedule_spots: (detail.situations || []).map((x) => x.note).filter(Boolean).slice(0, 2),
+  };
+  if (!out.quarterback_watch.length) delete out.quarterback_watch;
+  if (!out.schedule_spots.length) delete out.schedule_spots;
+  return Object.values(out).some((v) => v !== undefined) ? out : undefined;
+}
+
 async function getSlate(_input, ctx) {
-  const { games, week, asOf } = await ctx.connector.games();
-  return { week: week ? `Week ${week}` : null, as_of: stamp(asOf), games: games.map(gameFact), rule: QUOTE_RULE };
+  const [{ games, week, asOf }, { board }] = await Promise.all([
+    ctx.connector.games(),
+    ctx.connector.picks().catch(() => ({ board: null })),
+  ]);
+  const byId = new Map((board?.byGame || []).map((g) => [String(g.gameId), g]));
+  return {
+    week: week ? `Week ${week}` : null,
+    as_of: stamp(asOf),
+    games: games.map((g) => ({ ...gameFact(g), angles: gameAngles(byId.get(String(g.gameId))) })),
+    rule: QUOTE_RULE,
+  };
 }
 
 async function getGame(input, ctx) {
@@ -357,14 +390,8 @@ async function getGame(input, ctx) {
   if (detail) {
     const env = detail.environment || {};
     fact.conditions = env.label || null;
-    fact.quarterbacks = ['away', 'home'].map((side) => {
-      const q = detail.quarterbacks?.[side];
-      if (!q?.starter) return null;
-      return `${q.team}: ${q.starter}${q.uncertain ? ` (in doubt${q.reason ? `: ${q.reason}` : ''})` : ''}${q.changed ? ' (change at quarterback)' : ''}`;
-    }).filter(Boolean);
-    const words = (s) => String(s).replace(/([A-Z])/g, ' $1').toLowerCase();
-    fact.unit_mismatches = (detail.units?.mismatches || []).slice(0, 3).map((u) =>
-      `${u.offenseTeam} ${words(u.offense)} (grade ${u.offenseGrade}) against ${u.defenseTeam} ${words(u.defense)} (grade ${u.defenseGrade})`);
+    fact.quarterbacks = quarterbackLines(detail);
+    fact.unit_mismatches = (detail.units?.mismatches || []).slice(0, 3).map(mismatchLine);
     fact.schedule_spots = (detail.situations || []).map((s) => s.note).filter(Boolean).slice(0, 3);
     if (!guest) {
       fact.roster_talent = (detail.talent?.matchups || []).filter((m) => m.size !== 'even').slice(0, 3).map((m) =>

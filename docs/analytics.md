@@ -129,6 +129,7 @@ All carry `sport: 'nfl'`. Client events come from `src/components/ask/`; server 
 | `ask_answer_shown` | client | `source`, `page`, `plan`, `cards`, `locked`, `pro_offer`, `duration_ms` |
 | `ask_card_opened` | client | `card_type`, `game_id` |
 | `ask_upgrade_clicked` | client | `surface` (ask_answer, ask_cap), `reason` |
+| `ask_ideas_opened` | client | `page` (a question sent from the ideas list has `source: idea` on `ask_message_sent`) |
 | `ask_cleared` | client | |
 | `ask_error` | client | `code`, `page` |
 | `ask_answered` | server | `question`, `answer`, `plan`, `signed_in`, `page`, `page_teams`, `turn`, `channel`, `rollout`, `rounds`, `tools`, `cards`, `card_types`, `corrections`, `fell_back`, `pro_only`, `model`, `duration_ms`, token counts |
