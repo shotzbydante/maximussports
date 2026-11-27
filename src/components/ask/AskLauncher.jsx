@@ -101,7 +101,8 @@ export default function AskLauncher() {
         aria-label="Ask Maximus"
         aria-haspopup="dialog"
       >
-        <img src={mascotFor('nfl').flat} alt="" width="44" height="44" />
+        <span className={a.puckFace}><img src={mascotFor('nfl').flat} alt="" width="34" height="34" /></span>
+        <span className={a.puckLabel}>Ask Maximus</span>
       </button>
     </div>
   );
