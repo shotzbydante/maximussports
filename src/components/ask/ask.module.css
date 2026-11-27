@@ -122,6 +122,14 @@
 .face { width: 28px; height: 28px; object-fit: contain; margin-top: 1px; }
 .botBody { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 .words { margin: 0; padding-top: 3px; font-size: 1rem; line-height: 1.55; color: var(--ink); max-width: 60ch; white-space: pre-wrap; overflow-wrap: anywhere; }
+.answer { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.lead { font-family: var(--ask-display); font-size: 1.0625rem; font-weight: 700; line-height: 1.4; letter-spacing: -0.01em; }
+.points { display: flex; flex-direction: column; margin: 0; padding: 4px 12px; list-style: none; border: 1px solid var(--hair); border-radius: 14px; background: var(--surface); }
+.points li { display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 10px; align-items: start; padding: 10px 0; }
+.points li + li { border-top: 1px solid var(--hair-soft); }
+.pointIcon { font-size: 1.125rem; line-height: 1.3; text-align: center; }
+.pointText { display: flex; flex-direction: column; gap: 1px; font-size: 0.9375rem; line-height: 1.45; color: var(--ink); overflow-wrap: anywhere; }
+.pointText b { font-size: 0.75rem; font-weight: 700; color: var(--ink-3); }
 .working { margin: 0; padding-top: 3px; font-size: 0.9375rem; color: var(--ink-3); }
 .dots::after { content: '…'; }
 

@@ -316,7 +316,7 @@ describe('toClaudeMessages', () => {
 
 describe('toPlain', () => {
   it('strips markdown the model was told not to write', () => {
-    expect(toPlain('**LV +3.5** at `-110`.\n\n- One\n- Two\n# Head')).toBe('LV +3.5 at -110.\n\nOne\nTwo\nHead');
+    expect(toPlain('**LV +3.5** at `-110`.\n\n- One\n- Two\n# Head')).toBe('LV +3.5 at -110.\n\n- One\n- Two\nHead');
     expect(toPlain('Under 44.5 is *fine* here.')).toBe('Under 44.5 is fine here.');
   });
 });
