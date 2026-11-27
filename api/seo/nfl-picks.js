@@ -29,7 +29,8 @@ export function publicPicks(board, { now = Date.now() } = {}) {
   const row = (p) => ({
     label: p.selection?.label || '',
     market: MARKET[p.market?.type] || '',
-    price: p.selection?.priceLabel || '',
+    // A moneyline's label already carries its price ("DEN -200"), so only the book is added.
+    price: p.market?.type === 'moneyline' ? (p.book?.title ? `at ${p.book.title}` : '') : (p.selection?.priceLabel || ''),
     matchup: matchup(p.matchup),
     kickoff: kickoff(p.matchup?.startTime),
     lockedAt: p.lock?.lockedAt ? stamp(p.lock.lockedAt) : '',

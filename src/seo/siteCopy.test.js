@@ -69,7 +69,7 @@ describe('plain-HTML pages', () => {
     selection: { side: 'under', label: 'Under 47.5', priceLabel: '-109 at BetRivers' }, matchup: m(7),
     why: 'SECRET reason sentence', whyShort: 'SECRET short', lock: { lockedAt: T(-30) },
   };
-  const lean = { id: 'g1-ml', gameId: 'g1', market: { type: 'moneyline' }, conviction: { score: 25 }, selection: { side: 'home', label: 'BUF -160', priceLabel: '-160 at FanDuel' }, matchup: m(7) };
+  const lean = { id: 'g1-ml', gameId: 'g1', market: { type: 'moneyline' }, conviction: { score: 25 }, selection: { side: 'home', label: 'BUF -160', priceLabel: '-160 at FanDuel' }, book: { title: 'FanDuel' }, matchup: m(7) };
   const board = {
     week: 12, generatedAt: T(-1), tiers: { tier2: [hero] }, fullSlatePicks: [hero, lean],
     byGame: [{ gameId: 'g1', ...m(7), market: { spreadHome: -3, total: 46.5, fairHomeWin: 0.6 } }, { gameId: 'old', ...m(-5), market: {} }],
@@ -84,6 +84,8 @@ describe('plain-HTML pages', () => {
     expect(html).toContain('Kansas City Chiefs at Buffalo Bills');
     expect(html).toContain('BUF -3');
     expect(html).toContain('rel="canonical" href="https://maximussports.ai/nfl-picks"');
+    expect(html).toContain('BUF -160 <span class="meta">at FanDuel</span>');
+    expect(html).not.toContain('-160 -160');
     expect(html).not.toContain('SECRET');
     expect(html).not.toMatch(/0\.6\b/);
     expect(publicPicks(board, { now }).games).toHaveLength(1);
