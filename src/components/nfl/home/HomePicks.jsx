@@ -30,6 +30,7 @@ import { trackSignupCtaClicked } from '../../../analytics/onboarding';
 import useGuestPass from '../../../hooks/useGuestPass';
 import { usePlan } from '../../../hooks/usePlan';
 import ProAlerts from './ProAlerts';
+import EmailCapture from '../../common/EmailCapture';
 import AskAbout from '../../ask/AskAbout';
 import h from './home.module.css';
 import { trackPicksBoardView } from '../../../analytics/sportEvents';
@@ -183,6 +184,16 @@ export default function HomePicks({ variant = 'home', games: gamesProp, weekLabe
           {board === undefined
             ? <div className={h.skeleton} style={!user ? { minHeight: '70vh' } : undefined} aria-busy="true" />
             : (cards || (free.length > 0 ? null : nothingYet))}
+          {/* Signed out: the ask sits under the first pick, where most visitors still are. Only a third scroll to the wall. */}
+          {guest && board && total > 0 && (
+            <aside className={h.inlineCapture} aria-label="Get every pick by email">
+              <div className={h.inlineCaptureText}>
+                <b className={h.proTitle}>{gameCount > 1 ? `Get the call on all ${gameCount} games` : 'Get the call on every game'}</b>
+                <p className={h.proBody}>Enter your email and the full board opens now. The picks also reach your inbox Thursday and Sunday.</p>
+              </div>
+              <EmailCapture sport="nfl" next={insights} placement="under_first_pick" note="Free. No password, no card." />
+            </aside>
+          )}
           {free.length > 0 && (
             <>
               <p className={h.sectionNote}>

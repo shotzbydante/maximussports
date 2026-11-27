@@ -5,7 +5,7 @@
  * ─── THE FUNNEL, IN ORDER ────────────────────────────────────────────────
  *
  *  signup_wall_viewed       the create-account wall or bar came on screen   placement, sport
- *  signup_cta_clicked       tapped a create-account button                  placement: gate_wall | free_lean | sticky_bar
+ *  signup_cta_clicked       tapped a create-account button                  placement: gate_wall | under_first_pick | free_lean | sticky_bar
  *  email_capture_submitted  typed an email into the wall on a preview page; the page opens at once (guest pass)
  *  guest_pass_confirmed     confirmed that email with the code, from the bar above the opened page
  *  onboarding_deferred      new account sent straight to the page it came for; setup waits in Settings

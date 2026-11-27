@@ -111,6 +111,9 @@
     {"source": "/best-bracket-picks", "destination": "/api/seo/best-bracket-picks"},
     {"source": "/teams/:slug/odds",   "destination": "/api/seo/team-odds?slug=:slug"},
     {"source": "/sitemap.xml",        "destination": "/api/seo/sitemap"},
+    {"source": "/nfl-picks",          "destination": "/api/seo/nfl-picks"},
+    {"source": "/ask-maximus",        "destination": "/api/seo/ask-maximus"},
+    {"source": "/about",              "destination": "/api/seo/about"},
 
     {"source": "/ncaam",         "has": [{"type": "header", "key": "user-agent", "value": "(?i).*(Twitterbot|facebookexternalhit|Facebot|Slackbot|Slack-ImgProxy|Discordbot|LinkedInBot|WhatsApp|TelegramBot|Applebot|Googlebot|bingbot|PinterestBot|Embedly|Quora Link Preview|vkShare).*"}], "destination": "/api/meta?path=/ncaam"},
     {"source": "/ncaam/teams",    "has": [{"type": "header", "key": "user-agent", "value": "(?i).*(Twitterbot|facebookexternalhit|Facebot|Slackbot|Slack-ImgProxy|Discordbot|LinkedInBot|WhatsApp|TelegramBot|Applebot|Googlebot|bingbot|PinterestBot|Embedly|Quora Link Preview|vkShare).*"}], "destination": "/api/meta?path=/ncaam/teams"},
@@ -122,7 +125,7 @@
     {"source": "/ncaam/news",      "has": [{"type": "header", "key": "user-agent", "value": "(?i).*(Twitterbot|facebookexternalhit|Facebot|Slackbot|Slack-ImgProxy|Discordbot|LinkedInBot|WhatsApp|TelegramBot|Applebot|Googlebot|bingbot|PinterestBot|Embedly|Quora Link Preview|vkShare).*"}], "destination": "/api/meta?path=/ncaam/news"},
     {"source": "/ncaam/march-madness-betting-intelligence", "has": [{"type": "header", "key": "user-agent", "value": "(?i).*(Twitterbot|facebookexternalhit|Facebot|Slackbot|Slack-ImgProxy|Discordbot|LinkedInBot|WhatsApp|TelegramBot|Applebot|Googlebot|bingbot|PinterestBot|Embedly|Quora Link Preview|vkShare).*"}], "destination": "/api/meta?path=/ncaam/march-madness-betting-intelligence"},
 
-    {"source": "/",         "has": [{"type": "header", "key": "user-agent", "value": "(?i).*(Twitterbot|facebookexternalhit|Facebot|Slackbot|Slack-ImgProxy|Discordbot|LinkedInBot|WhatsApp|TelegramBot|Applebot|Googlebot|bingbot|PinterestBot|Embedly|Quora Link Preview|vkShare).*"}], "destination": "/api/meta?path=/ncaam"},
+    {"source": "/",         "has": [{"type": "header", "key": "user-agent", "value": "(?i).*(Twitterbot|facebookexternalhit|Facebot|Slackbot|Slack-ImgProxy|Discordbot|LinkedInBot|WhatsApp|TelegramBot|Applebot|Googlebot|bingbot|PinterestBot|Embedly|Quora Link Preview|vkShare).*"}], "destination": "/api/meta?path=/"},
     {"source": "/teams",    "has": [{"type": "header", "key": "user-agent", "value": "(?i).*(Twitterbot|facebookexternalhit|Facebot|Slackbot|Slack-ImgProxy|Discordbot|LinkedInBot|WhatsApp|TelegramBot|Applebot|Googlebot|bingbot|PinterestBot|Embedly|Quora Link Preview|vkShare).*"}], "destination": "/api/meta?path=/ncaam/teams"},
     {"source": "/teams/:slug", "has": [{"type": "header", "key": "user-agent", "value": "(?i).*(Twitterbot|facebookexternalhit|Facebot|Slackbot|Slack-ImgProxy|Discordbot|LinkedInBot|WhatsApp|TelegramBot|Applebot|Googlebot|bingbot|PinterestBot|Embedly|Quora Link Preview|vkShare).*"}], "destination": "/api/meta?path=/ncaam/teams/:slug"},
     {"source": "/insights",  "has": [{"type": "header", "key": "user-agent", "value": "(?i).*(Twitterbot|facebookexternalhit|Facebot|Slackbot|Slack-ImgProxy|Discordbot|LinkedInBot|WhatsApp|TelegramBot|Applebot|Googlebot|bingbot|PinterestBot|Embedly|Quora Link Preview|vkShare).*"}], "destination": "/api/meta?path=/ncaam/insights"},

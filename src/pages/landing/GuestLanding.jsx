@@ -22,6 +22,9 @@ import { trackAccountCreateSkipped } from '../../lib/analytics/posthog';
 import { PickTicket, EveryGame, MatchupWindow, WeekClock } from './showcase/NflShowcase';
 import { WEEK, ALSO } from './showcase/week11';
 import LiveWeek from './live/LiveWeek';
+import { SITE, ASK, FAQ, PRO_PRICE, siteJsonLd } from '../../seo/siteCopy';
+import { ASK_EXAMPLES_DATE } from '../../seo/askExamples';
+import { useAsk } from '../../components/ask/askState';
 import styles from './GuestLanding.module.css';
 
 const WelcomeModal = lazy(() => import('../../components/marketing/WelcomeModal'));
@@ -31,10 +34,11 @@ const WelcomeModal = lazy(() => import('../../components/marketing/WelcomeModal'
 const PICKS_ROUTE = '/nfl/insights';
 const SIGNUP_ROUTE = `/settings?next=${encodeURIComponent(PICKS_ROUTE)}`;
 
+/* The title and description are the site's own (src/seo/siteCopy.js), the
+   same words the page shell and llms.txt carry for crawlers and AI agents. */
 const META = {
-  title: 'Maximus Sports — Sports Intelligence for Prediction Markets and Betting',
-  description:
-    'A call on every NFL game against the spread, the total and the moneyline, picks locked at a real price and graded in public, and matchups broken down to the position group. Plus NBA, MLB and college basketball.',
+  title: SITE.title,
+  description: SITE.description,
   url: 'https://maximussports.ai',
   image: 'https://maximussports.ai/og.png',
 };
@@ -42,13 +46,24 @@ const META = {
 /* Matches --gl-bg in GuestLanding.module.css. */
 const PAGE_BG = '#040a1a';
 
+const ASK_ROUTE = '/nfl/ask';
+const SITE_JSON_LD = JSON.stringify(siteJsonLd()).replace(/</g, '\\u003c');
+
+/* One screenshot per journey, in the order ASK.journeys lists them. */
+const ASK_SHOTS = [
+  { src: '/brand/ask/ask-game.webp', alt: 'Ask Maximus on a phone answering “Break down the 49ers game” with the line, the leans and the matchup to watch' },
+  { src: '/brand/ask/ask-pick.webp', alt: 'Ask Maximus showing the price, sportsbook and fair price of a recommended NFL pick, then comparing sportsbook prices' },
+  { src: '/brand/ask/ask-results.webp', alt: 'Ask Maximus grading the day’s NFL picks against the final scores' },
+];
+
 const NAV_LINKS = [
+  { href: '#ask', label: 'Ask Maximus' },
   { href: '#this-week', label: 'Live games' },
   { href: '#every-game', label: 'Every game' },
   { href: '#matchups', label: 'Matchups' },
   { href: '#week', label: 'The week' },
-  { href: '#methodology', label: 'Reading a signal' },
   { href: '#sports', label: 'Sports' },
+  { href: '#faq', label: 'FAQ' },
 ];
 
 /* How each market is handled. What we do, not how the numbers are made. */
@@ -114,6 +129,14 @@ function trackCta(cta, location) {
 
 export default function GuestLanding() {
   const navigate = useNavigate();
+  const { enabled: askEnabled, openAsk } = useAsk();
+  // Chat opens in place when it is available to this visitor; otherwise the link goes to its page.
+  const ask = (question, location) => (e) => {
+    trackCta(question ? 'ask_question' : 'ask_maximus', location);
+    if (!askEnabled) return;
+    e.preventDefault();
+    openAsk({ ...(question ? { question } : {}), source: 'landing' });
+  };
   const [menuOpen, setMenuOpen] = useState(false);
   // Welcome modal is opt-in here (?welcome=1) so the hero and the example
   // pick are the first thing a new visitor sees.
@@ -168,6 +191,7 @@ export default function GuestLanding() {
         <meta name="twitter:title" content={META.title} />
         <meta name="twitter:description" content={META.description} />
         <meta name="twitter:image" content={META.image} />
+        <script type="application/ld+json">{SITE_JSON_LD}</script>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
@@ -266,16 +290,17 @@ export default function GuestLanding() {
             <div className={styles.heroCopy}>
               <p className={styles.eyebrow}>
                 <span className={styles.eyebrowDot} aria-hidden="true" />
-                Intelligence for sports markets
+                {SITE.tagline}
               </p>
               <h1 className={styles.headline}>
-                Know the game.
-                <span className={styles.headlineAccent}>Read the market.</span>
+                NFL picks and predictions,
+                <span className={styles.headlineAccent}>graded in public.</span>
               </h1>
               <p className={styles.lede}>
-                A call on every NFL game against the spread, the total and the moneyline.
-                Picks locked at a real price and graded in public. Matchups broken down to
-                the position group. For <strong>prediction markets and sports betting.</strong>
+                A call on every NFL game against the spread, the over/under and the moneyline.
+                Picks locked at a real sportsbook price. An AI assistant, Ask Maximus, that
+                answers your questions about any game. For <strong>sports betting and
+                prediction markets.</strong>
               </p>
               <div className={styles.heroCtas}>
                 <Link
@@ -286,15 +311,15 @@ export default function GuestLanding() {
                   See this week&rsquo;s NFL picks <Icon name="right" />
                 </Link>
                 <Link
-                  to={SIGNUP_ROUTE}
+                  to={ASK_ROUTE}
                   className={`${styles.btn} ${styles.btnGhost}`}
-                  onClick={() => trackCta('create_free_account', 'hero')}
+                  onClick={ask(null, 'hero')}
                 >
-                  Create a free account <Icon name="arrowSm" />
+                  Ask Maximus a question <Icon name="arrowSm" />
                 </Link>
               </div>
               <p className={styles.heroMeta}>
-                No credit card required
+                Free. No account needed to start
                 <span className={styles.metaDot} aria-hidden="true" />
                 NFL · NBA · MLB · NCAAM
               </p>
@@ -318,6 +343,47 @@ export default function GuestLanding() {
                 <Link to="/record" onClick={() => trackCta('public_record', 'hero')}>the public record</Link>.
               </p>
             </div>
+          </section>
+
+          {/* ── Ask Maximus: the assistant, three journeys, real answers ── */}
+          <section id="ask" className={styles.section}>
+            <div className={styles.sectionHead}>
+              <div>
+                <p className={styles.kicker}>{ASK.title}, the AI betting assistant</p>
+                <h2 className={styles.h2}>Ask about any NFL game.<br />Get a straight answer.</h2>
+              </div>
+              <p className={styles.sectionAside}>
+                {ASK.lede} {ASK.limits}
+              </p>
+            </div>
+            <ol className={styles.askGrid}>
+              {ASK.journeys.map((j, i) => (
+                <li key={j.step} className={styles.askCard}>
+                  <div className={styles.askCopy}>
+                    <h3 className={styles.cardTitle}>{j.step}</h3>
+                    <p className={styles.cardBody}>{j.get}</p>
+                    <Link to={ASK_ROUTE} className={styles.askChip} onClick={ask(j.ask, 'ask_journey')}>
+                      “{j.ask}” <Icon name="arrowSm" />
+                    </Link>
+                  </div>
+                  <img
+                    src={ASK_SHOTS[i].src}
+                    alt={ASK_SHOTS[i].alt}
+                    className={styles.askShot}
+                    width={312}
+                    height={640}
+                    loading="lazy"
+                    decoding="async"
+                  />
+                </li>
+              ))}
+            </ol>
+            <p className={styles.afterShot}>
+              Real answers from the app on {ASK_EXAMPLES_DATE}. Prices and injuries have moved since.{' '}
+              <Link to={ASK_ROUTE} onClick={ask(null, 'ask_section')}>
+                Ask your own question <Icon name="right" />
+              </Link>
+            </p>
           </section>
 
           {/* ── This week, live: every game, the top three picks open ── */}
@@ -478,6 +544,27 @@ export default function GuestLanding() {
             </div>
           </section>
 
+          {/* ── Questions and answers (the same ones the structured data carries) ── */}
+          <section id="faq" className={styles.section}>
+            <div className={styles.sectionHead}>
+              <div>
+                <p className={styles.kicker}>Questions and answers</p>
+                <h2 className={styles.h2}>What people ask before they start.</h2>
+              </div>
+              <p className={styles.sectionAside}>
+                Free to use. Pro is {PRO_PRICE} a month, and you can cancel any time.
+              </p>
+            </div>
+            <dl className={styles.faq}>
+              {FAQ.map((f) => (
+                <div key={f.q}>
+                  <dt>{f.q}</dt>
+                  <dd>{f.a}</dd>
+                </div>
+              ))}
+            </dl>
+          </section>
+
           {/* ── Closing CTA ── */}
           <section className={styles.section}>
             <div className={`${styles.panel} ${styles.closing}`}>
@@ -492,9 +579,10 @@ export default function GuestLanding() {
                 decoding="async"
               />
               <p className={styles.kicker}>Maximus Sports</p>
-              <h2 className={styles.h2}>Make your next sports decision<br />more informed.</h2>
+              <h2 className={styles.h2}>Get every NFL pick,<br />free.</h2>
               <p className={styles.panelBody}>
-                Start exploring the models, markets, and stories driving the game.
+                A free account opens the call on every game and sends the picks by email on
+                Thursday and Sunday.
               </p>
               <Link
                 to={SIGNUP_ROUTE}
@@ -526,9 +614,10 @@ export default function GuestLanding() {
               Call 1-800-GAMBLER.
             </p>
             <nav className={styles.footerLinks} aria-label="Footer">
-              <a href="#this-week">Live games</a>
-              <a href="#every-game">Every game</a>
-              <a href="#methodology">Reading a signal</a>
+              <a href="/nfl-picks">NFL picks this week</a>
+              <a href="/ask-maximus">Ask Maximus</a>
+              <a href="/about">About</a>
+              <a href="#faq">FAQ</a>
               <Link to="/record">The record</Link>
               <Link to="/privacy">Privacy</Link>
               <Link to="/terms">Terms</Link>

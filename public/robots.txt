@@ -1,12 +1,38 @@
+# Maximus Sports — https://maximussports.ai
+# Search engines and AI agents are welcome on every public page.
+# A plain-text description of the site for AI agents: https://maximussports.ai/llms.txt
+
 User-agent: *
 Allow: /
+Allow: /api/seo/
 Disallow: /api/
 Disallow: /settings
 Disallow: /dashboard
 Disallow: /alerts
 Disallow: /share/
+Disallow: /auth/
+Disallow: /render/
 
-# Specific allows for SEO-critical API endpoints served as HTML
-Allow: /api/seo/
+# AI search and assistant crawlers: same rules, named so there is no doubt.
+User-agent: GPTBot
+User-agent: OAI-SearchBot
+User-agent: ChatGPT-User
+User-agent: ClaudeBot
+User-agent: Claude-User
+User-agent: Claude-SearchBot
+User-agent: PerplexityBot
+User-agent: Perplexity-User
+User-agent: Google-Extended
+User-agent: Applebot-Extended
+User-agent: Amazonbot
+User-agent: meta-externalagent
+User-agent: DuckAssistBot
+User-agent: CCBot
+Allow: /
+Allow: /llms.txt
+Disallow: /api/
+Disallow: /settings
+Disallow: /auth/
+Disallow: /render/
 
 Sitemap: https://maximussports.ai/sitemap.xml

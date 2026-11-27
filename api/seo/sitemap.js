@@ -7,6 +7,7 @@
  */
 
 import { TEAMS } from '../../src/data/teams.js';
+import { NFL_TEAMS } from '../../src/sports/nfl/teams.js';
 
 const ORIGIN = 'https://maximussports.ai';
 
@@ -35,8 +36,22 @@ export default function handler(req, res) {
   const today = new Date().toISOString().slice(0, 10);
 
   const staticUrls = [
+    // The site, NFL first: it is the sport in season and the one with the deepest coverage.
+    urlEntry('/', { changefreq: 'daily', priority: '1.0', lastmod: today }),
+    urlEntry('/nfl-picks', { changefreq: 'hourly', priority: '1.0', lastmod: today }),
+    urlEntry('/nfl/insights', { changefreq: 'hourly', priority: '0.95', lastmod: today }),
+    urlEntry('/ask-maximus', { changefreq: 'weekly', priority: '0.9', lastmod: today }),
+    urlEntry('/nfl/ask', { changefreq: 'weekly', priority: '0.8', lastmod: today }),
+    urlEntry('/about', { changefreq: 'weekly', priority: '0.8', lastmod: today }),
+    urlEntry('/record', { changefreq: 'daily', priority: '0.85', lastmod: today }),
+    urlEntry('/nfl', { changefreq: 'hourly', priority: '0.9', lastmod: today }),
+    urlEntry('/nfl/games', { changefreq: 'hourly', priority: '0.85', lastmod: today }),
+    urlEntry('/nfl/teams', { changefreq: 'daily', priority: '0.8', lastmod: today }),
+    ...NFL_TEAMS.map((t) => urlEntry(`/nfl/teams/${t.slug}`, { changefreq: 'daily', priority: '0.7', lastmod: today })),
+    urlEntry('/nba', { changefreq: 'daily', priority: '0.7', lastmod: today }),
+    urlEntry('/mlb', { changefreq: 'daily', priority: '0.6', lastmod: today }),
     // Root → canonical NCAAM home
-    urlEntry('/ncaam', { changefreq: 'hourly', priority: '1.0', lastmod: today }),
+    urlEntry('/ncaam', { changefreq: 'hourly', priority: '0.7', lastmod: today }),
     urlEntry('/ncaam/insights', { changefreq: 'hourly', priority: '0.95', lastmod: today }),
     urlEntry('/ncaam/teams', { changefreq: 'daily', priority: '0.9', lastmod: today }),
     urlEntry('/ncaam/news', { changefreq: 'hourly', priority: '0.85', lastmod: today }),

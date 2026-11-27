@@ -810,3 +810,17 @@ a.raceRow:hover { background: var(--wash); color: var(--ink); }
 }
 .proBtn:disabled { opacity: 0.65; cursor: default; }
 .proBtn:focus-visible { outline: 2px solid var(--color-primary, #1668e3); outline-offset: 2px; }
+
+/* ── Signed out: the email ask under the first pick ─────────────────── */
+.inlineCapture {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px 24px;
+  padding: 16px;
+  border: 1px solid var(--hair);
+  border-left: 4px solid #1668e3;
+  border-radius: 16px;
+  background: var(--surface);
+}
+.inlineCaptureText { flex: 1 1 240px; min-width: 0; }
