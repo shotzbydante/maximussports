@@ -157,6 +157,14 @@ describe('shop_prices', () => {
 });
 
 describe('get_record, get_team, get_injuries, get_standings, get_slate, get_news', () => {
+  it('gives each game on the slate its angles, so a week-wide question needs one read', async () => {
+    const { connector } = fakeConnector();
+    const out = await runTool('get_slate', {}, newCtx(connector, PRO()));
+    const withAngles = out.games.filter((g) => g.angles);
+    expect(withAngles.length).toBeGreaterThan(0);
+    expect(withAngles.some((g) => /against/.test(g.angles.biggest_unit_mismatch || ''))).toBe(true);
+  });
+
   it('reports the graded record as quotable strings, wins and losses alike', async () => {
     const { connector } = fakeConnector();
     const out = await runTool('get_record', {}, newCtx(connector, GUEST()));

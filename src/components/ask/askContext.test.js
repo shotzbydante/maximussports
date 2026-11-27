@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { pageContext, launcherAllowed, peekLine, starters } from './askContext.js';
+import { pageContext, launcherAllowed, peekLine, starters, ideas } from './askContext.js';
 
 describe('pageContext', () => {
   it('reads the game, team and picks pages', () => {
@@ -66,5 +66,24 @@ describe('starters', () => {
     for (const p of ['/', '/nfl/insights', '/nfl/teams/buccaneers', '/nfl/games/commanders-at-buccaneers']) {
       for (const s of starters(pageContext(p), { shopPrices: true })) expect(s.length).toBeLessThanOrEqual(42);
     }
+  });
+});
+
+describe('ideas', () => {
+  it('names the team when one is known, and asks about the week when not', () => {
+    const week = ideas(pageContext('/nfl'));
+    const all = week.flatMap((s) => s.items);
+    expect(week.length).toBeGreaterThanOrEqual(4);
+    expect(new Set(all.map((i) => i.question)).size).toBe(all.length);
+    expect(all.every((i) => i.emoji && i.title && i.sub && i.question.length <= 120)).toBe(true);
+    expect(all.find((i) => i.emoji === '🧱').question).toMatch(/this week/);
+    const mine = ideas(pageContext('/nfl'), { followed: 'chiefs' }).flatMap((s) => s.items);
+    expect(mine.find((i) => i.emoji === '🧱').question).toMatch(/the .+ game/);
+  });
+
+  it('marks book shopping as Pro only for those without it', () => {
+    const shop = (o) => ideas(pageContext('/nfl'), o).flatMap((s) => s.items).find((i) => i.emoji === '🛒');
+    expect(shop({}).pro).toBe(true);
+    expect(shop({ shopPrices: true }).pro).toBe(false);
   });
 });
