@@ -24,6 +24,7 @@ import AskCards, { Chips, UpgradeCard } from './AskCards';
 import AskEmailGate from './AskEmailGate';
 import { useAsk, useAskThread } from './askState';
 import AskIdeas from './AskIdeas';
+import { parseAnswer } from './answerFormat';
 import { ideas, pageContext, starters } from './askContext';
 import a from './ask.module.css';
 
@@ -34,6 +35,30 @@ const WORKING = ['Reading the board', 'Checking the prices', 'Doing the math'];
 
 const RESPONSIBLE = 'Maximus is an AI. 21+. For entertainment only. Gambling problem? Call 1-800-GAMBLER.';
 
+/** An answer's words: a lead line, paragraphs, and points with an icon and a label. */
+const Words = memo(function Words({ text }) {
+  const blocks = parseAnswer(text);
+  return (
+    <div className={a.answer}>
+      {blocks.map((b, i) => (b.type === 'points' ? (
+        <ul className={a.points} key={i}>
+          {b.items.map((item, j) => (
+            <li key={j}>
+              <span className={a.pointIcon} aria-hidden="true">{item.icon}</span>
+              <span className={a.pointText}>
+                {item.label && <b>{item.label}</b>}
+                <TeamText text={item.text} size={15} />
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className={b.lead ? `${a.words} ${a.lead}` : a.words} key={i}><TeamText text={b.text} size={16} /></p>
+      )))}
+    </div>
+  );
+});
+
 const Message = memo(function Message({ message, now, last, busy, onAsk, onOpen, mascot, userId, guestPass }) {
   if (message.role === 'user') {
     return <li className={a.user} data-ask-turn={message.id}><p>{message.text}</p></li>;
@@ -42,11 +67,7 @@ const Message = memo(function Message({ message, now, last, busy, onAsk, onOpen,
     <li className={a.bot}>
       <img className={a.face} src={mascot} alt="" width="28" height="28" />
       <div className={a.botBody}>
-        {message.text && (
-          <p className={a.words}>
-            <TeamText text={message.text} size={16} />
-          </p>
-        )}
+        {message.text && <Words text={message.text} />}
         <AskCards cards={message.cards} now={now} last={last} disabled={busy} onAsk={onAsk} onOpen={onOpen} userId={userId} guestPass={guestPass} />
       </div>
     </li>
@@ -251,7 +272,7 @@ export default function AskThread({ variant = 'page', autoFocus = false, seed = 
               <img className={`${a.face} ${a.faceBusy}`} src={mascot} alt="" width="28" height="28" />
               <div className={a.botBody}>
                 {streamed
-                  ? <p className={a.words}><TeamText text={streamed} size={16} /></p>
+                  ? <Words text={streamed} />
                   : <p className={a.working}>{workingLine}<span className={a.dots} aria-hidden="true" /></p>}
               </div>
             </li>

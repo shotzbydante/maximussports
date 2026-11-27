@@ -37,7 +37,7 @@ const stamp = (asOfMs) => (asOfMs ? `${new Date(asOfMs).toLocaleString('en-US', 
 
 const say = {
   type: 'string',
-  description: 'Your answer in plain words, one to three short sentences, shown above the cards. Write this field first. Do not repeat what the cards show.',
+  description: 'Your answer, shown above the cards: a lead sentence, then optional points, each on its own line starting with "- Label: ". Write this field first. Do not repeat what the cards show.',
 };
 const followups = {
   type: 'array',
