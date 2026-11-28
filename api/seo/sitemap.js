@@ -8,6 +8,8 @@
 
 import { TEAMS } from '../../src/data/teams.js';
 import { NFL_TEAMS } from '../../src/sports/nfl/teams.js';
+import { getPublicWeek } from '../_lib/nflPublicWeek.js';
+import { gamePath } from './nfl-game.js';
 
 const ORIGIN = 'https://maximussports.ai';
 
@@ -29,16 +31,24 @@ function buildMatchupSlug(slugA, slugB) {
 const POWER_CONFERENCES = ['Big Ten', 'SEC', 'ACC', 'Big 12', 'Big East', 'WCC'];
 const TOP_TIERS = ['Lock', 'Should be in'];
 
-export default function handler(req, res) {
-  res.setHeader('Cache-Control', 'public, s-maxage=86400, stale-while-revalidate=604800');
+export default async function handler(req, res) {
+  // An hour, not a day: the list of game pages changes when the week turns over.
+  res.setHeader('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400');
   res.setHeader('Content-Type', 'application/xml; charset=utf-8');
 
   const today = new Date().toISOString().slice(0, 10);
+
+  // This week's game pages. Without the schedule the sitemap still lists everything else.
+  const week = await getPublicWeek().catch(() => null);
+  const gameUrls = (week?.games || [])
+    .filter((g) => g.teams?.away?.slug && g.teams?.home?.slug)
+    .map((g) => urlEntry(gamePath(g), { changefreq: 'hourly', priority: '0.9', lastmod: today }));
 
   const staticUrls = [
     // The site, NFL first: it is the sport in season and the one with the deepest coverage.
     urlEntry('/', { changefreq: 'daily', priority: '1.0', lastmod: today }),
     urlEntry('/nfl-picks', { changefreq: 'hourly', priority: '1.0', lastmod: today }),
+    ...gameUrls,
     urlEntry('/nfl/insights', { changefreq: 'hourly', priority: '0.95', lastmod: today }),
     urlEntry('/ask-maximus', { changefreq: 'weekly', priority: '0.9', lastmod: today }),
     urlEntry('/nfl/ask', { changefreq: 'weekly', priority: '0.8', lastmod: today }),

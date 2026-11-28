@@ -55,6 +55,9 @@
     },
     "api/user/following.js": {
       "maxDuration": 30
+    },
+    "api/seo/nfl-game.js": {
+      "maxDuration": 30
     }
   },
   "redirects": [
@@ -124,6 +127,7 @@
     {"source": "/nfl-picks",          "destination": "/api/seo/nfl-picks"},
     {"source": "/ask-maximus",        "destination": "/api/seo/ask-maximus"},
     {"source": "/about",              "destination": "/api/seo/about"},
+    {"source": "/nfl/:matchup([a-z0-9]+-vs-[a-z0-9]+-prediction)", "destination": "/api/seo/nfl-game?matchup=:matchup"},
 
     {"source": "/ncaam",         "has": [{"type": "header", "key": "user-agent", "value": "(?i).*(Twitterbot|facebookexternalhit|Facebot|Slackbot|Slack-ImgProxy|Discordbot|LinkedInBot|WhatsApp|TelegramBot|Applebot|Googlebot|bingbot|PinterestBot|Embedly|Quora Link Preview|vkShare).*"}], "destination": "/api/meta?path=/ncaam"},
     {"source": "/ncaam/teams",    "has": [{"type": "header", "key": "user-agent", "value": "(?i).*(Twitterbot|facebookexternalhit|Facebot|Slackbot|Slack-ImgProxy|Discordbot|LinkedInBot|WhatsApp|TelegramBot|Applebot|Googlebot|bingbot|PinterestBot|Embedly|Quora Link Preview|vkShare).*"}], "destination": "/api/meta?path=/ncaam/teams"},

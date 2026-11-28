@@ -9,6 +9,7 @@
  */
 import { getLatestNflPicksBoard } from '../_lib/nflPicksBuilder.js';
 import { byConviction, freeLeans } from '../../src/components/nfl/home/pickHelpers.js';
+import { NFL_TEAMS } from '../../src/sports/nfl/teams.js';
 import { ORIGIN, SITE, FAQ } from '../../src/seo/siteCopy.js';
 import { page, send, esc } from './_site.js';
 
@@ -18,6 +19,11 @@ const stamp = (iso) => (iso ? `${ET(iso, { weekday: 'short', month: 'short', day
 const matchup = (m) => `${m?.awayTeam?.name || m?.awayTeam?.shortName || 'Away'} at ${m?.homeTeam?.name || m?.homeTeam?.shortName || 'Home'}`;
 const MARKET = { runline: 'Spread', total: 'Over/under', moneyline: 'Moneyline' };
 const signed = (v) => (v > 0 ? `+${v}` : v === 0 ? 'PK' : `${v}`);
+const BY_ABBREV = new Map(NFL_TEAMS.map((t) => [t.abbrev, t.slug]));
+const BY_NAME = new Map(NFL_TEAMS.map((t) => [t.name, t.slug]));
+const slugOf = (t) => t?.slug || BY_ABBREV.get(t?.abbrev || t?.shortName) || BY_NAME.get(t?.name) || null;
+/** The plain game page for a board game, when both teams are known. */
+const gameHref = (g) => (slugOf(g.awayTeam) && slugOf(g.homeTeam) ? `/nfl/${slugOf(g.awayTeam)}-vs-${slugOf(g.homeTeam)}-prediction` : '');
 
 /** The board cut down to what the public page states. Pure: no clock but `now`. */
 export function publicPicks(board, { now = Date.now() } = {}) {
@@ -45,6 +51,7 @@ export function publicPicks(board, { now = Date.now() } = {}) {
       spread: Number.isFinite(g.market?.spreadHome) ? `${g.homeTeam?.shortName || 'Home'} ${signed(g.market.spreadHome)}` : '',
       total: Number.isFinite(g.market?.total) ? String(g.market.total) : '',
       home: g.homeTeam?.name, away: g.awayTeam?.name,
+      href: gameHref(g),
     }));
   return {
     week: board?.week ? `Week ${board.week}` : 'this week',
@@ -79,9 +86,9 @@ ${d.leans.map((p) => pickCard(p, 'Lean')).join('\n')}` : ''}
 ${d.games.length ? `<h2>NFL games and lines</h2>
 <table>
 <tr><th>Game</th><th>Kickoff</th><th>Spread</th><th>Total</th></tr>
-${d.games.map((g) => `<tr><td>${esc(g.matchup)}</td><td>${esc(g.kickoff)}</td><td>${esc(g.spread)}</td><td>${esc(g.total)}</td></tr>`).join('\n')}
+${d.games.map((g) => `<tr><td>${g.href ? `<a href="${g.href}">${esc(g.matchup)}</a>` : esc(g.matchup)}</td><td>${esc(g.kickoff)}</td><td>${esc(g.spread)}</td><td>${esc(g.total)}</td></tr>`).join('\n')}
 </table>
-<p>The board has a call on each of these games in every market${d.calls ? `, ${d.calls} calls in all` : ''}. <a href="/nfl/insights">A free account opens all of them</a>, and sends the picks by email on Thursday and Sunday.</p>` : ''}
+<p>Each game has its own page with the odds and the matchups that decide it. The board has a call on each of these games in every market${d.calls ? `, ${d.calls} calls in all` : ''}. <a href="/nfl/insights">A free account opens all of them</a>, and sends the picks by email on Thursday and Sunday.</p>` : ''}
 
 <h2>How the picks are graded</h2>
 <p>${esc(FAQ.find((f) => /record is real/.test(f.q)).a)} <a href="/record">Read the public record</a>.</p>
@@ -98,7 +105,7 @@ ${d.games.map((g) => `<tr><td>${esc(g.matchup)}</td><td>${esc(g.kickoff)}</td><t
       '@type': 'ListItem',
       position: i + 1,
       item: {
-        '@type': 'SportsEvent', name: g.matchup, startDate: g.startTime, sport: 'American football',
+        '@type': 'SportsEvent', name: g.matchup, startDate: g.startTime, sport: 'American football', ...(g.href ? { url: `${ORIGIN}${g.href}` } : {}),
         homeTeam: { '@type': 'SportsTeam', name: g.home }, awayTeam: { '@type': 'SportsTeam', name: g.away },
       },
     })),
