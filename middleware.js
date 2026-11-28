@@ -4,7 +4,7 @@
  * Crawlers and AI agents do not run JavaScript, so the browser analytics
  * never see them, and these pages are served from the CDN cache, so their
  * functions do not run on most requests either. This runs in front of the
- * cache, on the six paths in `matcher` only, and sends one PostHog event
+ * cache, on the paths in `matcher` only (the six site files and the per-game pages), and sends one PostHog event
  * per request: `site_page_fetched`.
  *
  * It never changes the response and never delays it: the event is sent
@@ -16,7 +16,7 @@ import { visitorKind } from './api/_lib/visitorKind.js';
 
 export const config = {
   runtime: 'nodejs',
-  matcher: ['/nfl-picks', '/ask-maximus', '/about', '/llms.txt', '/robots.txt', '/sitemap.xml'],
+  matcher: ['/nfl-picks', '/ask-maximus', '/about', '/llms.txt', '/robots.txt', '/sitemap.xml', '/nfl/:matchup([a-z0-9]+-vs-[a-z0-9]+-prediction)'],
 };
 
 const PH_KEY = process.env.POSTHOG_API_KEY || process.env.VITE_POSTHOG_KEY || '';

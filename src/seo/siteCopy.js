@@ -204,6 +204,7 @@ export function llmsTxt() {
     '## Notes for agents',
     '',
     `- For the current picks in plain HTML, read ${ORIGIN}/nfl-picks. The app pages under /nfl need JavaScript.`,
+    `- Each game this week has a plain-HTML page with its odds and matchups at ${ORIGIN}/nfl/<away>-vs-<home>-prediction, using team nicknames (for example ${ORIGIN}/nfl/chiefs-vs-bills-prediction). ${ORIGIN}/nfl-picks links to all of them.`,
     '- A pick is a price at one sportsbook at one time. Lines move: quote the time shown with it, and link to the page.',
     '- Sports covered: NFL (deepest), NBA, MLB, men’s college basketball.',
     `- ${LEGAL}`,

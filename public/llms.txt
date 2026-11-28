@@ -71,6 +71,7 @@ Prices come from the major U.S. sportsbooks, including FanDuel, BetMGM and BetRi
 ## Notes for agents
 
 - For the current picks in plain HTML, read https://maximussports.ai/nfl-picks. The app pages under /nfl need JavaScript.
+- Each game this week has a plain-HTML page with its odds and matchups at https://maximussports.ai/nfl/<away>-vs-<home>-prediction, using team nicknames (for example https://maximussports.ai/nfl/chiefs-vs-bills-prediction). https://maximussports.ai/nfl-picks links to all of them.
 - A pick is a price at one sportsbook at one time. Lines move: quote the time shown with it, and link to the page.
 - Sports covered: NFL (deepest), NBA, MLB, men’s college basketball.
 - 21+. For entertainment and information only. Analysis does not guarantee outcomes. Gambling problem? Call 1-800-GAMBLER.

@@ -229,7 +229,7 @@ Suggested dashboards and insights to set up after launch:
 
 ## Crawlers and AI agents
 
-Crawlers and AI agents do not run JavaScript, so none of the events above see them. `middleware.js` runs in front of the CDN cache on six paths (`/nfl-picks`, `/ask-maximus`, `/about`, `/llms.txt`, `/robots.txt`, `/sitemap.xml`) and sends one server event per request.
+Crawlers and AI agents do not run JavaScript, so none of the events above see them. `middleware.js` runs in front of the CDN cache on six paths (`/nfl-picks`, `/ask-maximus`, `/about`, `/llms.txt`, `/robots.txt`, `/sitemap.xml`) and on the per-game pages (`/nfl/<away>-vs-<home>-prediction`) and sends one server event per request.
 
 | Event | Source | Properties |
 | --- | --- | --- |
@@ -238,4 +238,4 @@ Crawlers and AI agents do not run JavaScript, so none of the events above see th
 - `ai_assistant` is an assistant fetching the page because a person asked it something; `ai_search` and `ai_crawler` are indexing.
 - The names come from the User-Agent header, which anyone can set. Treat counts as a guide, not proof.
 - No IP address is sent and no person profile is created. Named agents are filed under `agent:<name>`.
-- The list of names is in `api/_lib/visitorKind.js`. Other pages of the app are not covered: the middleware runs only on the six paths above.
+- The list of names is in `api/_lib/visitorKind.js`. Other pages of the app are not covered: the middleware runs only on the paths above.
