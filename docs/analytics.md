@@ -131,6 +131,8 @@ All carry `sport: 'nfl'`. Client events come from `src/components/ask/`; server 
 | `ask_upgrade_clicked` | client | `surface` (ask_answer, ask_cap), `reason` |
 | `ask_ideas_opened` | client | `page` (a question sent from the ideas list has `source: idea` on `ask_message_sent`) |
 | `ask_cleared` | client | |
+| `ask_page_ready` | client | Full chat page (`/ask`, `/nfl/ask`) is on screen. `enabled`, `load_ms` (time from page start) |
+| `ask_page_dwell` | client | Visitor is still on the full chat page with the tab visible. `seconds` (5, 15, 30, 60; one event each) |
 | `ask_error` | client | `code`, `page` |
 | `ask_answered` | server | `question`, `answer`, `plan`, `signed_in`, `page`, `page_teams`, `turn`, `channel`, `rollout`, `rounds`, `tools`, `cards`, `card_types`, `corrections`, `fell_back`, `pro_only`, `model`, `duration_ms`, token counts |
 | `ask_cap_hit` | server | `question`, `plan`, `signed_in`, `page`, `cap` |
@@ -224,3 +226,16 @@ Suggested dashboards and insights to set up after launch:
 4. Update the PostHog dashboard if needed.
 
 **Naming convention:** `noun_verb` or `context_action` — lowercase, underscore-separated.
+
+## Crawlers and AI agents
+
+Crawlers and AI agents do not run JavaScript, so none of the events above see them. `middleware.js` runs in front of the CDN cache on six paths (`/nfl-picks`, `/ask-maximus`, `/about`, `/llms.txt`, `/robots.txt`, `/sitemap.xml`) and sends one server event per request.
+
+| Event | Source | Properties |
+| --- | --- | --- |
+| `site_page_fetched` | middleware | `path`, `agent` (GPTBot, ChatGPT-User, ClaudeBot, PerplexityBot, Googlebot, ..., `browser`, `other`), `agent_kind` (`ai_assistant`, `ai_search`, `ai_crawler`, `search`, `link_preview`, `seo_tool`, `other_bot`, `browser`, `unknown`), `user_agent` (first 200 characters), `referrer_host`, `env` (`production` or `preview`; filter to `production` for real traffic) |
+
+- `ai_assistant` is an assistant fetching the page because a person asked it something; `ai_search` and `ai_crawler` are indexing.
+- The names come from the User-Agent header, which anyone can set. Treat counts as a guide, not proof.
+- No IP address is sent and no person profile is created. Named agents are filed under `agent:<name>`.
+- The list of names is in `api/_lib/visitorKind.js`. Other pages of the app are not covered: the middleware runs only on the six paths above.
