@@ -223,6 +223,12 @@ describe('reviewPick', () => {
     expect(r.missed.find((m) => m.key === 'wind_forecast').text).toBe('The wind forecast was 15 mph at the lock and 8 mph by kickoff.');
   });
 
+  it('does not call a name suffix a quarterback change', () => {
+    const context = { gameId: '401', home: 'KC', away: 'ARI', qbs: { home: { name: 'Patrick Mahomes II' }, away: { name: 'Josh Johnson Jr.' } } };
+    const r = reviewPick({ pick: pick(), result: result('won', 24, 10), close, context, facts, teams });
+    expect(r.missed.map((m) => m.key)).not.toContain('qb_change');
+  });
+
   it('reviews a side: turnovers and return scores are named when they went against it', () => {
     const f = gameFacts(summary({
       home: { id: '12', abbr: 'KC', yards: 300, turnovers: 0, redZone: '2-3', defTds: 1 },
@@ -315,6 +321,10 @@ describe('reviewSignals', () => {
     expect(by.ratings_side_3plus.status).toBe('won');
     expect(by.ratings_total).toMatchObject({ side: 'over', status: 'lost', by: -6.5 });
     expect(by.wind_under).toMatchObject({ status: 'won', by: 6.5 });
+    expect(by.wind_under_10_to_15).toBeUndefined();          // 15 mph is the strong band
+    expect(by.ratings_total_4plus).toBeUndefined();          // the ratings were 2.7 points from the total
+    const big = reviewSignals({ context: { ...context, wind: 12, model: { margin: 15.5, total: 45 } }, close, final: { home: 24, away: 10 } });
+    expect(big.map((s) => s.signal).sort()).toEqual(['ratings_total', 'ratings_total_4plus', 'spot_firstYearCoach', 'talent', 'unit_edge', 'wind_under', 'wind_under_10_to_15']);
     expect(by.spot_firstYearCoach).toMatchObject({ team: 'ARI', status: 'won' });
     expect(by.unit_edge.status).toBe('lost');
     expect(out.every((s) => s.weekKey === weekKeyOf('2026-11-22T18:00:00Z'))).toBe(true);

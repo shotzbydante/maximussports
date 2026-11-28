@@ -44,7 +44,8 @@ import { talentNote } from './v2/talent.js';
 import { windUnderRecord } from './v2/situations.js';
 
 // 2.2.0: the moneyline is judged on value (best price against the fair price), not the spread lean's side.
-export const NFL_MODEL_VERSION = 'nfl-picks-v2.2.0';
+// 2.3.0: an Over is not recommended outdoors in 10+ mph wind, or before there is a wind forecast.
+export const NFL_MODEL_VERSION = 'nfl-picks-v2.3.0';
 
 export const NFL_DEFAULT_CONFIG = Object.freeze({
   version: 'nfl-picks-v2-2026-11-22a',
@@ -65,6 +66,14 @@ export const NFL_DEFAULT_CONFIG = Object.freeze({
     /** Moneylines outside this band are graded but never promoted. */
     mlMaxFavorite: -450,
     mlMaxUnderdog: 400,
+    /**
+     * An Over is not recommended outdoors when sustained wind of this many
+     * mph or more is forecast, or before there is a forecast at all. Overs
+     * in 10+ mph wind are 691-847 against the closing total since 2003
+     * (44.9%), 281-395 since 2015 (41.6%): no price edge we take is large
+     * enough to pay for that.
+     */
+    overMaxWindMph: 10,
   }),
 });
 
@@ -80,6 +89,8 @@ const HOLD_REASONS = Object.freeze({
   thin_market: 'Too few books have posted this market to form a consensus. Tracked, not recommended.',
   data_gap: 'Model data for this game is incomplete. Tracked, not recommended.',
   same_side: 'The spread and moneyline are one opinion; the better-priced of the two is the pick.',
+  wind_over: 'Wind of 10 mph or more is forecast, and overs in wind like that have won 44.9% against the closing total since 2003. Tracked, not recommended.',
+  no_forecast: 'This game is outdoors and there is no wind forecast for it yet. An Over is not recommended until there is one.',
 });
 
 /** The same reasons, as the opening of a pick's one-line "why". */
@@ -94,6 +105,8 @@ const HOLD_WHY = Object.freeze({
   thin_market: 'Tracked only: too few books have posted this market to call a fair price.',
   data_gap: 'Tracked only: ratings data for this game is incomplete.',
   same_side: 'Same opinion as the recommended side bet on this game, so it is tracked, not doubled up.',
+  wind_over: 'Held back: wind of 10 mph or more is forecast, and overs lose more often than they win in it.',
+  no_forecast: 'Too early for an Over: the game is outdoors and there is no wind forecast yet.',
 });
 
 /** A few words for the same reasons, for the short "why" on small tiles and in emails. */
@@ -108,6 +121,8 @@ const HOLD_SHORT = Object.freeze({
   thin_market: 'Tracked, few books',
   data_gap: 'Tracked, thin data',
   same_side: 'Tracked, same side as the pick',
+  wind_over: 'Held, wind against the Over',
+  no_forecast: 'Held, no wind forecast yet',
 });
 
 
@@ -408,6 +423,11 @@ export function buildNflPicksV2({
           hold = hold || (top.flags.implausible ? 'price_outlier' : 'stale_price');
         }
         if (kind === 'moneyline' && (cand.price < guards.mlMaxFavorite || cand.price > guards.mlMaxUnderdog)) hold = hold || 'price_guard';
+        // Wind works against an Over whatever the price says.
+        if (kind === 'total' && side === 'over' && e.env?.indoor === false) {
+          if (!isNum(e.env.wind)) hold = hold || 'no_forecast';
+          else if (e.env.wind >= guards.overMaxWindMph) hold = hold || 'wind_over';
+        }
         candidates.push({ kind, side, offer: cand, hold, tier: tierForEv(cand.ev, thresholds) });
       }
     }
