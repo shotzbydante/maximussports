@@ -30,6 +30,7 @@ export default defineConfig([
     // Serverless functions, build scripts and tooling configs run in Node.
     files: [
       'api/**/*.js',
+      'middleware.js',
       'scripts/**/*.js',
       'config/**/*.js',
       'marketing/**/*.{js,jsx}',
