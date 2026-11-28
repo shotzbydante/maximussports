@@ -30,7 +30,7 @@ async function record(request) {
   const url = new URL(request.url);
   const ua = request.headers.get('user-agent') || '';
   const { agent, kind } = visitorKind(ua);
-  await fetch(`${PH_HOST}/capture/`, {
+  const res = await fetch(`${PH_HOST}/capture/`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -50,14 +50,16 @@ async function record(request) {
       },
     }),
   });
+  if (!res.ok) console.warn(`[page-fetch] capture failed: ${res.status}`);
 }
 
 export default function middleware(request, context) {
   try {
     if (PH_KEY && request.method === 'GET') {
-      const work = record(request).catch(() => {});
+      const work = record(request).catch((err) => console.warn(`[page-fetch] capture error: ${err?.message}`));
       if (context?.waitUntil) context.waitUntil(work);
     }
   } catch { /* measuring must never break the page */ }
-  return next();
+  // The header only shows that this ran; it carries nothing else.
+  return next({ headers: { 'x-mx-measured': PH_KEY ? '1' : 'no-key' } });
 }
