@@ -44,6 +44,7 @@ async function record(request) {
         agent_kind: kind,
         user_agent: ua.slice(0, 200),
         referrer_host: hostOf(request.headers.get('referer')),
+        env: process.env.VERCEL_ENV || 'unknown',
         $process_person_profile: false,
         $geoip_disable: true,
         $lib: 'maximus-middleware',

@@ -233,7 +233,7 @@ Crawlers and AI agents do not run JavaScript, so none of the events above see th
 
 | Event | Source | Properties |
 | --- | --- | --- |
-| `site_page_fetched` | middleware | `path`, `agent` (GPTBot, ChatGPT-User, ClaudeBot, PerplexityBot, Googlebot, ..., `browser`, `other`), `agent_kind` (`ai_assistant`, `ai_search`, `ai_crawler`, `search`, `link_preview`, `seo_tool`, `other_bot`, `browser`, `unknown`), `user_agent` (first 200 characters), `referrer_host` |
+| `site_page_fetched` | middleware | `path`, `agent` (GPTBot, ChatGPT-User, ClaudeBot, PerplexityBot, Googlebot, ..., `browser`, `other`), `agent_kind` (`ai_assistant`, `ai_search`, `ai_crawler`, `search`, `link_preview`, `seo_tool`, `other_bot`, `browser`, `unknown`), `user_agent` (first 200 characters), `referrer_host`, `env` (`production` or `preview`; filter to `production` for real traffic) |
 
 - `ai_assistant` is an assistant fetching the page because a person asked it something; `ai_search` and `ai_crawler` are indexing.
 - The names come from the User-Agent header, which anyone can set. Treat counts as a guide, not proof.
