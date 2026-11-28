@@ -11,6 +11,7 @@ A bet is **recommended** only when one book's posted line and price beat the mar
 - **Tiers** are fixed: tier 1 at +4.0% EV, tier 2 at +2.5%, tier 3 at +1.5%. A pick's tier does not depend on the rest of the slate.
 - **One side bet per game.** Spread and moneyline are one opinion; the better-priced is the pick.
 - **Holds.** A starting quarterback listed questionable or doubtful, a missing injury report, a stale or implausible price, a game more than 72 hours out, or a moneyline outside -450/+400 keeps the game on tracking. The reason is shown.
+- **Wind against an Over (2.3.0, Nov 28, 2026).** An Over is held to tracking when the game is outdoors and sustained wind of 10 mph or more is forecast (`wind_over`), or when there is no wind forecast yet (`no_forecast`; forecasts start 48 hours out, the lock window 72). Overs in 10+ mph wind are 691-847 against the closing total since 2003 (44.9%), and 281-395 since 2015 (41.6%); under 10 mph they are 1,420-1,351 (51.2%). The wind ramp takes 0.12 points per mph off the fair total, which is far too little to stop an Over that a book has mispriced by a point. Found in the Week 11 and 12 audit: the one Over the engine lost was in 10+ mph wind, and an Over locked for Week 13 had 11 mph forecast.
 
 Everything else is a **tracking pick**: the model's lean on each market, locked a day before kickoff and graded, never promoted.
 
@@ -210,3 +211,12 @@ Whether or not it led to a pick, each input is graded on every game: the roster-
 For picks the yardstick is closing-line value whenever most of the picks have one, because it settles faster than wins and losses; otherwise units. One game cannot move a line past Logging, and one week cannot move it to Decision. With roughly 40 lines in the ledger, two would cross two standard errors by chance alone, which is why Decision triggers a test and not a change.
 
 At about three recommended picks a week, the recommended-pick lines will not reach 30 results this season. Model leans (about 33 a week) and the inputs get there in weeks.
+
+
+### Audit of Weeks 11 and 12 (Nov 28, 2026)
+
+Seven recommended picks graded: 3-4, -1.25 units, average closing-line value +2.7%, five of seven better than the close. Tested against history before anything changed:
+
+- **The wind ramp stays as it is.** Fitted on outdoor games with 8+ mph wind, 2003 to 2025, the ramp's own shape wants a multiplier of 1.00 ± 0.39. Steeper or earlier ramps fit 2015 to 2025 better (1.4 to 1.6) and fit 2003 to 2014 worse than no ramp at all. Unders in 10 to 15 mph wind are 268-183 since 2015 and 267-273 before. The band now has its own ledger line (`wind_under_10_to_15`).
+- **The ratings are compressed.** Their margins have a spread of 5.2 points against the market's 6.3, so 84% of spread leans land on the underdog (96% when the spread is 10 or more). Those leans cover 50.0%. Scaling the margin by 1.15 lowers the error from 10.217 to 10.207 and cuts the share to 70%, with the weight against the close still inside its error (0.08 ± 0.08). Not changed here: it moves no recommended pick.
+- **Ratings totals far from the line** have their own ledger line (`ratings_total_4plus`): 147-119 at 4+ points from 2011 to 2025 (55.3%), 59-40 at 5+.

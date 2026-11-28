@@ -45,7 +45,7 @@ describe('buildNflPicksV2', () => {
     }
     expect(out.byGame).toHaveLength(2);
     expect(out.fullSlatePicks).toHaveLength(6);      // three markets on each game
-    expect(NFL_MODEL_VERSION).toBe('nfl-picks-v2.2.0');
+    expect(NFL_MODEL_VERSION).toBe('nfl-picks-v2.3.0');
   });
 
   it('recommends the off-market number, at that book and price, and nothing else', () => {
@@ -310,6 +310,24 @@ describe('the reason on every pick', () => {
     const fair = (mph) => at(mph).byGame[0].fair.total;
     expect(fair(13) - fair(9)).toBeCloseTo(-0.36, 2);
     expect(fair(21) - fair(9)).toBeCloseTo(-1.2, 2);
+  });
+
+  it('does not recommend an Over outdoors in 10+ mph wind, or before there is a forecast', () => {
+    // One book hangs a total a point and a half below the market: an Over on price in calm weather.
+    const g = (weather) => withEngine(game('g1', LV, KC, { market: { books: books({ betmgm: { total: 43 } }) } }), { weather });
+    const over = (out) => out.byGame[0].picks.total;
+    const calm = build([g({ tempF: 50, windMph: 6, hoursOut: 20, source: 'google' })]);
+    expect(calm.heroPicks.find((x) => x.market.type === 'total')).toMatchObject({ selection: { side: 'over' } });
+
+    const windy = build([g({ tempF: 50, windMph: 11, hoursOut: 20, source: 'google' })]);
+    expect(windy.heroPicks.filter((x) => x.market.type === 'total')).toHaveLength(0);
+    expect(over(windy)).toMatchObject({ selection: { side: 'over' }, pickRole: 'tracking', lowSignalReason: 'wind_over' });
+    expect(over(windy).why).toMatch(/^Held back: wind of 10 mph or more is forecast/);
+    expect(over(windy).rationale.bullets[0]).toContain('44.9%');
+
+    const unknown = build([g(null)]);
+    expect(unknown.heroPicks.filter((x) => x.market.type === 'total')).toHaveLength(0);
+    expect(over(unknown)).toMatchObject({ pickRole: 'tracking', lowSignalReason: 'no_forecast' });
   });
 
   it('calls an under a price pick when it clears the bar without the wind', () => {

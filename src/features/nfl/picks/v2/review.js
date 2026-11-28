@@ -65,7 +65,9 @@ export const REVIEW_PARAMS = Object.freeze({
   windShiftMph: 5,
   minModelGap: 1,
   bigModelGap: 3,
+  bigTotalGap: 4,
   windMph: 10,
+  strongWindMph: 15,
 });
 
 /**
@@ -277,7 +279,11 @@ const roleOf = (p) => p?.rationale?.pickRole || (p?.tier === 'tracking' ? 'track
 const isWindPick = (p) => p?.payload?.modelSource === 'nfl_v2_wind' || /mph wind/i.test(String(p?.rationale?.headline || ''));
 const pts = (v) => { const a = Math.abs(v); return `${Number.isInteger(a) ? a : a.toFixed(1)} ${a === 1 ? 'point' : 'points'}`; };
 const pct = (v) => `${v >= 0 ? '+' : '-'}${Math.abs(v * 100).toFixed(1)}%`;
-const lastName = (name) => String(name || '').trim().split(/\s+/).slice(-1)[0].toLowerCase().replace(/[^a-z]/g, '');
+/** Family name for comparing two spellings of one player: "Joe Milton" and "Joe Milton III" are the same man. */
+const lastName = (name) => {
+  const parts = String(name || '').trim().split(/\s+/).filter((w) => !/^(jr|sr|ii|iii|iv|v)\.?$/i.test(w));
+  return (parts[parts.length - 1] || '').toLowerCase().replace(/[^a-z]/g, '');
+};
 
 /** Points the ticket won (positive) or lost (negative) by. */
 export function decidedBy({ market, side, line, home, away }) {
@@ -540,11 +546,14 @@ export function reviewSignals({ context, close, final }, params = REVIEW_PARAMS)
       const side = gap > 0 ? 'over' : 'under';
       const by = side === 'over' ? final.home + final.away - total : total - (final.home + final.away);
       out.push({ ...base, signal: 'ratings_total', side, status: sideResult(by), by: r1(by) });
+      if (Math.abs(gap) >= p.bigTotalGap) out.push({ ...base, signal: 'ratings_total_4plus', side, status: sideResult(by), by: r1(by) });
     }
   }
   if (context.indoor === false && isNum(context.wind) && context.wind >= p.windMph && isNum(total)) {
     const by = total - (final.home + final.away);
     out.push({ ...base, signal: 'wind_under', side: 'under', status: sideResult(by), by: r1(by) });
+    // The moderate band on its own: the ramp gives it little, and it has been the stronger half since 2015.
+    if (context.wind < p.strongWindMph) out.push({ ...base, signal: 'wind_under_10_to_15', side: 'under', status: sideResult(by), by: r1(by) });
   }
   for (const s of context.spots || []) pushSide(`spot_${s.key}`, s.team);
   if (context.unitEdge?.team) pushSide('unit_edge', context.unitEdge.team);
@@ -558,7 +567,9 @@ export const SIGNAL_LABELS = Object.freeze({
   ratings_side: 'Ratings side (1+ points from the line), against the closing spread',
   ratings_side_3plus: 'Ratings side (3+ points from the line), against the closing spread',
   ratings_total: 'Ratings total (1+ points from the line), against the closing total',
+  ratings_total_4plus: 'Ratings total (4+ points from the line), against the closing total',
   wind_under: 'Under in 10+ mph wind, against the closing total',
+  wind_under_10_to_15: 'Under in 10 to 15 mph wind, against the closing total',
   unit_edge: 'Biggest unit mismatch, against the closing spread',
   spot_bodyClock: 'West-coast team, early kickoff',
   spot_divisionRoadDog: 'Division road underdog',
@@ -574,7 +585,9 @@ export const NEXT_STEP = Object.freeze({
   ratings_side: 'Re-run the 2011 to 2025 backtest with this season added before the model weight moves off zero.',
   ratings_side_3plus: 'Re-run the 2011 to 2025 backtest with this season added before the model weight moves off zero.',
   ratings_total: 'Re-run the 2011 to 2025 backtest with this season added before the model weight moves off zero.',
+  ratings_total_4plus: 'Gaps of 4+ points went 147-119 for the ratings from 2011 to 2025 (55.3%). If this season agrees, give the total a small model weight in a shadow configuration.',
   wind_under: 'Re-fit the wind ramp on 2003 to date and compare the slope with the one in use.',
+  wind_under_10_to_15: 'Unders in this band are 268-183 since 2015 but 267-273 from 2003 to 2014. If this season agrees with the recent years, re-fit the ramp to start paying earlier.',
   default: 'Run the change as a shadow configuration for four weeks before it touches a recommended pick.',
 });
 
